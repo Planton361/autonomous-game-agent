@@ -1,0 +1,1 @@
+"""Canonical observation routing boundaries."""
