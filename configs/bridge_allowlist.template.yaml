@@ -1,0 +1,46 @@
+# configs/bridge_allowlist.yaml - template
+mode: visible_only
+
+allowed_fields:
+  message_window_visible:
+    output: ui.message_window_visible
+    reason: visible UI state
+  visible_message_text:
+    output: ui.visible_text
+    reason: visible text
+  menu_open:
+    output: ui.menu_open
+    reason: visible UI state
+  visible_menu_items:
+    output: ui.visible_menu_items
+    reason: visible menu text
+  combat_ui_visible:
+    output: ui.combat_visible
+    reason: visible UI state
+  death_screen_visible:
+    output: ui.death_visible
+    reason: visible UI state
+  player_screen_position:
+    output: player.screen_pos
+    reason: visible on screen
+  visible_sprite_screen_positions:
+    output: visible_sprites[].screen_pos
+    reason: visible on screen
+  visible_sprite_visual_hashes:
+    output: visible_sprites[].visual_hash
+    reason: derived from visible pixels
+
+forbidden_fields:
+  - map_id
+  - event_id
+  - event_name
+  - event_comments
+  - event_trigger_conditions
+  - game_switches
+  - game_variables
+  - enemy_database
+  - enemy_hp
+  - enemy_resistances
+  - item_database_effects
+  - ending_flags
+  - savegame_variables
