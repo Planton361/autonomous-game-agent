@@ -9,8 +9,12 @@ from fh_agent.observation.schemas import Observation
 SkillCondition = Literal[
     "dialogue_visible",
     "dialogue_closed",
+    "interaction_target_visible",
+    "interaction_outcome_visible",
     "visible_text_changed",
     "new_evidence",
+    "screen_signature_changed",
+    "death_screen",
     "timeout",
     "repeated_no_change",
 ]
