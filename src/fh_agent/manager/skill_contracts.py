@@ -11,11 +11,16 @@ SkillCondition = Literal[
     "dialogue_closed",
     "interaction_target_visible",
     "interaction_outcome_visible",
+    "reach_target_visible",
+    "player_position_visible",
+    "target_reached",
     "visible_text_changed",
     "new_evidence",
     "screen_signature_changed",
     "death_screen",
+    "combat_started",
     "timeout",
+    "no_progress",
     "repeated_no_change",
 ]
 
