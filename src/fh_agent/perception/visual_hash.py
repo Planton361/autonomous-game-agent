@@ -20,8 +20,15 @@ def average_rgb(frame: ScreenFrame) -> tuple[int, int, int]:
 
 
 def load_ppm_frame(path: Path) -> ScreenFrame:
-    """Load a binary PPM screenshot produced by ScreenFrame.to_ppm_bytes()."""
+    """Load a minimal PPM screenshot for offline fixture processing."""
     payload = path.read_bytes()
+    captured_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+    if payload.startswith(b"P3"):
+        return _load_plain_ppm_frame(payload, captured_at=captured_at)
+    if not payload.startswith(b"P6"):
+        msg = "only PPM P3 and P6 screenshots are supported"
+        raise ValueError(msg)
+
     header_parts: list[bytes] = []
     cursor = 0
     while len(header_parts) < 4:
@@ -40,8 +47,34 @@ def load_ppm_frame(path: Path) -> ScreenFrame:
         raise ValueError(msg)
 
     rgb = payload[cursor:]
-    captured_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
     return ScreenFrame(width=width, height=height, rgb=rgb, captured_at=captured_at)
+
+
+def _load_plain_ppm_frame(payload: bytes, *, captured_at: datetime) -> ScreenFrame:
+    parts = payload.decode("ascii").split()
+    if len(parts) < 4 or parts[0] != "P3":
+        msg = "invalid plain PPM header"
+        raise ValueError(msg)
+
+    width = int(parts[1])
+    height = int(parts[2])
+    max_value = int(parts[3])
+    if max_value != 255:
+        msg = "only 8-bit PPM screenshots are supported"
+        raise ValueError(msg)
+
+    channels = [int(part) for part in parts[4:]]
+    expected_channels = width * height * 3
+    if len(channels) != expected_channels:
+        msg = f"plain PPM payload must contain {expected_channels} channels"
+        raise ValueError(msg)
+
+    return ScreenFrame(
+        width=width,
+        height=height,
+        rgb=bytes(channels),
+        captured_at=captured_at,
+    )
 
 
 def _next_ppm_separator(payload: bytes, start: int) -> int:

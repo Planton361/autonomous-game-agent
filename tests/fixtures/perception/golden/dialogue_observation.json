@@ -1,0 +1,22 @@
+{
+  "run_id": "run-fixture",
+  "ui_state": "dialogue",
+  "screenshot_id": "dialogue-evidence",
+  "screen_signature": "fb102ac368ee52430c7e20162c152d6afafc59dc7f3d368db34146865a34722e",
+  "message_window_visible": true,
+  "visible_message_text": "A visible line.",
+  "visible_text_spans": [
+    {
+      "text": "A visible line.",
+      "confidence": 0.87,
+      "evidence_id": "dialogue-evidence"
+    }
+  ],
+  "visible_menu_items": [],
+  "visible_sprite_screen_positions": [],
+  "visible_sprite_visual_hashes": [],
+  "visible_sprites": [],
+  "evidence_ids": [
+    "dialogue-evidence"
+  ]
+}

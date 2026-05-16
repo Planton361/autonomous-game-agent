@@ -1,11 +1,13 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 from rich.console import Console
 
 from fh_agent import __version__
+from fh_agent.observation.schemas import UIState
 from fh_agent.perception.capture_session import CaptureSession, CaptureSessionConfig
+from fh_agent.perception.offline_processor import observation_to_json, process_saved_frame
 from fh_agent.perception.screen_capture import DummyScreenCapture
 
 app = typer.Typer(
@@ -67,6 +69,37 @@ def capture(
     console.print(f"frames_saved: {result.frames_saved}")
     console.print(f"event_log_path: {result.event_log_path}")
     console.print(f"screenshot_dir: {result.screenshot_dir}")
+
+
+@app.command("parse-frame")
+def parse_frame(
+    path: Annotated[Path, typer.Argument(help="Saved PPM screenshot to parse.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="Run identifier for the observation.")],
+    evidence_id: Annotated[
+        str | None,
+        typer.Option("--evidence-id", help="Evidence identifier. Defaults to the filename stem."),
+    ] = None,
+    ui_hint: Annotated[
+        str | None,
+        typer.Option(
+            "--ui-hint",
+            help="Optional visible UI hint: field, dialogue, menu, combat, death, unknown.",
+        ),
+    ] = None,
+) -> None:
+    """Parse one saved offline frame into Observation JSON."""
+    allowed_hints = {"field", "dialogue", "menu", "combat", "death", "unknown"}
+    if ui_hint is not None and ui_hint not in allowed_hints:
+        msg = f"ui_hint must be one of: {', '.join(sorted(allowed_hints))}"
+        raise typer.BadParameter(msg)
+
+    observation = process_saved_frame(
+        path,
+        run_id=run_id,
+        evidence_id=evidence_id,
+        ui_hint=cast(UIState | None, ui_hint),
+    )
+    console.print(observation_to_json(observation))
 
 
 def main() -> None:
