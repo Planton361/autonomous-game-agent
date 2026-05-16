@@ -1,0 +1,28 @@
+mode: visible_only
+
+allowed_fields:
+  - message_window_visible
+  - visible_message_text
+  - menu_open
+  - visible_menu_items
+  - combat_ui_visible
+  - death_screen_visible
+  - player_screen_position
+  - visible_sprite_screen_positions
+  - visible_sprite_visual_hashes
+  - screenshot_id
+
+forbidden_fields:
+  - map_id
+  - event_id
+  - event_name
+  - event_comments
+  - event_trigger_conditions
+  - game_switches
+  - game_variables
+  - enemy_database
+  - enemy_hp
+  - enemy_resistances
+  - item_database_effects
+  - ending_flags
+  - savegame_variables
