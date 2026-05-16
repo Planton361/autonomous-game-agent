@@ -73,3 +73,60 @@ CREATE TABLE IF NOT EXISTS fact_evidence (
         REFERENCES facts (fact_id)
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS entity_risks (
+    entity_key TEXT PRIMARY KEY,
+    risk_score REAL NOT NULL CHECK (risk_score >= 0.0 AND risk_score <= 1.0),
+    total_outcomes INTEGER NOT NULL CHECK (total_outcomes >= 0),
+    last_outcome TEXT CHECK (
+        last_outcome IS NULL OR last_outcome IN (
+            'death',
+            'combat_started',
+            'damage_taken',
+            'skill_failed',
+            'safe_passage',
+            'no_change'
+        )
+    ),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_risks_score
+ON entity_risks (risk_score);
+
+CREATE TABLE IF NOT EXISTS entity_risk_events (
+    risk_update_id TEXT PRIMARY KEY,
+    entity_key TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (
+        outcome IN (
+            'death',
+            'combat_started',
+            'damage_taken',
+            'skill_failed',
+            'safe_passage',
+            'no_change'
+        )
+    ),
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    risk_delta REAL NOT NULL,
+    risk_score_after REAL NOT NULL CHECK (
+        risk_score_after >= 0.0 AND risk_score_after <= 1.0
+    ),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (entity_key)
+        REFERENCES entity_risks (entity_key)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_risk_events_entity_created
+ON entity_risk_events (entity_key, created_at);
+
+CREATE TABLE IF NOT EXISTS entity_risk_event_evidence (
+    risk_update_id TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (risk_update_id, evidence_id),
+    FOREIGN KEY (risk_update_id)
+        REFERENCES entity_risk_events (risk_update_id)
+        ON DELETE CASCADE
+);
