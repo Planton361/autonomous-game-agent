@@ -1,0 +1,23 @@
+# Offline MVP crop names for future OCR/UI classifiers.
+# Coordinates are screen-relative pixels and intentionally game-agnostic.
+crops:
+  full_screen:
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  dialogue_region:
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  menu_region:
+    x: 0
+    y: 0
+    width: 0
+    height: 0
+  combat_ui_region:
+    x: 0
+    y: 0
+    width: 0
+    height: 0

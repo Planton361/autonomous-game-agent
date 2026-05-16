@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+UIState = Literal["field", "dialogue", "menu", "combat", "death", "unknown"]
+
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
@@ -29,6 +31,18 @@ class VisibleSprite(BaseModel):
     evidence_id: str | None = None
 
 
+class ActionResult(BaseModel):
+    """Result of a primitive action attempt, without raw key sequences."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: str
+    executed: bool
+    created_at: datetime = Field(default_factory=utc_now)
+    blocked_reason: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class Observation(BaseModel):
     """Canonical visible-state observation."""
 
@@ -37,7 +51,9 @@ class Observation(BaseModel):
     observation_id: str | None = None
     run_id: str
     created_at: datetime = Field(default_factory=utc_now)
+    ui_state: UIState = "unknown"
     screenshot_id: str | None = None
+    screen_signature: str | None = None
     message_window_visible: bool | None = None
     visible_message_text: str | None = None
     visible_text_spans: list[VisibleTextSpan] = Field(default_factory=list)
@@ -49,18 +65,7 @@ class Observation(BaseModel):
     visible_sprite_screen_positions: list[tuple[int, int]] = Field(default_factory=list)
     visible_sprite_visual_hashes: list[str] = Field(default_factory=list)
     visible_sprites: list[VisibleSprite] = Field(default_factory=list)
-    evidence_ids: list[str] = Field(default_factory=list)
-
-
-class ActionResult(BaseModel):
-    """Result of a primitive action attempt, without raw key sequences."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    action: str
-    executed: bool
-    created_at: datetime = Field(default_factory=utc_now)
-    blocked_reason: str | None = None
+    last_action_result: ActionResult | None = None
     evidence_ids: list[str] = Field(default_factory=list)
 
 

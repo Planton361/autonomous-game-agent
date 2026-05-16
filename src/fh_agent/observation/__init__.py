@@ -6,6 +6,7 @@ from fh_agent.observation.schemas import (
     KnowledgeFact,
     Observation,
     SkillResult,
+    UIState,
     VisibleSprite,
     VisibleTextSpan,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "KnowledgeFact",
     "Observation",
     "SkillResult",
+    "UIState",
     "VisibleSprite",
     "VisibleTextSpan",
 ]
