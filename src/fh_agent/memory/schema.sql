@@ -130,3 +130,55 @@ CREATE TABLE IF NOT EXISTS entity_risk_event_evidence (
         REFERENCES entity_risk_events (risk_update_id)
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS rooms (
+    room_signature TEXT PRIMARY KEY,
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    visit_count INTEGER NOT NULL CHECK (visit_count >= 0),
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    metadata_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS room_evidence (
+    room_signature TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (room_signature, evidence_id),
+    FOREIGN KEY (room_signature)
+        REFERENCES rooms (room_signature)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS room_transitions (
+    transition_key TEXT PRIMARY KEY,
+    from_room_signature TEXT NOT NULL,
+    to_room_signature TEXT NOT NULL,
+    action_id TEXT,
+    outcome TEXT NOT NULL CHECK (outcome IN ('screen_transition')),
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    observed_count INTEGER NOT NULL CHECK (observed_count >= 0),
+    first_seen_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    metadata_json TEXT,
+    FOREIGN KEY (from_room_signature)
+        REFERENCES rooms (room_signature)
+        ON DELETE CASCADE,
+    FOREIGN KEY (to_room_signature)
+        REFERENCES rooms (room_signature)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_room_transitions_from_room
+ON room_transitions (from_room_signature);
+
+CREATE INDEX IF NOT EXISTS idx_room_transitions_to_room
+ON room_transitions (to_room_signature);
+
+CREATE TABLE IF NOT EXISTS transition_evidence (
+    transition_key TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (transition_key, evidence_id),
+    FOREIGN KEY (transition_key)
+        REFERENCES room_transitions (transition_key)
+        ON DELETE CASCADE
+);
