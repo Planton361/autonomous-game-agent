@@ -32,6 +32,7 @@ class TaskCompletion(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     task_id: str
+    task_spec: TaskSpec
     status: TaskStatus
     condition: str
     evidence_ids: list[str] = Field(default_factory=list)
@@ -212,6 +213,7 @@ class TaskScheduler:
         current = self._require_current_task()
         completion = TaskCompletion(
             task_id=current.task_spec.task_id,
+            task_spec=current.task_spec,
             status=status,
             condition=condition,
             evidence_ids=evidence_ids,
