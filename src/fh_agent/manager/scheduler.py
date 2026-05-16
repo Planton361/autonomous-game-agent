@@ -169,7 +169,12 @@ class TaskScheduler:
             reason=reason,
         )
 
-    def cancel_current(self, reason: str) -> TaskCompletion:
+    def cancel_current(
+        self,
+        reason: str,
+        *,
+        evidence_ids: list[str] | None = None,
+    ) -> TaskCompletion:
         if not reason:
             msg = "cancel reason must not be empty"
             raise TaskSchedulerError(msg)
@@ -178,7 +183,7 @@ class TaskScheduler:
         return self._complete_current(
             status=TaskStatus.CANCELLED,
             condition="cancelled",
-            evidence_ids=[],
+            evidence_ids=evidence_ids or [],
             reason=reason,
         )
 
