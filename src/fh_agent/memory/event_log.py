@@ -2,9 +2,13 @@ import json
 from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    from fh_agent.observation.schemas import SkillResult
 
 
 class EventRecord(BaseModel):
@@ -56,6 +60,14 @@ class EventLogger:
             file.write(record.model_dump_json())
             file.write("\n")
         return record
+
+    def append_skill_result(self, result: "SkillResult") -> EventRecord:
+        """Append a reusable skill result without widening EventRecord."""
+        return self.append(
+            "skill_result",
+            payload=json.loads(result.model_dump_json()),
+            evidence_ids=result.evidence_ids,
+        )
 
     def read_all(self) -> list[EventRecord]:
         if not self.path.exists():
