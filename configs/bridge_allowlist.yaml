@@ -1,12 +1,9 @@
 mode: visible_only
 
 allowed_fields:
-  - message_window_visible
   - visible_message_text
-  - menu_open
   - visible_menu_items
-  - combat_ui_visible
-  - death_screen_visible
+  - ui_state
   - player_screen_position
   - visible_sprite_screen_positions
   - visible_sprite_visual_hashes

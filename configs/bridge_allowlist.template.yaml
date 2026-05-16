@@ -2,23 +2,14 @@
 mode: visible_only
 
 allowed_fields:
-  message_window_visible:
-    output: ui.message_window_visible
-    reason: visible UI state
   visible_message_text:
     output: ui.visible_text
     reason: visible text
-  menu_open:
-    output: ui.menu_open
-    reason: visible UI state
   visible_menu_items:
     output: ui.visible_menu_items
     reason: visible menu text
-  combat_ui_visible:
-    output: ui.combat_visible
-    reason: visible UI state
-  death_screen_visible:
-    output: ui.death_visible
+  ui_state:
+    output: ui.state
     reason: visible UI state
   player_screen_position:
     output: player.screen_pos
@@ -29,6 +20,9 @@ allowed_fields:
   visible_sprite_visual_hashes:
     output: visible_sprites[].visual_hash
     reason: derived from visible pixels
+  screenshot_id:
+    output: evidence.screenshot_id
+    reason: links sanitized bridge data to screenshot evidence
 
 forbidden_fields:
   - map_id
