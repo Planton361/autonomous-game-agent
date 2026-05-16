@@ -182,3 +182,53 @@ CREATE TABLE IF NOT EXISTS transition_evidence (
         REFERENCES room_transitions (transition_key)
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS strategies (
+    strategy_key TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (
+        status IN ('hypothesis', 'tested', 'promoted', 'deprecated', 'contradicted')
+    ),
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    metadata_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_strategies_status
+ON strategies (status);
+
+CREATE TABLE IF NOT EXISTS strategy_evidence (
+    strategy_key TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (strategy_key, evidence_id),
+    FOREIGN KEY (strategy_key)
+        REFERENCES strategies (strategy_key)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS strategy_outcomes (
+    outcome_key TEXT PRIMARY KEY,
+    strategy_key TEXT NOT NULL,
+    outcome TEXT NOT NULL CHECK (
+        outcome IN ('success', 'failure', 'mixed', 'inconclusive')
+    ),
+    confidence REAL NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
+    created_at TEXT NOT NULL,
+    metadata_json TEXT,
+    FOREIGN KEY (strategy_key)
+        REFERENCES strategies (strategy_key)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_strategy_outcomes_strategy_created
+ON strategy_outcomes (strategy_key, created_at);
+
+CREATE TABLE IF NOT EXISTS strategy_outcome_evidence (
+    outcome_key TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    PRIMARY KEY (outcome_key, evidence_id),
+    FOREIGN KEY (outcome_key)
+        REFERENCES strategy_outcomes (outcome_key)
+        ON DELETE CASCADE
+);
