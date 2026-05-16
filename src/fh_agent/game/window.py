@@ -7,6 +7,8 @@ class WindowTarget:
 
     title: str
     process_name: str | None = None
+    window_id: str | None = None
+    class_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,3 +18,5 @@ class WindowInfo:
     title: str
     process_name: str | None = None
     handle: str | None = None
+    window_id: str | None = None
+    class_name: str | None = None
