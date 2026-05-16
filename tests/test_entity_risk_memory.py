@@ -7,7 +7,6 @@ from fh_agent.memory.entity_risk import EntityRiskStore
 
 FORBIDDEN_SCHEMA_COLUMNS = {
     "map_id",
-    "event_id",
     "event_name",
     "event_comments",
     "game_switches",

@@ -50,6 +50,32 @@ ON skill_results (run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_skill_results_skill_name
 ON skill_results (skill_name);
 
+CREATE TABLE IF NOT EXISTS task_completion_events (
+    event_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    event_type TEXT NOT NULL CHECK (event_type = 'task_completion'),
+    task_id TEXT NOT NULL,
+    selected_skill TEXT NOT NULL,
+    goal TEXT NOT NULL,
+    target_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (
+        status IN ('succeeded', 'failed', 'timed_out', 'cancelled')
+    ),
+    condition TEXT NOT NULL,
+    reason TEXT,
+    elapsed_steps INTEGER NOT NULL CHECK (elapsed_steps >= 0),
+    timeout_steps INTEGER NOT NULL CHECK (timeout_steps > 0),
+    planner_output_id TEXT,
+    planner_trace_id TEXT,
+    source_evidence_ids_json TEXT NOT NULL,
+    completion_evidence_ids_json TEXT NOT NULL,
+    reward_terms_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_completion_events_run_created
+ON task_completion_events (run_id, created_at, event_id);
+
 CREATE TABLE IF NOT EXISTS facts (
     fact_id TEXT PRIMARY KEY,
     claim TEXT NOT NULL,

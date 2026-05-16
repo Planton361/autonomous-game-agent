@@ -7,7 +7,6 @@ from fh_agent.memory.room_graph import RoomGraphStore
 
 FORBIDDEN_SCHEMA_COLUMNS = {
     "map_id",
-    "event_id",
     "event_name",
     "event_comments",
     "event_trigger_conditions",

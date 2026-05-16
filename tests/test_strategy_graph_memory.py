@@ -7,7 +7,6 @@ from fh_agent.memory.strategy_graph import StrategyGraphStore
 
 FORBIDDEN_SCHEMA_COLUMNS = {
     "map_id",
-    "event_id",
     "event_name",
     "event_comments",
     "event_trigger_conditions",

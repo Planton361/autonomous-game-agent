@@ -12,7 +12,6 @@ from fh_agent.observation.schemas import (
 
 FORBIDDEN_SCHEMA_COLUMNS = {
     "map_id",
-    "event_id",
     "event_name",
     "event_comments",
     "event_trigger_conditions",

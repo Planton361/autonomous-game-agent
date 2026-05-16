@@ -4,8 +4,15 @@ from pathlib import Path
 from typing import Protocol
 
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
-from fh_agent.memory.event_log import EventLogger, EventRecord
 from fh_agent.observation.schemas import Observation, SkillResult
+
+
+class SkillEventRecord(Protocol):
+    """Minimal event record surface needed by SkillRunResult."""
+
+    event_id: str
+    run_id: str
+    event_type: str
 
 
 class RunnableSkill(Protocol):
@@ -35,7 +42,7 @@ class SkillRunResult:
 
     skill_result: SkillResult
     steps: list[SkillStep] = field(default_factory=list)
-    event_record: EventRecord | None = None
+    event_record: SkillEventRecord | None = None
 
 
 class SkillRunner:
@@ -44,7 +51,7 @@ class SkillRunner:
     def __init__(
         self,
         *,
-        event_logger: EventLogger | None = None,
+        event_logger: object | None = None,
         event_log_path: Path | None = None,
         run_id: str | None = None,
     ) -> None:
@@ -52,6 +59,8 @@ class SkillRunner:
             if run_id is None:
                 msg = "run_id is required when event_log_path is provided"
                 raise ValueError(msg)
+            from fh_agent.memory.event_log import EventLogger
+
             event_logger = EventLogger(event_log_path, run_id=run_id)
 
         self.event_logger = event_logger
