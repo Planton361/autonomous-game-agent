@@ -466,6 +466,21 @@ def controlled_live_smoke(
         int,
         typer.Option("--max-frames", min=1, max=30, help="Maximum frames to capture."),
     ] = 1,
+    action_logging_mode: Annotated[
+        str,
+        typer.Option(
+            "--action-logging-mode",
+            help="Action intent logging mode: disabled or wait_only_noop.",
+        ),
+    ] = "disabled",
+    noop_action_frequency: Annotated[
+        int,
+        typer.Option(
+            "--noop-action-frequency",
+            min=1,
+            help="Log one wait intent every N captured frames in wait_only_noop mode.",
+        ),
+    ] = 1,
     overwrite: Annotated[
         bool,
         typer.Option("--overwrite", help="Replace an existing controlled smoke report."),
@@ -482,6 +497,8 @@ def controlled_live_smoke(
         raise click.ClickException(
             "controlled-live-smoke has no real input adapter in this skeleton"
         )
+    if action_logging_mode not in {"disabled", "wait_only_noop"}:
+        raise click.ClickException("--action-logging-mode must be disabled or wait_only_noop")
     if target_window_title is None:
         raise click.ClickException("--target-window-title is required with --allow-real-runtime")
     try:
@@ -511,6 +528,8 @@ def controlled_live_smoke(
             allow_real_input=allow_real_input,
             max_frames=max_frames,
             output_run_dir=output_run_dir,
+            action_logging_mode=action_logging_mode,  # type: ignore[arg-type]
+            noop_action_frequency=noop_action_frequency,
             overwrite=overwrite,
         )
     except (FileExistsError, ValueError) as exc:

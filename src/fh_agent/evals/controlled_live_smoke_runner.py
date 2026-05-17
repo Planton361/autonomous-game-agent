@@ -23,6 +23,7 @@ RuntimeEventType = Literal[
     "stop_condition_triggered",
     "runtime_end",
 ]
+ActionLoggingMode = Literal["disabled", "wait_only_noop"]
 StopReason = Literal[
     "completed",
     "focus_lost",
@@ -81,6 +82,19 @@ class ControlledLiveSmokeEvidence(BaseModel):
     sha256: str | None = None
 
 
+class ControlledLiveSmokeActionIntent(BaseModel):
+    """A requested but not executed action intent for no-op logging."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: str
+    requested: bool
+    executed: bool
+    input_sent: bool
+    reason: str
+    frame_index: int | None = None
+
+
 class PpmHeaderParseDiagnostic(BaseModel):
     """Non-image PPM header parse details for capture failures."""
 
@@ -130,6 +144,7 @@ class ControlledLiveSmokeEvent(BaseModel):
     frame_index: int | None = None
     evidence_id: str | None = None
     screenshot_path: Path | None = None
+    action_intent: ControlledLiveSmokeActionIntent | None = None
     stop_reason: StopReason | None = None
 
 
@@ -174,6 +189,10 @@ class ControlledLiveSmokeReport(BaseModel):
     event_count: int
     runtime_mode: Literal["observation_only"] = "observation_only"
     no_input_sent: bool = True
+    inputs_sent: int = 0
+    action_logging_mode: ActionLoggingMode = "disabled"
+    requested_actions: tuple[ControlledLiveSmokeActionIntent, ...] = ()
+    executed_actions: tuple[ControlledLiveSmokeActionIntent, ...] = ()
     captured_frame_count: int
     evidence_ids: tuple[str, ...] = ()
     screenshot_paths: tuple[Path, ...] = ()
@@ -182,6 +201,7 @@ class ControlledLiveSmokeReport(BaseModel):
     autonomous_planner_active: bool = False
     manager_orchestration_active: bool = False
     body_control_active: bool = False
+    bridge_active: bool = False
     learning_active: bool = False
 
     @model_validator(mode="after")
@@ -192,10 +212,17 @@ class ControlledLiveSmokeReport(BaseModel):
         if not self.no_input_sent:
             msg = "controlled smoke report must not claim input was sent"
             raise ValueError(msg)
+        if self.inputs_sent != 0:
+            msg = "controlled smoke report must not claim inputs were sent"
+            raise ValueError(msg)
+        if self.executed_actions:
+            msg = "controlled smoke report must not claim actions were executed"
+            raise ValueError(msg)
         if (
             self.autonomous_planner_active
             or self.manager_orchestration_active
             or self.body_control_active
+            or self.bridge_active
             or self.learning_active
         ):
             msg = "controlled smoke report must not claim autonomous control"
@@ -232,6 +259,8 @@ def run_controlled_live_smoke(
     now: Callable[[], datetime] | None = None,
     report_path: Path | None = None,
     output_run_dir: Path | None = None,
+    action_logging_mode: ActionLoggingMode = "disabled",
+    noop_action_frequency: int = 1,
     overwrite: bool = False,
 ) -> ControlledLiveSmokeResult:
     """Run a user-started observation-only smoke skeleton through injected adapters."""
@@ -239,6 +268,12 @@ def run_controlled_live_smoke(
     timestamp = (now or _utc_now)()
     if not user_started:
         msg = "controlled live smoke requires user_started=True"
+        raise ValueError(msg)
+    if action_logging_mode not in ("disabled", "wait_only_noop"):
+        msg = "action_logging_mode must be disabled or wait_only_noop"
+        raise ValueError(msg)
+    if noop_action_frequency < 1:
+        msg = "noop_action_frequency must be at least 1"
         raise ValueError(msg)
 
     plan = _load_allowed_plan(
@@ -266,6 +301,7 @@ def run_controlled_live_smoke(
     )
     events: list[ControlledLiveSmokeEvent] = []
     frames: list[ControlledLiveSmokeFrame] = []
+    requested_actions: list[ControlledLiveSmokeActionIntent] = []
     capture_error_diagnostic: CaptureErrorDiagnostic | None = None
     frame_count = 0
     action_count = 0
@@ -328,6 +364,28 @@ def run_controlled_live_smoke(
                 screenshot_path=frame.screenshot_path,
             ),
         )
+        if action_logging_mode == "wait_only_noop" and frame_count % noop_action_frequency == 0:
+            intent = ControlledLiveSmokeActionIntent(
+                action="wait",
+                requested=True,
+                executed=False,
+                input_sent=False,
+                reason="noop_action_logging",
+                frame_index=frame_count - 1,
+            )
+            requested_actions.append(intent)
+            action_count += 1
+            _emit(
+                events,
+                log_event,
+                ControlledLiveSmokeEvent(
+                    event_type="wait_intent",
+                    created_at=(now or _utc_now)(),
+                    message="wait action intent logged without execution",
+                    frame_index=frame_count - 1,
+                    action_intent=intent,
+                ),
+            )
 
         if frame_count >= effective_max_frames:
             stop_reason = "max_frames_reached"
@@ -384,6 +442,10 @@ def run_controlled_live_smoke(
         mode=result.mode,
         status=result.status,
         event_count=len(result.events),
+        inputs_sent=0,
+        action_logging_mode=action_logging_mode,
+        requested_actions=tuple(requested_actions),
+        executed_actions=(),
         captured_frame_count=result.status.frames_captured,
         evidence_ids=tuple(frame.evidence_id for frame in frames),
         screenshot_paths=tuple(

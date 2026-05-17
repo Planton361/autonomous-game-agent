@@ -19,12 +19,25 @@ FIXED_CREATED_AT = datetime(2026, 5, 17, 12, 0, tzinfo=UTC)
 def write_review_fixture(
     tmp_path: Path,
     *,
+    frame_count: int = 3,
     validator_passed: bool = True,
     validation_error_count: int = 0,
     no_input_sent: bool = True,
     actions_requested: int = 0,
+    inputs_sent: int = 0,
+    action_logging_mode: str = "disabled",
+    requested_action: str = "wait",
+    requested_action_executed: bool = False,
+    requested_action_input_sent: bool = False,
+    planner_active: bool = False,
+    manager_active: bool = False,
+    body_active: bool = False,
+    learning_active: bool = False,
+    bridge_active: bool = False,
     hidden_state_check_passed: bool = True,
     forbidden_marker_check_passed: bool = True,
+    screenshot_count_delta: int = 0,
+    evidence_count_delta: int = 0,
 ) -> Path:
     run_dir = tmp_path / "runs" / "run_12_10b_three_frame_manual"
     reports_dir = run_dir / "reports"
@@ -33,12 +46,27 @@ def write_review_fixture(
     screenshots_dir.mkdir(parents=True)
     screenshot_paths = []
     evidence_ids = []
-    for index in range(3):
+    screenshot_count = frame_count + screenshot_count_delta
+    evidence_count = frame_count + evidence_count_delta
+    for index in range(max(screenshot_count, evidence_count)):
         evidence_id = f"evidence-{index}"
         screenshot_path = screenshots_dir / f"{evidence_id}.ppm"
         screenshot_path.write_bytes(b"P6\n1 1\n255\nabc")
-        screenshot_paths.append(str(screenshot_path))
-        evidence_ids.append(evidence_id)
+        if index < screenshot_count:
+            screenshot_paths.append(str(screenshot_path))
+        if index < evidence_count:
+            evidence_ids.append(evidence_id)
+    requested_actions = [
+        {
+            "action": requested_action,
+            "requested": True,
+            "executed": requested_action_executed,
+            "input_sent": requested_action_input_sent,
+            "reason": "noop_action_logging",
+            "frame_index": index,
+        }
+        for index in range(actions_requested)
+    ]
 
     (reports_dir / "preflight_report.json").write_text(
         json.dumps(
@@ -88,34 +116,37 @@ def write_review_fixture(
                     "started": True,
                     "finished": True,
                     "stop_reason": "max_frames_reached",
-                    "frames_captured": 3,
+                    "frames_captured": frame_count,
                     "actions_requested": actions_requested,
                 },
                 "event_count": 6,
                 "runtime_mode": "observation_only",
                 "no_input_sent": no_input_sent,
-                "captured_frame_count": 3,
+                "inputs_sent": inputs_sent,
+                "action_logging_mode": action_logging_mode,
+                "requested_actions": requested_actions,
+                "executed_actions": requested_actions if requested_action_executed else [],
+                "captured_frame_count": frame_count,
                 "evidence_ids": evidence_ids,
                 "screenshot_paths": screenshot_paths,
                 "screenshot_evidence": [
                     {
                         "evidence_id": evidence_id,
                         "screenshot_path": screenshot_path,
-                        "timestamp": "2026-05-17T12:00:00Z",
+                        "timestamp": f"2026-05-17T12:00:{index:02d}Z",
                         "width": 1,
                         "height": 1,
                         "sha256": "abc123",
                     }
-                    for evidence_id, screenshot_path in zip(
-                        evidence_ids,
-                        screenshot_paths,
-                        strict=True,
+                    for index, (evidence_id, screenshot_path) in enumerate(
+                        zip(evidence_ids, screenshot_paths, strict=False)
                     )
                 ],
-                "autonomous_planner_active": False,
-                "manager_orchestration_active": False,
-                "body_control_active": False,
-                "learning_active": False,
+                "autonomous_planner_active": planner_active,
+                "manager_orchestration_active": manager_active,
+                "body_control_active": body_active,
+                "learning_active": learning_active,
+                "bridge_active": bridge_active,
             },
             sort_keys=True,
         ),
@@ -141,7 +172,7 @@ def write_review_fixture(
                 "validation_report_version": "1",
                 "created_at": "2026-05-17T12:00:00Z",
                 "source_report_path": str(reports_dir / "live_smoke_report.json"),
-                "expected_frame_count": 3,
+                "expected_frame_count": frame_count,
                 "status": {
                     "passed": validator_passed,
                     "check_count": 10,
@@ -172,8 +203,32 @@ def test_review_summary_passes_for_valid_three_frame_run_fixture(tmp_path: Path)
     assert summary.validator_passed is True
     assert summary.no_input_sent is True
     assert summary.actions_requested == 0
+    assert summary.inputs_sent == 0
+    assert summary.action_logging_mode == "disabled"
     assert summary.stop_reason == "max_frames_reached"
     assert summary.recommended_next_step == PASSED_NEXT_STEP
+
+
+def test_review_summary_passes_for_valid_thirty_frame_run_fixture(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(tmp_path, frame_count=30)
+
+    summary = create_controlled_live_smoke_review_summary(
+        run_dir=run_dir,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert summary.conclusion == "passed"
+    assert summary.frame_count == 30
+    assert summary.captured_frame_count == 30
+    assert summary.screenshot_count == 30
+    assert summary.evidence_count == 30
+    assert summary.min_frame_count == 10
+    assert summary.max_frame_count == 30
+    assert summary.duration_seconds == 29.0
+    assert summary.average_capture_interval_seconds == 1.0
+    assert summary.input_action_counters == {"actions_requested": 0, "inputs_sent": 0}
 
 
 def test_review_summary_fails_when_validator_failed(tmp_path: Path) -> None:
@@ -208,6 +263,74 @@ def test_review_summary_fails_when_actions_requested_nonzero(tmp_path: Path) -> 
     assert "actions_requested is not zero" in summary.failure_reasons
 
 
+def test_review_summary_passes_for_wait_only_noop_actions(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=30,
+        action_logging_mode="wait_only_noop",
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "passed"
+    assert summary.action_logging_mode == "wait_only_noop"
+    assert summary.actions_requested == 30
+    assert summary.inputs_sent == 0
+    assert summary.allowed_action_intent_count == 30
+    assert summary.forbidden_action_intent_count == 0
+    assert summary.executed_action_count == 0
+
+
+def test_review_summary_fails_wait_only_noop_with_forbidden_action(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=30,
+        action_logging_mode="wait_only_noop",
+        requested_action="confirm",
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert summary.forbidden_action_intent_count == 30
+    assert "forbidden action intents are present" in summary.failure_reasons
+
+
+def test_review_summary_fails_wait_only_noop_with_inputs_sent(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=30,
+        inputs_sent=1,
+        action_logging_mode="wait_only_noop",
+        requested_action_input_sent=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert "inputs_sent is not zero" in summary.failure_reasons
+    assert "forbidden action intents are present" in summary.failure_reasons
+
+
+def test_review_summary_fails_wait_only_noop_with_executed_action(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=30,
+        action_logging_mode="wait_only_noop",
+        requested_action_executed=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert summary.executed_action_count == 30
+    assert "executed action intents are present" in summary.failure_reasons
+
+
 def test_review_summary_fails_when_hidden_state_check_failed(tmp_path: Path) -> None:
     run_dir = write_review_fixture(
         tmp_path,
@@ -221,6 +344,66 @@ def test_review_summary_fails_when_hidden_state_check_failed(tmp_path: Path) -> 
     assert summary.conclusion == "failed"
     assert summary.hidden_state_fields_absent is False
     assert "hidden-state field check failed" in summary.failure_reasons
+
+
+def test_review_summary_fails_when_forbidden_runtime_marker_check_failed(
+    tmp_path: Path,
+) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        validator_passed=False,
+        validation_error_count=1,
+        forbidden_marker_check_passed=False,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert summary.forbidden_runtime_markers_absent is False
+    assert "forbidden runtime marker check failed" in summary.failure_reasons
+
+
+def test_review_summary_fails_when_planner_manager_body_or_learning_active(
+    tmp_path: Path,
+) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        planner_active=True,
+        manager_active=True,
+        body_active=True,
+        learning_active=True,
+        bridge_active=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert "planner_active is true" in summary.failure_reasons
+    assert "manager_active is true" in summary.failure_reasons
+    assert "body_active is true" in summary.failure_reasons
+    assert "learning_active is true" in summary.failure_reasons
+    assert "bridge_active is true" in summary.failure_reasons
+
+
+def test_review_summary_fails_when_count_mismatch_between_frames_screenshots_evidence(
+    tmp_path: Path,
+) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        screenshot_count_delta=-1,
+        evidence_count_delta=-1,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(
+        run_dir=run_dir,
+        min_frame_count=10,
+        max_frame_count=30,
+    )
+
+    assert summary.conclusion == "failed"
+    assert "screenshot_count does not match captured_frame_count" in summary.failure_reasons
+    assert "evidence_count does not match captured_frame_count" in summary.failure_reasons
 
 
 def test_review_summary_counts_screenshots_and_evidence(tmp_path: Path) -> None:
@@ -260,6 +443,14 @@ def test_cli_help_includes_controlled_live_smoke_review() -> None:
 
     assert result.exit_code == 0
     assert "controlled-live-smoke-review" in result.output
+
+
+def test_cli_review_help_includes_longer_observation_frame_bounds() -> None:
+    result = CliRunner().invoke(app, ["controlled-live-smoke-review", "--help"])
+
+    assert result.exit_code == 0
+    assert "--min-frame-count" in result.output
+    assert "--max-frame-count" in result.output
 
 
 def test_source_scan_blocks_runtime_input_bridge_planner_manager_body_rl_ocr_imports() -> None:

@@ -14,6 +14,8 @@ ValidationStatus = Literal["passed", "failed"]
 ALLOWED_RUNTIME_EVENT_KINDS: tuple[str, ...] = (
     "runtime_start",
     "frame_captured",
+    "noop_action_intent",
+    "wait_intent",
     "stop_condition_triggered",
     "runtime_end",
 )
@@ -80,7 +82,9 @@ class ControlledLiveSmokeValidationReport(BaseModel):
     created_at: datetime
     source_report_path: Path
     events_jsonl_path: Path | None = None
-    expected_frame_count: int
+    expected_frame_count: int | None = None
+    min_frame_count: int | None = None
+    max_frame_count: int | None = None
     status: ControlledLiveSmokeValidationStatus
     checks: tuple[ControlledLiveSmokeValidationCheck, ...]
 
@@ -110,12 +114,17 @@ def read_controlled_live_smoke_report(
 def validate_controlled_live_smoke_artifacts(
     *,
     report_path: Path,
-    expected_frame_count: int = 1,
+    expected_frame_count: int | None = 1,
+    min_frame_count: int | None = None,
+    max_frame_count: int | None = None,
     events_jsonl_path: Path | None = None,
     created_at: datetime | None = None,
 ) -> ControlledLiveSmokeValidationReport:
     payload, model = read_controlled_live_smoke_report(report_path)
     events = _read_events(events_jsonl_path) if events_jsonl_path is not None else []
+    captured_frame_count = _int_value(payload, "captured_frame_count")
+    status = _object_value(payload, "status")
+    action_logging_mode = _action_logging_mode(payload)
     checks = [
         _check(
             "report_model_valid",
@@ -130,19 +139,57 @@ def validate_controlled_live_smoke_artifacts(
             "runtime_mode must be observation_only",
         ),
         _check(
+            "mode_official_screen_only",
+            payload.get("mode") == "official_screen_only",
+            "mode is official_screen_only",
+            "mode must be official_screen_only",
+        ),
+        _check(
             "no_input_sent",
             payload.get("no_input_sent") is True,
             "no_input_sent is true",
             "no_input_sent must be true",
         ),
         _check(
-            "captured_frame_count",
-            payload.get("captured_frame_count") == expected_frame_count,
-            f"captured_frame_count is {expected_frame_count}",
-            f"captured_frame_count must be {expected_frame_count}",
+            "inputs_sent_zero",
+            _int_value(payload, "inputs_sent") == 0,
+            "inputs_sent is zero",
+            "inputs_sent must be zero",
+        ),
+        _check_expected_frame_count(
+            captured_frame_count=captured_frame_count,
+            expected_frame_count=expected_frame_count,
+        ),
+        _check_frame_count_range(
+            captured_frame_count=captured_frame_count,
+            min_frame_count=min_frame_count,
+            max_frame_count=max_frame_count,
         ),
         _check_screenshot_paths(payload),
         _check_evidence_ids(payload),
+        _check_count_matches(
+            "screenshot_count_matches_frame_count",
+            len(_list_value(payload, "screenshot_paths")),
+            captured_frame_count,
+            "screenshot_count",
+        ),
+        _check_count_matches(
+            "evidence_count_matches_frame_count",
+            len(_list_value(payload, "evidence_ids")),
+            captured_frame_count,
+            "evidence_count",
+        ),
+        _check_action_logging_mode(action_logging_mode),
+        _check_actions_requested_policy(payload, status, action_logging_mode),
+        _check_requested_actions(payload, status, action_logging_mode),
+        _check_executed_actions(payload),
+        _check(
+            "stop_reason_max_frames_reached",
+            status.get("stop_reason") == "max_frames_reached",
+            "stop_reason is max_frames_reached",
+            "stop_reason must be max_frames_reached",
+        ),
+        _check_autonomy_flags(payload),
         _check_event_kinds(events),
         _check_frame_events(events),
         _check_forbidden_markers(payload, events),
@@ -154,6 +201,8 @@ def validate_controlled_live_smoke_artifacts(
         source_report_path=report_path,
         events_jsonl_path=events_jsonl_path,
         expected_frame_count=expected_frame_count,
+        min_frame_count=min_frame_count,
+        max_frame_count=max_frame_count,
         status=ControlledLiveSmokeValidationStatus(
             passed=error_count == 0,
             check_count=len(checks),
@@ -195,6 +244,84 @@ def _check(
     )
 
 
+def _check_expected_frame_count(
+    *,
+    captured_frame_count: int,
+    expected_frame_count: int | None,
+) -> ControlledLiveSmokeValidationCheck:
+    if expected_frame_count is None:
+        return _check(
+            "captured_frame_count",
+            True,
+            "captured_frame_count exact check not requested",
+            "unreachable",
+        )
+    return _check(
+        "captured_frame_count",
+        captured_frame_count == expected_frame_count,
+        f"captured_frame_count is {expected_frame_count}",
+        f"captured_frame_count must be {expected_frame_count}",
+    )
+
+
+def _check_frame_count_range(
+    *,
+    captured_frame_count: int,
+    min_frame_count: int | None,
+    max_frame_count: int | None,
+) -> ControlledLiveSmokeValidationCheck:
+    if min_frame_count is None and max_frame_count is None:
+        return _check(
+            "captured_frame_count_in_range",
+            True,
+            "captured_frame_count range check not requested",
+            "unreachable",
+        )
+    min_ok = min_frame_count is None or captured_frame_count >= min_frame_count
+    max_ok = max_frame_count is None or captured_frame_count <= max_frame_count
+    bounds = _format_bounds(min_frame_count=min_frame_count, max_frame_count=max_frame_count)
+    return _check(
+        "captured_frame_count_in_range",
+        min_ok and max_ok,
+        f"captured_frame_count is in range {bounds}",
+        f"captured_frame_count must be in range {bounds}",
+    )
+
+
+def _check_count_matches(
+    name: str,
+    actual: int,
+    expected: int,
+    label: str,
+) -> ControlledLiveSmokeValidationCheck:
+    return _check(
+        name,
+        actual == expected,
+        f"{label} matches captured_frame_count",
+        f"{label} must match captured_frame_count",
+    )
+
+
+def _check_autonomy_flags(payload: dict[str, object]) -> ControlledLiveSmokeValidationCheck:
+    active = [
+        field
+        for field in (
+            "autonomous_planner_active",
+            "manager_orchestration_active",
+            "body_control_active",
+            "learning_active",
+            "bridge_active",
+        )
+        if payload.get(field) is True
+    ]
+    return _check(
+        "autonomy_flags_inactive",
+        not active,
+        "planner, manager, body, learning, and bridge flags are inactive",
+        f"autonomy/runtime flags must be inactive: {', '.join(active)}",
+    )
+
+
 def _check_screenshot_paths(payload: dict[str, object]) -> ControlledLiveSmokeValidationCheck:
     paths = payload.get("screenshot_paths")
     valid = (
@@ -206,6 +333,32 @@ def _check_screenshot_paths(payload: dict[str, object]) -> ControlledLiveSmokeVa
         "all screenshot_paths exist",
         "screenshot_paths must be non-empty and point to existing files",
     )
+
+
+def _object_value(payload: dict[str, object], key: str) -> dict[str, object]:
+    value = payload.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def _list_value(payload: dict[str, object], key: str) -> list[object]:
+    value = payload.get(key)
+    return value if isinstance(value, list) else []
+
+
+def _int_value(payload: dict[str, object], key: str) -> int:
+    value = payload.get(key)
+    return value if isinstance(value, int) else 0
+
+
+def _action_logging_mode(payload: dict[str, object]) -> str:
+    value = payload.get("action_logging_mode")
+    return value if isinstance(value, str) else "disabled"
+
+
+def _format_bounds(*, min_frame_count: int | None, max_frame_count: int | None) -> str:
+    lower = "*" if min_frame_count is None else str(min_frame_count)
+    upper = "*" if max_frame_count is None else str(max_frame_count)
+    return f"{lower}..{upper}"
 
 
 def _check_evidence_ids(payload: dict[str, object]) -> ControlledLiveSmokeValidationCheck:
@@ -220,6 +373,84 @@ def _check_evidence_ids(payload: dict[str, object]) -> ControlledLiveSmokeValida
         valid,
         "evidence_ids are present",
         "evidence_ids must be non-empty strings",
+    )
+
+
+def _check_action_logging_mode(mode: str) -> ControlledLiveSmokeValidationCheck:
+    return _check(
+        "action_logging_mode_allowed",
+        mode in {"disabled", "wait_only_noop"},
+        "action_logging_mode is allowed",
+        "action_logging_mode must be disabled or wait_only_noop",
+    )
+
+
+def _check_actions_requested_policy(
+    payload: dict[str, object],
+    status: dict[str, object],
+    action_logging_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    actions_requested = _int_value(status, "actions_requested")
+    if action_logging_mode == "wait_only_noop":
+        return _check(
+            "actions_requested_policy",
+            actions_requested == len(_list_value(payload, "requested_actions")),
+            "actions_requested matches requested wait intents",
+            "actions_requested must match requested_actions in wait_only_noop mode",
+        )
+    return _check(
+        "actions_requested_zero",
+        actions_requested == 0,
+        "actions_requested is zero",
+        "actions_requested must be zero unless wait_only_noop is enabled",
+    )
+
+
+def _check_requested_actions(
+    payload: dict[str, object],
+    status: dict[str, object],
+    action_logging_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    requested_actions = _list_value(payload, "requested_actions")
+    if action_logging_mode == "disabled":
+        return _check(
+            "requested_actions_empty",
+            not requested_actions,
+            "requested_actions is empty",
+            "requested_actions must be empty when action logging is disabled",
+        )
+    invalid: list[str] = []
+    for index, action in enumerate(requested_actions):
+        if not isinstance(action, dict):
+            invalid.append(f"{index}:not_object")
+            continue
+        if action.get("action") != "wait":
+            invalid.append(f"{index}:action")
+        if action.get("requested") is not True:
+            invalid.append(f"{index}:requested")
+        if action.get("executed") is not False:
+            invalid.append(f"{index}:executed")
+        if action.get("input_sent") is not False:
+            invalid.append(f"{index}:input_sent")
+        if action.get("reason") != "noop_action_logging":
+            invalid.append(f"{index}:reason")
+    actions_requested = _int_value(status, "actions_requested")
+    valid = bool(requested_actions) and not invalid and actions_requested == len(requested_actions)
+    return _check(
+        "wait_only_noop_requested_actions_safe",
+        valid,
+        "requested actions are non-executed wait intents",
+        f"requested actions must be non-executed wait intents: {', '.join(invalid)}",
+    )
+
+
+def _check_executed_actions(payload: dict[str, object]) -> ControlledLiveSmokeValidationCheck:
+    executed_actions = _list_value(payload, "executed_actions")
+    return _check(
+        "executed_actions_empty",
+        not executed_actions,
+        "executed_actions is empty",
+        "executed_actions must remain empty",
     )
 
 

@@ -57,6 +57,7 @@ def write_review(
                 "duration_seconds": 29.0,
                 "average_capture_interval_seconds": 1.0,
                 "actions_requested": actions_requested,
+                "inputs_sent": inputs_sent,
                 "input_action_counters": {
                     "actions_requested": actions_requested,
                     "inputs_sent": inputs_sent,

@@ -110,7 +110,7 @@ def read_controlled_live_smoke_review_summary(path: Path) -> ControlledLiveSmoke
 
 def _run_summary_from_review(path: Path) -> ControlledLiveSmokeStabilityRunSummary:
     review = read_controlled_live_smoke_review_summary(path)
-    inputs_sent = review.input_action_counters.get("inputs_sent", 0)
+    inputs_sent = review.inputs_sent
     failure_reasons = _failure_reasons(review=review, inputs_sent=inputs_sent)
     return ControlledLiveSmokeStabilityRunSummary(
         review_path=path,

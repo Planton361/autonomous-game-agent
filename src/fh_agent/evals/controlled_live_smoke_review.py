@@ -44,10 +44,21 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
     preflight_ok: bool
     validator_passed: bool
     validation_error_count: int
+    frame_count: int
     captured_frame_count: int
+    min_frame_count: int | None = None
+    max_frame_count: int | None = None
     screenshot_count: int
     evidence_count: int
+    duration_seconds: float | None = None
+    average_capture_interval_seconds: float | None = None
+    action_logging_mode: str = "disabled"
     actions_requested: int
+    inputs_sent: int = 0
+    allowed_action_intent_count: int = 0
+    forbidden_action_intent_count: int = 0
+    executed_action_count: int = 0
+    input_action_counters: dict[str, int]
     no_input_sent: bool
     stop_reason: str
     forbidden_runtime_markers_absent: bool
@@ -56,6 +67,7 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
     manager_active: bool
     body_active: bool
     learning_active: bool
+    bridge_active: bool
     artifact_paths: ControlledLiveSmokeReviewArtifactPaths
     conclusion: ReviewConclusion
     recommended_next_step: str
@@ -69,6 +81,8 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
 def create_controlled_live_smoke_review_summary(
     *,
     run_dir: Path,
+    min_frame_count: int | None = None,
+    max_frame_count: int | None = None,
     created_at: datetime | None = None,
 ) -> ControlledLiveSmokeReviewSummary:
     paths = _default_artifact_paths(run_dir)
@@ -89,42 +103,87 @@ def create_controlled_live_smoke_review_summary(
     screenshot_count = len(_list_value(smoke_report, "screenshot_paths"))
     evidence_count = len(_list_value(smoke_report, "evidence_ids"))
     runtime_mode = str(smoke_report.get("runtime_mode", ""))
+    mode = _mode_value(smoke_report, pipeline.mode)
     captured_frame_count = _int_value(smoke_report, "captured_frame_count")
     actions_requested = _int_value(status, "actions_requested")
+    inputs_sent = _int_value(smoke_report, "inputs_sent")
+    action_logging_mode = _str_value(smoke_report, "action_logging_mode", default="disabled")
+    requested_actions = _list_value(smoke_report, "requested_actions")
+    executed_actions = _list_value(smoke_report, "executed_actions")
+    action_counts = _action_intent_counts(
+        requested_actions=requested_actions,
+        executed_actions=executed_actions,
+    )
     no_input_sent = smoke_report.get("no_input_sent") is True
+    stop_reason = str(status.get("stop_reason", ""))
+    duration_seconds, average_capture_interval_seconds = _capture_timing(smoke_report)
+    planner_active = smoke_report.get("autonomous_planner_active") is True
+    manager_active = smoke_report.get("manager_orchestration_active") is True
+    body_active = smoke_report.get("body_control_active") is True
+    learning_active = smoke_report.get("learning_active") is True
+    bridge_active = smoke_report.get("bridge_active") is True
     failure_reasons = _failure_reasons(
+        mode=mode,
         preflight_ok=preflight.ok,
         validator_passed=validation.status.passed,
         no_input_sent=no_input_sent,
         runtime_mode=runtime_mode,
         captured_frame_count=captured_frame_count,
+        min_frame_count=min_frame_count,
+        max_frame_count=max_frame_count,
         screenshot_count=screenshot_count,
+        evidence_count=evidence_count,
+        action_logging_mode=action_logging_mode,
         actions_requested=actions_requested,
+        inputs_sent=inputs_sent,
+        requested_actions=requested_actions,
+        executed_actions=executed_actions,
+        stop_reason=stop_reason,
         forbidden_markers_absent=forbidden_markers_absent,
         hidden_fields_absent=hidden_fields_absent,
+        planner_active=planner_active,
+        manager_active=manager_active,
+        body_active=body_active,
+        learning_active=learning_active,
+        bridge_active=bridge_active,
     )
     conclusion: ReviewConclusion = "passed" if not failure_reasons else "failed"
 
     return ControlledLiveSmokeReviewSummary(
         created_at=created_at or datetime.now(UTC),
         run_id=str(smoke_report.get("run_id") or pipeline.run_id),
-        mode=_mode_value(smoke_report, pipeline.mode),
+        mode=mode,
         runtime_mode=runtime_mode,
         preflight_ok=preflight.ok,
         validator_passed=validation.status.passed,
         validation_error_count=validation.status.error_count,
+        frame_count=captured_frame_count,
         captured_frame_count=captured_frame_count,
+        min_frame_count=min_frame_count,
+        max_frame_count=max_frame_count,
         screenshot_count=screenshot_count,
         evidence_count=evidence_count,
+        duration_seconds=duration_seconds,
+        average_capture_interval_seconds=average_capture_interval_seconds,
+        action_logging_mode=action_logging_mode,
         actions_requested=actions_requested,
+        inputs_sent=inputs_sent,
+        allowed_action_intent_count=action_counts["allowed"],
+        forbidden_action_intent_count=action_counts["forbidden"],
+        executed_action_count=action_counts["executed"],
+        input_action_counters={
+            "actions_requested": actions_requested,
+            "inputs_sent": inputs_sent,
+        },
         no_input_sent=no_input_sent,
-        stop_reason=str(status.get("stop_reason", "")),
+        stop_reason=stop_reason,
         forbidden_runtime_markers_absent=forbidden_markers_absent,
         hidden_state_fields_absent=hidden_fields_absent,
-        planner_active=smoke_report.get("autonomous_planner_active") is True,
-        manager_active=smoke_report.get("manager_orchestration_active") is True,
-        body_active=smoke_report.get("body_control_active") is True,
-        learning_active=smoke_report.get("learning_active") is True,
+        planner_active=planner_active,
+        manager_active=manager_active,
+        body_active=body_active,
+        learning_active=learning_active,
+        bridge_active=bridge_active,
         artifact_paths=paths,
         conclusion=conclusion,
         recommended_next_step=(
@@ -197,11 +256,35 @@ def _int_value(payload: dict[str, object], key: str) -> int:
     return value if isinstance(value, int) else 0
 
 
+def _str_value(payload: dict[str, object], key: str, *, default: str) -> str:
+    value = payload.get(key)
+    return value if isinstance(value, str) else default
+
+
 def _mode_value(payload: dict[str, object], fallback: ManifestMode) -> ManifestMode:
     value = payload.get("mode")
     if value in ("official_screen_only", "debug_visible_bridge", "dry_run"):
         return value
     return fallback
+
+
+def _capture_timing(payload: dict[str, object]) -> tuple[float | None, float | None]:
+    timestamps = []
+    for item in _list_value(payload, "screenshot_evidence"):
+        if not isinstance(item, dict):
+            continue
+        timestamp = item.get("timestamp")
+        if not isinstance(timestamp, str):
+            continue
+        try:
+            timestamps.append(datetime.fromisoformat(timestamp.replace("Z", "+00:00")))
+        except ValueError:
+            continue
+    if len(timestamps) < 2:
+        return None, None
+    duration = (timestamps[-1] - timestamps[0]).total_seconds()
+    average = duration / (len(timestamps) - 1)
+    return duration, average
 
 
 def _validation_check_passed(
@@ -211,19 +294,67 @@ def _validation_check_passed(
     return any(check.name == name and check.passed for check in validation.checks)
 
 
+def _action_intent_counts(
+    *,
+    requested_actions: list[object],
+    executed_actions: list[object],
+) -> dict[str, int]:
+    allowed = 0
+    forbidden = 0
+    requested_executed = 0
+    for action in requested_actions:
+        if not isinstance(action, dict):
+            forbidden += 1
+            continue
+        safe = (
+            action.get("action") == "wait"
+            and action.get("requested") is True
+            and action.get("executed") is False
+            and action.get("input_sent") is False
+            and action.get("reason") == "noop_action_logging"
+        )
+        if safe:
+            allowed += 1
+        else:
+            forbidden += 1
+        if action.get("executed") is True:
+            requested_executed += 1
+    return {
+        "allowed": allowed,
+        "forbidden": forbidden,
+        "executed": max(len(executed_actions), requested_executed),
+    }
+
+
 def _failure_reasons(
     *,
+    mode: ManifestMode,
     preflight_ok: bool,
     validator_passed: bool,
     no_input_sent: bool,
     runtime_mode: str,
     captured_frame_count: int,
+    min_frame_count: int | None,
+    max_frame_count: int | None,
     screenshot_count: int,
+    evidence_count: int,
+    action_logging_mode: str,
     actions_requested: int,
+    inputs_sent: int,
+    requested_actions: list[object],
+    executed_actions: list[object],
+    stop_reason: str,
     forbidden_markers_absent: bool,
     hidden_fields_absent: bool,
+    planner_active: bool,
+    manager_active: bool,
+    body_active: bool,
+    learning_active: bool,
+    bridge_active: bool,
 ) -> list[str]:
     reasons: list[str] = []
+    if mode != "official_screen_only":
+        reasons.append("mode is not official_screen_only")
     if not preflight_ok:
         reasons.append("preflight did not pass")
     if not validator_passed:
@@ -234,12 +365,50 @@ def _failure_reasons(
         reasons.append("runtime_mode is not observation_only")
     if captured_frame_count < 1:
         reasons.append("captured_frame_count is below 1")
+    if min_frame_count is not None and captured_frame_count < min_frame_count:
+        reasons.append("captured_frame_count is below the configured minimum")
+    if max_frame_count is not None and captured_frame_count > max_frame_count:
+        reasons.append("captured_frame_count is above the configured maximum")
     if screenshot_count != captured_frame_count:
         reasons.append("screenshot_count does not match captured_frame_count")
-    if actions_requested != 0:
-        reasons.append("actions_requested is not zero")
+    if evidence_count != captured_frame_count:
+        reasons.append("evidence_count does not match captured_frame_count")
+    if inputs_sent != 0:
+        reasons.append("inputs_sent is not zero")
+    if action_logging_mode == "disabled":
+        if actions_requested != 0:
+            reasons.append("actions_requested is not zero")
+        if requested_actions:
+            reasons.append("requested_actions is not empty")
+    elif action_logging_mode == "wait_only_noop":
+        if actions_requested != len(requested_actions):
+            reasons.append("actions_requested does not match requested_actions")
+        action_counts = _action_intent_counts(
+            requested_actions=requested_actions,
+            executed_actions=executed_actions,
+        )
+        if actions_requested < 1:
+            reasons.append("wait_only_noop did not request any action intents")
+        if action_counts["forbidden"] > 0:
+            reasons.append("forbidden action intents are present")
+        if action_counts["executed"] > 0:
+            reasons.append("executed action intents are present")
+    else:
+        reasons.append("action_logging_mode is not allowed")
+    if stop_reason != "max_frames_reached":
+        reasons.append("stop_reason is not max_frames_reached")
     if not forbidden_markers_absent:
         reasons.append("forbidden runtime marker check failed")
     if not hidden_fields_absent:
         reasons.append("hidden-state field check failed")
+    if planner_active:
+        reasons.append("planner_active is true")
+    if manager_active:
+        reasons.append("manager_active is true")
+    if body_active:
+        reasons.append("body_active is true")
+    if learning_active:
+        reasons.append("learning_active is true")
+    if bridge_active:
+        reasons.append("bridge_active is true")
     return reasons

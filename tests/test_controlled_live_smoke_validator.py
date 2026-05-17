@@ -53,6 +53,10 @@ def make_report_payload(tmp_path: Path, *, frame_count: int = 1) -> dict[str, ob
         "event_count": 4,
         "runtime_mode": "observation_only",
         "no_input_sent": True,
+        "inputs_sent": 0,
+        "action_logging_mode": "disabled",
+        "requested_actions": [],
+        "executed_actions": [],
         "captured_frame_count": frame_count,
         "evidence_ids": [f"evidence-{index}" for index in range(frame_count)],
         "screenshot_paths": [str(path) for path in screenshot_paths],
@@ -62,6 +66,33 @@ def make_report_payload(tmp_path: Path, *, frame_count: int = 1) -> dict[str, ob
         "body_control_active": False,
         "learning_active": False,
     }
+
+
+def add_wait_only_noop_actions(
+    payload: dict[str, object],
+    *,
+    action: str = "wait",
+    executed: bool = False,
+    input_sent: bool = False,
+) -> dict[str, object]:
+    frame_count = int(payload["captured_frame_count"])
+    actions = [
+        {
+            "action": action,
+            "requested": True,
+            "executed": executed,
+            "input_sent": input_sent,
+            "reason": "noop_action_logging",
+            "frame_index": index,
+        }
+        for index in range(frame_count)
+    ]
+    payload["action_logging_mode"] = "wait_only_noop"
+    payload["inputs_sent"] = 1 if input_sent else 0
+    payload["requested_actions"] = actions
+    payload["executed_actions"] = actions if executed else []
+    payload["status"]["actions_requested"] = len(actions)  # type: ignore[index]
+    return payload
 
 
 def write_report(tmp_path: Path, payload: dict[str, object] | None = None) -> Path:
@@ -148,6 +179,190 @@ def test_validator_accepts_expected_frame_count_three(tmp_path: Path) -> None:
     )
 
     assert validation.status.passed is True
+
+
+def test_validator_accepts_frame_count_range_for_longer_observation_smoke(tmp_path: Path) -> None:
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, make_report_payload(tmp_path, frame_count=30)),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+
+
+def test_validator_rejects_actions_requested_nonzero(tmp_path: Path) -> None:
+    payload = make_report_payload(tmp_path, frame_count=30)
+    payload["status"]["actions_requested"] = 1
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "actions_requested_zero" and not check.passed for check in validation.checks
+    )
+
+
+def test_normal_observation_only_still_requires_zero_actions_requested(tmp_path: Path) -> None:
+    payload = make_report_payload(tmp_path, frame_count=30)
+    payload["action_logging_mode"] = "disabled"
+    payload["status"]["actions_requested"] = 1
+    payload["requested_actions"] = []
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "actions_requested_zero" and not check.passed for check in validation.checks
+    )
+
+
+def test_wait_only_noop_with_wait_intents_and_no_inputs_passes(tmp_path: Path) -> None:
+    payload = add_wait_only_noop_actions(make_report_payload(tmp_path, frame_count=30))
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+    assert any(
+        check.name == "wait_only_noop_requested_actions_safe" and check.passed
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize("action", ["move_up_short", "confirm", "cancel", "open_menu"])
+def test_wait_only_noop_rejects_non_wait_actions(tmp_path: Path, action: str) -> None:
+    payload = add_wait_only_noop_actions(
+        make_report_payload(tmp_path, frame_count=30),
+        action=action,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "wait_only_noop_requested_actions_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_wait_only_noop_rejects_inputs_sent(tmp_path: Path) -> None:
+    payload = add_wait_only_noop_actions(
+        make_report_payload(tmp_path, frame_count=30),
+        input_sent=True,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(check.name == "inputs_sent_zero" and not check.passed for check in validation.checks)
+    assert any(
+        check.name == "wait_only_noop_requested_actions_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_wait_only_noop_rejects_executed_true(tmp_path: Path) -> None:
+    payload = add_wait_only_noop_actions(
+        make_report_payload(tmp_path, frame_count=30),
+        executed=True,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "executed_actions_empty" and not check.passed for check in validation.checks
+    )
+    assert any(
+        check.name == "wait_only_noop_requested_actions_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_validator_rejects_count_mismatch_between_frames_screenshots_evidence(
+    tmp_path: Path,
+) -> None:
+    payload = make_report_payload(tmp_path, frame_count=30)
+    payload["screenshot_paths"] = payload["screenshot_paths"][:-1]
+    payload["evidence_ids"] = payload["evidence_ids"][:-1]
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "screenshot_count_matches_frame_count" and not check.passed
+        for check in validation.checks
+    )
+    assert any(
+        check.name == "evidence_count_matches_frame_count" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_validator_rejects_active_autonomy_flags(tmp_path: Path) -> None:
+    payload = make_report_payload(tmp_path, frame_count=30)
+    payload["autonomous_planner_active"] = True
+    payload["manager_orchestration_active"] = True
+    payload["body_control_active"] = True
+    payload["learning_active"] = True
+    payload["bridge_active"] = True
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "autonomy_flags_inactive" and not check.passed for check in validation.checks
+    )
 
 
 def test_rejects_missing_screenshot_file(tmp_path: Path) -> None:
