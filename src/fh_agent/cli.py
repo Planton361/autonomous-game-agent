@@ -15,6 +15,10 @@ from fh_agent.evals.controlled_live_smoke_runner import (
     read_live_audit_pipeline_result,
     run_controlled_live_smoke,
 )
+from fh_agent.evals.controlled_live_smoke_stability_review import (
+    create_controlled_live_smoke_stability_review,
+    write_controlled_live_smoke_stability_review,
+)
 from fh_agent.evals.controlled_live_smoke_validator import (
     default_validation_report_path,
     validate_controlled_live_smoke_artifacts,
@@ -599,6 +603,41 @@ def controlled_live_smoke_review(
         )
     except (FileExistsError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
+
+
+@app.command("controlled-live-smoke-stability-review")
+def controlled_live_smoke_stability_review(
+    review: Annotated[
+        list[Path],
+        typer.Option(
+            "--review",
+            help="Controlled live-smoke review JSON path. Repeat for each run.",
+        ),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", help="Stability review output JSON path."),
+    ] = Path("runs/controlled_live_smoke_stability_review.json"),
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing stability review."),
+    ] = False,
+) -> None:
+    """Aggregate repeatable observation-only controlled smoke reviews."""
+    try:
+        summary = create_controlled_live_smoke_stability_review(
+            review_paths=tuple(review),
+        )
+        path = write_controlled_live_smoke_stability_review(
+            summary,
+            output,
+            overwrite=overwrite,
+        )
+    except (FileExistsError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if summary.conclusion != "passed":
+        raise click.ClickException(f"controlled live-smoke stability review failed: {path}")
     typer.echo(str(path))
 
 
