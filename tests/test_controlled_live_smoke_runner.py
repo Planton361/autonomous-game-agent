@@ -9,10 +9,12 @@ from typer.testing import CliRunner
 import fh_agent.evals.controlled_live_smoke_runner as runner_module
 from fh_agent.cli import app
 from fh_agent.evals.controlled_live_smoke_runner import (
+    CaptureErrorDiagnostic,
     ControlledLiveSmokeEvent,
     ControlledLiveSmokeFrame,
     ControlledLiveSmokeReport,
     ControlledLiveSmokeResult,
+    PpmHeaderParseDiagnostic,
     run_controlled_live_smoke,
 )
 from fh_agent.evals.live_audit_pipeline import (
@@ -73,6 +75,25 @@ class FakeCapture:
         )
         self.count += 1
         return frame
+
+
+class DiagnosticCaptureFailure:
+    def __call__(self) -> ControlledLiveSmokeFrame:
+        diagnostic = CaptureErrorDiagnostic(
+            command=("capture", "--active-window"),
+            return_code=2,
+            stderr_excerpt="capture failed\n",
+            stdout_byte_count=12,
+            ppm_header=PpmHeaderParseDiagnostic(
+                present=True,
+                valid=False,
+                error="invalid PPM header from capture command",
+            ),
+            exception_message="capture command failed",
+        )
+        error = RuntimeError("capture command failed")
+        error.diagnostic = diagnostic  # type: ignore[attr-defined]
+        raise error
 
 
 class FakeClock:
@@ -155,6 +176,7 @@ def run_with_fakes(
     clock: FakeClock | None = None,
     user_started: bool = True,
     max_frames: int | None = None,
+    output_run_dir: Path | None = None,
 ) -> tuple[ControlledLiveSmokeResult, list[ControlledLiveSmokeEvent]]:
     logged, logger = event_log()
     result = run_controlled_live_smoke(
@@ -167,7 +189,8 @@ def run_with_fakes(
         log_event=logger,
         clock=clock or FakeClock([0, 0, 0, 0, 0, 0, 0]),
         now=lambda: FIXED_CREATED_AT,
-        report_path=tmp_path / "controlled_report.json",
+        report_path=None if output_run_dir is not None else tmp_path / "controlled_report.json",
+        output_run_dir=output_run_dir,
         max_frames=max_frames,
         overwrite=True,
     )
@@ -249,9 +272,9 @@ def test_multi_frame_report_contains_three_evidence_ids_and_paths(tmp_path: Path
     ]
 
 
-def test_max_frames_above_three_is_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="between 1 and 3"):
-        run_with_fakes(tmp_path, max_frames=4)
+def test_max_frames_above_thirty_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="between 1 and 30"):
+        run_with_fakes(tmp_path, max_frames=31)
 
 
 def test_runner_enforces_max_duration(tmp_path: Path) -> None:
@@ -342,6 +365,39 @@ def test_runner_writes_final_controlled_smoke_report(tmp_path: Path) -> None:
     assert payload["run_id"] == "run_0001"
 
 
+def test_capture_error_report_contains_diagnostics(tmp_path: Path) -> None:
+    result, _ = run_with_fakes(tmp_path, capture=DiagnosticCaptureFailure())  # type: ignore[arg-type]
+    payload = json.loads(result.report_path.read_text(encoding="utf-8"))
+
+    assert payload["status"]["stop_reason"] == "capture_error"
+    diagnostic = payload["capture_error_diagnostic"]
+    assert diagnostic["command"] == ["capture", "--active-window"]
+    assert diagnostic["return_code"] == 2
+    assert diagnostic["stderr_excerpt"] == "capture failed\n"
+    assert diagnostic["stdout_byte_count"] == 12
+    assert diagnostic["ppm_header"]["present"] is True
+    assert diagnostic["ppm_header"]["valid"] is False
+    assert diagnostic["exception_message"] == "capture command failed"
+
+
+def test_output_run_dir_writes_new_report_without_overwriting_old_run_dir(tmp_path: Path) -> None:
+    summary_path = write_pipeline_summary(tmp_path)
+    old_report = tmp_path / "runs" / "run_0001" / "reports" / "live_smoke_report.json"
+    old_before = old_report.read_text(encoding="utf-8")
+    output_run_dir = tmp_path / "runs" / "run_13_0a_observation_30"
+
+    result, _ = run_with_fakes(
+        tmp_path,
+        summary_path=summary_path,
+        output_run_dir=output_run_dir,
+    )
+
+    assert result.run_id == "run_13_0a_observation_30"
+    assert result.report_path == output_run_dir / "reports" / "live_smoke_report.json"
+    assert result.report_path.is_file()
+    assert old_report.read_text(encoding="utf-8") == old_before
+
+
 def test_report_does_not_claim_autonomous_planner_or_body_control(tmp_path: Path) -> None:
     result, _ = run_with_fakes(tmp_path)
     payload = json.loads(result.report_path.read_text(encoding="utf-8"))
@@ -369,6 +425,7 @@ def test_cli_help_includes_real_runtime_flags() -> None:
     assert "--allow-real-input" in result.output
     assert "--target-window-title" in result.output
     assert "--stop-file" in result.output
+    assert "--run-dir" in result.output
     assert "observation-only" in result.output
 
 
@@ -452,6 +509,7 @@ def test_cli_real_runtime_defaults_to_max_frames_one() -> None:
 
     assert result.exit_code == 0
     assert "--max-frames" in result.output
+    assert "[1<=x<=30]" in result.output
     assert "[default: 1]" in result.output
 
 

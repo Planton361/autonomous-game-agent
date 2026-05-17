@@ -443,6 +443,14 @@ def controlled_live_smoke(
         Path | None,
         typer.Option("--stop-file", help="Stop-file path for emergency stop."),
     ] = None,
+    output_run_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--run-dir",
+            "--output-run-dir",
+            help="Run directory for controlled smoke outputs.",
+        ),
+    ] = None,
     capture_command: Annotated[
         str | None,
         typer.Option(
@@ -452,8 +460,12 @@ def controlled_live_smoke(
     ] = None,
     max_frames: Annotated[
         int,
-        typer.Option("--max-frames", min=1, max=3, help="Maximum frames to capture."),
+        typer.Option("--max-frames", min=1, max=30, help="Maximum frames to capture."),
     ] = 1,
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing controlled smoke report."),
+    ] = False,
 ) -> None:
     """Run an observation-only smoke capture when all explicit safety gates pass."""
     if not user_started:
@@ -470,12 +482,18 @@ def controlled_live_smoke(
         raise click.ClickException("--target-window-title is required with --allow-real-runtime")
     try:
         pipeline = read_live_audit_pipeline_result(pipeline_summary)
+        run_id = output_run_dir.name if output_run_dir is not None else pipeline.run_id
+        resolved_stop_file = stop_file or (
+            output_run_dir / "STOP" if output_run_dir is not None else None
+        )
+        screenshots_dir = output_run_dir / "screenshots" if output_run_dir is not None else None
         bundle = build_controlled_runtime_adapters(
             allow_real_runtime=allow_real_runtime,
             allow_real_input=allow_real_input,
-            run_id=pipeline.run_id,
+            run_id=run_id,
             target_window_title=target_window_title,
-            stop_file_path=stop_file,
+            stop_file_path=resolved_stop_file,
+            screenshots_dir=screenshots_dir,
             capture_command=capture_command,
         )
         result = run_controlled_live_smoke(
@@ -488,9 +506,10 @@ def controlled_live_smoke(
             log_event=lambda event: None,
             allow_real_input=allow_real_input,
             max_frames=max_frames,
-            overwrite=True,
+            output_run_dir=output_run_dir,
+            overwrite=overwrite,
         )
-    except ValueError as exc:
+    except (FileExistsError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     typer.echo(str(result.report_path))
 
@@ -502,9 +521,17 @@ def controlled_live_smoke_validate(
         typer.Option("--report", help="Controlled live-smoke report JSON path."),
     ],
     expected_frame_count: Annotated[
-        int,
+        int | None,
         typer.Option("--expected-frame-count", min=0, help="Expected captured frame count."),
     ] = 1,
+    min_frame_count: Annotated[
+        int | None,
+        typer.Option("--min-frame-count", min=0, help="Minimum captured frame count."),
+    ] = None,
+    max_frame_count: Annotated[
+        int | None,
+        typer.Option("--max-frame-count", min=0, help="Maximum captured frame count."),
+    ] = None,
     events_jsonl: Annotated[
         Path | None,
         typer.Option("--events-jsonl", help="Optional runtime events JSONL artifact."),
@@ -522,6 +549,8 @@ def controlled_live_smoke_validate(
     validation = validate_controlled_live_smoke_artifacts(
         report_path=report,
         expected_frame_count=expected_frame_count,
+        min_frame_count=min_frame_count,
+        max_frame_count=max_frame_count,
         events_jsonl_path=events_jsonl,
     )
     output_path = output or default_validation_report_path(report)
@@ -544,6 +573,14 @@ def controlled_live_smoke_review(
         Path,
         typer.Option("--run-dir", help="Controlled live-smoke run directory."),
     ],
+    min_frame_count: Annotated[
+        int | None,
+        typer.Option("--min-frame-count", min=0, help="Minimum accepted frame count."),
+    ] = None,
+    max_frame_count: Annotated[
+        int | None,
+        typer.Option("--max-frame-count", min=0, help="Maximum accepted frame count."),
+    ] = None,
     overwrite: Annotated[
         bool,
         typer.Option("--overwrite", help="Replace an existing review summary."),
@@ -551,7 +588,11 @@ def controlled_live_smoke_review(
 ) -> None:
     """Write a review summary for existing controlled live-smoke artifacts."""
     try:
-        summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+        summary = create_controlled_live_smoke_review_summary(
+            run_dir=run_dir,
+            min_frame_count=min_frame_count,
+            max_frame_count=max_frame_count,
+        )
         path = write_controlled_live_smoke_review_summary(
             summary,
             overwrite=overwrite,

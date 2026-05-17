@@ -13,7 +13,7 @@ from fh_agent.evals.live_smoke_plan import LiveSmokeRunPlan
 from fh_agent.evals.live_smoke_report import read_live_smoke_plan
 
 RUNNER_REPORT_VERSION = "1"
-CONTROLLED_LIVE_SMOKE_MAX_FRAMES = 3
+CONTROLLED_LIVE_SMOKE_MAX_FRAMES = 30
 
 RuntimeEventType = Literal[
     "runtime_start",
@@ -79,6 +79,32 @@ class ControlledLiveSmokeEvidence(BaseModel):
     width: int | None = None
     height: int | None = None
     sha256: str | None = None
+
+
+class PpmHeaderParseDiagnostic(BaseModel):
+    """Non-image PPM header parse details for capture failures."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    present: bool
+    valid: bool
+    width: int | None = None
+    height: int | None = None
+    max_value: int | None = None
+    error: str | None = None
+
+
+class CaptureErrorDiagnostic(BaseModel):
+    """Capture failure diagnostics safe for JSON reports."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: tuple[str, ...] = ()
+    return_code: int | None = None
+    stderr_excerpt: str = ""
+    stdout_byte_count: int = 0
+    ppm_header: PpmHeaderParseDiagnostic | None = None
+    exception_message: str
 
 
 class ControlledLiveSmokeStatus(BaseModel):
@@ -152,6 +178,7 @@ class ControlledLiveSmokeReport(BaseModel):
     evidence_ids: tuple[str, ...] = ()
     screenshot_paths: tuple[Path, ...] = ()
     screenshot_evidence: tuple[ControlledLiveSmokeEvidence, ...] = ()
+    capture_error_diagnostic: CaptureErrorDiagnostic | None = None
     autonomous_planner_active: bool = False
     manager_orchestration_active: bool = False
     body_control_active: bool = False
@@ -204,6 +231,7 @@ def run_controlled_live_smoke(
     clock: Callable[[], float] = monotonic,
     now: Callable[[], datetime] | None = None,
     report_path: Path | None = None,
+    output_run_dir: Path | None = None,
     overwrite: bool = False,
 ) -> ControlledLiveSmokeResult:
     """Run a user-started observation-only smoke skeleton through injected adapters."""
@@ -230,9 +258,15 @@ def run_controlled_live_smoke(
         msg = "focus check failed with allow_real_input=True"
         raise ValueError(msg)
 
-    resolved_report_path = report_path or plan.expected_outputs.final_report_path
+    effective_run_id = output_run_dir.name if output_run_dir is not None else plan.run_id
+    resolved_report_path = _resolve_report_path(
+        plan=plan,
+        report_path=report_path,
+        output_run_dir=output_run_dir,
+    )
     events: list[ControlledLiveSmokeEvent] = []
     frames: list[ControlledLiveSmokeFrame] = []
+    capture_error_diagnostic: CaptureErrorDiagnostic | None = None
     frame_count = 0
     action_count = 0
     start = clock()
@@ -276,7 +310,8 @@ def run_controlled_live_smoke(
 
         try:
             frame = capture_frame()
-        except Exception:
+        except Exception as exc:
+            capture_error_diagnostic = _diagnostic_from_exception(exc)
             stop_reason = "capture_error"
             break
         frame_count += 1
@@ -330,7 +365,7 @@ def run_controlled_live_smoke(
         actions_requested=action_count,
     )
     result = ControlledLiveSmokeResult(
-        run_id=plan.run_id,
+        run_id=effective_run_id,
         created_at=timestamp,
         user_started=user_started,
         allow_real_input=allow_real_input,
@@ -365,9 +400,30 @@ def run_controlled_live_smoke(
             )
             for frame in frames
         ),
+        capture_error_diagnostic=capture_error_diagnostic,
     )
     write_controlled_live_smoke_report(report, resolved_report_path, overwrite=overwrite)
     return result
+
+
+def _resolve_report_path(
+    *,
+    plan: LiveSmokeRunPlan,
+    report_path: Path | None,
+    output_run_dir: Path | None,
+) -> Path:
+    if report_path is not None:
+        return report_path
+    if output_run_dir is not None:
+        return output_run_dir / "reports" / "live_smoke_report.json"
+    return plan.expected_outputs.final_report_path
+
+
+def _diagnostic_from_exception(exc: Exception) -> CaptureErrorDiagnostic:
+    diagnostic = getattr(exc, "diagnostic", None)
+    if isinstance(diagnostic, CaptureErrorDiagnostic):
+        return diagnostic
+    return CaptureErrorDiagnostic(exception_message=str(exc) or exc.__class__.__name__)
 
 
 def write_controlled_live_smoke_report(

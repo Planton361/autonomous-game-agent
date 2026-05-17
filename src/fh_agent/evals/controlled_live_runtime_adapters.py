@@ -8,7 +8,11 @@ from subprocess import run
 from typing import Protocol
 from uuid import uuid4
 
-from fh_agent.evals.controlled_live_smoke_runner import ControlledLiveSmokeFrame
+from fh_agent.evals.controlled_live_smoke_runner import (
+    CaptureErrorDiagnostic,
+    ControlledLiveSmokeFrame,
+    PpmHeaderParseDiagnostic,
+)
 
 
 class FrameCaptureBackend(Protocol):
@@ -128,16 +132,43 @@ class SubprocessPpmCaptureBackend:
             check=False,
             timeout=5.0,
         )
+        header = _ppm_header_diagnostic(completed.stdout)
         if completed.returncode != 0:
-            msg = "capture command failed"
-            raise RuntimeError(msg)
-        width, height = _ppm_dimensions(completed.stdout)
+            diagnostic = CaptureErrorDiagnostic(
+                command=self.command,
+                return_code=completed.returncode,
+                stderr_excerpt=_stderr_excerpt(completed.stderr),
+                stdout_byte_count=len(completed.stdout),
+                ppm_header=header,
+                exception_message="capture command failed",
+            )
+            raise CaptureCommandError(diagnostic) from None
+        try:
+            width, height = _ppm_dimensions(completed.stdout)
+        except ValueError as exc:
+            diagnostic = CaptureErrorDiagnostic(
+                command=self.command,
+                return_code=completed.returncode,
+                stderr_excerpt=_stderr_excerpt(completed.stderr),
+                stdout_byte_count=len(completed.stdout),
+                ppm_header=header,
+                exception_message=str(exc),
+            )
+            raise CaptureCommandError(diagnostic) from exc
         return CapturedPpmFrame(
             width=width,
             height=height,
             ppm_bytes=completed.stdout,
             captured_at=self.clock(),
         )
+
+
+class CaptureCommandError(RuntimeError):
+    """Capture command failure with JSON-safe diagnostics."""
+
+    def __init__(self, diagnostic: CaptureErrorDiagnostic) -> None:
+        super().__init__(diagnostic.exception_message)
+        self.diagnostic = diagnostic
 
 
 class StopFileEmergencyStopAdapter:
@@ -312,3 +343,49 @@ def _ppm_dimensions(payload: bytes) -> tuple[int, int]:
         msg = "unsupported PPM dimensions or max value"
         raise ValueError(msg)
     return width, height
+
+
+def _ppm_header_diagnostic(payload: bytes) -> PpmHeaderParseDiagnostic:
+    parts = payload.split(maxsplit=4)
+    if not parts:
+        return PpmHeaderParseDiagnostic(
+            present=False,
+            valid=False,
+            error="missing PPM header",
+        )
+    if len(parts) < 4 or parts[0] != b"P6":
+        return PpmHeaderParseDiagnostic(
+            present=True,
+            valid=False,
+            error="capture command must emit binary PPM P6 data",
+        )
+    try:
+        width = int(parts[1])
+        height = int(parts[2])
+        max_value = int(parts[3])
+    except ValueError:
+        return PpmHeaderParseDiagnostic(
+            present=True,
+            valid=False,
+            error="invalid PPM header from capture command",
+        )
+    if width <= 0 or height <= 0 or max_value != 255:
+        return PpmHeaderParseDiagnostic(
+            present=True,
+            valid=False,
+            width=width,
+            height=height,
+            max_value=max_value,
+            error="unsupported PPM dimensions or max value",
+        )
+    return PpmHeaderParseDiagnostic(
+        present=True,
+        valid=True,
+        width=width,
+        height=height,
+        max_value=max_value,
+    )
+
+
+def _stderr_excerpt(payload: bytes, *, limit: int = 500) -> str:
+    return payload.decode("utf-8", errors="replace")[:limit]

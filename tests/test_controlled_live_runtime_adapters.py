@@ -9,6 +9,7 @@ import pytest
 
 import fh_agent.evals.controlled_live_runtime_adapters as adapters_module
 from fh_agent.evals.controlled_live_runtime_adapters import (
+    CaptureCommandError,
     FocusCheckAdapter,
     OneFrameCaptureAdapter,
     StopFileEmergencyStopAdapter,
@@ -204,6 +205,51 @@ def test_concrete_capture_backend_writes_screenshot_from_fake_backend(tmp_path: 
 
     assert frame.screenshot_path is not None
     assert frame.screenshot_path.read_bytes() == b"P6\n1 1\n255\nabc"
+
+
+def test_subprocess_capture_backend_accepts_synthetic_ppm_p6() -> None:
+    backend = SubprocessPpmCaptureBackend(
+        (sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'P6\\n2 1\\n255\\nabcdef')"),
+        clock=lambda: FIXED_CREATED_AT,
+    )
+
+    frame = backend.capture()
+
+    assert frame.width == 2
+    assert frame.height == 1
+    assert frame.to_ppm_bytes() == b"P6\n2 1\n255\nabcdef"
+
+
+def test_subprocess_capture_error_contains_diagnostics_without_image_data() -> None:
+    backend = SubprocessPpmCaptureBackend(
+        (
+            sys.executable,
+            "-c",
+            "import sys; sys.stderr.write('bad capture\\n'); "
+            "sys.stdout.buffer.write(b'P6\\n10240 2880\\n255\\nabc'); sys.exit(7)",
+        ),
+        clock=lambda: FIXED_CREATED_AT,
+    )
+
+    with pytest.raises(CaptureCommandError) as exc_info:
+        backend.capture()
+
+    diagnostic = exc_info.value.diagnostic
+    assert diagnostic.command[0] == sys.executable
+    assert diagnostic.return_code == 7
+    assert diagnostic.stderr_excerpt == "bad capture\n"
+    assert diagnostic.stdout_byte_count == len(b"P6\n10240 2880\n255\nabc")
+    assert diagnostic.ppm_header is not None
+    assert diagnostic.ppm_header.valid is True
+    assert diagnostic.ppm_header.width == 10240
+    assert set(diagnostic.model_dump()) == {
+        "command",
+        "return_code",
+        "stderr_excerpt",
+        "stdout_byte_count",
+        "ppm_header",
+        "exception_message",
+    }
 
 
 def test_concrete_capture_backend_returns_evidence_metadata(tmp_path: Path) -> None:
