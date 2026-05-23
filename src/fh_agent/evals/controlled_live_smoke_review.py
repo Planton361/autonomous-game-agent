@@ -53,6 +53,15 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
     duration_seconds: float | None = None
     average_capture_interval_seconds: float | None = None
     action_logging_mode: str = "disabled"
+    dryrun_orchestration_mode: str = "disabled"
+    dryrun_task_count: int = 0
+    dryrun_skill_count: int = 0
+    allowed_dryrun_task_count: int = 0
+    forbidden_dryrun_task_count: int = 0
+    allowed_dryrun_action_intent_count: int = 0
+    forbidden_dryrun_action_intent_count: int = 0
+    manager_dryrun_active: bool = False
+    body_dryrun_active: bool = False
     actions_requested: int
     inputs_sent: int = 0
     allowed_action_intent_count: int = 0
@@ -108,12 +117,21 @@ def create_controlled_live_smoke_review_summary(
     actions_requested = _int_value(status, "actions_requested")
     inputs_sent = _int_value(smoke_report, "inputs_sent")
     action_logging_mode = _str_value(smoke_report, "action_logging_mode", default="disabled")
+    dryrun_orchestration_mode = _str_value(
+        smoke_report,
+        "dryrun_orchestration_mode",
+        default="disabled",
+    )
+    dryrun_tasks = _list_value(smoke_report, "dryrun_tasks")
+    dryrun_task_count = _int_value(smoke_report, "dryrun_task_count")
+    dryrun_skill_count = _int_value(smoke_report, "dryrun_skill_count")
     requested_actions = _list_value(smoke_report, "requested_actions")
     executed_actions = _list_value(smoke_report, "executed_actions")
     action_counts = _action_intent_counts(
         requested_actions=requested_actions,
         executed_actions=executed_actions,
     )
+    dryrun_counts = _dryrun_counts(dryrun_tasks=dryrun_tasks)
     no_input_sent = smoke_report.get("no_input_sent") is True
     stop_reason = str(status.get("stop_reason", ""))
     duration_seconds, average_capture_interval_seconds = _capture_timing(smoke_report)
@@ -122,6 +140,8 @@ def create_controlled_live_smoke_review_summary(
     body_active = smoke_report.get("body_control_active") is True
     learning_active = smoke_report.get("learning_active") is True
     bridge_active = smoke_report.get("bridge_active") is True
+    manager_dryrun_active = smoke_report.get("manager_dryrun_active") is True
+    body_dryrun_active = smoke_report.get("body_dryrun_active") is True
     failure_reasons = _failure_reasons(
         mode=mode,
         preflight_ok=preflight.ok,
@@ -134,6 +154,11 @@ def create_controlled_live_smoke_review_summary(
         screenshot_count=screenshot_count,
         evidence_count=evidence_count,
         action_logging_mode=action_logging_mode,
+        dryrun_orchestration_mode=dryrun_orchestration_mode,
+        dryrun_task_count=dryrun_task_count,
+        dryrun_skill_count=dryrun_skill_count,
+        dryrun_tasks=dryrun_tasks,
+        dryrun_counts=dryrun_counts,
         actions_requested=actions_requested,
         inputs_sent=inputs_sent,
         requested_actions=requested_actions,
@@ -146,6 +171,8 @@ def create_controlled_live_smoke_review_summary(
         body_active=body_active,
         learning_active=learning_active,
         bridge_active=bridge_active,
+        manager_dryrun_active=manager_dryrun_active,
+        body_dryrun_active=body_dryrun_active,
     )
     conclusion: ReviewConclusion = "passed" if not failure_reasons else "failed"
 
@@ -166,6 +193,15 @@ def create_controlled_live_smoke_review_summary(
         duration_seconds=duration_seconds,
         average_capture_interval_seconds=average_capture_interval_seconds,
         action_logging_mode=action_logging_mode,
+        dryrun_orchestration_mode=dryrun_orchestration_mode,
+        dryrun_task_count=dryrun_task_count,
+        dryrun_skill_count=dryrun_skill_count,
+        allowed_dryrun_task_count=dryrun_counts["allowed_tasks"],
+        forbidden_dryrun_task_count=dryrun_counts["forbidden_tasks"],
+        allowed_dryrun_action_intent_count=dryrun_counts["allowed_actions"],
+        forbidden_dryrun_action_intent_count=dryrun_counts["forbidden_actions"],
+        manager_dryrun_active=manager_dryrun_active,
+        body_dryrun_active=body_dryrun_active,
         actions_requested=actions_requested,
         inputs_sent=inputs_sent,
         allowed_action_intent_count=action_counts["allowed"],
@@ -311,7 +347,7 @@ def _action_intent_counts(
             and action.get("requested") is True
             and action.get("executed") is False
             and action.get("input_sent") is False
-            and action.get("reason") == "noop_action_logging"
+            and action.get("reason") in {"noop_action_logging", "dryrun_orchestration_wait_only"}
         )
         if safe:
             allowed += 1
@@ -323,6 +359,44 @@ def _action_intent_counts(
         "allowed": allowed,
         "forbidden": forbidden,
         "executed": max(len(executed_actions), requested_executed),
+    }
+
+
+def _dryrun_counts(*, dryrun_tasks: list[object]) -> dict[str, int]:
+    allowed_tasks = 0
+    forbidden_tasks = 0
+    allowed_actions = 0
+    forbidden_actions = 0
+    for task in dryrun_tasks:
+        if not isinstance(task, dict):
+            forbidden_tasks += 1
+            forbidden_actions += 1
+            continue
+        action = task.get("action_intent")
+        safe_task = (
+            task.get("static_goal") == "maintain_observation_without_input"
+            and task.get("selected_skill") == "wait"
+            and isinstance(action, dict)
+        )
+        safe_action = (
+            isinstance(action, dict)
+            and action.get("action") == "wait"
+            and action.get("requested") is True
+            and action.get("executed") is False
+            and action.get("input_sent") is False
+            and action.get("reason") == "dryrun_orchestration_wait_only"
+        )
+        if safe_task and safe_action:
+            allowed_tasks += 1
+            allowed_actions += 1
+        else:
+            forbidden_tasks += 1
+            forbidden_actions += 1
+    return {
+        "allowed_tasks": allowed_tasks,
+        "forbidden_tasks": forbidden_tasks,
+        "allowed_actions": allowed_actions,
+        "forbidden_actions": forbidden_actions,
     }
 
 
@@ -339,6 +413,11 @@ def _failure_reasons(
     screenshot_count: int,
     evidence_count: int,
     action_logging_mode: str,
+    dryrun_orchestration_mode: str,
+    dryrun_task_count: int,
+    dryrun_skill_count: int,
+    dryrun_tasks: list[object],
+    dryrun_counts: dict[str, int],
     actions_requested: int,
     inputs_sent: int,
     requested_actions: list[object],
@@ -351,6 +430,8 @@ def _failure_reasons(
     body_active: bool,
     learning_active: bool,
     bridge_active: bool,
+    manager_dryrun_active: bool,
+    body_dryrun_active: bool,
 ) -> list[str]:
     reasons: list[str] = []
     if mode != "official_screen_only":
@@ -375,7 +456,40 @@ def _failure_reasons(
         reasons.append("evidence_count does not match captured_frame_count")
     if inputs_sent != 0:
         reasons.append("inputs_sent is not zero")
-    if action_logging_mode == "disabled":
+    if dryrun_orchestration_mode == "wait_only":
+        if actions_requested != len(requested_actions):
+            reasons.append("actions_requested does not match requested_actions")
+        if actions_requested < 1:
+            reasons.append("dryrun wait_only did not request any action intents")
+        if dryrun_task_count < 1:
+            reasons.append("dryrun_task_count is below 1")
+        if dryrun_skill_count < 1:
+            reasons.append("dryrun_skill_count is below 1")
+        if dryrun_task_count != len(dryrun_tasks):
+            reasons.append("dryrun_task_count does not match dryrun_tasks")
+        if dryrun_skill_count != len(dryrun_tasks):
+            reasons.append("dryrun_skill_count does not match dryrun_tasks")
+        if dryrun_counts["forbidden_tasks"] > 0:
+            reasons.append("forbidden dryrun tasks are present")
+        if dryrun_counts["forbidden_actions"] > 0:
+            reasons.append("forbidden dryrun action intents are present")
+        action_counts = _action_intent_counts(
+            requested_actions=requested_actions,
+            executed_actions=executed_actions,
+        )
+        if action_counts["forbidden"] > 0:
+            reasons.append("forbidden action intents are present")
+        if action_counts["executed"] > 0:
+            reasons.append("executed action intents are present")
+        if not manager_dryrun_active:
+            reasons.append("manager_dryrun_active is false")
+        if not body_dryrun_active:
+            reasons.append("body_dryrun_active is false")
+    elif dryrun_orchestration_mode != "disabled":
+        reasons.append("dryrun_orchestration_mode is not allowed")
+    elif dryrun_task_count != 0 or dryrun_skill_count != 0 or dryrun_tasks:
+        reasons.append("dryrun tasks are present while dryrun is disabled")
+    elif action_logging_mode == "disabled":
         if actions_requested != 0:
             reasons.append("actions_requested is not zero")
         if requested_actions:

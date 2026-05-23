@@ -178,6 +178,7 @@ def run_with_fakes(
     max_frames: int | None = None,
     output_run_dir: Path | None = None,
     action_logging_mode: str = "disabled",
+    dryrun_orchestration_mode: str = "disabled",
     noop_action_frequency: int = 1,
 ) -> tuple[ControlledLiveSmokeResult, list[ControlledLiveSmokeEvent]]:
     logged, logger = event_log()
@@ -195,6 +196,7 @@ def run_with_fakes(
         output_run_dir=output_run_dir,
         max_frames=max_frames,
         action_logging_mode=action_logging_mode,  # type: ignore[arg-type]
+        dryrun_orchestration_mode=dryrun_orchestration_mode,  # type: ignore[arg-type]
         noop_action_frequency=noop_action_frequency,
         overwrite=True,
     )
@@ -351,6 +353,53 @@ def test_wait_only_noop_frequency_controls_intent_count(tmp_path: Path) -> None:
     assert payload["requested_actions"][0]["frame_index"] == 1
 
 
+def test_runner_logs_dryrun_wait_only_task_path_without_inputs(tmp_path: Path) -> None:
+    summary_path = write_pipeline_summary(
+        tmp_path,
+        safety_limits=LiveRunSafetyLimits(max_frames=3, max_actions=0),
+    )
+
+    result, logged = run_with_fakes(
+        tmp_path,
+        summary_path=summary_path,
+        max_frames=3,
+        dryrun_orchestration_mode="wait_only",
+    )
+    payload = json.loads(result.report_path.read_text(encoding="utf-8"))
+
+    assert result.status.actions_requested == 3
+    assert payload["action_logging_mode"] == "disabled"
+    assert payload["dryrun_orchestration_mode"] == "wait_only"
+    assert payload["manager_dryrun_active"] is True
+    assert payload["body_dryrun_active"] is True
+    assert payload["manager_orchestration_active"] is False
+    assert payload["body_control_active"] is False
+    assert payload["inputs_sent"] == 0
+    assert payload["no_input_sent"] is True
+    assert payload["dryrun_task_count"] == 3
+    assert payload["dryrun_skill_count"] == 3
+    assert len(payload["dryrun_tasks"]) == 3
+    assert len(payload["requested_actions"]) == 3
+    assert payload["executed_actions"] == []
+    assert {task["static_goal"] for task in payload["dryrun_tasks"]} == {
+        "maintain_observation_without_input"
+    }
+    assert {task["selected_skill"] for task in payload["dryrun_tasks"]} == {"wait"}
+    assert all(task["action_intent"]["action"] == "wait" for task in payload["dryrun_tasks"])
+    assert all(task["action_intent"]["executed"] is False for task in payload["dryrun_tasks"])
+    assert all(task["action_intent"]["input_sent"] is False for task in payload["dryrun_tasks"])
+    assert [event.event_type for event in logged].count("dryrun_task_intent") == 3
+
+
+def test_runner_rejects_combined_dryrun_and_wait_only_noop(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        run_with_fakes(
+            tmp_path,
+            action_logging_mode="wait_only_noop",
+            dryrun_orchestration_mode="wait_only",
+        )
+
+
 def test_runner_rejects_invalid_noop_action_frequency(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="noop_action_frequency"):
         run_with_fakes(
@@ -486,6 +535,7 @@ def test_cli_help_includes_real_runtime_flags() -> None:
     assert "--stop-file" in result.output
     assert "--run-dir" in result.output
     assert "--action-logging-mode" in result.output
+    assert "dryrun-orchestrati" in result.output
     assert "noop-action" in result.output
     assert "observation-only" in result.output
 

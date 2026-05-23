@@ -473,6 +473,13 @@ def controlled_live_smoke(
             help="Action intent logging mode: disabled or wait_only_noop.",
         ),
     ] = "disabled",
+    dryrun_orchestration: Annotated[
+        str,
+        typer.Option(
+            "--dryrun-orchestration",
+            help="Dry-run task/skill orchestration mode: disabled or wait_only.",
+        ),
+    ] = "disabled",
     noop_action_frequency: Annotated[
         int,
         typer.Option(
@@ -499,6 +506,12 @@ def controlled_live_smoke(
         )
     if action_logging_mode not in {"disabled", "wait_only_noop"}:
         raise click.ClickException("--action-logging-mode must be disabled or wait_only_noop")
+    if dryrun_orchestration not in {"disabled", "wait_only"}:
+        raise click.ClickException("--dryrun-orchestration must be disabled or wait_only")
+    if dryrun_orchestration == "wait_only" and action_logging_mode != "disabled":
+        raise click.ClickException(
+            "--dryrun-orchestration wait_only cannot be combined with wait_only_noop logging"
+        )
     if target_window_title is None:
         raise click.ClickException("--target-window-title is required with --allow-real-runtime")
     try:
@@ -529,6 +542,7 @@ def controlled_live_smoke(
             max_frames=max_frames,
             output_run_dir=output_run_dir,
             action_logging_mode=action_logging_mode,  # type: ignore[arg-type]
+            dryrun_orchestration_mode=dryrun_orchestration,  # type: ignore[arg-type]
             noop_action_frequency=noop_action_frequency,
             overwrite=overwrite,
         )

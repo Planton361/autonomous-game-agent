@@ -16,6 +16,7 @@ ALLOWED_RUNTIME_EVENT_KINDS: tuple[str, ...] = (
     "frame_captured",
     "noop_action_intent",
     "wait_intent",
+    "dryrun_task_intent",
     "stop_condition_triggered",
     "runtime_end",
 )
@@ -125,6 +126,7 @@ def validate_controlled_live_smoke_artifacts(
     captured_frame_count = _int_value(payload, "captured_frame_count")
     status = _object_value(payload, "status")
     action_logging_mode = _action_logging_mode(payload)
+    dryrun_orchestration_mode = _dryrun_orchestration_mode(payload)
     checks = [
         _check(
             "report_model_valid",
@@ -167,6 +169,7 @@ def validate_controlled_live_smoke_artifacts(
         ),
         _check_screenshot_paths(payload),
         _check_evidence_ids(payload),
+        _check_dryrun_orchestration_mode(dryrun_orchestration_mode),
         _check_count_matches(
             "screenshot_count_matches_frame_count",
             len(_list_value(payload, "screenshot_paths")),
@@ -180,9 +183,20 @@ def validate_controlled_live_smoke_artifacts(
             "evidence_count",
         ),
         _check_action_logging_mode(action_logging_mode),
-        _check_actions_requested_policy(payload, status, action_logging_mode),
-        _check_requested_actions(payload, status, action_logging_mode),
+        _check_actions_requested_policy(
+            payload,
+            status,
+            action_logging_mode,
+            dryrun_orchestration_mode,
+        ),
+        _check_requested_actions(
+            payload,
+            status,
+            action_logging_mode,
+            dryrun_orchestration_mode,
+        ),
         _check_executed_actions(payload),
+        _check_dryrun_tasks(payload, dryrun_orchestration_mode),
         _check(
             "stop_reason_max_frames_reached",
             status.get("stop_reason") == "max_frames_reached",
@@ -355,6 +369,11 @@ def _action_logging_mode(payload: dict[str, object]) -> str:
     return value if isinstance(value, str) else "disabled"
 
 
+def _dryrun_orchestration_mode(payload: dict[str, object]) -> str:
+    value = payload.get("dryrun_orchestration_mode")
+    return value if isinstance(value, str) else "disabled"
+
+
 def _format_bounds(*, min_frame_count: int | None, max_frame_count: int | None) -> str:
     lower = "*" if min_frame_count is None else str(min_frame_count)
     upper = "*" if max_frame_count is None else str(max_frame_count)
@@ -385,12 +404,30 @@ def _check_action_logging_mode(mode: str) -> ControlledLiveSmokeValidationCheck:
     )
 
 
+def _check_dryrun_orchestration_mode(mode: str) -> ControlledLiveSmokeValidationCheck:
+    return _check(
+        "dryrun_orchestration_mode_allowed",
+        mode in {"disabled", "wait_only"},
+        "dryrun_orchestration_mode is allowed",
+        "dryrun_orchestration_mode must be disabled or wait_only",
+    )
+
+
 def _check_actions_requested_policy(
     payload: dict[str, object],
     status: dict[str, object],
     action_logging_mode: str,
+    dryrun_orchestration_mode: str,
 ) -> ControlledLiveSmokeValidationCheck:
     actions_requested = _int_value(status, "actions_requested")
+    if dryrun_orchestration_mode == "wait_only":
+        return _check(
+            "actions_requested_policy",
+            actions_requested > 0
+            and actions_requested == len(_list_value(payload, "requested_actions")),
+            "actions_requested matches requested dry-run wait intents",
+            "actions_requested must match requested_actions in wait_only dry-run mode",
+        )
     if action_logging_mode == "wait_only_noop":
         return _check(
             "actions_requested_policy",
@@ -410,9 +447,10 @@ def _check_requested_actions(
     payload: dict[str, object],
     status: dict[str, object],
     action_logging_mode: str,
+    dryrun_orchestration_mode: str,
 ) -> ControlledLiveSmokeValidationCheck:
     requested_actions = _list_value(payload, "requested_actions")
-    if action_logging_mode == "disabled":
+    if action_logging_mode == "disabled" and dryrun_orchestration_mode == "disabled":
         return _check(
             "requested_actions_empty",
             not requested_actions,
@@ -432,12 +470,22 @@ def _check_requested_actions(
             invalid.append(f"{index}:executed")
         if action.get("input_sent") is not False:
             invalid.append(f"{index}:input_sent")
-        if action.get("reason") != "noop_action_logging":
+        expected_reason = (
+            "dryrun_orchestration_wait_only"
+            if dryrun_orchestration_mode == "wait_only"
+            else "noop_action_logging"
+        )
+        if action.get("reason") != expected_reason:
             invalid.append(f"{index}:reason")
     actions_requested = _int_value(status, "actions_requested")
     valid = bool(requested_actions) and not invalid and actions_requested == len(requested_actions)
+    check_name = (
+        "dryrun_wait_only_requested_actions_safe"
+        if dryrun_orchestration_mode == "wait_only"
+        else "wait_only_noop_requested_actions_safe"
+    )
     return _check(
-        "wait_only_noop_requested_actions_safe",
+        check_name,
         valid,
         "requested actions are non-executed wait intents",
         f"requested actions must be non-executed wait intents: {', '.join(invalid)}",
@@ -451,6 +499,59 @@ def _check_executed_actions(payload: dict[str, object]) -> ControlledLiveSmokeVa
         not executed_actions,
         "executed_actions is empty",
         "executed_actions must remain empty",
+    )
+
+
+def _check_dryrun_tasks(
+    payload: dict[str, object],
+    dryrun_orchestration_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    dryrun_tasks = _list_value(payload, "dryrun_tasks")
+    task_count = _int_value(payload, "dryrun_task_count")
+    skill_count = _int_value(payload, "dryrun_skill_count")
+    if dryrun_orchestration_mode == "disabled":
+        valid = not dryrun_tasks and task_count == 0 and skill_count == 0
+        return _check(
+            "dryrun_tasks_disabled",
+            valid,
+            "dry-run tasks are disabled",
+            "dry-run tasks must be empty when dryrun orchestration is disabled",
+        )
+
+    invalid: list[str] = []
+    for index, task in enumerate(dryrun_tasks):
+        if not isinstance(task, dict):
+            invalid.append(f"{index}:not_object")
+            continue
+        if task.get("static_goal") != "maintain_observation_without_input":
+            invalid.append(f"{index}:static_goal")
+        if task.get("selected_skill") != "wait":
+            invalid.append(f"{index}:selected_skill")
+        action_intent = task.get("action_intent")
+        if not isinstance(action_intent, dict):
+            invalid.append(f"{index}:action_intent")
+            continue
+        if action_intent.get("action") != "wait":
+            invalid.append(f"{index}:action")
+        if action_intent.get("requested") is not True:
+            invalid.append(f"{index}:requested")
+        if action_intent.get("executed") is not False:
+            invalid.append(f"{index}:executed")
+        if action_intent.get("input_sent") is not False:
+            invalid.append(f"{index}:input_sent")
+        if action_intent.get("reason") != "dryrun_orchestration_wait_only":
+            invalid.append(f"{index}:reason")
+    valid = (
+        bool(dryrun_tasks)
+        and not invalid
+        and task_count == len(dryrun_tasks)
+        and skill_count == len(dryrun_tasks)
+    )
+    return _check(
+        "dryrun_wait_only_tasks_safe",
+        valid,
+        "dry-run wait-only tasks are safe",
+        f"dry-run wait-only tasks must be static wait tasks: {', '.join(invalid)}",
     )
 
 

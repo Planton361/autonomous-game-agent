@@ -26,6 +26,11 @@ def write_review_fixture(
     actions_requested: int = 0,
     inputs_sent: int = 0,
     action_logging_mode: str = "disabled",
+    dryrun_orchestration_mode: str = "disabled",
+    dryrun_action: str = "wait",
+    dryrun_selected_skill: str = "wait",
+    dryrun_executed: bool = False,
+    dryrun_input_sent: bool = False,
     requested_action: str = "wait",
     requested_action_executed: bool = False,
     requested_action_input_sent: bool = False,
@@ -67,6 +72,25 @@ def write_review_fixture(
         }
         for index in range(actions_requested)
     ]
+    dryrun_tasks = []
+    if dryrun_orchestration_mode == "wait_only":
+        dryrun_action_intent = {
+            "action": dryrun_action,
+            "requested": True,
+            "executed": dryrun_executed,
+            "input_sent": dryrun_input_sent,
+            "reason": "dryrun_orchestration_wait_only",
+            "frame_index": 0,
+        }
+        requested_actions = [dryrun_action_intent]
+        dryrun_tasks = [
+            {
+                "task_id": "dryrun-wait-0",
+                "static_goal": "maintain_observation_without_input",
+                "selected_skill": dryrun_selected_skill,
+                "action_intent": dryrun_action_intent,
+            }
+        ]
 
     (reports_dir / "preflight_report.json").write_text(
         json.dumps(
@@ -124,8 +148,16 @@ def write_review_fixture(
                 "no_input_sent": no_input_sent,
                 "inputs_sent": inputs_sent,
                 "action_logging_mode": action_logging_mode,
+                "dryrun_orchestration_mode": dryrun_orchestration_mode,
+                "dryrun_task_count": len(dryrun_tasks),
+                "dryrun_skill_count": len(dryrun_tasks),
+                "dryrun_tasks": dryrun_tasks,
+                "manager_dryrun_active": dryrun_orchestration_mode == "wait_only",
+                "body_dryrun_active": dryrun_orchestration_mode == "wait_only",
                 "requested_actions": requested_actions,
-                "executed_actions": requested_actions if requested_action_executed else [],
+                "executed_actions": requested_actions
+                if requested_action_executed or dryrun_executed
+                else [],
                 "captured_frame_count": frame_count,
                 "evidence_ids": evidence_ids,
                 "screenshot_paths": screenshot_paths,
@@ -280,6 +312,106 @@ def test_review_summary_passes_for_wait_only_noop_actions(tmp_path: Path) -> Non
     assert summary.allowed_action_intent_count == 30
     assert summary.forbidden_action_intent_count == 0
     assert summary.executed_action_count == 0
+
+
+def test_review_summary_passes_for_dryrun_wait_only_task(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=1,
+        dryrun_orchestration_mode="wait_only",
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "passed"
+    assert summary.action_logging_mode == "disabled"
+    assert summary.dryrun_orchestration_mode == "wait_only"
+    assert summary.dryrun_task_count == 1
+    assert summary.dryrun_skill_count == 1
+    assert summary.allowed_dryrun_task_count == 1
+    assert summary.forbidden_dryrun_task_count == 0
+    assert summary.allowed_dryrun_action_intent_count == 1
+    assert summary.forbidden_dryrun_action_intent_count == 0
+    assert summary.manager_dryrun_active is True
+    assert summary.body_dryrun_active is True
+    assert summary.manager_active is False
+    assert summary.body_active is False
+    assert summary.allowed_action_intent_count == 1
+    assert summary.forbidden_action_intent_count == 0
+    assert summary.executed_action_count == 0
+
+
+@pytest.mark.parametrize("action", ["move_up_short", "confirm", "cancel", "open_menu"])
+def test_review_summary_fails_dryrun_wait_only_with_forbidden_action(
+    tmp_path: Path,
+    action: str,
+) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=1,
+        dryrun_orchestration_mode="wait_only",
+        dryrun_action=action,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert summary.forbidden_dryrun_task_count == 1
+    assert summary.forbidden_dryrun_action_intent_count == 1
+    assert "forbidden dryrun tasks are present" in summary.failure_reasons
+    assert "forbidden dryrun action intents are present" in summary.failure_reasons
+
+
+def test_review_summary_fails_dryrun_wait_only_with_executed_action(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=1,
+        dryrun_orchestration_mode="wait_only",
+        dryrun_executed=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert summary.executed_action_count == 1
+    assert "executed action intents are present" in summary.failure_reasons
+
+
+def test_review_summary_fails_dryrun_wait_only_with_inputs_sent(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=1,
+        inputs_sent=1,
+        no_input_sent=False,
+        dryrun_orchestration_mode="wait_only",
+        dryrun_input_sent=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert "report does not confirm no_input_sent=true" in summary.failure_reasons
+    assert "inputs_sent is not zero" in summary.failure_reasons
+    assert "forbidden dryrun action intents are present" in summary.failure_reasons
+
+
+def test_review_summary_fails_dryrun_wait_only_with_planner_active(tmp_path: Path) -> None:
+    run_dir = write_review_fixture(
+        tmp_path,
+        frame_count=30,
+        actions_requested=1,
+        dryrun_orchestration_mode="wait_only",
+        planner_active=True,
+    )
+
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+    assert summary.conclusion == "failed"
+    assert "planner_active is true" in summary.failure_reasons
 
 
 def test_review_summary_fails_wait_only_noop_with_forbidden_action(tmp_path: Path) -> None:

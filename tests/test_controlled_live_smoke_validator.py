@@ -95,6 +95,45 @@ def add_wait_only_noop_actions(
     return payload
 
 
+def add_dryrun_wait_only_task(
+    payload: dict[str, object],
+    *,
+    action: str = "wait",
+    selected_skill: str = "wait",
+    executed: bool = False,
+    input_sent: bool = False,
+    planner_active: bool = False,
+) -> dict[str, object]:
+    action_intent = {
+        "action": action,
+        "requested": True,
+        "executed": executed,
+        "input_sent": input_sent,
+        "reason": "dryrun_orchestration_wait_only",
+        "frame_index": 0,
+    }
+    payload["dryrun_orchestration_mode"] = "wait_only"
+    payload["manager_dryrun_active"] = True
+    payload["body_dryrun_active"] = True
+    payload["dryrun_task_count"] = 1
+    payload["dryrun_skill_count"] = 1
+    payload["dryrun_tasks"] = [
+        {
+            "task_id": "dryrun-wait-0",
+            "static_goal": "maintain_observation_without_input",
+            "selected_skill": selected_skill,
+            "action_intent": action_intent,
+        }
+    ]
+    payload["requested_actions"] = [action_intent]
+    payload["executed_actions"] = [action_intent] if executed else []
+    payload["inputs_sent"] = 1 if input_sent else 0
+    payload["no_input_sent"] = not input_sent
+    payload["autonomous_planner_active"] = planner_active
+    payload["status"]["actions_requested"] = 1  # type: ignore[index]
+    return payload
+
+
 def write_report(tmp_path: Path, payload: dict[str, object] | None = None) -> Path:
     path = tmp_path / "controlled_report.json"
     path.write_text(
@@ -314,6 +353,141 @@ def test_wait_only_noop_rejects_executed_true(tmp_path: Path) -> None:
     assert any(
         check.name == "wait_only_noop_requested_actions_safe" and not check.passed
         for check in validation.checks
+    )
+
+
+def test_dryrun_wait_only_with_wait_task_and_no_inputs_passes(tmp_path: Path) -> None:
+    payload = add_dryrun_wait_only_task(make_report_payload(tmp_path, frame_count=30))
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+    assert any(
+        check.name == "dryrun_wait_only_tasks_safe" and check.passed for check in validation.checks
+    )
+    assert any(
+        check.name == "dryrun_wait_only_requested_actions_safe" and check.passed
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize("action", ["move_up_short", "confirm", "cancel", "open_menu"])
+def test_dryrun_wait_only_rejects_non_wait_actions(tmp_path: Path, action: str) -> None:
+    payload = add_dryrun_wait_only_task(
+        make_report_payload(tmp_path, frame_count=30),
+        action=action,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "dryrun_wait_only_tasks_safe" and not check.passed
+        for check in validation.checks
+    )
+    assert any(
+        check.name == "dryrun_wait_only_requested_actions_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_dryrun_wait_only_rejects_non_wait_skill(tmp_path: Path) -> None:
+    payload = add_dryrun_wait_only_task(
+        make_report_payload(tmp_path, frame_count=30),
+        selected_skill="confirm",
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "dryrun_wait_only_tasks_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_dryrun_wait_only_rejects_executed_true(tmp_path: Path) -> None:
+    payload = add_dryrun_wait_only_task(
+        make_report_payload(tmp_path, frame_count=30),
+        executed=True,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "executed_actions_empty" and not check.passed for check in validation.checks
+    )
+    assert any(
+        check.name == "dryrun_wait_only_tasks_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_dryrun_wait_only_rejects_inputs_sent(tmp_path: Path) -> None:
+    payload = add_dryrun_wait_only_task(
+        make_report_payload(tmp_path, frame_count=30),
+        input_sent=True,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(check.name == "inputs_sent_zero" and not check.passed for check in validation.checks)
+    assert any(check.name == "no_input_sent" and not check.passed for check in validation.checks)
+    assert any(
+        check.name == "dryrun_wait_only_tasks_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_dryrun_wait_only_rejects_planner_active(tmp_path: Path) -> None:
+    payload = add_dryrun_wait_only_task(
+        make_report_payload(tmp_path, frame_count=30),
+        planner_active=True,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "autonomy_flags_inactive" and not check.passed for check in validation.checks
     )
 
 

@@ -20,10 +20,12 @@ RuntimeEventType = Literal[
     "frame_captured",
     "noop_action_intent",
     "wait_intent",
+    "dryrun_task_intent",
     "stop_condition_triggered",
     "runtime_end",
 ]
 ActionLoggingMode = Literal["disabled", "wait_only_noop"]
+DryRunOrchestrationMode = Literal["disabled", "wait_only"]
 StopReason = Literal[
     "completed",
     "focus_lost",
@@ -95,6 +97,17 @@ class ControlledLiveSmokeActionIntent(BaseModel):
     frame_index: int | None = None
 
 
+class ControlledLiveSmokeDryRunTask(BaseModel):
+    """A static dry-run task/skill path that may request only a non-executed wait intent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    static_goal: Literal["maintain_observation_without_input"]
+    selected_skill: Literal["wait"]
+    action_intent: ControlledLiveSmokeActionIntent
+
+
 class PpmHeaderParseDiagnostic(BaseModel):
     """Non-image PPM header parse details for capture failures."""
 
@@ -145,6 +158,7 @@ class ControlledLiveSmokeEvent(BaseModel):
     evidence_id: str | None = None
     screenshot_path: Path | None = None
     action_intent: ControlledLiveSmokeActionIntent | None = None
+    dryrun_task: ControlledLiveSmokeDryRunTask | None = None
     stop_reason: StopReason | None = None
 
 
@@ -191,6 +205,12 @@ class ControlledLiveSmokeReport(BaseModel):
     no_input_sent: bool = True
     inputs_sent: int = 0
     action_logging_mode: ActionLoggingMode = "disabled"
+    dryrun_orchestration_mode: DryRunOrchestrationMode = "disabled"
+    dryrun_task_count: int = 0
+    dryrun_skill_count: int = 0
+    dryrun_tasks: tuple[ControlledLiveSmokeDryRunTask, ...] = ()
+    manager_dryrun_active: bool = False
+    body_dryrun_active: bool = False
     requested_actions: tuple[ControlledLiveSmokeActionIntent, ...] = ()
     executed_actions: tuple[ControlledLiveSmokeActionIntent, ...] = ()
     captured_frame_count: int
@@ -218,6 +238,39 @@ class ControlledLiveSmokeReport(BaseModel):
         if self.executed_actions:
             msg = "controlled smoke report must not claim actions were executed"
             raise ValueError(msg)
+        if self.dryrun_orchestration_mode == "disabled":
+            if (
+                self.dryrun_task_count != 0
+                or self.dryrun_skill_count != 0
+                or self.dryrun_tasks
+                or self.manager_dryrun_active
+                or self.body_dryrun_active
+            ):
+                msg = "disabled dry-run orchestration must not report dry-run tasks"
+                raise ValueError(msg)
+        elif self.dryrun_orchestration_mode == "wait_only":
+            if not self.dryrun_tasks:
+                msg = "wait-only dry-run orchestration must report dry-run tasks"
+                raise ValueError(msg)
+            if self.dryrun_task_count != len(self.dryrun_tasks):
+                msg = "dryrun_task_count must match dryrun_tasks"
+                raise ValueError(msg)
+            if self.dryrun_skill_count != len(self.dryrun_tasks):
+                msg = "dryrun_skill_count must match dryrun_tasks"
+                raise ValueError(msg)
+            if not self.manager_dryrun_active or not self.body_dryrun_active:
+                msg = "wait-only dry-run orchestration must mark dry-run layers active"
+                raise ValueError(msg)
+            unsafe_tasks = [
+                task
+                for task in self.dryrun_tasks
+                if task.action_intent.action != "wait"
+                or task.action_intent.executed
+                or task.action_intent.input_sent
+            ]
+            if unsafe_tasks:
+                msg = "wait-only dry-run orchestration may only report non-executed wait intents"
+                raise ValueError(msg)
         if (
             self.autonomous_planner_active
             or self.manager_orchestration_active
@@ -260,6 +313,7 @@ def run_controlled_live_smoke(
     report_path: Path | None = None,
     output_run_dir: Path | None = None,
     action_logging_mode: ActionLoggingMode = "disabled",
+    dryrun_orchestration_mode: DryRunOrchestrationMode = "disabled",
     noop_action_frequency: int = 1,
     overwrite: bool = False,
 ) -> ControlledLiveSmokeResult:
@@ -271,6 +325,12 @@ def run_controlled_live_smoke(
         raise ValueError(msg)
     if action_logging_mode not in ("disabled", "wait_only_noop"):
         msg = "action_logging_mode must be disabled or wait_only_noop"
+        raise ValueError(msg)
+    if dryrun_orchestration_mode not in ("disabled", "wait_only"):
+        msg = "dryrun_orchestration_mode must be disabled or wait_only"
+        raise ValueError(msg)
+    if dryrun_orchestration_mode == "wait_only" and action_logging_mode != "disabled":
+        msg = "dryrun wait_only orchestration cannot be combined with wait_only_noop logging"
         raise ValueError(msg)
     if noop_action_frequency < 1:
         msg = "noop_action_frequency must be at least 1"
@@ -302,6 +362,7 @@ def run_controlled_live_smoke(
     events: list[ControlledLiveSmokeEvent] = []
     frames: list[ControlledLiveSmokeFrame] = []
     requested_actions: list[ControlledLiveSmokeActionIntent] = []
+    dryrun_tasks: list[ControlledLiveSmokeDryRunTask] = []
     capture_error_diagnostic: CaptureErrorDiagnostic | None = None
     frame_count = 0
     action_count = 0
@@ -386,6 +447,36 @@ def run_controlled_live_smoke(
                     action_intent=intent,
                 ),
             )
+        if dryrun_orchestration_mode == "wait_only" and frame_count % noop_action_frequency == 0:
+            intent = ControlledLiveSmokeActionIntent(
+                action="wait",
+                requested=True,
+                executed=False,
+                input_sent=False,
+                reason="dryrun_orchestration_wait_only",
+                frame_index=frame_count - 1,
+            )
+            task = ControlledLiveSmokeDryRunTask(
+                task_id=f"dryrun-wait-{len(dryrun_tasks)}",
+                static_goal="maintain_observation_without_input",
+                selected_skill="wait",
+                action_intent=intent,
+            )
+            dryrun_tasks.append(task)
+            requested_actions.append(intent)
+            action_count += 1
+            _emit(
+                events,
+                log_event,
+                ControlledLiveSmokeEvent(
+                    event_type="dryrun_task_intent",
+                    created_at=(now or _utc_now)(),
+                    message="dryrun wait task intent logged without execution",
+                    frame_index=frame_count - 1,
+                    action_intent=intent,
+                    dryrun_task=task,
+                ),
+            )
 
         if frame_count >= effective_max_frames:
             stop_reason = "max_frames_reached"
@@ -444,6 +535,12 @@ def run_controlled_live_smoke(
         event_count=len(result.events),
         inputs_sent=0,
         action_logging_mode=action_logging_mode,
+        dryrun_orchestration_mode=dryrun_orchestration_mode,
+        dryrun_task_count=len(dryrun_tasks),
+        dryrun_skill_count=len(dryrun_tasks),
+        dryrun_tasks=tuple(dryrun_tasks),
+        manager_dryrun_active=dryrun_orchestration_mode == "wait_only",
+        body_dryrun_active=dryrun_orchestration_mode == "wait_only",
         requested_actions=tuple(requested_actions),
         executed_actions=(),
         captured_frame_count=result.status.frames_captured,
