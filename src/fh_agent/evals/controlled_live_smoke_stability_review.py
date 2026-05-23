@@ -26,7 +26,11 @@ class ControlledLiveSmokeStabilityRunSummary(BaseModel):
     evidence_count: int
     duration_seconds: float | None = None
     average_capture_interval_seconds: float | None = None
+    action_logging_mode: str
     actions_requested: int
+    allowed_action_intent_count: int
+    forbidden_action_intent_count: int
+    executed_action_count: int
     inputs_sent: int
     no_input_sent: bool
     stop_reason: str
@@ -121,7 +125,11 @@ def _run_summary_from_review(path: Path) -> ControlledLiveSmokeStabilityRunSumma
         evidence_count=review.evidence_count,
         duration_seconds=review.duration_seconds,
         average_capture_interval_seconds=review.average_capture_interval_seconds,
+        action_logging_mode=review.action_logging_mode,
         actions_requested=review.actions_requested,
+        allowed_action_intent_count=review.allowed_action_intent_count,
+        forbidden_action_intent_count=review.forbidden_action_intent_count,
+        executed_action_count=review.executed_action_count,
         inputs_sent=inputs_sent,
         no_input_sent=review.no_input_sent,
         stop_reason=review.stop_reason,
@@ -149,7 +157,6 @@ def _failure_reasons(
         "captured_frame_count_30": review.captured_frame_count == REQUIRED_FRAME_COUNT,
         "screenshot_count_30": review.screenshot_count == REQUIRED_FRAME_COUNT,
         "evidence_count_30": review.evidence_count == REQUIRED_FRAME_COUNT,
-        "actions_requested_zero": review.actions_requested == 0,
         "inputs_sent_zero": inputs_sent == 0,
         "no_input_sent_true": review.no_input_sent is True,
         "stop_reason_max_frames_reached": review.stop_reason == "max_frames_reached",
@@ -163,4 +170,30 @@ def _failure_reasons(
         "bridge_inactive": review.bridge_active is False,
         "learning_inactive": review.learning_active is False,
     }
+    checks.update(_action_logging_mode_checks(review))
     return tuple(name for name, passed in checks.items() if not passed)
+
+
+def _action_logging_mode_checks(review: ControlledLiveSmokeReviewSummary) -> dict[str, bool]:
+    if review.action_logging_mode == "disabled":
+        return {
+            "action_logging_mode_disabled_or_wait_only_noop": True,
+            "disabled_actions_requested_zero": review.actions_requested == 0,
+            "disabled_inputs_sent_zero": review.inputs_sent == 0,
+            "disabled_no_input_sent_true": review.no_input_sent is True,
+        }
+    if review.action_logging_mode == "wait_only_noop":
+        return {
+            "action_logging_mode_disabled_or_wait_only_noop": True,
+            "wait_only_noop_actions_requested_positive": review.actions_requested > 0,
+            "wait_only_noop_inputs_sent_zero": review.inputs_sent == 0,
+            "wait_only_noop_no_input_sent_true": review.no_input_sent is True,
+            "wait_only_noop_allowed_action_intents_match": (
+                review.allowed_action_intent_count == review.actions_requested
+            ),
+            "wait_only_noop_forbidden_action_intents_zero": (
+                review.forbidden_action_intent_count == 0
+            ),
+            "wait_only_noop_executed_actions_zero": review.executed_action_count == 0,
+        }
+    return {"action_logging_mode_disabled_or_wait_only_noop": False}

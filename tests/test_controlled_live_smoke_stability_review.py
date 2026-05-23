@@ -20,7 +20,11 @@ def write_review(
     *,
     conclusion: str = "passed",
     frame_count: int = 30,
+    action_logging_mode: str = "disabled",
     actions_requested: int = 0,
+    allowed_action_intent_count: int = 0,
+    forbidden_action_intent_count: int = 0,
+    executed_action_count: int = 0,
     inputs_sent: int = 0,
     no_input_sent: bool = True,
     hidden_state_fields_absent: bool = True,
@@ -56,7 +60,11 @@ def write_review(
                 "evidence_count": frame_count,
                 "duration_seconds": 29.0,
                 "average_capture_interval_seconds": 1.0,
+                "action_logging_mode": action_logging_mode,
                 "actions_requested": actions_requested,
+                "allowed_action_intent_count": allowed_action_intent_count,
+                "forbidden_action_intent_count": forbidden_action_intent_count,
+                "executed_action_count": executed_action_count,
                 "inputs_sent": inputs_sent,
                 "input_action_counters": {
                     "actions_requested": actions_requested,
@@ -107,6 +115,131 @@ def test_stability_review_passes_for_three_passing_runs(tmp_path: Path) -> None:
         "run_13_0b_observation_2",
     ]
     assert all(run.passed for run in summary.runs)
+
+
+def test_stability_review_passes_for_three_disabled_observation_only_runs(tmp_path: Path) -> None:
+    paths = tuple(
+        write_review(
+            tmp_path,
+            f"run_13_0b_observation_{index}",
+            action_logging_mode="disabled",
+            actions_requested=0,
+            inputs_sent=0,
+            no_input_sent=True,
+        )
+        for index in range(3)
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=paths)
+
+    assert summary.conclusion == "passed"
+    assert all(run.action_logging_mode == "disabled" for run in summary.runs)
+    assert all(run.passed for run in summary.runs)
+
+
+def test_stability_review_passes_for_three_wait_only_noop_runs(tmp_path: Path) -> None:
+    paths = tuple(
+        write_review(
+            tmp_path,
+            f"run_13_1b_wait_only_noop_{index}",
+            action_logging_mode="wait_only_noop",
+            actions_requested=15,
+            allowed_action_intent_count=15,
+            forbidden_action_intent_count=0,
+            executed_action_count=0,
+            inputs_sent=0,
+            no_input_sent=True,
+        )
+        for index in range(3)
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=paths)
+
+    assert summary.conclusion == "passed"
+    assert all(run.action_logging_mode == "wait_only_noop" for run in summary.runs)
+    assert all(run.passed for run in summary.runs)
+
+
+def test_stability_review_fails_when_wait_only_noop_sent_inputs(tmp_path: Path) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_1b_wait_only_noop_inputs_sent",
+        action_logging_mode="wait_only_noop",
+        actions_requested=15,
+        allowed_action_intent_count=15,
+        inputs_sent=1,
+        no_input_sent=False,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "inputs_sent_zero" in summary.runs[0].failure_reasons
+    assert "wait_only_noop_inputs_sent_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_wait_only_noop_executed_action(
+    tmp_path: Path,
+) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_1b_wait_only_noop_executed",
+        action_logging_mode="wait_only_noop",
+        actions_requested=15,
+        allowed_action_intent_count=15,
+        executed_action_count=1,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "wait_only_noop_executed_actions_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_wait_only_noop_has_forbidden_action_intent(
+    tmp_path: Path,
+) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_1b_wait_only_noop_forbidden",
+        action_logging_mode="wait_only_noop",
+        actions_requested=15,
+        allowed_action_intent_count=14,
+        forbidden_action_intent_count=1,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "wait_only_noop_allowed_action_intents_match" in summary.runs[0].failure_reasons
+    assert "wait_only_noop_forbidden_action_intents_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_disabled_mode_requested_actions(tmp_path: Path) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_0b_observation_requested_actions",
+        action_logging_mode="disabled",
+        actions_requested=1,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "disabled_actions_requested_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_for_unknown_action_logging_mode(tmp_path: Path) -> None:
+    path = write_review(
+        tmp_path,
+        "run_unknown_action_logging_mode",
+        action_logging_mode="unknown",
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "action_logging_mode_disabled_or_wait_only_noop" in summary.runs[0].failure_reasons
 
 
 def test_stability_review_fails_when_one_run_failed(tmp_path: Path) -> None:
