@@ -21,6 +21,15 @@ def write_review(
     conclusion: str = "passed",
     frame_count: int = 30,
     action_logging_mode: str = "disabled",
+    dryrun_orchestration_mode: str = "disabled",
+    dryrun_task_count: int = 0,
+    dryrun_skill_count: int = 0,
+    allowed_dryrun_task_count: int = 0,
+    forbidden_dryrun_task_count: int = 0,
+    allowed_dryrun_action_intent_count: int = 0,
+    forbidden_dryrun_action_intent_count: int = 0,
+    manager_dryrun_active: bool = False,
+    body_dryrun_active: bool = False,
     actions_requested: int = 0,
     allowed_action_intent_count: int = 0,
     forbidden_action_intent_count: int = 0,
@@ -61,6 +70,15 @@ def write_review(
                 "duration_seconds": 29.0,
                 "average_capture_interval_seconds": 1.0,
                 "action_logging_mode": action_logging_mode,
+                "dryrun_orchestration_mode": dryrun_orchestration_mode,
+                "dryrun_task_count": dryrun_task_count,
+                "dryrun_skill_count": dryrun_skill_count,
+                "allowed_dryrun_task_count": allowed_dryrun_task_count,
+                "forbidden_dryrun_task_count": forbidden_dryrun_task_count,
+                "allowed_dryrun_action_intent_count": allowed_dryrun_action_intent_count,
+                "forbidden_dryrun_action_intent_count": forbidden_dryrun_action_intent_count,
+                "manager_dryrun_active": manager_dryrun_active,
+                "body_dryrun_active": body_dryrun_active,
                 "actions_requested": actions_requested,
                 "allowed_action_intent_count": allowed_action_intent_count,
                 "forbidden_action_intent_count": forbidden_action_intent_count,
@@ -158,6 +176,152 @@ def test_stability_review_passes_for_three_wait_only_noop_runs(tmp_path: Path) -
     assert summary.conclusion == "passed"
     assert all(run.action_logging_mode == "wait_only_noop" for run in summary.runs)
     assert all(run.passed for run in summary.runs)
+
+
+def test_stability_review_passes_for_three_dryrun_wait_only_runs(tmp_path: Path) -> None:
+    paths = tuple(
+        write_review(
+            tmp_path,
+            f"run_13_2_dryrun_wait_only_{index}",
+            dryrun_orchestration_mode="wait_only",
+            dryrun_task_count=30,
+            dryrun_skill_count=30,
+            allowed_dryrun_task_count=30,
+            forbidden_dryrun_task_count=0,
+            allowed_dryrun_action_intent_count=30,
+            forbidden_dryrun_action_intent_count=0,
+            manager_dryrun_active=True,
+            body_dryrun_active=True,
+            actions_requested=30,
+            executed_action_count=0,
+            inputs_sent=0,
+            no_input_sent=True,
+        )
+        for index in range(3)
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=paths)
+
+    assert summary.conclusion == "passed"
+    assert all(run.dryrun_orchestration_mode == "wait_only" for run in summary.runs)
+    assert all(run.passed for run in summary.runs)
+
+
+def test_stability_review_fails_when_dryrun_wait_only_sent_inputs(tmp_path: Path) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_2_dryrun_wait_only_inputs_sent",
+        dryrun_orchestration_mode="wait_only",
+        dryrun_task_count=30,
+        dryrun_skill_count=30,
+        allowed_dryrun_task_count=30,
+        allowed_dryrun_action_intent_count=30,
+        manager_dryrun_active=True,
+        body_dryrun_active=True,
+        actions_requested=30,
+        inputs_sent=1,
+        no_input_sent=False,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "inputs_sent_zero" in summary.runs[0].failure_reasons
+    assert "dryrun_inputs_sent_zero" in summary.runs[0].failure_reasons
+    assert "dryrun_no_input_sent_true" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_dryrun_wait_only_executed_action(
+    tmp_path: Path,
+) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_2_dryrun_wait_only_executed",
+        dryrun_orchestration_mode="wait_only",
+        dryrun_task_count=30,
+        dryrun_skill_count=30,
+        allowed_dryrun_task_count=30,
+        allowed_dryrun_action_intent_count=30,
+        manager_dryrun_active=True,
+        body_dryrun_active=True,
+        actions_requested=30,
+        executed_action_count=1,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "dryrun_executed_actions_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_dryrun_wait_only_has_forbidden_task(
+    tmp_path: Path,
+) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_2_dryrun_wait_only_forbidden_task",
+        dryrun_orchestration_mode="wait_only",
+        dryrun_task_count=30,
+        dryrun_skill_count=30,
+        allowed_dryrun_task_count=29,
+        forbidden_dryrun_task_count=1,
+        allowed_dryrun_action_intent_count=30,
+        manager_dryrun_active=True,
+        body_dryrun_active=True,
+        actions_requested=30,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "dryrun_allowed_tasks_match" in summary.runs[0].failure_reasons
+    assert "dryrun_forbidden_tasks_zero" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_dryrun_wait_only_manager_active(
+    tmp_path: Path,
+) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_2_dryrun_wait_only_manager_active",
+        dryrun_orchestration_mode="wait_only",
+        dryrun_task_count=30,
+        dryrun_skill_count=30,
+        allowed_dryrun_task_count=30,
+        allowed_dryrun_action_intent_count=30,
+        manager_dryrun_active=True,
+        body_dryrun_active=True,
+        actions_requested=30,
+        manager_active=True,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "manager_inactive" in summary.runs[0].failure_reasons
+    assert "dryrun_manager_inactive" in summary.runs[0].failure_reasons
+
+
+def test_stability_review_fails_when_dryrun_wait_only_body_active(tmp_path: Path) -> None:
+    path = write_review(
+        tmp_path,
+        "run_13_2_dryrun_wait_only_body_active",
+        dryrun_orchestration_mode="wait_only",
+        dryrun_task_count=30,
+        dryrun_skill_count=30,
+        allowed_dryrun_task_count=30,
+        allowed_dryrun_action_intent_count=30,
+        manager_dryrun_active=True,
+        body_dryrun_active=True,
+        actions_requested=30,
+        body_active=True,
+    )
+
+    summary = create_controlled_live_smoke_stability_review(review_paths=(path,))
+
+    assert summary.conclusion == "failed"
+    assert "body_inactive" in summary.runs[0].failure_reasons
+    assert "dryrun_body_inactive" in summary.runs[0].failure_reasons
 
 
 def test_stability_review_fails_when_wait_only_noop_sent_inputs(tmp_path: Path) -> None:

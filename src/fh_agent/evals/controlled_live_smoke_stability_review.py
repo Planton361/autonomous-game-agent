@@ -27,6 +27,15 @@ class ControlledLiveSmokeStabilityRunSummary(BaseModel):
     duration_seconds: float | None = None
     average_capture_interval_seconds: float | None = None
     action_logging_mode: str
+    dryrun_orchestration_mode: str
+    dryrun_task_count: int
+    dryrun_skill_count: int
+    allowed_dryrun_task_count: int
+    forbidden_dryrun_task_count: int
+    allowed_dryrun_action_intent_count: int
+    forbidden_dryrun_action_intent_count: int
+    manager_dryrun_active: bool
+    body_dryrun_active: bool
     actions_requested: int
     allowed_action_intent_count: int
     forbidden_action_intent_count: int
@@ -126,6 +135,15 @@ def _run_summary_from_review(path: Path) -> ControlledLiveSmokeStabilityRunSumma
         duration_seconds=review.duration_seconds,
         average_capture_interval_seconds=review.average_capture_interval_seconds,
         action_logging_mode=review.action_logging_mode,
+        dryrun_orchestration_mode=review.dryrun_orchestration_mode,
+        dryrun_task_count=review.dryrun_task_count,
+        dryrun_skill_count=review.dryrun_skill_count,
+        allowed_dryrun_task_count=review.allowed_dryrun_task_count,
+        forbidden_dryrun_task_count=review.forbidden_dryrun_task_count,
+        allowed_dryrun_action_intent_count=review.allowed_dryrun_action_intent_count,
+        forbidden_dryrun_action_intent_count=review.forbidden_dryrun_action_intent_count,
+        manager_dryrun_active=review.manager_dryrun_active,
+        body_dryrun_active=review.body_dryrun_active,
         actions_requested=review.actions_requested,
         allowed_action_intent_count=review.allowed_action_intent_count,
         forbidden_action_intent_count=review.forbidden_action_intent_count,
@@ -170,8 +188,40 @@ def _failure_reasons(
         "bridge_inactive": review.bridge_active is False,
         "learning_inactive": review.learning_active is False,
     }
-    checks.update(_action_logging_mode_checks(review))
+    checks.update(_mode_specific_checks(review))
     return tuple(name for name, passed in checks.items() if not passed)
+
+
+def _mode_specific_checks(review: ControlledLiveSmokeReviewSummary) -> dict[str, bool]:
+    if review.dryrun_orchestration_mode == "wait_only":
+        return _dryrun_wait_only_checks(review)
+    return _action_logging_mode_checks(review)
+
+
+def _dryrun_wait_only_checks(review: ControlledLiveSmokeReviewSummary) -> dict[str, bool]:
+    return {
+        "dryrun_orchestration_mode_wait_only": True,
+        "dryrun_task_count_positive": review.dryrun_task_count > 0,
+        "dryrun_skill_count_positive": review.dryrun_skill_count > 0,
+        "dryrun_allowed_tasks_match": (
+            review.allowed_dryrun_task_count == review.dryrun_task_count
+        ),
+        "dryrun_forbidden_tasks_zero": review.forbidden_dryrun_task_count == 0,
+        "dryrun_allowed_action_intents_match_actions_requested": (
+            review.allowed_dryrun_action_intent_count == review.actions_requested
+        ),
+        "dryrun_forbidden_action_intents_zero": (review.forbidden_dryrun_action_intent_count == 0),
+        "dryrun_executed_actions_zero": review.executed_action_count == 0,
+        "dryrun_inputs_sent_zero": review.inputs_sent == 0,
+        "dryrun_no_input_sent_true": review.no_input_sent is True,
+        "dryrun_manager_dryrun_active": review.manager_dryrun_active is True,
+        "dryrun_body_dryrun_active": review.body_dryrun_active is True,
+        "dryrun_manager_inactive": review.manager_active is False,
+        "dryrun_body_inactive": review.body_active is False,
+        "dryrun_planner_inactive": review.planner_active is False,
+        "dryrun_bridge_inactive": review.bridge_active is False,
+        "dryrun_learning_inactive": review.learning_active is False,
+    }
 
 
 def _action_logging_mode_checks(review: ControlledLiveSmokeReviewSummary) -> dict[str, bool]:
