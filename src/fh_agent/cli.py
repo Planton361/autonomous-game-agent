@@ -1,6 +1,6 @@
 from pathlib import Path
 from subprocess import run
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 import click
 import typer
@@ -10,6 +10,8 @@ from fh_agent import __version__
 from fh_agent.evals.controlled_live_runtime_adapters import build_controlled_runtime_adapters
 from fh_agent.evals.controlled_live_smoke_review import (
     create_controlled_live_smoke_review_summary,
+    record_controlled_live_smoke_manual_visual_review,
+    write_controlled_live_smoke_manual_visual_review,
     write_controlled_live_smoke_review_summary,
 )
 from fh_agent.evals.controlled_live_smoke_runner import (
@@ -750,13 +752,86 @@ def controlled_live_smoke_review(
     typer.echo(str(path))
 
 
+@app.command("controlled-live-smoke-record-manual-review")
+def controlled_live_smoke_record_manual_review(
+    review: Annotated[
+        Path,
+        typer.Option("--review", help="Controlled live-smoke review JSON path."),
+    ],
+    status: Annotated[
+        str,
+        typer.Option("--status", help="Manual visual review status: passed or failed."),
+    ],
+    notes: Annotated[
+        str | None,
+        typer.Option("--notes", help="Optional human visual review notes."),
+    ] = None,
+    reviewer: Annotated[
+        str | None,
+        typer.Option("--reviewer", help="Optional human reviewer identifier."),
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option("--output", help="Output review JSON path."),
+    ] = None,
+    in_place: Annotated[
+        bool,
+        typer.Option("--in-place", help="Update the review JSON in place."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing output review JSON."),
+    ] = False,
+) -> None:
+    """Record a human manual visual review result in an existing review JSON."""
+    if status not in {"passed", "failed"}:
+        raise typer.BadParameter("--status must be passed or failed")
+    if output is not None and in_place:
+        raise click.ClickException("--output and --in-place are mutually exclusive")
+    if output is None and not in_place:
+        raise click.ClickException("provide --output or --in-place")
+    destination = review if in_place else output
+    if destination is None:
+        raise click.ClickException("provide --output or --in-place")
+    try:
+        status_value = cast(Literal["passed", "failed"], status)
+        payload = record_controlled_live_smoke_manual_visual_review(
+            review_path=review,
+            status=status_value,
+            notes=notes,
+            reviewer=reviewer,
+        )
+        path = write_controlled_live_smoke_manual_visual_review(
+            payload,
+            destination,
+            overwrite=overwrite or in_place,
+        )
+    except (FileExistsError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
+
+
 @app.command("controlled-live-smoke-stability-review")
 def controlled_live_smoke_stability_review(
+    report: Annotated[
+        list[Path],
+        typer.Option(
+            "--report",
+            help="Controlled live-smoke report JSON path. Repeat once per run.",
+        ),
+    ],
+    validation: Annotated[
+        list[Path],
+        typer.Option(
+            "--validation",
+            help="Controlled live-smoke validator JSON path. Repeat once per run.",
+        ),
+    ],
     review: Annotated[
         list[Path],
         typer.Option(
             "--review",
-            help="Controlled live-smoke review JSON path. Repeat for each run.",
+            help="Controlled live-smoke mechanical/manual review JSON path. Repeat once per run.",
         ),
     ],
     output: Annotated[
@@ -768,9 +843,11 @@ def controlled_live_smoke_stability_review(
         typer.Option("--overwrite", help="Replace an existing stability review."),
     ] = False,
 ) -> None:
-    """Aggregate repeatable observation-only controlled smoke reviews."""
+    """Aggregate three manual single directional tap stability reviews."""
     try:
         summary = create_controlled_live_smoke_stability_review(
+            report_paths=tuple(report),
+            validation_paths=tuple(validation),
             review_paths=tuple(review),
         )
         path = write_controlled_live_smoke_stability_review(

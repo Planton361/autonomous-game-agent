@@ -26,7 +26,7 @@ SINGLE_TAP_MECHANICAL_NEXT_STEP = (
 
 ReviewConclusion = Literal["passed", "failed"]
 AutomatedReviewScope = Literal["mechanical"]
-VisualReviewStatus = Literal["not_required", "not_performed"]
+VisualReviewStatus = Literal["not_required", "not_performed", "passed", "failed"]
 
 
 class ControlledLiveSmokeReviewArtifactPaths(BaseModel):
@@ -113,6 +113,9 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
     automated_review_scope: AutomatedReviewScope = "mechanical"
     visual_review_required: bool = False
     visual_review_status: VisualReviewStatus = "not_required"
+    visual_review_notes: str | None = None
+    visual_reviewer: str | None = None
+    visual_review_timestamp_utc: datetime | None = None
     requires_manual_visual_review: bool = False
     artifact_paths: ControlledLiveSmokeReviewArtifactPaths
     conclusion: ReviewConclusion
@@ -331,6 +334,58 @@ def write_controlled_live_smoke_review_summary(
     return path
 
 
+def record_controlled_live_smoke_manual_visual_review(
+    *,
+    review_path: Path,
+    status: Literal["passed", "failed"],
+    notes: str | None = None,
+    reviewer: str | None = None,
+    timestamp_utc: datetime | None = None,
+) -> dict[str, object]:
+    """Record a human visual review result in an existing review artifact."""
+
+    payload = _read_json_object(review_path)
+    summary = ControlledLiveSmokeReviewSummary.model_validate(payload)
+    if status not in {"passed", "failed"}:
+        msg = "manual visual review status must be passed or failed"
+        raise ValueError(msg)
+    if status == "passed" and summary.conclusion != "passed":
+        msg = "manual visual review cannot pass when mechanical review conclusion failed"
+        raise ValueError(msg)
+    timestamp = timestamp_utc or datetime.now(UTC)
+    if timestamp.tzinfo is None:
+        msg = "manual visual review timestamp must be timezone-aware UTC"
+        raise ValueError(msg)
+    timestamp = timestamp.astimezone(UTC)
+
+    updated = dict(payload)
+    updated["visual_review_status"] = status
+    updated["visual_review_timestamp_utc"] = _utc_timestamp_json(timestamp)
+    if notes is not None:
+        updated["visual_review_notes"] = notes
+    if reviewer is not None:
+        updated["visual_reviewer"] = reviewer
+    ControlledLiveSmokeReviewSummary.model_validate(updated)
+    return updated
+
+
+def write_controlled_live_smoke_manual_visual_review(
+    payload: dict[str, object],
+    path: Path,
+    *,
+    overwrite: bool = False,
+) -> Path:
+    if path.exists() and not overwrite:
+        msg = f"controlled live-smoke review already exists: {path}"
+        raise FileExistsError(msg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def _default_artifact_paths(run_dir: Path) -> ControlledLiveSmokeReviewArtifactPaths:
     reports_dir = run_dir / "reports"
     return ControlledLiveSmokeReviewArtifactPaths(
@@ -422,6 +477,9 @@ def _single_directional_tap_current_run_safety_metadata_ok(
 def _read_json_object(path: Path) -> dict[str, object]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        msg = f"controlled smoke review artifact does not exist: {path}"
+        raise ValueError(msg) from exc
     except (OSError, json.JSONDecodeError) as exc:
         msg = f"invalid controlled smoke review artifact: {path}: {exc}"
         raise ValueError(msg) from exc
@@ -429,6 +487,10 @@ def _read_json_object(path: Path) -> dict[str, object]:
         msg = f"invalid controlled smoke review artifact: {path}: expected object"
         raise ValueError(msg)
     return payload
+
+
+def _utc_timestamp_json(timestamp: datetime) -> str:
+    return timestamp.isoformat().replace("+00:00", "Z")
 
 
 def _pre_post_screenshot_evidence_failures(payload: dict[str, object]) -> list[str]:

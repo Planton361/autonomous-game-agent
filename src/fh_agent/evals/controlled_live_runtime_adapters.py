@@ -244,13 +244,10 @@ def build_controlled_runtime_adapters(
     capture_command: str | None = None,
     evidence_store: EvidenceStoreBackend | None = None,
 ) -> ControlledRuntimeAdapterBundle:
-    """Build observation-only runtime adapters without sending input."""
+    """Build capture, focus, and stop adapters; input remains a separate opt-in path."""
 
     if not allow_real_runtime:
         msg = "controlled runtime adapters require allow_real_runtime=True"
-        raise ValueError(msg)
-    if allow_real_input:
-        msg = "real input is refused for controlled live smoke 12.7"
         raise ValueError(msg)
     if not target_window_title:
         msg = "target_window_title is required"

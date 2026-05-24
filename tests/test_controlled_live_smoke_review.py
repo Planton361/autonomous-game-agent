@@ -11,6 +11,8 @@ from fh_agent.evals.controlled_live_smoke_review import (
     PASSED_NEXT_STEP,
     SINGLE_TAP_MECHANICAL_NEXT_STEP,
     create_controlled_live_smoke_review_summary,
+    record_controlled_live_smoke_manual_visual_review,
+    write_controlled_live_smoke_manual_visual_review,
     write_controlled_live_smoke_review_summary,
 )
 
@@ -937,11 +939,238 @@ def test_review_summary_refuses_overwrite_by_default(tmp_path: Path) -> None:
         write_controlled_live_smoke_review_summary(summary)
 
 
+def test_manual_visual_review_recorder_records_passed_status_to_new_output_json(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    output = tmp_path / "manual_review.json"
+
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="passed",
+    )
+    write_controlled_live_smoke_manual_visual_review(payload, output)
+
+    written = json.loads(output.read_text(encoding="utf-8"))
+    assert written["visual_review_status"] == "passed"
+    assert written["visual_review_timestamp_utc"].endswith("Z")
+
+
+def test_manual_visual_review_recorder_records_failed_status_to_new_output_json(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    output = tmp_path / "manual_review_failed.json"
+
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="failed",
+    )
+    write_controlled_live_smoke_manual_visual_review(payload, output)
+
+    written = json.loads(output.read_text(encoding="utf-8"))
+    assert written["visual_review_status"] == "failed"
+
+
+def test_manual_visual_review_recorder_preserves_existing_mechanical_review_fields(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    before = json.loads(review_path.read_text(encoding="utf-8"))
+
+    after = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="passed",
+    )
+
+    for key in (
+        "run_id",
+        "conclusion",
+        "failure_reasons",
+        "validator_passed",
+        "real_input_mode",
+        "inputs_sent",
+        "executed_action_count",
+    ):
+        assert after[key] == before[key]
+
+
+def test_manual_visual_review_recorder_writes_notes_and_reviewer(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="passed",
+        notes="same game window; no interactive prompt",
+        reviewer="human-reviewer",
+    )
+
+    assert payload["visual_review_notes"] == "same game window; no interactive prompt"
+    assert payload["visual_reviewer"] == "human-reviewer"
+
+
+def test_manual_visual_review_recorder_accepts_utc_timestamp(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="passed",
+        timestamp_utc=FIXED_CREATED_AT,
+    )
+
+    assert payload["visual_review_timestamp_utc"] == "2026-05-17T12:00:00Z"
+
+
+def test_manual_visual_review_recorder_rejects_invalid_status(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+
+    with pytest.raises(ValueError, match="passed or failed"):
+        record_controlled_live_smoke_manual_visual_review(
+            review_path=review_path,
+            status="unknown",  # type: ignore[arg-type]
+        )
+
+
+def test_manual_visual_review_recorder_rejects_missing_review_file(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="does not exist"):
+        record_controlled_live_smoke_manual_visual_review(
+            review_path=tmp_path / "missing.json",
+            status="failed",
+        )
+
+
+def test_manual_visual_review_recorder_rejects_malformed_review_json(tmp_path: Path) -> None:
+    review_path = tmp_path / "malformed.json"
+    review_path.write_text("{", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="invalid controlled smoke review artifact"):
+        record_controlled_live_smoke_manual_visual_review(
+            review_path=review_path,
+            status="failed",
+        )
+
+
+def test_manual_visual_review_recorder_rejects_existing_output_without_overwrite(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    output = tmp_path / "manual_review.json"
+    output.write_text("{}", encoding="utf-8")
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="passed",
+    )
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        write_controlled_live_smoke_manual_visual_review(payload, output)
+
+
+def test_manual_visual_review_recorder_rejects_passed_when_mechanical_conclusion_failed(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(
+        tmp_path,
+        updates={"conclusion": "failed", "failure_reasons": ["synthetic failure"]},
+    )
+
+    with pytest.raises(ValueError, match="mechanical review conclusion failed"):
+        record_controlled_live_smoke_manual_visual_review(
+            review_path=review_path,
+            status="passed",
+        )
+
+
+def test_manual_visual_review_recorder_allows_failed_when_mechanical_conclusion_failed(
+    tmp_path: Path,
+) -> None:
+    review_path = write_single_tap_review_json(
+        tmp_path,
+        updates={"conclusion": "failed", "failure_reasons": ["synthetic failure"]},
+    )
+
+    payload = record_controlled_live_smoke_manual_visual_review(
+        review_path=review_path,
+        status="failed",
+    )
+
+    assert payload["conclusion"] == "failed"
+    assert payload["visual_review_status"] == "failed"
+
+
+def test_cli_manual_visual_review_rejects_output_and_in_place_together(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    output = tmp_path / "manual_review.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "controlled-live-smoke-record-manual-review",
+            "--review",
+            str(review_path),
+            "--status",
+            "passed",
+            "--output",
+            str(output),
+            "--in-place",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output
+
+
+def test_cli_manual_visual_review_requires_output_or_in_place(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "controlled-live-smoke-record-manual-review",
+            "--review",
+            str(review_path),
+            "--status",
+            "passed",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "provide --output or --in-place" in result.output
+
+
+def test_cli_manual_visual_review_writes_output(tmp_path: Path) -> None:
+    review_path = write_single_tap_review_json(tmp_path)
+    output = tmp_path / "manual_review.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "controlled-live-smoke-record-manual-review",
+            "--review",
+            str(review_path),
+            "--status",
+            "passed",
+            "--notes",
+            "same game window",
+            "--reviewer",
+            "human",
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["visual_review_status"] == "passed"
+    assert payload["visual_review_notes"] == "same game window"
+    assert payload["visual_reviewer"] == "human"
+
+
 def test_cli_help_includes_controlled_live_smoke_review() -> None:
     result = CliRunner().invoke(app, ["--help"])
 
     assert result.exit_code == 0
     assert "controlled-live-smoke-review" in result.output
+    assert "controlled-live-smoke-record-manual-review" in result.output
 
 
 def test_cli_review_help_includes_longer_observation_frame_bounds() -> None:
@@ -978,3 +1207,29 @@ def test_source_scan_blocks_runtime_input_bridge_planner_manager_body_rl_ocr_imp
     )
     for term in forbidden_terms:
         assert term not in source
+
+
+def write_single_tap_review_json(
+    tmp_path: Path,
+    *,
+    updates: dict[str, object] | None = None,
+) -> Path:
+    summary = create_controlled_live_smoke_review_summary(
+        run_dir=write_review_fixture(
+            tmp_path,
+            frame_count=2,
+            real_input_mode="single_directional_tap",
+            real_inputs_sent=1,
+            include_preflight_report=False,
+            include_pipeline_summary=False,
+        ),
+        min_frame_count=2,
+        max_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+    path = write_controlled_live_smoke_review_summary(summary, overwrite=True)
+    if updates:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload.update(updates)
+        path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+    return path

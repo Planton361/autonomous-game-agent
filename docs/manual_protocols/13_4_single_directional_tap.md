@@ -46,7 +46,15 @@ uv run python -m fh_agent controlled-live-smoke-validate --report runs/run_13_4_
 uv run python -m fh_agent controlled-live-smoke-review --run-dir runs/run_13_4_single_directional_tap --min-frame-count 2 --max-frame-count 2 --overwrite
 ```
 
-Do not count the run as passed until manual screenshot visual review confirms the same game window before and after the tap, with no visible text box/dialogue, menu, combat, loading, death, or OS permission dialog.
+After mechanical review, the human performs manual visual review of the pre-input and post-input screenshots. Use the recorder instead of hand-editing JSON:
+
+```fish
+uv run python -m fh_agent controlled-live-smoke-record-manual-review --review runs/run_13_4_single_directional_tap/reports/controlled_live_smoke_review.json --status passed --reviewer "<human name or initials>" --notes "same game window; no interactive prompt" --in-place
+```
+
+Manual visual review `passed` means the screenshots show the same game window, no OS permission dialog, and no interactive menu or dialogue requiring `confirm` or `cancel`. Ambient or automatic Overworld text is acceptable only if it does not require `confirm` or `cancel`.
+
+Manual visual review `failed` must be used for OS permission dialogs, mismatched window, menus or dialogues needing input, or unclear evidence.
 
 ## Rollback
 

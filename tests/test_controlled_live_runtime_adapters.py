@@ -142,15 +142,17 @@ def test_real_runtime_factory_refuses_without_allow_real_runtime(tmp_path: Path)
         )
 
 
-def test_real_runtime_factory_refuses_allow_real_input_true_for_12_7(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="real input is refused"):
-        build_controlled_runtime_adapters(
-            allow_real_runtime=True,
-            allow_real_input=True,
-            run_id="run_0001",
-            target_window_title="Fear & Hunger",
-            capture_backend=FakeCaptureBackend(),
-        )
+def test_real_runtime_factory_allows_real_input_flag_without_sender(tmp_path: Path) -> None:
+    bundle = build_controlled_runtime_adapters(
+        allow_real_runtime=True,
+        allow_real_input=True,
+        run_id="run_0001",
+        target_window_title="Fear & Hunger",
+        focused_probe=lambda: True,
+        capture_backend=FakeCaptureBackend(),
+    )
+
+    assert bundle.focus_check() is True
 
 
 def test_stop_file_emergency_adapter_reports_available_and_not_triggered(tmp_path: Path) -> None:
