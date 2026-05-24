@@ -20,12 +20,16 @@ RuntimeEventType = Literal[
     "frame_captured",
     "noop_action_intent",
     "wait_intent",
+    "action_request",
+    "input_executed",
     "dryrun_task_intent",
     "stop_condition_triggered",
     "runtime_end",
 ]
 ActionLoggingMode = Literal["disabled", "wait_only_noop"]
 DryRunOrchestrationMode = Literal["disabled", "wait_only"]
+RealInputMode = Literal["disabled", "wait_only_noop", "single_directional_tap"]
+SINGLE_DIRECTIONAL_TAP_ACTION = "move_right_short"
 StopReason = Literal[
     "completed",
     "focus_lost",
@@ -52,6 +56,14 @@ class EmergencyStopTriggeredCheck(Protocol):
 
 class CaptureFrame(Protocol):
     def __call__(self) -> "ControlledLiveSmokeFrame": ...
+
+
+class WaitNoopSender(Protocol):
+    def __call__(self) -> bool: ...
+
+
+class RealPrimitiveSender(Protocol):
+    def __call__(self, action: str) -> bool: ...
 
 
 class EventLogger(Protocol):
@@ -95,6 +107,7 @@ class ControlledLiveSmokeActionIntent(BaseModel):
     input_sent: bool
     reason: str
     frame_index: int | None = None
+    blocked_reason: str | None = None
 
 
 class ControlledLiveSmokeDryRunTask(BaseModel):
@@ -206,6 +219,24 @@ class ControlledLiveSmokeReport(BaseModel):
     inputs_sent: int = 0
     action_logging_mode: ActionLoggingMode = "disabled"
     dryrun_orchestration_mode: DryRunOrchestrationMode = "disabled"
+    real_input_mode: RealInputMode = "disabled"
+    real_wait_only_active: bool = False
+    allowed_real_primitives: tuple[str, ...] = ()
+    input_attempt_count: int = 0
+    allowed_input_count: int = 0
+    forbidden_input_count: int = 0
+    executed_action_count: int = 0
+    executed_wait_count: int = 0
+    forbidden_executed_action_count: int = 0
+    focus_guard_check_count: int = 0
+    focus_guard_pre_input_pass_count: int = 0
+    emergency_stop_check_count: int = 0
+    emergency_stop_pre_input_clear_count: int = 0
+    rate_limit_enabled: bool = False
+    max_input_count: int = 0
+    max_input_count_exceeded: bool = False
+    capture_script: str | None = None
+    official_screen_only: bool = False
     dryrun_task_count: int = 0
     dryrun_skill_count: int = 0
     dryrun_tasks: tuple[ControlledLiveSmokeDryRunTask, ...] = ()
@@ -215,6 +246,8 @@ class ControlledLiveSmokeReport(BaseModel):
     executed_actions: tuple[ControlledLiveSmokeActionIntent, ...] = ()
     captured_frame_count: int
     evidence_ids: tuple[str, ...] = ()
+    pre_input_evidence_ids: tuple[str, ...] = ()
+    post_input_evidence_ids: tuple[str, ...] = ()
     screenshot_paths: tuple[Path, ...] = ()
     screenshot_evidence: tuple[ControlledLiveSmokeEvidence, ...] = ()
     capture_error_diagnostic: CaptureErrorDiagnostic | None = None
@@ -222,22 +255,132 @@ class ControlledLiveSmokeReport(BaseModel):
     manager_orchestration_active: bool = False
     body_control_active: bool = False
     bridge_active: bool = False
+    ocr_active: bool = False
     learning_active: bool = False
+    hidden_state_violation_count: int = 0
 
     @model_validator(mode="after")
     def report_must_not_claim_autonomy(self) -> "ControlledLiveSmokeReport":
         if self.execution_enabled:
             msg = "controlled smoke report must not enable autonomous execution"
             raise ValueError(msg)
-        if not self.no_input_sent:
-            msg = "controlled smoke report must not claim input was sent"
-            raise ValueError(msg)
-        if self.inputs_sent != 0:
-            msg = "controlled smoke report must not claim inputs were sent"
-            raise ValueError(msg)
-        if self.executed_actions:
-            msg = "controlled smoke report must not claim actions were executed"
-            raise ValueError(msg)
+        if self.real_input_mode == "disabled":
+            if self.real_wait_only_active:
+                msg = "disabled real input mode must not be active"
+                raise ValueError(msg)
+            if not self.no_input_sent:
+                msg = "controlled smoke report must not claim input was sent"
+                raise ValueError(msg)
+            if self.inputs_sent != 0:
+                msg = "controlled smoke report must not claim inputs were sent"
+                raise ValueError(msg)
+            if self.executed_actions:
+                msg = "controlled smoke report must not claim actions were executed"
+                raise ValueError(msg)
+        elif self.real_input_mode == "wait_only_noop":
+            if not self.allow_real_input:
+                msg = "wait-only real input mode requires allow_real_input"
+                raise ValueError(msg)
+            if not self.real_wait_only_active:
+                msg = "wait-only real input mode must be active"
+                raise ValueError(msg)
+            if self.mode != "official_screen_only" or not self.official_screen_only:
+                msg = "wait-only real input mode requires official_screen_only"
+                raise ValueError(msg)
+            if (
+                self.action_logging_mode != "disabled"
+                or self.dryrun_orchestration_mode != "disabled"
+            ):
+                msg = "wait-only real input mode cannot combine with logging or dry-run"
+                raise ValueError(msg)
+            if self.rate_limit_enabled is not True or self.max_input_count <= 0:
+                msg = "wait-only real input mode requires input limits"
+                raise ValueError(msg)
+            if self.max_input_count_exceeded:
+                msg = "wait-only real input mode must not exceed max_input_count"
+                raise ValueError(msg)
+            if self.inputs_sent <= 0 or self.no_input_sent:
+                msg = "wait-only real input mode must report sent wait no-ops"
+                raise ValueError(msg)
+            unsafe_actions = [
+                action
+                for action in self.executed_actions
+                if action.action != "wait" or not action.executed or not action.input_sent
+            ]
+            if unsafe_actions:
+                msg = "wait-only real input mode may only execute wait no-ops"
+                raise ValueError(msg)
+            if self.executed_action_count != len(self.executed_actions):
+                msg = "executed_action_count must match executed_actions"
+                raise ValueError(msg)
+            if self.executed_wait_count != self.executed_action_count:
+                msg = "executed_wait_count must match executed wait actions"
+                raise ValueError(msg)
+            if self.inputs_sent != self.executed_wait_count:
+                msg = "inputs_sent must match executed wait no-ops"
+                raise ValueError(msg)
+            if self.forbidden_input_count != 0 or self.forbidden_executed_action_count != 0:
+                msg = "wait-only real input mode must not report forbidden inputs"
+                raise ValueError(msg)
+            if (
+                self.focus_guard_check_count < self.inputs_sent
+                or self.emergency_stop_check_count < self.inputs_sent
+            ):
+                msg = "wait-only real input mode requires pre-input gate checks"
+                raise ValueError(msg)
+        elif self.real_input_mode == "single_directional_tap":
+            if not self.allow_real_input:
+                msg = "single directional tap mode requires allow_real_input"
+                raise ValueError(msg)
+            if self.mode != "official_screen_only" or not self.official_screen_only:
+                msg = "single directional tap mode requires official_screen_only"
+                raise ValueError(msg)
+            if self.allowed_real_primitives != (SINGLE_DIRECTIONAL_TAP_ACTION,):
+                msg = "single directional tap mode allows only move_right_short"
+                raise ValueError(msg)
+            if (
+                self.action_logging_mode != "disabled"
+                or self.dryrun_orchestration_mode != "disabled"
+            ):
+                msg = "single directional tap mode cannot combine with logging or dry-run"
+                raise ValueError(msg)
+            if self.max_input_count != 1 or self.max_input_count_exceeded:
+                msg = "single directional tap mode requires exactly one allowed input"
+                raise ValueError(msg)
+            if self.inputs_sent != 1 or self.no_input_sent:
+                msg = "single directional tap mode must report exactly one sent input"
+                raise ValueError(msg)
+            if len(self.executed_actions) != 1:
+                msg = "single directional tap mode must report one executed action"
+                raise ValueError(msg)
+            executed = self.executed_actions[0]
+            if (
+                executed.action != SINGLE_DIRECTIONAL_TAP_ACTION
+                or not executed.executed
+                or not executed.input_sent
+            ):
+                msg = "single directional tap mode may only execute move_right_short"
+                raise ValueError(msg)
+            if self.executed_action_count != 1:
+                msg = "executed_action_count must be one in single directional tap mode"
+                raise ValueError(msg)
+            if self.executed_wait_count != 0:
+                msg = "single directional tap mode must not execute wait"
+                raise ValueError(msg)
+            if self.forbidden_input_count != 0 or self.forbidden_executed_action_count != 0:
+                msg = "single directional tap mode must not report forbidden inputs"
+                raise ValueError(msg)
+            if (
+                self.focus_guard_check_count != 1
+                or self.focus_guard_pre_input_pass_count != 1
+                or self.emergency_stop_check_count != 1
+                or self.emergency_stop_pre_input_clear_count != 1
+            ):
+                msg = "single directional tap mode requires exact pre-input gate checks"
+                raise ValueError(msg)
+            if not self.pre_input_evidence_ids or not self.post_input_evidence_ids:
+                msg = "single directional tap mode requires pre and post evidence"
+                raise ValueError(msg)
         if self.dryrun_orchestration_mode == "disabled":
             if (
                 self.dryrun_task_count != 0
@@ -276,9 +419,13 @@ class ControlledLiveSmokeReport(BaseModel):
             or self.manager_orchestration_active
             or self.body_control_active
             or self.bridge_active
+            or self.ocr_active
             or self.learning_active
         ):
             msg = "controlled smoke report must not claim autonomous control"
+            raise ValueError(msg)
+        if self.hidden_state_violation_count != 0:
+            msg = "controlled smoke report must not claim hidden-state access"
             raise ValueError(msg)
         return self
 
@@ -314,6 +461,13 @@ def run_controlled_live_smoke(
     output_run_dir: Path | None = None,
     action_logging_mode: ActionLoggingMode = "disabled",
     dryrun_orchestration_mode: DryRunOrchestrationMode = "disabled",
+    real_input_mode: RealInputMode = "disabled",
+    send_wait_noop: WaitNoopSender | None = None,
+    send_real_primitive: RealPrimitiveSender | None = None,
+    allowed_real_primitives: tuple[str, ...] = (),
+    max_input_count: int = 0,
+    input_rate_limit_seconds: float = 0.0,
+    capture_script: str | None = None,
     noop_action_frequency: int = 1,
     overwrite: bool = False,
 ) -> ControlledLiveSmokeResult:
@@ -329,8 +483,54 @@ def run_controlled_live_smoke(
     if dryrun_orchestration_mode not in ("disabled", "wait_only"):
         msg = "dryrun_orchestration_mode must be disabled or wait_only"
         raise ValueError(msg)
+    if real_input_mode not in ("disabled", "wait_only_noop", "single_directional_tap"):
+        msg = "real_input_mode must be disabled, wait_only_noop, or single_directional_tap"
+        raise ValueError(msg)
     if dryrun_orchestration_mode == "wait_only" and action_logging_mode != "disabled":
         msg = "dryrun wait_only orchestration cannot be combined with wait_only_noop logging"
+        raise ValueError(msg)
+    if real_input_mode == "wait_only_noop":
+        if not allow_real_input:
+            msg = "real_input_mode wait_only_noop requires allow_real_input=True"
+            raise ValueError(msg)
+        if action_logging_mode != "disabled" or dryrun_orchestration_mode != "disabled":
+            msg = "real_input_mode wait_only_noop cannot be combined with logging or dry-run"
+            raise ValueError(msg)
+        if send_wait_noop is None:
+            msg = "real_input_mode wait_only_noop requires a wait no-op sender"
+            raise ValueError(msg)
+        if max_input_count < 1:
+            msg = "real_input_mode wait_only_noop requires max_input_count >= 1"
+            raise ValueError(msg)
+        if input_rate_limit_seconds < 0:
+            msg = "input_rate_limit_seconds must be non-negative"
+            raise ValueError(msg)
+    elif real_input_mode == "single_directional_tap":
+        if not allow_real_input:
+            msg = "real_input_mode single_directional_tap requires allow_real_input=True"
+            raise ValueError(msg)
+        if action_logging_mode != "disabled" or dryrun_orchestration_mode != "disabled":
+            msg = (
+                "real_input_mode single_directional_tap cannot be combined with logging or dry-run"
+            )
+            raise ValueError(msg)
+        if send_real_primitive is None:
+            msg = "real_input_mode single_directional_tap requires a real primitive sender"
+            raise ValueError(msg)
+        if allowed_real_primitives != (SINGLE_DIRECTIONAL_TAP_ACTION,):
+            msg = "real_input_mode single_directional_tap allows only move_right_short"
+            raise ValueError(msg)
+        if max_input_count != 1:
+            msg = "real_input_mode single_directional_tap requires max_input_count == 1"
+            raise ValueError(msg)
+        if max_frames is not None and max_frames < 2:
+            msg = "real_input_mode single_directional_tap requires at least two frames"
+            raise ValueError(msg)
+        if input_rate_limit_seconds < 0:
+            msg = "input_rate_limit_seconds must be non-negative"
+            raise ValueError(msg)
+    elif allow_real_input:
+        msg = "allow_real_input requires a real_input_mode"
         raise ValueError(msg)
     if noop_action_frequency < 1:
         msg = "noop_action_frequency must be at least 1"
@@ -362,10 +562,25 @@ def run_controlled_live_smoke(
     events: list[ControlledLiveSmokeEvent] = []
     frames: list[ControlledLiveSmokeFrame] = []
     requested_actions: list[ControlledLiveSmokeActionIntent] = []
+    executed_actions: list[ControlledLiveSmokeActionIntent] = []
     dryrun_tasks: list[ControlledLiveSmokeDryRunTask] = []
+    pre_input_evidence_ids: list[str] = []
+    post_input_evidence_ids: list[str] = []
     capture_error_diagnostic: CaptureErrorDiagnostic | None = None
     frame_count = 0
     action_count = 0
+    input_attempt_count = 0
+    inputs_sent = 0
+    allowed_input_count = 0
+    forbidden_input_count = 0
+    executed_wait_count = 0
+    forbidden_executed_action_count = 0
+    focus_guard_check_count = 0
+    focus_guard_pre_input_pass_count = 0
+    emergency_stop_check_count = 0
+    emergency_stop_pre_input_clear_count = 0
+    max_input_count_exceeded = False
+    last_input_time: float | None = None
     start = clock()
     effective_max_frames = (
         min(plan.safety_limits.max_frames, max_frames)
@@ -377,6 +592,9 @@ def run_controlled_live_smoke(
             "controlled live smoke max_frames must be between "
             f"1 and {CONTROLLED_LIVE_SMOKE_MAX_FRAMES}"
         )
+        raise ValueError(msg)
+    if real_input_mode == "single_directional_tap" and effective_max_frames < 2:
+        msg = "real_input_mode single_directional_tap requires at least two effective frames"
         raise ValueError(msg)
 
     _emit(
@@ -413,6 +631,11 @@ def run_controlled_live_smoke(
             break
         frame_count += 1
         frames.append(frame)
+        if real_input_mode == "single_directional_tap":
+            if inputs_sent == 0 and input_attempt_count == 0:
+                pre_input_evidence_ids.append(frame.evidence_id)
+            elif inputs_sent == 1:
+                post_input_evidence_ids.append(frame.evidence_id)
         _emit(
             events,
             log_event,
@@ -477,6 +700,157 @@ def run_controlled_live_smoke(
                     dryrun_task=task,
                 ),
             )
+        if real_input_mode == "wait_only_noop" and frame_count % noop_action_frequency == 0:
+            input_attempt_count += 1
+            action_count += 1
+            blocked_reason: str | None = None
+            sent = False
+
+            focus_guard_check_count += 1
+            if focus_check():
+                focus_guard_pre_input_pass_count += 1
+            else:
+                blocked_reason = "focus_lost"
+                stop_reason = "focus_lost"
+
+            emergency_stop_check_count += 1
+            if emergency_stop_triggered():
+                if blocked_reason is None:
+                    blocked_reason = "emergency_stop_triggered"
+                    stop_reason = "emergency_stop_triggered"
+            else:
+                emergency_stop_pre_input_clear_count += 1
+
+            input_time = clock()
+            if blocked_reason is None and input_attempt_count > max_input_count:
+                blocked_reason = "max_input_count_exceeded"
+                max_input_count_exceeded = True
+                stop_reason = "max_actions_reached"
+            if (
+                blocked_reason is None
+                and last_input_time is not None
+                and input_time - last_input_time < input_rate_limit_seconds
+            ):
+                blocked_reason = "rate_limited"
+                stop_reason = "max_actions_reached"
+            if blocked_reason is None:
+                sent = bool(send_wait_noop and send_wait_noop())
+                if sent:
+                    inputs_sent += 1
+                    allowed_input_count += 1
+                    executed_wait_count += 1
+                    last_input_time = input_time
+                else:
+                    blocked_reason = "wait_noop_not_sent"
+                    stop_reason = "max_actions_reached"
+
+            if blocked_reason is not None:
+                forbidden_input_count += 1
+            intent = ControlledLiveSmokeActionIntent(
+                action="wait",
+                requested=True,
+                executed=sent,
+                input_sent=sent,
+                reason="real_wait_only_noop",
+                frame_index=frame_count - 1,
+                blocked_reason=blocked_reason,
+            )
+            requested_actions.append(intent)
+            if sent:
+                executed_actions.append(intent)
+            _emit(
+                events,
+                log_event,
+                ControlledLiveSmokeEvent(
+                    event_type="wait_intent",
+                    created_at=(now or _utc_now)(),
+                    message="wait no-op intent processed through real wait-only mode",
+                    frame_index=frame_count - 1,
+                    action_intent=intent,
+                ),
+            )
+            if blocked_reason is not None:
+                break
+
+        if (
+            real_input_mode == "single_directional_tap"
+            and frame_count == 1
+            and input_attempt_count == 0
+        ):
+            input_attempt_count += 1
+            action_count += 1
+            blocked_reason = None
+            sent = False
+
+            focus_guard_check_count += 1
+            if focus_check():
+                focus_guard_pre_input_pass_count += 1
+            else:
+                blocked_reason = "focus_lost"
+                stop_reason = "focus_lost"
+
+            emergency_stop_check_count += 1
+            if emergency_stop_triggered():
+                if blocked_reason is None:
+                    blocked_reason = "emergency_stop_triggered"
+                    stop_reason = "emergency_stop_triggered"
+            else:
+                emergency_stop_pre_input_clear_count += 1
+
+            if blocked_reason is None and input_attempt_count > max_input_count:
+                blocked_reason = "max_input_count_exceeded"
+                max_input_count_exceeded = True
+                stop_reason = "max_actions_reached"
+            if blocked_reason is None:
+                sent = bool(
+                    send_real_primitive and send_real_primitive(SINGLE_DIRECTIONAL_TAP_ACTION)
+                )
+                if sent:
+                    inputs_sent += 1
+                    allowed_input_count += 1
+                    last_input_time = clock()
+                else:
+                    blocked_reason = "directional_tap_not_sent"
+                    stop_reason = "max_actions_reached"
+
+            if blocked_reason is not None:
+                forbidden_input_count += 1
+            intent = ControlledLiveSmokeActionIntent(
+                action=SINGLE_DIRECTIONAL_TAP_ACTION,
+                requested=True,
+                executed=sent,
+                input_sent=sent,
+                reason="single_directional_tap",
+                frame_index=frame_count - 1,
+                blocked_reason=blocked_reason,
+            )
+            requested_actions.append(intent)
+            _emit(
+                events,
+                log_event,
+                ControlledLiveSmokeEvent(
+                    event_type="action_request",
+                    created_at=(now or _utc_now)(),
+                    message="single directional tap action requested",
+                    frame_index=frame_count - 1,
+                    action_intent=intent,
+                ),
+            )
+            if sent:
+                executed_actions.append(intent)
+                _emit(
+                    events,
+                    log_event,
+                    ControlledLiveSmokeEvent(
+                        event_type="input_executed",
+                        created_at=(now or _utc_now)(),
+                        message="single directional tap input executed",
+                        frame_index=frame_count - 1,
+                        action_intent=intent,
+                    ),
+                )
+            if blocked_reason is not None:
+                break
 
         if frame_count >= effective_max_frames:
             stop_reason = "max_frames_reached"
@@ -533,18 +907,39 @@ def run_controlled_live_smoke(
         mode=result.mode,
         status=result.status,
         event_count=len(result.events),
-        inputs_sent=0,
+        no_input_sent=inputs_sent == 0,
+        inputs_sent=inputs_sent,
         action_logging_mode=action_logging_mode,
         dryrun_orchestration_mode=dryrun_orchestration_mode,
+        real_input_mode=real_input_mode,
+        real_wait_only_active=real_input_mode == "wait_only_noop",
+        allowed_real_primitives=allowed_real_primitives,
+        input_attempt_count=input_attempt_count,
+        allowed_input_count=allowed_input_count,
+        forbidden_input_count=forbidden_input_count,
+        executed_action_count=len(executed_actions),
+        executed_wait_count=executed_wait_count,
+        forbidden_executed_action_count=forbidden_executed_action_count,
+        focus_guard_check_count=focus_guard_check_count,
+        focus_guard_pre_input_pass_count=focus_guard_pre_input_pass_count,
+        emergency_stop_check_count=emergency_stop_check_count,
+        emergency_stop_pre_input_clear_count=emergency_stop_pre_input_clear_count,
+        rate_limit_enabled=real_input_mode == "wait_only_noop",
+        max_input_count=max_input_count,
+        max_input_count_exceeded=max_input_count_exceeded,
+        capture_script=capture_script,
+        official_screen_only=result.mode == "official_screen_only",
         dryrun_task_count=len(dryrun_tasks),
         dryrun_skill_count=len(dryrun_tasks),
         dryrun_tasks=tuple(dryrun_tasks),
         manager_dryrun_active=dryrun_orchestration_mode == "wait_only",
         body_dryrun_active=dryrun_orchestration_mode == "wait_only",
         requested_actions=tuple(requested_actions),
-        executed_actions=(),
+        executed_actions=tuple(executed_actions),
         captured_frame_count=result.status.frames_captured,
         evidence_ids=tuple(frame.evidence_id for frame in frames),
+        pre_input_evidence_ids=tuple(pre_input_evidence_ids),
+        post_input_evidence_ids=tuple(post_input_evidence_ids),
         screenshot_paths=tuple(
             frame.screenshot_path for frame in frames if frame.screenshot_path is not None
         ),

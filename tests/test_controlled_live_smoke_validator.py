@@ -55,16 +55,40 @@ def make_report_payload(tmp_path: Path, *, frame_count: int = 1) -> dict[str, ob
         "no_input_sent": True,
         "inputs_sent": 0,
         "action_logging_mode": "disabled",
+        "dryrun_orchestration_mode": "disabled",
+        "real_input_mode": "disabled",
+        "real_wait_only_active": False,
+        "allowed_real_primitives": [],
+        "input_attempt_count": 0,
+        "allowed_input_count": 0,
+        "forbidden_input_count": 0,
+        "executed_action_count": 0,
+        "executed_wait_count": 0,
+        "forbidden_executed_action_count": 0,
+        "focus_guard_check_count": 0,
+        "focus_guard_pre_input_pass_count": 0,
+        "emergency_stop_check_count": 0,
+        "emergency_stop_pre_input_clear_count": 0,
+        "rate_limit_enabled": False,
+        "max_input_count": 0,
+        "max_input_count_exceeded": False,
+        "capture_script": None,
+        "official_screen_only": True,
         "requested_actions": [],
         "executed_actions": [],
         "captured_frame_count": frame_count,
         "evidence_ids": [f"evidence-{index}" for index in range(frame_count)],
+        "pre_input_evidence_ids": [],
+        "post_input_evidence_ids": [],
         "screenshot_paths": [str(path) for path in screenshot_paths],
         "screenshot_evidence": screenshot_evidence,
         "autonomous_planner_active": False,
         "manager_orchestration_active": False,
         "body_control_active": False,
+        "bridge_active": False,
+        "ocr_active": False,
         "learning_active": False,
+        "hidden_state_violation_count": 0,
     }
 
 
@@ -131,6 +155,100 @@ def add_dryrun_wait_only_task(
     payload["no_input_sent"] = not input_sent
     payload["autonomous_planner_active"] = planner_active
     payload["status"]["actions_requested"] = 1  # type: ignore[index]
+    return payload
+
+
+def add_real_wait_only_actions(
+    payload: dict[str, object],
+    *,
+    frame_count: int = 30,
+    action: str = "wait",
+    executed: bool = True,
+    input_sent: bool = True,
+    inputs_sent: int = 15,
+) -> dict[str, object]:
+    actions = [
+        {
+            "action": action,
+            "requested": True,
+            "executed": executed,
+            "input_sent": input_sent,
+            "reason": "real_wait_only_noop",
+            "frame_index": index * 2 + 1,
+        }
+        for index in range(inputs_sent)
+    ]
+    payload["allow_real_input"] = True
+    payload["real_input_mode"] = "wait_only_noop"
+    payload["real_wait_only_active"] = True
+    payload["captured_frame_count"] = frame_count
+    payload["inputs_sent"] = inputs_sent
+    payload["no_input_sent"] = False
+    payload["input_attempt_count"] = inputs_sent
+    payload["allowed_input_count"] = inputs_sent
+    payload["forbidden_input_count"] = 0
+    payload["executed_action_count"] = inputs_sent if executed and input_sent else 0
+    payload["executed_wait_count"] = (
+        inputs_sent if action == "wait" and executed and input_sent else 0
+    )
+    payload["forbidden_executed_action_count"] = 0
+    payload["focus_guard_check_count"] = inputs_sent
+    payload["focus_guard_pre_input_pass_count"] = inputs_sent
+    payload["emergency_stop_check_count"] = inputs_sent
+    payload["emergency_stop_pre_input_clear_count"] = inputs_sent
+    payload["rate_limit_enabled"] = True
+    payload["max_input_count"] = inputs_sent
+    payload["max_input_count_exceeded"] = False
+    payload["capture_script"] = "./scripts/capture_active_window_ppm.sh"
+    payload["requested_actions"] = actions
+    payload["executed_actions"] = actions if executed and input_sent else []
+    payload["status"]["actions_requested"] = len(actions)  # type: ignore[index]
+    return payload
+
+
+def add_single_directional_tap_action(
+    payload: dict[str, object],
+    *,
+    action: str = "move_right_short",
+    inputs_sent: int = 1,
+    include_post_evidence: bool = True,
+) -> dict[str, object]:
+    actions = [
+        {
+            "action": action,
+            "requested": True,
+            "executed": True,
+            "input_sent": True,
+            "reason": "single_directional_tap",
+            "frame_index": index,
+        }
+        for index in range(inputs_sent)
+    ]
+    evidence_ids = payload["evidence_ids"]
+    payload["allow_real_input"] = True
+    payload["real_input_mode"] = "single_directional_tap"
+    payload["allowed_real_primitives"] = ["move_right_short"]
+    payload["captured_frame_count"] = 2
+    payload["inputs_sent"] = inputs_sent
+    payload["no_input_sent"] = False
+    payload["input_attempt_count"] = inputs_sent
+    payload["allowed_input_count"] = inputs_sent
+    payload["forbidden_input_count"] = 0
+    payload["executed_action_count"] = inputs_sent
+    payload["executed_wait_count"] = 0
+    payload["forbidden_executed_action_count"] = 0
+    payload["focus_guard_check_count"] = inputs_sent
+    payload["focus_guard_pre_input_pass_count"] = inputs_sent
+    payload["emergency_stop_check_count"] = inputs_sent
+    payload["emergency_stop_pre_input_clear_count"] = inputs_sent
+    payload["max_input_count"] = 1
+    payload["max_input_count_exceeded"] = False
+    payload["capture_script"] = "./scripts/capture_active_window_ppm.sh"
+    payload["pre_input_evidence_ids"] = [evidence_ids[0]]
+    payload["post_input_evidence_ids"] = [evidence_ids[1]] if include_post_evidence else []
+    payload["requested_actions"] = actions
+    payload["executed_actions"] = actions
+    payload["status"]["actions_requested"] = len(actions)  # type: ignore[index]
     return payload
 
 
@@ -488,6 +606,456 @@ def test_dryrun_wait_only_rejects_planner_active(tmp_path: Path) -> None:
     assert validation.status.passed is False
     assert any(
         check.name == "autonomy_flags_inactive" and not check.passed for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_with_wait_inputs_passes(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+    assert any(
+        check.name == "real_wait_only_requested_actions_safe" and check.passed
+        for check in validation.checks
+    )
+    assert any(
+        check.name == "real_wait_only_input_safety" and check.passed for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize("action", ["move_up_short", "confirm", "cancel", "open_menu"])
+def test_real_wait_only_noop_rejects_non_wait_actions(tmp_path: Path, action: str) -> None:
+    payload = add_real_wait_only_actions(
+        make_report_payload(tmp_path, frame_count=30),
+        action=action,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_requested_actions_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_rejects_missing_focus_guard_check(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload["focus_guard_check_count"] = 14
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_rejects_missing_emergency_stop_check(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload["emergency_stop_check_count"] = 14
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_rejects_max_input_count_exceeded(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload["max_input_count_exceeded"] = True
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["autonomous_planner_active", "bridge_active", "ocr_active", "learning_active"],
+)
+def test_real_wait_only_noop_rejects_active_runtime_flags(tmp_path: Path, field: str) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload[field] = True
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "autonomy_flags_inactive" and not check.passed for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_rejects_non_official_screen_only(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload["official_screen_only"] = False
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_real_wait_only_noop_rejects_old_capture_script_reference(tmp_path: Path) -> None:
+    payload = add_real_wait_only_actions(make_report_payload(tmp_path, frame_count=30))
+    payload["capture_script"] = "./scripts/capture_one_frame_ppm.sh"
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=None,
+        min_frame_count=10,
+        max_frame_count=30,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "real_wait_only_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_report_passes(tmp_path: Path) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+    assert any(
+        check.name == "single_directional_tap_input_safety" and check.passed
+        for check in validation.checks
+    )
+    legacy_input_policy_messages = {
+        check.name: check.message
+        for check in validation.checks
+        if check.name in {"no_input_sent", "inputs_sent_zero"}
+    }
+    assert "real wait-only mode" not in legacy_input_policy_messages["no_input_sent"]
+    assert "real wait-only mode" not in legacy_input_policy_messages["inputs_sent_zero"]
+    assert "real input mode permits input" in legacy_input_policy_messages["no_input_sent"]
+    assert "real input mode permits input" in legacy_input_policy_messages["inputs_sent_zero"]
+
+
+def test_single_directional_tap_passes_with_matching_pre_post_dimensions(
+    tmp_path: Path,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["screenshot_evidence"][0]["width"] = 1355  # type: ignore[index]
+    payload["screenshot_evidence"][0]["height"] = 975  # type: ignore[index]
+    payload["screenshot_evidence"][1]["width"] = 1355  # type: ignore[index]
+    payload["screenshot_evidence"][1]["height"] = 975  # type: ignore[index]
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is True
+    assert any(
+        check.name == "single_directional_tap_pre_post_screenshot_evidence" and check.passed
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_pre_post_dimension_mismatch(
+    tmp_path: Path,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["screenshot_evidence"][0]["width"] = 1355  # type: ignore[index]
+    payload["screenshot_evidence"][0]["height"] = 975  # type: ignore[index]
+    payload["screenshot_evidence"][1]["width"] = 611  # type: ignore[index]
+    payload["screenshot_evidence"][1]["height"] = 341  # type: ignore[index]
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_pre_post_screenshot_evidence"
+        and not check.passed
+        and (
+            "pre/post screenshots do not match target window dimensions; "
+            "possible focus steal or OS dialog."
+        )
+        in check.message
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_missing_pre_screenshot_evidence(
+    tmp_path: Path,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["pre_input_evidence_ids"] = ["missing-pre-evidence"]
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_pre_post_screenshot_evidence"
+        and not check.passed
+        and "pre-input screenshot evidence entry is missing" in check.message
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_missing_post_screenshot_evidence(
+    tmp_path: Path,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["post_input_evidence_ids"] = ["missing-post-evidence"]
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_pre_post_screenshot_evidence"
+        and not check.passed
+        and "post-input screenshot evidence entry is missing" in check.message
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_missing_referenced_screenshot_path(
+    tmp_path: Path,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["screenshot_evidence"][1]["screenshot_path"] = str(  # type: ignore[index]
+        tmp_path / "missing-post.ppm"
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_pre_post_screenshot_evidence"
+        and not check.passed
+        and "post-input screenshot path does not exist" in check.message
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "wait",
+        "confirm",
+        "cancel",
+        "open_menu",
+        "move_left_short",
+        "move_up_short",
+        "move_down_short",
+    ],
+)
+def test_single_directional_tap_rejects_forbidden_executed_primitives(
+    tmp_path: Path,
+    action: str,
+) -> None:
+    payload = add_single_directional_tap_action(
+        make_report_payload(tmp_path, frame_count=2),
+        action=action,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_requested_action_safe" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_two_move_right_inputs(tmp_path: Path) -> None:
+    payload = add_single_directional_tap_action(
+        make_report_payload(tmp_path, frame_count=2),
+        inputs_sent=2,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_missing_post_input_evidence(tmp_path: Path) -> None:
+    payload = add_single_directional_tap_action(
+        make_report_payload(tmp_path, frame_count=2),
+        include_post_evidence=False,
+    )
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("focus_guard_check_count", 0),
+        ("focus_guard_pre_input_pass_count", 0),
+        ("emergency_stop_check_count", 0),
+        ("emergency_stop_pre_input_clear_count", 0),
+    ],
+)
+def test_single_directional_tap_rejects_missing_pre_input_gate_checks(
+    tmp_path: Path,
+    field: str,
+    value: int,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload[field] = value
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_input_safety" and not check.passed
+        for check in validation.checks
+    )
+
+
+def test_single_directional_tap_rejects_non_official_screen_only(tmp_path: Path) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload["mode"] = "debug_visible_bridge"
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "mode_official_screen_only" and not check.passed
+        for check in validation.checks
+    )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "autonomous_planner_active",
+        "manager_orchestration_active",
+        "body_control_active",
+        "bridge_active",
+        "ocr_active",
+        "learning_active",
+    ],
+)
+def test_single_directional_tap_rejects_active_subsystems(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
+    payload[field] = True
+
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload),
+        expected_frame_count=2,
+        created_at=FIXED_CREATED_AT,
+    )
+
+    assert validation.status.passed is False
+    assert any(
+        check.name == "single_directional_tap_input_safety" and not check.passed
+        for check in validation.checks
     )
 
 

@@ -8,6 +8,10 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from fh_agent.evals.controlled_live_smoke_runner import ControlledLiveSmokeReport
 
 VALIDATION_REPORT_VERSION = "1"
+SINGLE_DIRECTIONAL_TAP_ACTION = "move_right_short"
+PRE_POST_DIMENSION_MISMATCH_MESSAGE = (
+    "pre/post screenshots do not match target window dimensions; possible focus steal or OS dialog."
+)
 ValidationSeverity = Literal["info", "error"]
 ValidationStatus = Literal["passed", "failed"]
 
@@ -16,6 +20,8 @@ ALLOWED_RUNTIME_EVENT_KINDS: tuple[str, ...] = (
     "frame_captured",
     "noop_action_intent",
     "wait_intent",
+    "action_request",
+    "input_executed",
     "dryrun_task_intent",
     "stop_condition_triggered",
     "runtime_end",
@@ -127,6 +133,8 @@ def validate_controlled_live_smoke_artifacts(
     status = _object_value(payload, "status")
     action_logging_mode = _action_logging_mode(payload)
     dryrun_orchestration_mode = _dryrun_orchestration_mode(payload)
+    real_input_mode = _real_input_mode(payload)
+    no_real_input_mode = real_input_mode == "disabled"
     checks = [
         _check(
             "report_model_valid",
@@ -148,15 +156,15 @@ def validate_controlled_live_smoke_artifacts(
         ),
         _check(
             "no_input_sent",
-            payload.get("no_input_sent") is True,
-            "no_input_sent is true",
-            "no_input_sent must be true",
+            (payload.get("no_input_sent") is True) if no_real_input_mode else True,
+            "no_input_sent is true or a real input mode permits input",
+            "no_input_sent must be true unless a real input mode permits input",
         ),
         _check(
             "inputs_sent_zero",
-            _int_value(payload, "inputs_sent") == 0,
-            "inputs_sent is zero",
-            "inputs_sent must be zero",
+            (_int_value(payload, "inputs_sent") == 0) if no_real_input_mode else True,
+            "inputs_sent is zero or a real input mode permits input",
+            "inputs_sent must be zero unless a real input mode permits input",
         ),
         _check_expected_frame_count(
             captured_frame_count=captured_frame_count,
@@ -170,6 +178,7 @@ def validate_controlled_live_smoke_artifacts(
         _check_screenshot_paths(payload),
         _check_evidence_ids(payload),
         _check_dryrun_orchestration_mode(dryrun_orchestration_mode),
+        _check_real_input_mode(real_input_mode),
         _check_count_matches(
             "screenshot_count_matches_frame_count",
             len(_list_value(payload, "screenshot_paths")),
@@ -188,15 +197,20 @@ def validate_controlled_live_smoke_artifacts(
             status,
             action_logging_mode,
             dryrun_orchestration_mode,
+            real_input_mode,
         ),
         _check_requested_actions(
             payload,
             status,
             action_logging_mode,
             dryrun_orchestration_mode,
+            real_input_mode,
         ),
-        _check_executed_actions(payload),
+        _check_executed_actions(payload, real_input_mode),
         _check_dryrun_tasks(payload, dryrun_orchestration_mode),
+        _check_real_wait_only_input_safety(payload, status, real_input_mode),
+        _check_single_directional_tap_input_safety(payload, status, real_input_mode),
+        _check_single_directional_tap_pre_post_screenshot_evidence(payload, real_input_mode),
         _check(
             "stop_reason_max_frames_reached",
             status.get("stop_reason") == "max_frames_reached",
@@ -325,13 +339,14 @@ def _check_autonomy_flags(payload: dict[str, object]) -> ControlledLiveSmokeVali
             "body_control_active",
             "learning_active",
             "bridge_active",
+            "ocr_active",
         )
         if payload.get(field) is True
     ]
     return _check(
         "autonomy_flags_inactive",
         not active,
-        "planner, manager, body, learning, and bridge flags are inactive",
+        "planner, manager, body, learning, bridge, and OCR flags are inactive",
         f"autonomy/runtime flags must be inactive: {', '.join(active)}",
     )
 
@@ -349,6 +364,90 @@ def _check_screenshot_paths(payload: dict[str, object]) -> ControlledLiveSmokeVa
     )
 
 
+def _check_single_directional_tap_pre_post_screenshot_evidence(
+    payload: dict[str, object],
+    real_input_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    if real_input_mode != "single_directional_tap":
+        return _check(
+            "single_directional_tap_pre_post_screenshot_evidence",
+            True,
+            "single directional tap pre/post screenshot evidence check is disabled",
+            "unreachable",
+        )
+    failures = _pre_post_screenshot_evidence_failures(payload)
+    return _check(
+        "single_directional_tap_pre_post_screenshot_evidence",
+        not failures,
+        "pre/post screenshot evidence exists and target window dimensions match",
+        "; ".join(failures),
+    )
+
+
+def _pre_post_screenshot_evidence_failures(payload: dict[str, object]) -> list[str]:
+    pre_ids = _string_list_value(payload, "pre_input_evidence_ids")
+    post_ids = _string_list_value(payload, "post_input_evidence_ids")
+    failures: list[str] = []
+    if not pre_ids:
+        failures.append("pre-input screenshot evidence is missing")
+    if not post_ids:
+        failures.append("post-input screenshot evidence is missing")
+    if failures:
+        return failures
+
+    evidence_by_id = _screenshot_evidence_by_id(payload)
+    referenced_evidence = []
+    for label, evidence_ids in (("pre-input", pre_ids), ("post-input", post_ids)):
+        for evidence_id in evidence_ids:
+            evidence = evidence_by_id.get(evidence_id)
+            if evidence is None:
+                failures.append(f"{label} screenshot evidence entry is missing: {evidence_id}")
+                continue
+            path = evidence.get("screenshot_path")
+            if not isinstance(path, str) or not path:
+                failures.append(f"{label} screenshot path is missing: {evidence_id}")
+            elif not Path(path).is_file():
+                failures.append(f"{label} screenshot path does not exist: {path}")
+            dimensions = _screenshot_dimensions(evidence)
+            if dimensions is None:
+                failures.append(f"{label} screenshot dimensions are missing: {evidence_id}")
+                continue
+            referenced_evidence.append((label, evidence_id, dimensions))
+
+    pre_dimensions = {
+        dimensions
+        for label, _evidence_id, dimensions in referenced_evidence
+        if label == "pre-input"
+    }
+    post_dimensions = {
+        dimensions
+        for label, _evidence_id, dimensions in referenced_evidence
+        if label == "post-input"
+    }
+    if pre_dimensions and post_dimensions and pre_dimensions != post_dimensions:
+        failures.append(PRE_POST_DIMENSION_MISMATCH_MESSAGE)
+    return failures
+
+
+def _screenshot_evidence_by_id(payload: dict[str, object]) -> dict[str, dict[str, object]]:
+    evidence_by_id: dict[str, dict[str, object]] = {}
+    for item in _list_value(payload, "screenshot_evidence"):
+        if not isinstance(item, dict):
+            continue
+        evidence_id = item.get("evidence_id")
+        if isinstance(evidence_id, str) and evidence_id:
+            evidence_by_id[evidence_id] = item
+    return evidence_by_id
+
+
+def _screenshot_dimensions(evidence: dict[str, object]) -> tuple[int, int] | None:
+    width = evidence.get("width")
+    height = evidence.get("height")
+    if isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0:
+        return width, height
+    return None
+
+
 def _object_value(payload: dict[str, object], key: str) -> dict[str, object]:
     value = payload.get(key)
     return value if isinstance(value, dict) else {}
@@ -357,6 +456,10 @@ def _object_value(payload: dict[str, object], key: str) -> dict[str, object]:
 def _list_value(payload: dict[str, object], key: str) -> list[object]:
     value = payload.get(key)
     return value if isinstance(value, list) else []
+
+
+def _string_list_value(payload: dict[str, object], key: str) -> list[str]:
+    return [value for value in _list_value(payload, key) if isinstance(value, str) and value]
 
 
 def _int_value(payload: dict[str, object], key: str) -> int:
@@ -371,6 +474,11 @@ def _action_logging_mode(payload: dict[str, object]) -> str:
 
 def _dryrun_orchestration_mode(payload: dict[str, object]) -> str:
     value = payload.get("dryrun_orchestration_mode")
+    return value if isinstance(value, str) else "disabled"
+
+
+def _real_input_mode(payload: dict[str, object]) -> str:
+    value = payload.get("real_input_mode")
     return value if isinstance(value, str) else "disabled"
 
 
@@ -413,13 +521,38 @@ def _check_dryrun_orchestration_mode(mode: str) -> ControlledLiveSmokeValidation
     )
 
 
+def _check_real_input_mode(mode: str) -> ControlledLiveSmokeValidationCheck:
+    return _check(
+        "real_input_mode_allowed",
+        mode in {"disabled", "wait_only_noop", "single_directional_tap"},
+        "real_input_mode is allowed",
+        "real_input_mode must be disabled, wait_only_noop, or single_directional_tap",
+    )
+
+
 def _check_actions_requested_policy(
     payload: dict[str, object],
     status: dict[str, object],
     action_logging_mode: str,
     dryrun_orchestration_mode: str,
+    real_input_mode: str,
 ) -> ControlledLiveSmokeValidationCheck:
     actions_requested = _int_value(status, "actions_requested")
+    if real_input_mode == "wait_only_noop":
+        return _check(
+            "actions_requested_policy",
+            actions_requested > 0
+            and actions_requested == len(_list_value(payload, "requested_actions")),
+            "actions_requested matches real wait no-op intents",
+            "actions_requested must match requested_actions in real wait-only mode",
+        )
+    if real_input_mode == "single_directional_tap":
+        return _check(
+            "actions_requested_policy",
+            actions_requested == 1 and len(_list_value(payload, "requested_actions")) == 1,
+            "actions_requested matches the single directional tap",
+            "actions_requested must be exactly one in single directional tap mode",
+        )
     if dryrun_orchestration_mode == "wait_only":
         return _check(
             "actions_requested_policy",
@@ -448,8 +581,13 @@ def _check_requested_actions(
     status: dict[str, object],
     action_logging_mode: str,
     dryrun_orchestration_mode: str,
+    real_input_mode: str,
 ) -> ControlledLiveSmokeValidationCheck:
     requested_actions = _list_value(payload, "requested_actions")
+    if real_input_mode == "wait_only_noop":
+        return _check_real_wait_only_requested_actions(payload, status)
+    if real_input_mode == "single_directional_tap":
+        return _check_single_directional_tap_requested_actions(payload, status)
     if action_logging_mode == "disabled" and dryrun_orchestration_mode == "disabled":
         return _check(
             "requested_actions_empty",
@@ -492,13 +630,258 @@ def _check_requested_actions(
     )
 
 
-def _check_executed_actions(payload: dict[str, object]) -> ControlledLiveSmokeValidationCheck:
+def _check_real_wait_only_requested_actions(
+    payload: dict[str, object],
+    status: dict[str, object],
+) -> ControlledLiveSmokeValidationCheck:
+    requested_actions = _list_value(payload, "requested_actions")
+    invalid: list[str] = []
+    for index, action in enumerate(requested_actions):
+        if not isinstance(action, dict):
+            invalid.append(f"{index}:not_object")
+            continue
+        if action.get("action") != "wait":
+            invalid.append(f"{index}:action")
+        if action.get("requested") is not True:
+            invalid.append(f"{index}:requested")
+        if action.get("executed") is not True:
+            invalid.append(f"{index}:executed")
+        if action.get("input_sent") is not True:
+            invalid.append(f"{index}:input_sent")
+        if action.get("reason") != "real_wait_only_noop":
+            invalid.append(f"{index}:reason")
+    actions_requested = _int_value(status, "actions_requested")
+    valid = bool(requested_actions) and not invalid and actions_requested == len(requested_actions)
+    return _check(
+        "real_wait_only_requested_actions_safe",
+        valid,
+        "requested actions are executed wait no-ops",
+        f"requested actions must be executed wait no-ops: {', '.join(invalid)}",
+    )
+
+
+def _check_single_directional_tap_requested_actions(
+    payload: dict[str, object],
+    status: dict[str, object],
+) -> ControlledLiveSmokeValidationCheck:
+    requested_actions = _list_value(payload, "requested_actions")
+    invalid: list[str] = []
+    for index, action in enumerate(requested_actions):
+        if not isinstance(action, dict):
+            invalid.append(f"{index}:not_object")
+            continue
+        if action.get("action") != SINGLE_DIRECTIONAL_TAP_ACTION:
+            invalid.append(f"{index}:action")
+        if action.get("requested") is not True:
+            invalid.append(f"{index}:requested")
+        if action.get("executed") is not True:
+            invalid.append(f"{index}:executed")
+        if action.get("input_sent") is not True:
+            invalid.append(f"{index}:input_sent")
+        if action.get("reason") != "single_directional_tap":
+            invalid.append(f"{index}:reason")
+    actions_requested = _int_value(status, "actions_requested")
+    valid = len(requested_actions) == 1 and not invalid and actions_requested == 1
+    return _check(
+        "single_directional_tap_requested_action_safe",
+        valid,
+        "requested action is one executed move_right_short",
+        f"requested action must be one executed move_right_short: {', '.join(invalid)}",
+    )
+
+
+def _check_executed_actions(
+    payload: dict[str, object],
+    real_input_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
     executed_actions = _list_value(payload, "executed_actions")
+    if real_input_mode == "wait_only_noop":
+        invalid = [
+            f"{index}:action"
+            for index, action in enumerate(executed_actions)
+            if not isinstance(action, dict)
+            or action.get("action") != "wait"
+            or action.get("executed") is not True
+            or action.get("input_sent") is not True
+            or action.get("reason") != "real_wait_only_noop"
+        ]
+        return _check(
+            "executed_actions_wait_only",
+            bool(executed_actions) and not invalid,
+            "executed actions are wait no-ops",
+            f"executed actions must be wait no-ops: {', '.join(invalid)}",
+        )
+    if real_input_mode == "single_directional_tap":
+        invalid = [
+            f"{index}:action"
+            for index, action in enumerate(executed_actions)
+            if not isinstance(action, dict)
+            or action.get("action") != SINGLE_DIRECTIONAL_TAP_ACTION
+            or action.get("executed") is not True
+            or action.get("input_sent") is not True
+            or action.get("reason") != "single_directional_tap"
+        ]
+        return _check(
+            "executed_actions_single_directional_tap",
+            len(executed_actions) == 1 and not invalid,
+            "executed action is one move_right_short",
+            f"executed action must be one move_right_short: {', '.join(invalid)}",
+        )
     return _check(
         "executed_actions_empty",
         not executed_actions,
         "executed_actions is empty",
         "executed_actions must remain empty",
+    )
+
+
+def _check_real_wait_only_input_safety(
+    payload: dict[str, object],
+    status: dict[str, object],
+    real_input_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    if real_input_mode != "wait_only_noop":
+        return _check(
+            "real_wait_only_input_safety",
+            True,
+            "real wait-only mode is disabled",
+            "unreachable",
+        )
+    inputs_sent = _int_value(payload, "inputs_sent")
+    actions_requested = _int_value(status, "actions_requested")
+    executed_action_count = _int_value(payload, "executed_action_count")
+    executed_wait_count = _int_value(payload, "executed_wait_count")
+    allowed_input_count = _int_value(payload, "allowed_input_count")
+    forbidden_input_count = _int_value(payload, "forbidden_input_count")
+    forbidden_executed_action_count = _int_value(payload, "forbidden_executed_action_count")
+    focus_guard_check_count = _int_value(payload, "focus_guard_check_count")
+    focus_guard_pre_input_pass_count = _int_value(payload, "focus_guard_pre_input_pass_count")
+    emergency_stop_check_count = _int_value(payload, "emergency_stop_check_count")
+    emergency_stop_pre_input_clear_count = _int_value(
+        payload,
+        "emergency_stop_pre_input_clear_count",
+    )
+    capture_script = payload.get("capture_script")
+    checks = {
+        "allow_real_input_true": payload.get("allow_real_input") is True,
+        "real_wait_only_active": payload.get("real_wait_only_active") is True,
+        "official_screen_only": payload.get("official_screen_only") is True,
+        "inputs_sent_positive": inputs_sent > 0,
+        "no_input_sent_false": payload.get("no_input_sent") is False,
+        "actions_requested_match_inputs": actions_requested == inputs_sent,
+        "executed_action_count_match": executed_action_count == inputs_sent,
+        "executed_wait_count_match": executed_wait_count == inputs_sent,
+        "allowed_input_count_match": allowed_input_count == inputs_sent,
+        "forbidden_input_count_zero": forbidden_input_count == 0,
+        "forbidden_executed_action_count_zero": forbidden_executed_action_count == 0,
+        "focus_guard_checked": focus_guard_check_count >= inputs_sent,
+        "focus_guard_passed": focus_guard_pre_input_pass_count >= inputs_sent,
+        "emergency_stop_checked": emergency_stop_check_count >= inputs_sent,
+        "emergency_stop_clear": emergency_stop_pre_input_clear_count >= inputs_sent,
+        "rate_limit_enabled": payload.get("rate_limit_enabled") is True,
+        "max_input_count_positive": _int_value(payload, "max_input_count") > 0,
+        "max_input_count_not_exceeded": payload.get("max_input_count_exceeded") is False,
+        "capture_script_versioned": (
+            isinstance(capture_script, str)
+            and "capture_active_window_ppm.sh" in capture_script
+            and "capture_one_frame_ppm.sh" not in capture_script
+        ),
+        "hidden_state_violation_count_zero": _int_value(
+            payload,
+            "hidden_state_violation_count",
+        )
+        == 0,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return _check(
+        "real_wait_only_input_safety",
+        not failed,
+        "real wait-only input safety checks passed",
+        f"real wait-only input safety checks failed: {', '.join(failed)}",
+    )
+
+
+def _check_single_directional_tap_input_safety(
+    payload: dict[str, object],
+    status: dict[str, object],
+    real_input_mode: str,
+) -> ControlledLiveSmokeValidationCheck:
+    if real_input_mode != "single_directional_tap":
+        return _check(
+            "single_directional_tap_input_safety",
+            True,
+            "single directional tap mode is disabled",
+            "unreachable",
+        )
+    requested_actions = _list_value(payload, "requested_actions")
+    executed_actions = _list_value(payload, "executed_actions")
+    pre_input_evidence = _list_value(payload, "pre_input_evidence_ids")
+    post_input_evidence = _list_value(payload, "post_input_evidence_ids")
+    checks = {
+        "mode_official_screen_only": payload.get("mode") == "official_screen_only",
+        "official_screen_only": payload.get("official_screen_only") is True,
+        "allow_real_input_true": payload.get("allow_real_input") is True,
+        "allowed_real_primitives_exact": payload.get("allowed_real_primitives")
+        == [SINGLE_DIRECTIONAL_TAP_ACTION],
+        "inputs_sent_one": _int_value(payload, "inputs_sent") == 1,
+        "no_input_sent_false": payload.get("no_input_sent") is False,
+        "actions_requested_one": _int_value(status, "actions_requested") == 1,
+        "requested_action_count_one": len(requested_actions) == 1,
+        "executed_action_count_one": _int_value(payload, "executed_action_count") == 1,
+        "executed_actions_len_one": len(executed_actions) == 1,
+        "executed_action_names_exact": _action_names(executed_actions)
+        == [SINGLE_DIRECTIONAL_TAP_ACTION],
+        "executed_wait_count_zero": _int_value(payload, "executed_wait_count") == 0,
+        "allowed_input_count_one": _int_value(payload, "allowed_input_count") == 1,
+        "forbidden_input_count_zero": _int_value(payload, "forbidden_input_count") == 0,
+        "forbidden_executed_action_count_zero": _int_value(
+            payload,
+            "forbidden_executed_action_count",
+        )
+        == 0,
+        "focus_guard_check_count_one": _int_value(payload, "focus_guard_check_count") == 1,
+        "focus_guard_pre_input_pass_count_one": _int_value(
+            payload,
+            "focus_guard_pre_input_pass_count",
+        )
+        == 1,
+        "emergency_stop_check_count_one": _int_value(payload, "emergency_stop_check_count") == 1,
+        "emergency_stop_pre_input_clear_count_one": _int_value(
+            payload,
+            "emergency_stop_pre_input_clear_count",
+        )
+        == 1,
+        "max_input_count_one": _int_value(payload, "max_input_count") == 1,
+        "max_input_count_not_exceeded": payload.get("max_input_count_exceeded") is False,
+        "pre_input_evidence_present": bool(pre_input_evidence)
+        and all(isinstance(value, str) and value for value in pre_input_evidence),
+        "post_input_evidence_present": bool(post_input_evidence)
+        and all(isinstance(value, str) and value for value in post_input_evidence),
+        "capture_script_active_window": payload.get("capture_script")
+        == "./scripts/capture_active_window_ppm.sh",
+        "subsystems_inactive": all(
+            payload.get(field) is False
+            for field in (
+                "autonomous_planner_active",
+                "manager_orchestration_active",
+                "body_control_active",
+                "bridge_active",
+                "ocr_active",
+                "learning_active",
+            )
+        ),
+        "hidden_state_violation_count_zero": _int_value(
+            payload,
+            "hidden_state_violation_count",
+        )
+        == 0,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    return _check(
+        "single_directional_tap_input_safety",
+        not failed,
+        "single directional tap input safety checks passed",
+        f"single directional tap input safety checks failed: {', '.join(failed)}",
     )
 
 
@@ -593,7 +976,14 @@ def _check_forbidden_markers(
     payload: dict[str, object],
     events: list[dict[str, object]],
 ) -> ControlledLiveSmokeValidationCheck:
-    markers = tuple("".join(parts) for parts in FORBIDDEN_MARKER_PARTS)
+    markers = tuple(
+        marker
+        for marker in ("".join(parts) for parts in FORBIDDEN_MARKER_PARTS)
+        if not (
+            payload.get("real_input_mode") == "single_directional_tap"
+            and marker == SINGLE_DIRECTIONAL_TAP_ACTION
+        )
+    )
     found = sorted(set(_find_forbidden_markers({"report": payload, "events": events}, markers)))
     return _check(
         "forbidden_runtime_markers_absent",
@@ -614,6 +1004,17 @@ def _check_hidden_fields(
         "hidden-state fields are absent",
         f"hidden-state fields found: {', '.join(found)}",
     )
+
+
+def _action_names(actions: list[object]) -> list[str]:
+    names: list[str] = []
+    for action in actions:
+        if not isinstance(action, dict):
+            continue
+        name = action.get("action")
+        if isinstance(name, str):
+            names.append(name)
+    return names
 
 
 def _find_forbidden_keys(value: object) -> list[str]:

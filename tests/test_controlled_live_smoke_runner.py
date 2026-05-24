@@ -109,6 +109,24 @@ class FakeClock:
         return value
 
 
+class FakeWaitNoopSender:
+    def __init__(self) -> None:
+        self.count = 0
+
+    def __call__(self) -> bool:
+        self.count += 1
+        return True
+
+
+class FakeRealPrimitiveSender:
+    def __init__(self) -> None:
+        self.actions: list[str] = []
+
+    def __call__(self, action: str) -> bool:
+        self.actions.append(action)
+        return True
+
+
 def write_preflight_report(tmp_path: Path, *, no_spoiler_mode: bool = True) -> Path:
     result = run_live_preflight(
         LiveRunPreflightConfig(
@@ -177,8 +195,16 @@ def run_with_fakes(
     user_started: bool = True,
     max_frames: int | None = None,
     output_run_dir: Path | None = None,
+    allow_real_input: bool = False,
     action_logging_mode: str = "disabled",
     dryrun_orchestration_mode: str = "disabled",
+    real_input_mode: str = "disabled",
+    send_wait_noop: FakeWaitNoopSender | None = None,
+    send_real_primitive: FakeRealPrimitiveSender | None = None,
+    allowed_real_primitives: tuple[str, ...] = (),
+    max_input_count: int = 0,
+    input_rate_limit_seconds: float = 0.0,
+    capture_script: str | None = None,
     noop_action_frequency: int = 1,
 ) -> tuple[ControlledLiveSmokeResult, list[ControlledLiveSmokeEvent]]:
     logged, logger = event_log()
@@ -190,6 +216,7 @@ def run_with_fakes(
         emergency_stop_triggered=SequenceBool(emergency_values or [False]),
         capture_frame=capture or FakeCapture(),
         log_event=logger,
+        allow_real_input=allow_real_input,
         clock=clock or FakeClock([0, 0, 0, 0, 0, 0, 0]),
         now=lambda: FIXED_CREATED_AT,
         report_path=None if output_run_dir is not None else tmp_path / "controlled_report.json",
@@ -197,6 +224,13 @@ def run_with_fakes(
         max_frames=max_frames,
         action_logging_mode=action_logging_mode,  # type: ignore[arg-type]
         dryrun_orchestration_mode=dryrun_orchestration_mode,  # type: ignore[arg-type]
+        real_input_mode=real_input_mode,  # type: ignore[arg-type]
+        send_wait_noop=send_wait_noop,
+        send_real_primitive=send_real_primitive,
+        allowed_real_primitives=allowed_real_primitives,
+        max_input_count=max_input_count,
+        input_rate_limit_seconds=input_rate_limit_seconds,
+        capture_script=capture_script,
         noop_action_frequency=noop_action_frequency,
         overwrite=True,
     )
@@ -400,6 +434,149 @@ def test_runner_rejects_combined_dryrun_and_wait_only_noop(tmp_path: Path) -> No
         )
 
 
+def test_runner_logs_real_wait_only_noop_inputs_when_explicitly_enabled(tmp_path: Path) -> None:
+    summary_path = write_pipeline_summary(
+        tmp_path,
+        safety_limits=LiveRunSafetyLimits(max_frames=30, max_actions=0),
+    )
+    sender = FakeWaitNoopSender()
+
+    result, logged = run_with_fakes(
+        tmp_path,
+        summary_path=summary_path,
+        max_frames=30,
+        allow_real_input=True,
+        real_input_mode="wait_only_noop",
+        send_wait_noop=sender,
+        max_input_count=15,
+        capture_script="./scripts/capture_active_window_ppm.sh",
+        noop_action_frequency=2,
+    )
+    payload = json.loads(result.report_path.read_text(encoding="utf-8"))
+
+    assert result.status.stop_reason == "max_frames_reached"
+    assert result.status.actions_requested == 15
+    assert sender.count == 15
+    assert payload["real_input_mode"] == "wait_only_noop"
+    assert payload["real_wait_only_active"] is True
+    assert payload["input_attempt_count"] == 15
+    assert payload["inputs_sent"] == 15
+    assert payload["allowed_input_count"] == 15
+    assert payload["forbidden_input_count"] == 0
+    assert payload["executed_action_count"] == 15
+    assert payload["executed_wait_count"] == 15
+    assert payload["no_input_sent"] is False
+    assert payload["focus_guard_check_count"] >= 15
+    assert payload["emergency_stop_check_count"] >= 15
+    assert payload["rate_limit_enabled"] is True
+    assert payload["max_input_count"] == 15
+    assert payload["max_input_count_exceeded"] is False
+    assert payload["capture_script"] == "./scripts/capture_active_window_ppm.sh"
+    assert all(action["action"] == "wait" for action in payload["executed_actions"])
+    assert all(action["executed"] is True for action in payload["executed_actions"])
+    assert all(action["input_sent"] is True for action in payload["executed_actions"])
+    assert [event.event_type for event in logged].count("wait_intent") == 15
+
+
+def test_runner_rejects_real_wait_only_without_explicit_input_gate(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="allow_real_input=True"):
+        run_with_fakes(
+            tmp_path,
+            real_input_mode="wait_only_noop",
+            send_wait_noop=FakeWaitNoopSender(),
+            max_input_count=1,
+            capture_script="./scripts/capture_active_window_ppm.sh",
+        )
+
+
+def test_runner_rejects_real_wait_only_combined_with_logging(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot be combined"):
+        run_with_fakes(
+            tmp_path,
+            allow_real_input=True,
+            action_logging_mode="wait_only_noop",
+            real_input_mode="wait_only_noop",
+            send_wait_noop=FakeWaitNoopSender(),
+            max_input_count=1,
+            capture_script="./scripts/capture_active_window_ppm.sh",
+        )
+
+
+def test_runner_logs_single_directional_tap_with_pre_and_post_evidence(tmp_path: Path) -> None:
+    summary_path = write_pipeline_summary(
+        tmp_path,
+        safety_limits=LiveRunSafetyLimits(max_frames=2, max_actions=0),
+    )
+    sender = FakeRealPrimitiveSender()
+
+    result, logged = run_with_fakes(
+        tmp_path,
+        summary_path=summary_path,
+        max_frames=2,
+        allow_real_input=True,
+        real_input_mode="single_directional_tap",
+        send_real_primitive=sender,
+        allowed_real_primitives=("move_right_short",),
+        max_input_count=1,
+        capture_script="./scripts/capture_active_window_ppm.sh",
+    )
+    payload = json.loads(result.report_path.read_text(encoding="utf-8"))
+
+    assert result.status.stop_reason == "max_frames_reached"
+    assert result.status.actions_requested == 1
+    assert sender.actions == ["move_right_short"]
+    assert payload["real_input_mode"] == "single_directional_tap"
+    assert payload["allowed_real_primitives"] == ["move_right_short"]
+    assert payload["input_attempt_count"] == 1
+    assert payload["inputs_sent"] == 1
+    assert payload["allowed_input_count"] == 1
+    assert payload["forbidden_input_count"] == 0
+    assert payload["executed_action_count"] == 1
+    assert payload["executed_wait_count"] == 0
+    assert payload["no_input_sent"] is False
+    assert payload["focus_guard_check_count"] == 1
+    assert payload["focus_guard_pre_input_pass_count"] == 1
+    assert payload["emergency_stop_check_count"] == 1
+    assert payload["emergency_stop_pre_input_clear_count"] == 1
+    assert payload["max_input_count"] == 1
+    assert payload["max_input_count_exceeded"] is False
+    assert payload["pre_input_evidence_ids"] == ["evidence-0"]
+    assert payload["post_input_evidence_ids"] == ["evidence-1"]
+    assert payload["executed_actions"][0]["action"] == "move_right_short"
+    assert [event.event_type for event in logged].count("action_request") == 1
+    assert [event.event_type for event in logged].count("input_executed") == 1
+
+
+def test_runner_rejects_single_directional_tap_wrong_primitive(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="allows only move_right_short"):
+        run_with_fakes(
+            tmp_path,
+            max_frames=2,
+            allow_real_input=True,
+            real_input_mode="single_directional_tap",
+            send_real_primitive=FakeRealPrimitiveSender(),
+            allowed_real_primitives=("move_left_short",),
+            max_input_count=1,
+            capture_script="./scripts/capture_active_window_ppm.sh",
+        )
+
+
+def test_runner_rejects_single_directional_tap_more_than_one_input_budget(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="max_input_count == 1"):
+        run_with_fakes(
+            tmp_path,
+            max_frames=2,
+            allow_real_input=True,
+            real_input_mode="single_directional_tap",
+            send_real_primitive=FakeRealPrimitiveSender(),
+            allowed_real_primitives=("move_right_short",),
+            max_input_count=2,
+            capture_script="./scripts/capture_active_window_ppm.sh",
+        )
+
+
 def test_runner_rejects_invalid_noop_action_frequency(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="noop_action_frequency"):
         run_with_fakes(
@@ -536,6 +713,10 @@ def test_cli_help_includes_real_runtime_flags() -> None:
     assert "--run-dir" in result.output
     assert "--action-logging-mode" in result.output
     assert "dryrun-orchestrati" in result.output
+    assert "real-input-mode" in result.output
+    assert "allowed-real-primi" in result.output
+    assert "max-input-count" in result.output
+    assert "input-rate-limit" in result.output
     assert "noop-action" in result.output
     assert "observation-only" in result.output
 
@@ -573,7 +754,7 @@ def test_cli_real_runtime_requires_user_started(tmp_path: Path) -> None:
     assert "requires --user-started" in result.output
 
 
-def test_cli_real_runtime_rejects_allow_real_input_true(tmp_path: Path) -> None:
+def test_cli_real_runtime_rejects_allow_real_input_without_mode(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app,
         [
@@ -591,10 +772,10 @@ def test_cli_real_runtime_rejects_allow_real_input_true(tmp_path: Path) -> None:
     )
 
     assert result.exit_code != 0
-    assert "no real input adapter" in result.output
+    assert "requires an explicit --real-input-mode" in result.output
 
 
-def test_allow_real_input_true_still_rejected(tmp_path: Path) -> None:
+def test_cli_real_input_mode_requires_active_window_capture_script(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app,
         [
@@ -604,6 +785,10 @@ def test_allow_real_input_true_still_rejected(tmp_path: Path) -> None:
             "--user-started",
             "--allow-real-runtime",
             "--allow-real-input",
+            "--real-input-mode",
+            "wait_only_noop",
+            "--max-input-count",
+            "1",
             "--target-window-title",
             "Fear & Hunger",
             "--capture-command",
@@ -612,7 +797,37 @@ def test_allow_real_input_true_still_rejected(tmp_path: Path) -> None:
     )
 
     assert result.exit_code != 0
-    assert "no real input adapter" in result.output
+    assert "capture_active_window_ppm.sh" in result.output
+
+
+def test_cli_single_directional_tap_rejects_invalid_primitive(tmp_path: Path) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            "controlled-live-smoke",
+            "--pipeline-summary",
+            str(tmp_path / "summary.json"),
+            "--user-started",
+            "--allow-real-runtime",
+            "--allow-real-input",
+            "--real-input-mode",
+            "single_directional_tap",
+            "--allowed-real-primitive",
+            "move_left_short",
+            "--max-input-count",
+            "1",
+            "--max-frames",
+            "2",
+            "--target-window-title",
+            "Fear & Hunger",
+            "--capture-command",
+            "./scripts/capture_active_window_ppm.sh",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--allowed-real-primitive" in result.output
+    assert "move_right_short" in result.output
 
 
 def test_cli_real_runtime_defaults_to_max_frames_one() -> None:

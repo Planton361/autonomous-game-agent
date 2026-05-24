@@ -1,4 +1,5 @@
 from pathlib import Path
+from subprocess import run
 from typing import Annotated, cast
 
 import click
@@ -480,6 +481,36 @@ def controlled_live_smoke(
             help="Dry-run task/skill orchestration mode: disabled or wait_only.",
         ),
     ] = "disabled",
+    real_input_mode: Annotated[
+        str,
+        typer.Option(
+            "--real-input-mode",
+            help="Real input mode: disabled, wait_only_noop, or single_directional_tap.",
+        ),
+    ] = "disabled",
+    allowed_real_primitive: Annotated[
+        str | None,
+        typer.Option(
+            "--allowed-real-primitive",
+            help="Allowed primitive for single_directional_tap; only move_right_short is accepted.",
+        ),
+    ] = None,
+    max_input_count: Annotated[
+        int,
+        typer.Option(
+            "--max-input-count",
+            min=0,
+            help="Maximum real inputs allowed; must be 1 for single_directional_tap.",
+        ),
+    ] = 0,
+    input_rate_limit_seconds: Annotated[
+        float,
+        typer.Option(
+            "--input-rate-limit-seconds",
+            min=0.0,
+            help="Minimum seconds between real wait/no-op inputs.",
+        ),
+    ] = 0.0,
     noop_action_frequency: Annotated[
         int,
         typer.Option(
@@ -500,17 +531,68 @@ def controlled_live_smoke(
         raise click.ClickException(
             "controlled-live-smoke did not start: --allow-real-runtime was not provided"
         )
-    if allow_real_input:
-        raise click.ClickException(
-            "controlled-live-smoke has no real input adapter in this skeleton"
-        )
     if action_logging_mode not in {"disabled", "wait_only_noop"}:
         raise click.ClickException("--action-logging-mode must be disabled or wait_only_noop")
     if dryrun_orchestration not in {"disabled", "wait_only"}:
         raise click.ClickException("--dryrun-orchestration must be disabled or wait_only")
+    if real_input_mode not in {"disabled", "wait_only_noop", "single_directional_tap"}:
+        raise click.ClickException(
+            "--real-input-mode must be disabled, wait_only_noop, or single_directional_tap"
+        )
     if dryrun_orchestration == "wait_only" and action_logging_mode != "disabled":
         raise click.ClickException(
             "--dryrun-orchestration wait_only cannot be combined with wait_only_noop logging"
+        )
+    if real_input_mode == "wait_only_noop":
+        if not allow_real_input:
+            raise click.ClickException(
+                "--real-input-mode wait_only_noop requires --allow-real-input"
+            )
+        if action_logging_mode != "disabled" or dryrun_orchestration != "disabled":
+            raise click.ClickException(
+                "--real-input-mode wait_only_noop cannot be combined with logging or dry-run"
+            )
+        if max_input_count < 1:
+            raise click.ClickException(
+                "--real-input-mode wait_only_noop requires --max-input-count >= 1"
+            )
+        if not capture_command or "capture_active_window_ppm.sh" not in capture_command:
+            raise click.ClickException(
+                "--real-input-mode wait_only_noop requires scripts/capture_active_window_ppm.sh"
+            )
+    elif real_input_mode == "single_directional_tap":
+        if not allow_real_input:
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap requires --allow-real-input"
+            )
+        if action_logging_mode != "disabled" or dryrun_orchestration != "disabled":
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap cannot be combined with "
+                "logging or dry-run"
+            )
+        if allowed_real_primitive != "move_right_short":
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap requires "
+                "--allowed-real-primitive move_right_short"
+            )
+        if max_input_count != 1:
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap requires --max-input-count 1"
+            )
+        if max_frames < 2:
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap requires --max-frames at least 2"
+            )
+        if not capture_command or capture_command != "./scripts/capture_active_window_ppm.sh":
+            raise click.ClickException(
+                "--real-input-mode single_directional_tap requires "
+                "--capture-command ./scripts/capture_active_window_ppm.sh"
+            )
+    elif allow_real_input:
+        raise click.ClickException("--allow-real-input requires an explicit --real-input-mode")
+    if capture_command and "capture_one_frame_ppm.sh" in capture_command:
+        raise click.ClickException(
+            "controlled-live-smoke requires scripts/capture_active_window_ppm.sh"
         )
     if target_window_title is None:
         raise click.ClickException("--target-window-title is required with --allow-real-runtime")
@@ -543,12 +625,41 @@ def controlled_live_smoke(
             output_run_dir=output_run_dir,
             action_logging_mode=action_logging_mode,  # type: ignore[arg-type]
             dryrun_orchestration_mode=dryrun_orchestration,  # type: ignore[arg-type]
+            real_input_mode=real_input_mode,  # type: ignore[arg-type]
+            send_wait_noop=_send_wait_noop if real_input_mode == "wait_only_noop" else None,
+            send_real_primitive=(
+                _send_single_directional_tap
+                if real_input_mode == "single_directional_tap"
+                else None
+            ),
+            allowed_real_primitives=(
+                (allowed_real_primitive,) if allowed_real_primitive is not None else ()
+            ),
+            max_input_count=max_input_count,
+            input_rate_limit_seconds=input_rate_limit_seconds,
+            capture_script=capture_command,
             noop_action_frequency=noop_action_frequency,
             overwrite=overwrite,
         )
     except (FileExistsError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     typer.echo(str(result.report_path))
+
+
+def _send_wait_noop() -> bool:
+    return True
+
+
+def _send_single_directional_tap(action: str) -> bool:
+    if action != "move_right_short":
+        return False
+    completed = run(
+        ["xdotool", "key", "--clearmodifiers", "Right"],
+        capture_output=True,
+        check=False,
+        timeout=1.0,
+    )
+    return completed.returncode == 0
 
 
 @app.command("controlled-live-smoke-validate")
