@@ -12,7 +12,7 @@ def valid_task_spec_payload() -> dict[str, object]:
         "task_id": "task-1",
         "selected_skill": "continue_dialogue",
         "goal": "Continue the visible dialogue.",
-        "target": {"description": "visible dialogue"},
+        "target": None,
         "constraints": {"avoid_known_dangers": True, "max_danger_score": 0.4},
         "success_conditions": ["new_visible_text"],
         "failure_conditions": ["death_screen", "timeout"],
@@ -29,6 +29,7 @@ def test_task_spec_accepts_valid_contract() -> None:
     assert task.selected_skill == "continue_dialogue"
     assert task.reward_profile.profile_name == "continue_dialogue_default"
     assert task.source_evidence_ids == ["shot-1"]
+    assert task.target is None
 
 
 def test_task_spec_serializes_deterministically() -> None:
@@ -65,4 +66,12 @@ def test_task_spec_rejects_hidden_state_terms() -> None:
     payload["goal"] = "Use map_id from hidden state."
 
     with pytest.raises(ValidationError, match="hidden-state terms"):
+        TaskSpec.model_validate(payload)
+
+
+def test_task_spec_target_is_typed_and_rejects_free_form_dictionary() -> None:
+    payload = valid_task_spec_payload()
+    payload["target"] = {"description": "visible dialogue"}
+
+    with pytest.raises(ValidationError):
         TaskSpec.model_validate(payload)

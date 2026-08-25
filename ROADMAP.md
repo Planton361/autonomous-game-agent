@@ -1,412 +1,160 @@
-# ROADMAP.md — Fear & Hunger Autonomous Agent
+# ROADMAP.md — Cortex–Body Research Roadmap
 
-This roadmap is designed for work with Codex as the coding agent and ChatGPT as architecture/review advisor.
+This roadmap governs the Fear & Hunger pilot. It replaces the former component-by-component
+implementation roadmap with an experiment-first sequence. Existing code is prototype evidence,
+not proof that the corresponding capability is complete.
 
-## Session handoff rule
+## Scope and invariant
 
-Start a new ChatGPT session at the end of every milestone or whenever the work changes type:
-
-```text
-architecture → implementation
-implementation → debugging
-debugging → review
-review → next milestone
-```
-
-Every new session starts with this handoff:
+The research target is one local, no-spoiler Fear & Hunger pilot. The hierarchy is fixed:
 
 ```text
-Milestone:
-Current repo state:
-Changed files:
-Tests run:
-Known failures:
-Open architectural questions:
-Next Codex ticket desired:
+visible evidence → Cortex → Manager contract → Body/Reflex → guarded input → visible outcome
 ```
 
----
+- **Cortex** is the LLM planner. It proposes evidence-grounded goals, hypotheses, constraints, and
+  universal skills. It is never a direct controller and never emits key sequences.
+- **Manager** owns grounding, scheduling, budgets, reward selection, stop detection, and replanning.
+- **Body** owns universal heuristic skills and, later, learned goal-conditioned skills.
+- **Reflex** is a fast Body path operating inside an active Manager contract. It may react to an
+  immediate visible hazard but may not invent goals, widen permissions, or bypass logging/safety.
 
-## Milestone 0 — Workspace and repository skeleton
+Cross-game transfer, a general game benchmark, and claims of game-independent learned competence
+are explicitly out of scope for every phase in this roadmap.
 
-**Goal:** create a clean Python project that Codex can work in safely.
+## Run modes
+
+| Mode | Inputs | Research status |
+|---|---|---|
+| `screen-only` | Pixels, OCR, visible outcomes | Primary official pilot cohort. |
+| `bridge-assisted` | Pixels plus strictly allowlisted visible-state fields | Separate official auxiliary cohort; never pooled with screen-only results. |
+| `debug` | Development instrumentation, still no hidden-state authority | Non-official; excluded from headline metrics. |
+| `contaminated` | Any run with spoiler exposure, hidden-state access, network-policy breach, missing provenance, or mode uncertainty | Quarantined and excluded from confirmatory results. |
+
+The complete classification and quarantine rules live in
+`docs/research/NO_SPOILER_PROTOCOL.md`.
+
+## Phase 0 — Experiment contract (active)
+
+**Goal:** freeze the scientific question, architecture boundaries, run modes, provenance,
+baselines, metrics, and no-spoiler rules before runtime work resumes.
 
 Deliverables:
 
 ```text
-pyproject.toml
-AGENTS.md
 ROADMAP.md
-configs/default.yaml
-src/fh_agent/__init__.py
-src/fh_agent/cli.py
-tests/test_import.py
+AGENTS.md
+docs/research/ARCHITECTURE_V2.md
+docs/research/EXPERIMENT_CONTRACT.md
+docs/research/METRICS.md
+docs/research/NO_SPOILER_PROTOCOL.md
+configs/experiments/pilot_fh.yaml
 ```
 
 Acceptance criteria:
+
+- every component has an explicit authority boundary;
+- screen-only, bridge-assisted, debug, and contaminated modes are unambiguous;
+- network isolation and contamination handling are reproducible;
+- every run requires Git commit, prompt hash, config hash, model name, and model hash;
+- pilot hypotheses, baselines, units of analysis, metrics, exclusions, and stopping rules are fixed;
+- current technical debt is recorded without changing runtime behavior;
+- no cross-game transfer requirement appears in the pilot.
+
+Phase 0 makes documentation/configuration changes only. It must not change Runtime, Planner,
+Memory, Body, Bridge, or input behavior and must not run the game.
+
+## Phase 1 — Close the observable control loop
+
+**Goal:** make one bounded screen-only contract executable end to end.
+
+Work must address, with focused tickets and tests:
+
+1. replace the default no-op OCR path with a measured real OCR adapter;
+2. add visible-target grounding from observations to typed Manager targets;
+3. reconcile planner skill names, reward profiles, and executable SkillCatalog entries;
+4. consolidate the duplicate reward models into one contract-owned representation;
+5. tighten success detectors so new screenshots or incidental signature changes are insufficient;
+6. replace the offline observation-sequence runner with a guarded online loop;
+7. retain focus checks, rate limits, emergency stop, action logs, and evidence linkage;
+8. keep the visible bridge optional and out of the primary screen-only path.
+
+Exit gate: a dry-run and then a manually authorized bounded live smoke demonstrate
+Observation→Cortex→Manager→Body→InputExecutor→Observation with auditable stop/replan events. This
+phase is not authorized by Phase 0 and requires its own implementation ticket.
+
+## Phase 2 — Screen-only pilot readiness
+
+**Goal:** validate deterministic heuristic Body skills and measurement quality before involving a
+learned Body.
+
+Required gates:
+
+- fixed visible start-state protocol and scenario cards;
+- inter-rater audit of success/failure and contamination labels;
+- measured OCR and grounding coverage;
+- calibrated success detectors with reported false-positive and false-negative rates;
+- complete run manifest and artifact validation;
+- fixed pilot seeds, budgets, baseline assignments, and analysis script.
+
+Exit gate: all safety and integrity gates in `EXPERIMENT_CONTRACT.md` pass on non-evaluation smoke
+runs.
+
+## Phase 3 — Registered heuristic pilot
+
+**Goal:** execute the frozen Fear & Hunger experiment comparing no-action, fixed-goal heuristic,
+and Cortex–Manager–heuristic conditions.
+
+Only runs generated after the preregistration commit and passing the no-spoiler audit enter the
+confirmatory dataset. Screen-only is primary; bridge-assisted observations are analyzed only as a
+separate diagnostic cohort. Report all exclusions and confidence intervals.
+
+Exit gate: an immutable pilot dataset, analysis report, contamination ledger, and limitations
+section exist. No learned Body claim is made.
+
+## Phase 4 — Reflex and learned Body evaluation
+
+**Goal:** test whether a contract-bounded Reflex and later goal-conditioned learned skills improve
+Body efficiency without weakening safety or Manager authority.
+
+The heuristic Body remains the control. Learned policies receive grounded targets and the same
+allowed primitive-action set, safety filter, timeout, logging, and stop conditions. A Reflex may
+only choose actions already permitted by the active Manager contract.
+
+Exit gate: learned/Reflex conditions improve preregistered Body metrics without increasing safety,
+false-success, or no-spoiler violations.
+
+## Phase 5 — Fear & Hunger replication and robustness
+
+**Goal:** replicate within the same game across held-out visible start states, run seeds, and local
+model checkpoints.
+
+This phase tests robustness inside Fear & Hunger only. Cross-game transfer remains outside this
+roadmap and would require a separate protocol, threat model, and approval.
+
+## Current technical-debt register
+
+These are observed repository limitations as of Phase 0:
+
+| Debt | Current evidence | Consequence |
+|---|---|---|
+| NoOp OCR | `ObservationBuilder` and offline processing default to `NoOpOcrEngine`. | Screen-only text perception is not live-capable. |
+| Bridge skeleton | The bridge adapter sanitizes payloads but has no production transport. | Bridge-assisted runs are not operational. |
+| OfflineSkillRunner | `SkillRunner` consumes a supplied observation sequence and never executes input. | It cannot close the environment loop. |
+| Missing grounding | Planner goals become textual task targets; no component resolves them to visible typed targets. | Body skills cannot reliably act on Cortex intent. |
+| SkillCatalog mismatch | Planner/profile names include skills absent from `SkillCatalog.default()`, while catalog aliases differ. | Valid plans may not be executable. |
+| Duplicate reward model | `manager/reward_computer.py` and `manager/reward_profiles.py` define incompatible `RewardProfile` concepts. | Task rewards and skill rewards can diverge. |
+| Loose success detectors | New evidence or any screen-signature change can count as success in some skills. | Incidental frame changes can create false positives. |
+| Missing closed loop | Prototype modules are tested largely in isolation; no production Cortex–Manager–Body loop feeds post-action observations back. | Autonomous pilot claims are premature. |
+
+Debt is descriptive in Phase 0. Fixes belong to Phase 1 tickets with explicit architecture review.
+
+## Required validation for every ticket
 
 ```bash
-uv sync
 uv run pytest
 uv run ruff check .
-uv run python -m fh_agent --help
+uv run ruff format --check .
 ```
 
-Switch session when:
-- project skeleton exists
-- tests pass
-- Codex can explain repo structure
-
-Suggested Codex ticket:
-
-```text
-Create a Python 3.12 uv project skeleton for fh-agent with src layout, pytest, ruff, typer CLI, and a passing import test. Do not implement game automation yet.
-```
-
----
-
-## Milestone 1 — Game window, focus guard, and input executor
-
-**Goal:** safely send primitive inputs only to the correct window.
-
-Deliverables:
-
-```text
-src/fh_agent/game/window.py
-src/fh_agent/game/focus_guard.py
-src/fh_agent/game/input_executor.py
-src/fh_agent/body/primitive_actions.py
-tests/test_input_executor_safety.py
-```
-
-Primitive actions:
-
-```text
-move_up_short
-move_down_short
-move_left_short
-move_right_short
-confirm
-cancel
-open_menu
-wait
-```
-
-Acceptance criteria:
-- input calls are blocked if target window is not focused
-- emergency stop flag exists
-- primitive actions are rate-limited
-- tests pass without launching the game
-
-Switch session when:
-- safe action executor is implemented and tested
-
----
-
-## Milestone 2 — Screenshot capture and evidence logging
-
-**Goal:** capture frames and store evidence without interpretation.
-
-Deliverables:
-
-```text
-src/fh_agent/perception/screen_capture.py
-src/fh_agent/memory/event_log.py
-src/fh_agent/memory/evidence.py
-configs/capture.yaml
-runs/.gitkeep
-screenshots/.gitkeep
-```
-
-Acceptance criteria:
-- capture test saves N screenshots with timestamps and hashes
-- JSONL event log records observations and actions
-- no game logic or LLM is involved
-
-Switch session when:
-- screenshots and events can be captured/logged reproducibly
-
----
-
-## Milestone 3 — Observation schema and No-Spoiler Firewall
-
-**Goal:** define what the agent is allowed to know.
-
-Deliverables:
-
-```text
-src/fh_agent/observation/schemas.py
-src/fh_agent/bridge/firewall.py
-configs/bridge_allowlist.yaml
-tests/test_firewall_allowlist.py
-tests/test_observation_schema.py
-```
-
-Required schemas:
-
-```text
-Observation
-VisibleTextSpan
-VisibleSprite
-ActionResult
-Event
-SkillResult
-KnowledgeFact
-```
-
-Acceptance criteria:
-- forbidden fields are rejected
-- allowed fields produce sanitized Observation objects
-- every game-specific fact has evidence_id support
-
-Switch session when:
-- firewall tests pass
-
----
-
-## Milestone 4 — MVP perception without LLM
-
-**Goal:** translate screen/bridge data into Observation JSON.
-
-Deliverables:
-
-```text
-src/fh_agent/perception/ui_state.py
-src/fh_agent/perception/ocr.py
-src/fh_agent/perception/visual_hash.py
-src/fh_agent/observation/observation_builder.py
-configs/crops.yaml
-```
-
-MVP fields:
-
-```text
-ui_state: field/dialogue/menu/combat/death/unknown
-visible_text
-screen_signature
-last_action_result
-```
-
-Acceptance criteria:
-- known screenshots are classified into UI states
-- OCR results include confidence and evidence_id
-- observation builder produces valid JSON
-
-Switch session when:
-- parser can process saved screenshots offline
-
----
-
-## Milestone 5 — Body MVP without RL
-
-**Goal:** execute simple universal skills with heuristics.
-
-Deliverables:
-
-```text
-src/fh_agent/body/skills/continue_dialogue.py
-src/fh_agent/body/skills/basic_reach_target.py
-src/fh_agent/body/skills/interact_visible.py
-src/fh_agent/manager/skill_contracts.py
-src/fh_agent/manager/reward_computer.py
-```
-
-Acceptance criteria:
-- skills have preconditions, timeout, success detector, failure detector
-- skill results are logged
-- no LLM and no RL yet
-
-Switch session when:
-- at least one skill can run against mock observations and pass tests
-
----
-
-## Milestone 6 — SQLite memory core
-
-**Goal:** store experience as reusable evidence.
-
-Deliverables:
-
-```text
-src/fh_agent/memory/schema.sql
-src/fh_agent/memory/db.py
-src/fh_agent/memory/facts.py
-src/fh_agent/memory/room_graph.py
-src/fh_agent/memory/entity_risk.py
-src/fh_agent/memory/skill_registry.py
-src/fh_agent/memory/strategy_graph.py
-```
-
-Acceptance criteria:
-- observations/actions/skill_results/facts are stored
-- facts require evidence IDs
-- entity risk can be updated from observed outcomes
-- skill registry tracks success rates
-
-Switch session when:
-- DB schema and CRUD tests pass
-
----
-
-## Milestone 7 — Visible-State Bridge prototype
-
-**Goal:** optionally extract only visible RPG Maker MV metadata.
-
-Deliverables:
-
-```text
-bridge/rmmv_visible_bridge.js
-src/fh_agent/bridge/bridge_server.py
-src/fh_agent/bridge/sanitizer.py
-```
-
-Allowed output only:
-
-```text
-visible_message_text
-visible_menu_items
-ui_state
-player_screen_position
-visible_sprite_screen_positions
-visible_sprite_visual_hashes
-screenshot_id
-```
-
-Acceptance criteria:
-- forbidden fields cannot pass firewall
-- bridge runs can be marked debug/official
-- screenshot evidence is still stored
-
-Switch session when:
-- bridge produces sanitized Observation or is explicitly deferred
-
----
-
-## Milestone 8 — Local LLM Cortex
-
-**Goal:** planner chooses local goals and universal skills.
-
-Deliverables:
-
-```text
-src/fh_agent/planner/llm_client.py
-src/fh_agent/planner/cortex.py
-src/fh_agent/planner/prompts/system_no_spoiler.md
-src/fh_agent/planner/prompts/plan_next_goal.md
-src/fh_agent/planner/prompts/post_mortem.md
-```
-
-Acceptance criteria:
-- local model can be called through an OpenAI-compatible local endpoint
-- planner outputs valid structured JSON
-- planner never outputs direct key sequences as control plan
-- planner cites evidence IDs for game-specific claims
-
-Switch session when:
-- planner can select a skill from mock memory and observations
-
----
-
-## Milestone 9 — Manager and task scheduler
-
-**Goal:** convert planner goals into executable Body tasks.
-
-Deliverables:
-
-```text
-src/fh_agent/manager/task_manager.py
-src/fh_agent/manager/scheduler.py
-src/fh_agent/manager/task_spec.py
-src/fh_agent/manager/reward_profiles.py
-```
-
-Acceptance criteria:
-- task specs include target, constraints, rewards, timeout, stop conditions
-- reward terms come from allowed library
-- skill completion triggers Memory update
-
-Switch session when:
-- mock planner output can trigger mock skill execution and logging
-
----
-
-## Milestone 10 — Safe navigation heuristic
-
-**Goal:** implement `safe_reach_target` before RL.
-
-Deliverables:
-
-```text
-src/fh_agent/body/skills/safe_reach_target.py
-src/fh_agent/body/safety_filter.py
-```
-
-Acceptance criteria:
-- target attraction + hazard repulsion works in synthetic tests
-- high-risk actions are blocked by safety filter
-- Body can report `blocked_by_high_risk_entity`
-
-Switch session when:
-- heuristic is testable and produces sensible paths in toy states
-
----
-
-## Milestone 11 — RL wrapper and replay data
-
-**Goal:** prepare learning but do not depend on it yet.
-
-Deliverables:
-
-```text
-src/fh_agent/rl/gym_env.py
-src/fh_agent/rl/replay_buffer.py
-src/fh_agent/rl/her_relabel.py
-src/fh_agent/rl/behavior_cloning.py
-```
-
-Acceptance criteria:
-- Gymnasium wrapper exposes reset/step
-- replay buffer stores obs/action/reward/next_obs/done/task
-- HER relabeling can turn accidental goals into training data
-
-Switch session when:
-- RL wrapper works on synthetic/proxy tasks
-
----
-
-## Milestone 12 — First controlled live run
-
-**Goal:** run the system for a short controlled session.
-
-Acceptance criteria:
-- fixed resolution and window focus
-- emergency stop verified
-- actions and observations logged
-- screenshots/evidence stored
-- no hidden-state violation
-- post-run report generated
-
-Switch session when:
-- first run report exists
-- next architecture adjustment is needed
-
----
-
-## Milestone 13 — Longer autonomous sessions
-
-**Goal:** 30–60 minute exploration with memory reuse.
-
-Metrics:
-
-```text
-unique room signatures
-new visible texts/facts per hour
-skill success rate
-loop rate
-time to death
-repeated death cause reduction
-no-spoiler violations
-```
-
-Switch session when:
-- one complete long-run report is ready for review
+Do not run the game or send inputs unless a ticket explicitly authorizes a controlled live run.

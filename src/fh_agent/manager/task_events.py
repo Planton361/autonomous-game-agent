@@ -18,7 +18,7 @@ class TaskCompletionEvent(BaseModel):
     task_id: str
     selected_skill: str
     goal: str
-    target: JsonObject
+    target: JsonObject | None
     status: TaskStatus
     condition: str
     reason: str | None = None
@@ -56,7 +56,7 @@ def task_completion_to_event(
         task_id=completion.task_id,
         selected_skill=str(task_spec.selected_skill),
         goal=task_spec.goal,
-        target=task_spec.target,
+        target=(task_spec.target.model_dump(mode="json") if task_spec.target else None),
         status=completion.status,
         condition=completion.condition,
         reason=completion.reason,

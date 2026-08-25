@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from types import MappingProxyType
 
 from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill, ScreenTarget
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
@@ -7,8 +10,22 @@ from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVis
 from fh_agent.manager.skill_contracts import is_dialogue_observation
 from fh_agent.manager.skill_runner import RunnableSkill
 from fh_agent.observation.schemas import Observation
+from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS, UniversalSkillName
 
 SkillFactory = Callable[[object | None], RunnableSkill]
+
+
+DEFAULT_SKILL_FACTORIES: MappingProxyType[UniversalSkillName, SkillFactory] = MappingProxyType(
+    {
+        "continue_dialogue": lambda task=None: ContinueDialogueSkill(),
+        "interact_visible_object": lambda task=None: InteractVisibleObjectSkill(
+            target=task if isinstance(task, InteractionTarget) else None
+        ),
+        "basic_reach_target": lambda task=None: BasicReachTargetSkill(
+            target=task if isinstance(task, ScreenTarget) else None
+        ),
+    }
+)
 
 
 class SkillCatalogError(LookupError):
@@ -19,33 +36,23 @@ class SkillCatalogError(LookupError):
 class SkillCatalog:
     """Small in-memory catalog for available universal body skills."""
 
-    _factories: dict[str, SkillFactory] = field(default_factory=dict)
+    _factories: dict[UniversalSkillName, SkillFactory] = field(default_factory=dict)
 
     @classmethod
-    def default(cls) -> "SkillCatalog":
-        catalog = cls()
-        catalog.register("continue_dialogue", lambda task=None: ContinueDialogueSkill())
-        catalog.register(
-            "interact_visible_object",
-            lambda task=None: InteractVisibleObjectSkill(
-                target=task if isinstance(task, InteractionTarget) else None
-            ),
-        )
-        catalog.register(
-            "basic_reach_target",
-            lambda task=None: BasicReachTargetSkill(
-                target=task if isinstance(task, ScreenTarget) else None
-            ),
-        )
-        return catalog
+    def default(cls) -> SkillCatalog:
+        factory_skills = tuple(sorted(DEFAULT_SKILL_FACTORIES))
+        if factory_skills != DEFAULT_RUNTIME_SKILLS:
+            msg = "default SkillCatalog factories do not match the runtime capability contract"
+            raise RuntimeError(msg)
+        return cls(_factories=dict(DEFAULT_SKILL_FACTORIES))
 
-    def register(self, skill_name: str, factory: SkillFactory) -> None:
+    def register(self, skill_name: UniversalSkillName, factory: SkillFactory) -> None:
         if not skill_name:
             msg = "skill_name must not be empty"
             raise ValueError(msg)
         self._factories[skill_name] = factory
 
-    def get(self, skill_name: str, *, task: object | None = None) -> RunnableSkill:
+    def get(self, skill_name: UniversalSkillName, *, task: object | None = None) -> RunnableSkill:
         try:
             factory = self._factories[skill_name]
         except KeyError as exc:
@@ -53,7 +60,7 @@ class SkillCatalog:
             raise SkillCatalogError(msg) from exc
         return factory(task)
 
-    def list(self) -> list[str]:
+    def list(self) -> list[UniversalSkillName]:
         return sorted(self._factories)
 
     def select(
@@ -61,7 +68,7 @@ class SkillCatalog:
         *,
         observation: Observation,
         task: object | None = None,
-        skill_name: str | None = None,
+        skill_name: UniversalSkillName | None = None,
     ) -> RunnableSkill:
         if skill_name is not None:
             return self.get(skill_name, task=task)

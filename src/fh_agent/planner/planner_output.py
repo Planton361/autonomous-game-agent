@@ -3,13 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-UniversalSkillName = Literal[
-    "continue_dialogue",
-    "basic_reach_target",
-    "interact_visible",
-    "interact_visible_object",
-    "safe_reach_target",
-]
+from fh_agent.skill_capabilities import UniversalSkillName
 
 ClaimKind = Literal["fact", "hypothesis"]
 ReflectionNoteStatus = Literal["observed_fact", "validated_rule", "hypothesis"]

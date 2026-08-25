@@ -1,9 +1,11 @@
+import json
 from pathlib import Path
 from subprocess import run
 from typing import Annotated, Literal, cast
 
 import click
 import typer
+from pydantic import BaseModel, ValidationError
 from rich.console import Console
 
 from fh_agent import __version__
@@ -52,6 +54,19 @@ from fh_agent.evals.live_smoke_report import (
     read_live_smoke_plan,
     write_live_smoke_report,
 )
+from fh_agent.evals.spatial_annotation_review import (
+    SpatialAnnotationWorkflow,
+    assess_spatial_corpus_readiness,
+    create_annotation_review,
+    freeze_spatial_corpus,
+    record_spatial_annotation,
+)
+from fh_agent.evals.spatial_corpus_assembler import (
+    SpatialCorpusSequenceSource,
+    assemble_spatial_perception_corpus,
+)
+from fh_agent.evals.spatial_perception_corpus import validate_spatial_perception_corpus_files
+from fh_agent.evals.spatial_perception_dataset import SpatialPerceptionFrameAnnotation
 
 app = typer.Typer(
     add_completion=False,
@@ -149,6 +164,260 @@ def parse_frame(
         ui_hint=cast(UIState | None, ui_hint),
     )
     console.print(observation_to_json(observation))
+
+
+@app.command("spatial-corpus-assemble")
+def spatial_corpus_assemble(
+    corpus_root: Annotated[
+        Path,
+        typer.Option(
+            "--corpus-root", help="Root containing explicit manually captured PPM sequences."
+        ),
+    ],
+    corpus_id: Annotated[str, typer.Option("--corpus-id", help="Versioned corpus identifier.")],
+    schema_version: Annotated[str, typer.Option("--schema-version", help="Corpus schema version.")],
+    corpus_version: Annotated[
+        str, typer.Option("--corpus-version", help="Corpus content version.")
+    ],
+    annotation_dataset_version: Annotated[
+        str,
+        typer.Option("--annotation-dataset-version", help="Initial annotation dataset version."),
+    ],
+    sequence: Annotated[
+        list[str],
+        typer.Option(
+            "--sequence",
+            help="Repeat SEQUENCE_ID:RELATIVE_DIRECTORY:SPLIT for each explicit source sequence.",
+        ),
+    ],
+    output: Annotated[Path, typer.Option("--output", help="Workflow JSON output path.")],
+    overwrite: Annotated[
+        bool,
+        typer.Option("--overwrite", help="Replace an existing workflow JSON output."),
+    ] = False,
+) -> None:
+    """Assemble existing PPM sequences into a point-only offline corpus workflow."""
+
+    try:
+        sources = tuple(_parse_spatial_sequence_source(value) for value in sequence)
+        manifest = assemble_spatial_perception_corpus(
+            corpus_root,
+            corpus_id=corpus_id,
+            schema_version=schema_version,
+            corpus_version=corpus_version,
+            annotation_dataset_version=annotation_dataset_version,
+            sequence_sources=sources,
+        )
+        path = _write_spatial_annotation_workflow(
+            SpatialAnnotationWorkflow(manifest=manifest),
+            output,
+            overwrite=overwrite,
+        )
+    except (FileExistsError, OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
+
+
+@app.command("spatial-corpus-annotate")
+def spatial_corpus_annotate(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    frame_id: Annotated[
+        str, typer.Option("--frame-id", help="Existing frame identifier to revise.")
+    ],
+    status: Annotated[
+        str,
+        typer.Option("--status", help="Annotation status: usable, uncertain, or exclude."),
+    ],
+    player: Annotated[
+        str | None,
+        typer.Option("--player", help="Optional visible player point as X,Y."),
+    ] = None,
+    sprite: Annotated[
+        list[str] | None,
+        typer.Option("--sprite", help="Visible sprite point as X,Y. Repeat for each point."),
+    ] = None,
+    output: Annotated[
+        Path, typer.Option("--output", help="Revised workflow JSON output path.")
+    ] = Path("spatial_annotation_workflow.json"),
+    overwrite_annotation: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite-annotation", help="Required explicit annotation revision action."
+        ),
+    ] = False,
+    overwrite_output: Annotated[
+        bool,
+        typer.Option("--overwrite-output", help="Replace an existing workflow JSON output."),
+    ] = False,
+) -> None:
+    """Record one explicit point-only annotation revision for an existing corpus frame."""
+
+    if status not in {"usable", "uncertain", "exclude"}:
+        raise typer.BadParameter("--status must be usable, uncertain, or exclude")
+    try:
+        current_workflow = _read_spatial_annotation_workflow(workflow)
+        current_annotation = _spatial_annotation_by_frame_id(current_workflow, frame_id)
+        annotation = SpatialPerceptionFrameAnnotation(
+            frame_id=frame_id,
+            evidence_id=current_annotation.evidence_id,
+            status=status,
+            player_screen_position=_parse_spatial_coordinate(player)
+            if player is not None
+            else None,
+            visible_sprite_positions=tuple(
+                _parse_spatial_coordinate(value) for value in sprite or ()
+            ),
+        )
+        revised_workflow = record_spatial_annotation(
+            current_workflow,
+            annotation,
+            overwrite=overwrite_annotation,
+        )
+        path = _write_spatial_annotation_workflow(
+            revised_workflow,
+            output,
+            overwrite=overwrite_output,
+        )
+    except (FileExistsError, OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
+
+
+@app.command("spatial-corpus-review")
+def spatial_corpus_review(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    frame_id: Annotated[str, typer.Option("--frame-id", help="Frame identifier to review.")],
+    status: Annotated[
+        str,
+        typer.Option("--status", help="Review status: passed or needs_revision."),
+    ],
+    output: Annotated[Path, typer.Option("--output", help="Reviewed workflow JSON output path.")],
+    reviewer: Annotated[
+        str | None,
+        typer.Option("--reviewer", help="Optional reviewer identifier."),
+    ] = None,
+    notes: Annotated[str | None, typer.Option("--notes", help="Optional review notes.")] = None,
+    overwrite_output: Annotated[
+        bool,
+        typer.Option("--overwrite-output", help="Replace an existing workflow JSON output."),
+    ] = False,
+) -> None:
+    """Append a review bound to the current annotation fingerprint."""
+
+    if status not in {"passed", "needs_revision"}:
+        raise typer.BadParameter("--status must be passed or needs_revision")
+    try:
+        reviewed_workflow = create_annotation_review(
+            _read_spatial_annotation_workflow(workflow),
+            frame_id=frame_id,
+            status=cast(Literal["passed", "needs_revision"], status),
+            reviewer_id=reviewer,
+            notes=notes,
+        )
+        path = _write_spatial_annotation_workflow(
+            reviewed_workflow,
+            output,
+            overwrite=overwrite_output,
+        )
+    except (FileExistsError, KeyError, OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
+
+
+@app.command("spatial-corpus-validate")
+def spatial_corpus_validate(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    corpus_root: Annotated[
+        Path,
+        typer.Option(
+            "--corpus-root", help="Root containing the externally stored PPM corpus files."
+        ),
+    ],
+) -> None:
+    """Validate existing corpus file and split integrity without inspecting image semantics."""
+
+    try:
+        result = validate_spatial_perception_corpus_files(
+            _read_spatial_annotation_workflow(workflow).manifest,
+            corpus_root,
+        )
+    except (OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(_to_deterministic_json(result))
+    if not result.valid:
+        raise typer.Exit(code=1)
+
+
+@app.command("spatial-corpus-readiness")
+def spatial_corpus_readiness(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    corpus_root: Annotated[
+        Path,
+        typer.Option(
+            "--corpus-root", help="Root containing the externally stored PPM corpus files."
+        ),
+    ],
+) -> None:
+    """Report deterministic annotation, review, integrity, and freeze readiness counts."""
+
+    try:
+        current_workflow = _read_spatial_annotation_workflow(workflow)
+        integrity_result = validate_spatial_perception_corpus_files(
+            current_workflow.manifest,
+            corpus_root,
+        )
+        summary = assess_spatial_corpus_readiness(current_workflow, integrity_result)
+    except (OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(_to_deterministic_json(summary))
+
+
+@app.command("spatial-corpus-freeze")
+def spatial_corpus_freeze(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    corpus_root: Annotated[
+        Path,
+        typer.Option(
+            "--corpus-root", help="Root containing the externally stored PPM corpus files."
+        ),
+    ],
+    output: Annotated[Path, typer.Option("--output", help="Frozen workflow JSON output path.")],
+    overwrite_output: Annotated[
+        bool,
+        typer.Option("--overwrite-output", help="Replace an existing workflow JSON output."),
+    ] = False,
+) -> None:
+    """Freeze one fully reviewed and integrity-valid corpus version."""
+
+    try:
+        current_workflow = _read_spatial_annotation_workflow(workflow)
+        integrity_result = validate_spatial_perception_corpus_files(
+            current_workflow.manifest,
+            corpus_root,
+        )
+        readiness = assess_spatial_corpus_readiness(current_workflow, integrity_result)
+        if not readiness.freeze_ready:
+            reasons = ", ".join(readiness.blocked_reasons)
+            raise ValueError(f"corpus is not ready to freeze: {reasons}")
+        frozen_workflow = freeze_spatial_corpus(current_workflow, integrity_result)
+        path = _write_spatial_annotation_workflow(
+            frozen_workflow,
+            output,
+            overwrite=overwrite_output,
+        )
+    except (FileExistsError, OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    typer.echo(str(path))
 
 
 @app.command("live-preflight")
@@ -860,6 +1129,70 @@ def controlled_live_smoke_stability_review(
     if summary.conclusion != "passed":
         raise click.ClickException(f"controlled live-smoke stability review failed: {path}")
     typer.echo(str(path))
+
+
+def _parse_spatial_sequence_source(value: str) -> SpatialCorpusSequenceSource:
+    parts = value.split(":", maxsplit=2)
+    if len(parts) != 3 or not all(parts):
+        msg = "--sequence must use SEQUENCE_ID:RELATIVE_DIRECTORY:SPLIT"
+        raise ValueError(msg)
+    sequence_id, relative_directory, split = parts
+    return SpatialCorpusSequenceSource(
+        sequence_id=sequence_id,
+        relative_directory=relative_directory,
+        split=split,
+    )
+
+
+def _parse_spatial_coordinate(value: str) -> tuple[int, int]:
+    parts = value.split(",")
+    if len(parts) != 2:
+        msg = "coordinates must use X,Y"
+        raise ValueError(msg)
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError as exc:
+        msg = "coordinates must use integer X,Y values"
+        raise ValueError(msg) from exc
+
+
+def _read_spatial_annotation_workflow(path: Path) -> SpatialAnnotationWorkflow:
+    try:
+        return SpatialAnnotationWorkflow.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValidationError) as exc:
+        msg = f"invalid spatial annotation workflow: {path}: {exc}"
+        raise ValueError(msg) from exc
+
+
+def _write_spatial_annotation_workflow(
+    workflow: SpatialAnnotationWorkflow,
+    path: Path,
+    *,
+    overwrite: bool,
+) -> Path:
+    if path.exists() and not overwrite:
+        msg = f"workflow output already exists: {path}"
+        raise FileExistsError(msg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_to_deterministic_json(workflow) + "\n", encoding="utf-8")
+    return path
+
+
+def _spatial_annotation_by_frame_id(
+    workflow: SpatialAnnotationWorkflow,
+    frame_id: str,
+) -> SpatialPerceptionFrameAnnotation:
+    for sequence in workflow.manifest.annotations.sequences:
+        for annotation in sequence.frames:
+            if annotation.frame_id == frame_id:
+                return annotation
+    msg = f"annotation frame_id is not present in the corpus: {frame_id}"
+    raise ValueError(msg)
+
+
+def _to_deterministic_json(model: BaseModel) -> str:
+    payload = model.model_dump(mode="json")  # type: ignore[union-attr]
+    return json.dumps(payload, ensure_ascii=True, sort_keys=True, indent=2)
 
 
 def main() -> None:

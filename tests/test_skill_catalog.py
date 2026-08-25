@@ -8,6 +8,7 @@ from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVis
 from fh_agent.manager.skill_catalog import SkillCatalog, SkillCatalogError
 from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.observation.schemas import Observation
+from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS
 
 
 def dialogue_observation(text: str = "Visible text") -> Observation:
@@ -36,6 +37,15 @@ def test_default_catalog_contains_all_milestone_5_skills() -> None:
         "continue_dialogue",
         "interact_visible_object",
     ]
+
+
+def test_every_default_runtime_skill_is_resolvable() -> None:
+    catalog = SkillCatalog.default()
+
+    assert tuple(catalog.list()) == DEFAULT_RUNTIME_SKILLS
+    for skill_name in DEFAULT_RUNTIME_SKILLS:
+        skill = catalog.get(skill_name)
+        assert skill.contract.skill_name == skill_name
 
 
 def test_get_continue_dialogue_returns_continue_dialogue_skill() -> None:

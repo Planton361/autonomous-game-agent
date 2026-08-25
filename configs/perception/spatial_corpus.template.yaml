@@ -1,0 +1,27 @@
+# Template only. Frame files may remain in a local or external corpus root and need not be in Git.
+corpus_id: visible-spatial-corpus
+schema_version: "1"
+corpus_version: "0.1.0"
+sequences:
+  - sequence_id: sequence-0001
+    split: train
+    frames:
+      - frame_id: frame-000001
+        sequence_id: sequence-0001
+        relative_frame_path: frames/sequence-0001/frame-000001.ppm
+        sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+        width: 640
+        height: 480
+        evidence_id: visible-evidence-000001
+        frame_index: 0
+        captured_at: null
+annotations:
+  dataset_version: "0.1.0"
+  sequences:
+    - sequence_id: sequence-0001
+      frames:
+        - frame_id: frame-000001
+          evidence_id: visible-evidence-000001
+          status: usable
+          player_screen_position: null
+          visible_sprite_positions: []

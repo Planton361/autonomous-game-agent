@@ -16,7 +16,7 @@ def make_task_spec(task_id: str = "task-1", *, timeout_steps: int = 3) -> TaskSp
         task_id=task_id,
         selected_skill="continue_dialogue",
         goal=f"Run {task_id}.",
-        target={"description": f"target for {task_id}"},
+        target=None,
         constraints={"avoid_known_dangers": True, "max_danger_score": 0.4},
         success_conditions=["new_visible_text"],
         failure_conditions=["death_screen", "timeout"],
@@ -107,7 +107,7 @@ def test_event_preserves_task_completion_core_fields() -> None:
     assert event.task_id == "task-1"
     assert event.selected_skill == "continue_dialogue"
     assert event.goal == "Run task-1."
-    assert event.target == {"description": "target for task-1"}
+    assert event.target is None
     assert event.elapsed_steps == 0
     assert event.created_at == "2026-05-16T12:00:00+00:00"
 

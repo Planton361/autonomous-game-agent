@@ -7,9 +7,15 @@ from fh_agent.planner.context import CortexContext, build_plan_context, build_po
 from fh_agent.planner.llm_client import LLMClient
 from fh_agent.planner.planner_output import (
     PlannerOutput,
+    PlannerOutputError,
     PostMortemOutput,
     parse_planner_output_json,
     parse_post_mortem_output_json,
+)
+from fh_agent.skill_capabilities import (
+    DEFAULT_RUNTIME_SKILLS,
+    SkillCapabilityContract,
+    UniversalSkillName,
 )
 
 PROMPT_PACKAGE = "fh_agent.planner.prompts"
@@ -25,11 +31,32 @@ class Cortex:
         self,
         observation: Observation,
         memory_summary: Mapping[str, Any],
+        *,
+        available_skills: Sequence[UniversalSkillName] | None = None,
     ) -> PlannerOutput:
-        context = build_plan_context(observation, memory_summary)
+        runtime_skills = DEFAULT_RUNTIME_SKILLS
+        call_skills = tuple(available_skills) if available_skills is not None else runtime_skills
+        unavailable_call_skills = sorted(set(call_skills) - set(runtime_skills))
+        if unavailable_call_skills:
+            joined = ", ".join(unavailable_call_skills)
+            msg = f"planning context contains skills unavailable from SkillCatalog: {joined}"
+            raise PlannerOutputError(msg)
+
+        capabilities = SkillCapabilityContract(available_skills=call_skills)
+        context = build_plan_context(
+            observation,
+            memory_summary,
+            allowed_skills=capabilities.available_skills,
+        )
         messages = build_plan_next_goal_messages(context)
         raw_output = self.llm_client.complete(messages)
-        return parse_planner_output_json(raw_output)
+        output = parse_planner_output_json(raw_output)
+        if output.selected_skill not in context.allowed_skills:
+            msg = (
+                f"planner selected skill unavailable in this CortexContext: {output.selected_skill}"
+            )
+            raise PlannerOutputError(msg)
+        return output
 
     def post_mortem(
         self,

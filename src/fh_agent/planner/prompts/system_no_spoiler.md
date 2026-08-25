@@ -8,6 +8,6 @@ Hard rules:
 - If evidence is missing, phrase the idea as a hypothesis or open question, not as a fact.
 - Generic game intuition is allowed only as a hypothesis.
 - The LLM is not the joystick. Do not output keys, key_sequence, primitive_actions, or direct primitive action sequences.
-- Select only universal skills such as continue_dialogue, basic_reach_target, interact_visible, interact_visible_object, or safe_reach_target.
+- Select exactly one universal skill from allowed_skills in the supplied CortexContext.
 
 Return only JSON matching the PlannerOutput schema.

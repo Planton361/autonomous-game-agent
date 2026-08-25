@@ -2,6 +2,7 @@ import pytest
 
 from fh_agent.bridge.bridge_server import observation_from_bridge_payload
 from fh_agent.bridge.sanitizer import ForbiddenBridgeFieldError, InvalidBridgePayloadError
+from fh_agent.manager.grounding import BoundedObservationGroundingService, GroundingRequest
 from fh_agent.observation.schemas import Observation
 
 
@@ -40,6 +41,32 @@ def test_raw_bridge_payload_converts_to_observation() -> None:
     assert observation.visible_sprites[0].screen_position == (30, 40)
     assert observation.visible_sprites[0].visual_hash == "dhash:0123456789abcdef"
     assert observation.visible_sprites[0].evidence_id == "shot-001"
+    assert observation.visible_sprites[0].confidence == 1.0
+
+
+def test_legacy_bridge_sprite_payload_normalizes_and_grounds_without_grounder_changes() -> None:
+    observation = observation_from_bridge_payload(
+        {
+            "run_mode": "official",
+            "visible_sprite_screen_positions": [[30, 40]],
+            "visible_sprite_visual_hashes": ["dhash:0123456789abcdef"],
+            "screenshot_id": "shot-001",
+        },
+        run_id="run-1",
+    )
+
+    result = BoundedObservationGroundingService().ground(
+        GroundingRequest(
+            selected_skill="interact_visible_object",
+            semantic_goal="Interact with the visible object.",
+            evidence_scope_ids=("shot-001",),
+        ),
+        observation,
+    )
+
+    assert result.status == "grounded"
+    assert result.target is not None
+    assert result.target.target_type == "visible_object"
 
 
 def test_run_mode_is_not_observation_content() -> None:
@@ -99,6 +126,22 @@ def test_sprite_visual_hashes_must_not_be_entity_names() -> None:
             {
                 "run_mode": "official",
                 "visible_sprite_visual_hashes": ["guard"],
+            },
+            run_id="run-1",
+        )
+
+
+def test_bridge_rejects_more_sprite_hashes_than_positions() -> None:
+    with pytest.raises(InvalidBridgePayloadError, match="cannot outnumber"):
+        observation_from_bridge_payload(
+            {
+                "run_mode": "official",
+                "visible_sprite_screen_positions": [[30, 40]],
+                "visible_sprite_visual_hashes": [
+                    "dhash:0123456789abcdef",
+                    "dhash:fedcba9876543210",
+                ],
+                "screenshot_id": "shot-001",
             },
             run_id="run-1",
         )

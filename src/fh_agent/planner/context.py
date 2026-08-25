@@ -8,18 +8,10 @@ from fh_agent.observation.schemas import Observation, SkillResult
 from fh_agent.planner.planner_output import (
     ReflectionNote,
     RiskLimit,
-    UniversalSkillName,
     find_direct_control_violations,
     find_hidden_state_term_violations,
 )
-
-DEFAULT_ALLOWED_SKILLS: tuple[UniversalSkillName, ...] = (
-    "continue_dialogue",
-    "basic_reach_target",
-    "interact_visible",
-    "interact_visible_object",
-    "safe_reach_target",
-)
+from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS, UniversalSkillName
 
 
 class CortexContext(BaseModel):
@@ -32,7 +24,7 @@ class CortexContext(BaseModel):
     hypotheses: list[ReflectionNote] = Field(default_factory=list)
     recent_skill_outcomes: list[ReflectionNote] = Field(default_factory=list)
     allowed_skills: list[UniversalSkillName] = Field(
-        default_factory=lambda: list(DEFAULT_ALLOWED_SKILLS)
+        default_factory=lambda: list(DEFAULT_RUNTIME_SKILLS)
     )
     risk_constraints: RiskLimit = Field(default_factory=RiskLimit)
     open_questions: list[str] = Field(default_factory=list)
@@ -79,6 +71,8 @@ class CortexContext(BaseModel):
 def build_plan_context(
     observation: Observation,
     memory_summary: Mapping[str, Any],
+    *,
+    allowed_skills: Sequence[UniversalSkillName] = DEFAULT_RUNTIME_SKILLS,
 ) -> CortexContext:
     """Build validated prompt context from visible observation and supplied memory summary."""
 
@@ -96,7 +90,7 @@ def build_plan_context(
             memory_summary.get("recent_skill_outcomes", []),
             default_status="observed_fact",
         ),
-        allowed_skills=list(DEFAULT_ALLOWED_SKILLS),
+        allowed_skills=list(allowed_skills),
         risk_constraints=_coerce_risk_limit(memory_summary.get("risk_constraints")),
         open_questions=list(cast(Sequence[str], memory_summary.get("open_questions", []))),
     )
@@ -137,7 +131,7 @@ def build_post_mortem_context(
             for skill_result in skill_results
             if skill_result.evidence_ids
         ],
-        allowed_skills=list(DEFAULT_ALLOWED_SKILLS),
+        allowed_skills=list(DEFAULT_RUNTIME_SKILLS),
         risk_constraints=_coerce_risk_limit((outcome_summary or {}).get("risk_constraints")),
         open_questions=list(cast(Sequence[str], (outcome_summary or {}).get("open_questions", []))),
     )

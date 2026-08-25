@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -7,6 +9,7 @@ from fh_agent.planner.context import (
     build_plan_context,
     build_post_mortem_context,
 )
+from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS
 
 
 def test_context_accepts_evidence_backed_fact() -> None:
@@ -100,6 +103,14 @@ def test_context_serialization_is_deterministic() -> None:
     )
 
     assert left.to_prompt_json() == right.to_prompt_json()
+
+
+def test_serialized_context_exposes_exactly_default_runtime_skills() -> None:
+    context = CortexContext()
+
+    payload = json.loads(context.to_prompt_json())
+
+    assert payload["allowed_skills"] == list(DEFAULT_RUNTIME_SKILLS)
 
 
 def test_build_plan_context_from_observation_and_memory_summary() -> None:

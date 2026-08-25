@@ -70,3 +70,31 @@ def test_observation_builder_blocks_forbidden_bridge_fields(tmp_path: Path) -> N
             evidence=evidence,
             bridge_data={"enemy_hp": 10},
         )
+
+
+def test_observation_builder_normalizes_visible_sprite_bridge_data(tmp_path: Path) -> None:
+    frame = make_frame()
+    evidence = save_evidence(tmp_path, frame)
+
+    observation = ObservationBuilder(run_id="run-1").build(
+        frame=frame,
+        evidence=evidence,
+        bridge_data={
+            "visible_sprite_screen_positions": [(10, 20), (30, 40)],
+            "visible_sprite_visual_hashes": ["dhash:0123456789abcdef"],
+        },
+    )
+
+    assert [sprite.screen_position for sprite in observation.visible_sprites] == [
+        (10, 20),
+        (30, 40),
+    ]
+    assert [sprite.visual_hash for sprite in observation.visible_sprites] == [
+        "dhash:0123456789abcdef",
+        None,
+    ]
+    assert [sprite.evidence_id for sprite in observation.visible_sprites] == [
+        evidence.evidence_id,
+        evidence.evidence_id,
+    ]
+    assert [sprite.confidence for sprite in observation.visible_sprites] == [1.0, 1.0]

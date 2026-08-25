@@ -12,12 +12,22 @@ GameInstance
 → No-Spoiler Firewall
 → Observation Router
 → Memory: Evidence, RoomGraph, EntityRisk, SkillRegistry, StrategyGraph
-→ Cortex: local LLM planner
-→ Manager: task, reward, timeout, success/failure contracts
-→ Body: primitive key actions, heuristics, later goal-conditioned RL
+→ Cortex: local LLM planner, never a direct controller
+→ Manager: grounding, scheduling, rewards, stop/replan contracts
+→ Body: universal heuristics and later goal-conditioned learned skills
+→ Reflex: fast Body path bounded by the active Manager contract
 → InputExecutor
 → GameInstance
 ```
+
+## Active research phase
+
+The active milestone is **Phase 0 — Experiment contract** in `ROADMAP.md`. Phase 0 may change only
+research documentation and experiment configuration. It must not change Runtime, Planner, Memory,
+Body, Bridge, or input behavior, and it must not launch the game or send inputs.
+
+There is no cross-game transfer requirement in the current roadmap. Do not add one implicitly to
+acceptance criteria, schemas, metrics, or model-training requirements.
 
 ## Hard rules
 
@@ -28,6 +38,30 @@ GameInstance
 5. **Every action must be logged.** Observations, actions, skill results, rewards, screenshots, and evidence links must be persisted.
 6. **Do not add large architectural dependencies without documenting why.** Prefer small modules, typed schemas, tests, and clear boundaries.
 7. **Never run automation against the wrong window.** Input code must include focus checks, rate limits, and an emergency stop.
+8. **Keep the experiment offline.** Official runs must be network-isolated. Models, prompts,
+   dependencies, and fixtures are staged before sealing the run environment; no web, wiki, remote
+   model, telemetry, cloud logging, or remote retrieval is allowed during a run.
+9. **Preserve provenance.** Every research run must record the Git commit, prompt hash, config
+   hash, model name, and model artifact hash. Missing or ambiguous provenance contaminates the run.
+10. **Reflex stays inside the contract.** A Reflex may select only contract-allowed Body actions in
+    response to immediate visible evidence. It cannot set goals, extend budgets, suppress stop or
+    replan signals, or bypass the safety filter and event log.
+
+## Experiment run modes
+
+- `screen-only`: primary official mode; observations come from screenshots, OCR, and visible
+  action outcomes.
+- `bridge-assisted`: separate official auxiliary mode; it adds only allowlisted, sanitized fields
+  representing information simultaneously visible on screen. Results are never pooled with
+  screen-only results.
+- `debug`: non-official development mode. No hidden state is authorized; if hidden state or spoiler
+  material is exposed, the run is reclassified as contaminated.
+- `contaminated`: quarantine label for hidden-state/spoiler exposure, network-policy breach,
+  missing provenance, mixed-mode data, or uncertain integrity. It is excluded from confirmatory
+  metrics and never relabeled as official.
+
+The normative rules, including network sealing and incident handling, are in
+`docs/research/NO_SPOILER_PROTOCOL.md`.
 
 ## Development environment
 
@@ -86,10 +120,14 @@ SQLite schema, evidence store, room graph, entity risk, strategy graph, skill hi
 Local LLM client and prompts. Planner outputs structured JSON only.
 
 ### `manager/`
-Converts planner goals into task specs, reward profiles, stop conditions, and skill contracts.
+Owns grounding of Cortex intent to visible targets, scheduling, reward profiles, budgets, stop
+conditions, success/failure decisions, and replanning. It is the only authority that opens or
+closes a Body contract.
 
 ### `body/`
-Primitive actions, deterministic skills, safety filter, learned policies. Body outputs only primitive game inputs.
+Universal deterministic skills, the safety filter, primitive-action proposals, and later learned
+goal-conditioned policies. The Body acts only within a Manager contract and outputs only primitive
+game inputs. The Reflex is a low-latency Body execution path, not a second planner.
 
 ### `rl/`
 Gymnasium wrappers, replay buffers, behavior cloning, PPO/DQN experiments, HER relabeling.
@@ -184,7 +222,7 @@ When working as a coding agent:
 2. State a concise implementation plan.
 3. Make the smallest coherent change.
 4. Add tests or smoke tests.
-5. Run `uv run pytest` and `uv run ruff check .` if available.
+5. Run `uv run pytest`, `uv run ruff check .`, and `uv run ruff format --check .` if available.
 6. Summarize changed files, validation results, and next recommended task.
 7. Do not perform broad rewrites without explicit instruction.
 8. Do not run the game or send inputs unless the user explicitly asks.

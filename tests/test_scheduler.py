@@ -19,7 +19,7 @@ def make_task_spec(
         task_id=task_id,
         selected_skill="continue_dialogue",
         goal=f"Run {task_id}.",
-        target={"description": f"target for {task_id}"},
+        target=None,
         constraints={"avoid_known_dangers": True, "max_danger_score": 0.4},
         success_conditions=["new_visible_text"]
         if success_conditions is None

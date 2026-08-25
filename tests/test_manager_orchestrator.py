@@ -5,12 +5,16 @@ import pytest
 from fh_agent.manager import orchestrator as orchestrator_module
 from fh_agent.manager.orchestrator import ManagerOrchestrator
 from fh_agent.manager.scheduler import TaskSchedulerError, TaskStatus
+from fh_agent.manager.target_ref import GroundingResult, VisibleScreenPointTarget
+from fh_agent.manager.task_manager import ManagerGroundingError, TaskManagerError
 from fh_agent.planner.planner_output import PlannerOutput
+from fh_agent.skill_capabilities import SkillCapabilityContract
 
 
 def valid_planner_output(
     *,
     goal: str = "Continue the visible dialogue until the message changes.",
+    selected_skill: str = "continue_dialogue",
 ) -> PlannerOutput:
     return PlannerOutput.model_validate(
         {
@@ -23,7 +27,7 @@ def valid_planner_output(
             ],
             "open_questions": ["Will the visible text change?"],
             "next_goal": goal,
-            "selected_skill": "continue_dialogue",
+            "selected_skill": selected_skill,
             "success_condition": ["new_visible_text"],
             "risk_limit": {"avoid_known_dangers": True, "max_danger_score": 0.4},
             "memory_updates_requested": [
@@ -55,6 +59,68 @@ def test_submit_planner_output_creates_queued_scheduled_task() -> None:
     assert scheduled.status == TaskStatus.PENDING
     assert scheduled.task_spec.task_id == "task-1"
     assert orchestrator.scheduler.queued_tasks == (scheduled,)
+
+
+def test_orchestrator_injects_runtime_capabilities_into_internal_task_manager() -> None:
+    capabilities = SkillCapabilityContract(available_skills=("continue_dialogue",))
+    orchestrator = ManagerOrchestrator(runtime_capabilities=capabilities)
+
+    with pytest.raises(TaskManagerError, match="not available.*basic_reach_target"):
+        orchestrator.submit_planner_output(
+            valid_planner_output(selected_skill="basic_reach_target"),
+            task_id="task-1",
+        )
+
+    assert orchestrator.task_manager.runtime_capabilities is capabilities
+    assert orchestrator.scheduler.queued_tasks == ()
+
+
+def test_orchestrator_forwards_grounding_result_to_task_manager() -> None:
+    orchestrator = ManagerOrchestrator()
+    grounding = GroundingResult(
+        status="grounded",
+        target=VisibleScreenPointTarget(
+            target_id="point-1",
+            confidence=0.9,
+            evidence_ids=("target-shot-1",),
+            screen_position=(120, 80),
+        ),
+        evidence_ids=("grounding-shot-1",),
+    )
+
+    scheduled = orchestrator.submit_planner_output(
+        valid_planner_output(selected_skill="basic_reach_target"),
+        task_id="task-1",
+        grounding_result=grounding,
+    )
+
+    assert scheduled.task_spec.target == grounding.target
+    assert scheduled.task_spec.source_evidence_ids == [
+        "source-shot-1",
+        "source-shot-2",
+        "target-shot-1",
+        "grounding-shot-1",
+    ]
+
+
+def test_orchestrator_does_not_enqueue_failed_grounding() -> None:
+    orchestrator = ManagerOrchestrator()
+    grounding = GroundingResult(
+        status="grounding_failed",
+        failure_reason="no_visible_candidate",
+        evidence_ids=("grounding-shot-1",),
+    )
+
+    with pytest.raises(ManagerGroundingError) as error:
+        orchestrator.submit_planner_output(
+            valid_planner_output(selected_skill="basic_reach_target"),
+            task_id="task-1",
+            grounding_result=grounding,
+        )
+
+    assert error.value.failure_reason == "no_visible_candidate"
+    assert error.value.evidence_ids == ("grounding-shot-1",)
+    assert orchestrator.scheduler.queued_tasks == ()
 
 
 def test_start_next_starts_queued_task() -> None:

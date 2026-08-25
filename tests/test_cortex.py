@@ -11,6 +11,7 @@ from fh_agent.planner.cortex import (
     load_prompt,
 )
 from fh_agent.planner.llm_client import FakeLLMClient
+from fh_agent.planner.planner_output import PlannerOutputError
 
 
 def valid_planner_payload() -> dict[str, object]:
@@ -108,6 +109,46 @@ def test_cortex_rejects_invalid_llm_output() -> None:
 
     with pytest.raises(ValidationError):
         cortex.plan_next_goal(visible_observation(), {})
+
+
+def test_cortex_rejects_globally_known_but_runtime_unavailable_skill() -> None:
+    payload = valid_planner_payload()
+    payload["selected_skill"] = "safe_reach_target"
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+    cortex = Cortex(client)
+
+    with pytest.raises(PlannerOutputError, match="unavailable.*safe_reach_target"):
+        cortex.plan_next_goal(visible_observation(), {})
+
+
+def test_cortex_respects_per_call_available_skill_subset() -> None:
+    payload = valid_planner_payload()
+    payload["selected_skill"] = "basic_reach_target"
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+    cortex = Cortex(client)
+
+    with pytest.raises(PlannerOutputError, match="unavailable.*basic_reach_target"):
+        cortex.plan_next_goal(
+            visible_observation(),
+            {},
+            available_skills=("continue_dialogue",),
+        )
+
+    context_payload = json.loads(client.requests[0][1]["content"].split("CortexContext JSON:\n")[1])
+    assert context_payload["allowed_skills"] == ["continue_dialogue"]
+
+
+def test_cortex_rejects_hidden_state_in_planning_context_before_llm_call() -> None:
+    client = FakeLLMClient(responses=[json.dumps(valid_planner_payload())])
+    cortex = Cortex(client)
+    hidden_state_observation = visible_observation().model_copy(
+        update={"visible_message_text": "Forbidden source: map_id"}
+    )
+
+    with pytest.raises(ValidationError, match="hidden-state terms"):
+        cortex.plan_next_goal(hidden_state_observation, {})
+
+    assert client.requests == []
 
 
 def test_cortex_rejects_direct_key_plan_from_llm() -> None:

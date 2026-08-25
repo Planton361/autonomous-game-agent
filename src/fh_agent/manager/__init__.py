@@ -24,7 +24,11 @@ from fh_agent.manager.scheduler import (
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.skill_runner import SkillRunner, SkillRunResult
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
-from fh_agent.manager.task_manager import TaskManager, TaskManagerError
+from fh_agent.manager.task_manager import (
+    ManagerGroundingError,
+    TaskManager,
+    TaskManagerError,
+)
 from fh_agent.manager.task_spec import TaskSpec
 
 __all__ = [
@@ -32,6 +36,7 @@ __all__ = [
     "DEFAULT_REWARD_PROFILES",
     "InMemoryManagerEventSink",
     "ManagerOrchestrator",
+    "ManagerGroundingError",
     "ManagerEventSink",
     "MockSkillCompletionSignal",
     "RewardBreakdown",

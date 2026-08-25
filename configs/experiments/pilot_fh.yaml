@@ -1,0 +1,167 @@
+schema_version: "1.0"
+experiment_id: pilot_fh_cortex_body_v1
+experiment_status: preregistered_not_runtime_ready
+scope:
+  game: fear_and_hunger
+  cross_game_transfer_required: false
+  primary_question: >-
+    Does a local Cortex-Manager-heuristic Body hierarchy improve evidence-grounded progress
+    over fixed baselines without weakening safety or no-spoiler integrity?
+
+architecture:
+  cortex:
+    role: llm_planner
+    direct_controller: false
+    structured_output_only: true
+  manager:
+    owns:
+      - grounding
+      - scheduling
+      - reward_contract
+      - stop_detection
+      - replan_decision
+  body:
+    universal_skills_only: true
+    implementation: heuristic
+    learned_skills_enabled: false
+  reflex:
+    enabled: false
+    role: fast_body_path_within_manager_contract
+    may_expand_contract: false
+
+run_modes:
+  screen-only:
+    official_eligible: true
+    primary_cohort: true
+    bridge_enabled: false
+  bridge-assisted:
+    official_eligible: true
+    primary_cohort: false
+    bridge_enabled: true
+    pool_with_screen_only: false
+  debug:
+    official_eligible: false
+    primary_cohort: false
+  contaminated:
+    official_eligible: false
+    primary_cohort: false
+    quarantine: true
+
+network:
+  isolation_required: true
+  policy: deny_all_ingress_and_egress_during_run
+  local_llm_only: true
+  telemetry_allowed: false
+  remote_storage_allowed: false
+  verification_evidence_required: true
+
+no_spoiler:
+  protocol: docs/research/NO_SPOILER_PROTOCOL.md
+  deny_unknown_bridge_fields: true
+  stop_on_forbidden_field_attempt: true
+  screenshot_required_in_bridge_assisted: true
+  allowed_evidence_sources:
+    - screenshot
+    - ocr_from_screenshot
+    - sanitized_visible_bridge
+    - observed_action_outcome
+  forbidden_sources:
+    - hidden_engine_state
+    - game_files_and_databases
+    - savegame_internals
+    - process_memory
+    - external_guides_or_hints
+
+provenance:
+  hash_algorithm: sha256
+  required_fields:
+    - git_commit
+    - git_dirty
+    - git_diff_hash_if_dirty
+    - prompt_hash
+    - config_hash
+    - model_name
+    - model_hash
+    - run_mode
+    - condition
+    - seed
+    - network_isolation_evidence
+  config_hash_scope: canonical_resolved_config_excluding_recorded_config_hash
+  prompt_hash_scope: exact_ordered_prompt_bundle_bytes
+  model_hash_scope: artifact_or_canonical_shard_manifest
+
+design:
+  experimental_unit: run
+  paired_block: visible_start_state_card
+  minimum_valid_runs_per_primary_condition: 10
+  randomize_condition_order: true
+  early_stop_for_apparent_benefit: false
+  max_run_duration_seconds: 900
+  max_primitive_actions_per_run: 500
+  primary_mode: screen-only
+  diagnostic_mode: bridge-assisted
+  conditions:
+    - no_action
+    - fixed_goal_heuristic
+    - cortex_manager_heuristic
+
+stop_rules:
+  run_terminal:
+    - emergency_stop
+    - focus_lost_during_attempted_input
+    - death_screen
+    - no_spoiler_incident
+    - network_isolation_failure
+    - required_log_corruption
+    - run_time_budget_exhausted
+    - run_action_budget_exhausted
+    - stalled
+  contract_terminal:
+    - validated_success
+    - declared_failure
+    - timeout
+    - no_progress
+    - grounding_lost
+    - safety_filter_deadlock
+    - visible_state_contradiction
+  max_consecutive_no_progress_contracts: 3
+  loop_detection_window_actions: 8
+  hard_stop_allows_automatic_replan: false
+
+metrics:
+  specification: docs/research/METRICS.md
+  primary:
+    - manually_confirmed_contract_success_rate
+    - evidence_grounded_progress_per_100_actions
+    - safety_components
+    - false_success_rate
+  secondary:
+    - grounding_coverage
+    - replan_yield
+    - skill_success_rate
+    - action_efficiency
+    - closed_loop_coverage
+    - time_to_first_progress
+  confidence_interval: bootstrap_95_percent_by_run
+  pool_run_modes: false
+
+integrity_gates:
+  real_ocr_measured: false
+  grounding_closed_loop_operational: false
+  skill_catalog_consistent: false
+  reward_model_unified: false
+  success_detectors_calibrated: false
+  action_contract_evidence_linkage_target: 1.0
+  wrong_window_inputs_target: 0
+  no_spoiler_violations_target: 0
+  pilot_execution_authorized: false
+
+known_technical_debt:
+  - noop_ocr
+  - bridge_skeleton
+  - offline_skill_runner
+  - missing_grounding
+  - skill_catalog_mismatch
+  - duplicate_reward_model
+  - loose_success_detectors
+  - missing_closed_loop

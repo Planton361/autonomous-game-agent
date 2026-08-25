@@ -2,8 +2,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-from fh_agent.bridge.sanitizer import sanitize_bridge_payload
-from fh_agent.observation.schemas import Observation, VisibleSprite, VisibleTextSpan
+from fh_agent.bridge.sanitizer import InvalidBridgePayloadError, sanitize_bridge_payload
+from fh_agent.observation.schemas import Observation, VisibleTextSpan
+from fh_agent.observation.visible_sprite_normalization import (
+    VisibleSpriteNormalizationError,
+    normalize_visible_sprites,
+)
 
 BridgeRunMode = Literal["official", "debug"]
 
@@ -71,7 +75,26 @@ def observation_from_sanitized_bridge_payload(
     screenshot_id = cast(str | None, sanitized_payload.get("screenshot_id"))
     evidence_ids = [screenshot_id] if screenshot_id is not None else []
     visible_text_spans = _visible_text_spans_from_payload(sanitized_payload, screenshot_id)
-    visible_sprites = _visible_sprites_from_payload(sanitized_payload, screenshot_id)
+    visible_sprite_screen_positions = list(
+        cast(
+            list[tuple[int, int]],
+            sanitized_payload.get("visible_sprite_screen_positions", []),
+        )
+    )
+    visible_sprite_visual_hashes = list(
+        cast(list[str], sanitized_payload.get("visible_sprite_visual_hashes", []))
+    )
+    try:
+        visible_sprites = normalize_visible_sprites(
+            visible_sprite_screen_positions=visible_sprite_screen_positions,
+            visible_sprite_visual_hashes=visible_sprite_visual_hashes,
+            screenshot_id=screenshot_id,
+            evidence_ids=evidence_ids,
+            # This is confidence in sanitized visible-data extraction, not entity semantics.
+            source_confidence=1.0,
+        )
+    except VisibleSpriteNormalizationError as exc:
+        raise InvalidBridgePayloadError(str(exc)) from exc
 
     return Observation(
         run_id=run_id,
@@ -84,15 +107,8 @@ def observation_from_sanitized_bridge_payload(
             tuple[int, int] | None,
             sanitized_payload.get("player_screen_position"),
         ),
-        visible_sprite_screen_positions=list(
-            cast(
-                list[tuple[int, int]],
-                sanitized_payload.get("visible_sprite_screen_positions", []),
-            )
-        ),
-        visible_sprite_visual_hashes=list(
-            cast(list[str], sanitized_payload.get("visible_sprite_visual_hashes", []))
-        ),
+        visible_sprite_screen_positions=visible_sprite_screen_positions,
+        visible_sprite_visual_hashes=visible_sprite_visual_hashes,
         visible_sprites=visible_sprites,
         evidence_ids=evidence_ids,
     )
@@ -137,23 +153,3 @@ def _visible_text_spans_from_payload(
                 spans.append(VisibleTextSpan(text=item, evidence_id=screenshot_id))
 
     return spans
-
-
-def _visible_sprites_from_payload(
-    sanitized_payload: Mapping[str, Any],
-    screenshot_id: str | None,
-) -> list[VisibleSprite]:
-    positions = cast(
-        list[tuple[int, int]],
-        sanitized_payload.get("visible_sprite_screen_positions", []),
-    )
-    visual_hashes = cast(list[str], sanitized_payload.get("visible_sprite_visual_hashes", []))
-
-    return [
-        VisibleSprite(
-            screen_position=position,
-            visual_hash=visual_hashes[index] if index < len(visual_hashes) else None,
-            evidence_id=screenshot_id,
-        )
-        for index, position in enumerate(positions)
-    ]

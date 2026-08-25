@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fh_agent.manager.reward_profiles import RewardProfile
+from fh_agent.manager.target_ref import GroundedTarget
 from fh_agent.planner.planner_output import (
     PRIMITIVE_ACTION_NAMES,
     UniversalSkillName,
@@ -23,7 +24,7 @@ class TaskSpec(BaseModel):
     task_id: str
     selected_skill: UniversalSkillName
     goal: str
-    target: JsonObject = Field(default_factory=dict)
+    target: GroundedTarget | None = None
     constraints: JsonObject = Field(default_factory=dict)
     success_conditions: list[str] = Field(default_factory=list)
     failure_conditions: list[str] = Field(default_factory=list)

@@ -1,8 +1,10 @@
 from fh_agent.manager.event_sink import ManagerEventSink
 from fh_agent.manager.scheduler import ScheduledTask, TaskScheduler
+from fh_agent.manager.target_ref import GroundingResult
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
 from fh_agent.manager.task_manager import TaskManager
 from fh_agent.planner.planner_output import PlannerOutput
+from fh_agent.skill_capabilities import SkillCapabilityContract
 
 
 class ManagerOrchestrator:
@@ -12,10 +14,19 @@ class ManagerOrchestrator:
         self,
         *,
         task_manager: TaskManager | None = None,
+        runtime_capabilities: SkillCapabilityContract | None = None,
         scheduler: TaskScheduler | None = None,
         event_sink: ManagerEventSink | None = None,
     ) -> None:
-        self.task_manager = task_manager or TaskManager()
+        if task_manager is not None and runtime_capabilities is not None:
+            msg = "pass either task_manager or runtime_capabilities, not both"
+            raise ValueError(msg)
+        if task_manager is not None:
+            self.task_manager = task_manager
+        elif runtime_capabilities is not None:
+            self.task_manager = TaskManager(runtime_capabilities=runtime_capabilities)
+        else:
+            self.task_manager = TaskManager()
         self.scheduler = scheduler or TaskScheduler()
         self.event_sink = event_sink
 
@@ -24,11 +35,13 @@ class ManagerOrchestrator:
         planner_output: PlannerOutput,
         *,
         task_id: str,
+        grounding_result: GroundingResult | None = None,
         planner_output_id: str | None = None,
         planner_trace_id: str | None = None,
     ) -> ScheduledTask:
         task_spec = self.task_manager.create_task_from_planner_output(
             planner_output,
+            grounding_result=grounding_result,
             planner_output_id=planner_output_id,
             planner_trace_id=planner_trace_id,
         )
