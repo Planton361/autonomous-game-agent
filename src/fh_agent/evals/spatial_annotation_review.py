@@ -21,6 +21,7 @@ from fh_agent.evals.spatial_perception_dataset import (
 AnnotationReviewStatus = Literal["passed", "needs_revision"]
 CorpusIntegrityStatus = Literal["passed", "failed", "stale"]
 CorpusFreezeStatus = Literal["ready", "blocked", "frozen"]
+REQUIRED_CORPUS_SPLITS = ("train", "validation", "test")
 
 
 class SpatialAnnotationReviewRecord(BaseModel):
@@ -212,6 +213,14 @@ def assess_spatial_corpus_readiness(
         annotation for annotation in annotations if annotation.status == "usable"
     )
     usable_frame_ids = {annotation.frame_id for annotation in usable_annotations}
+    split_by_frame_id = {
+        frame.frame_id: sequence.split
+        for sequence in manifest.sequences
+        for frame in sequence.frames
+    }
+    reviewed_usable_splits = {
+        split_by_frame_id[frame_id] for frame_id in usable_frame_ids & passed_review_frame_ids
+    }
     usable_passed_count = len(usable_frame_ids & passed_review_frame_ids)
     usable_lacking_review_count = len(usable_frame_ids - reviewed_frame_ids)
     usable_without_passed_count = len(usable_frame_ids - passed_review_frame_ids)
@@ -225,6 +234,9 @@ def assess_spatial_corpus_readiness(
         blocked_reasons.append("usable_annotations_lack_valid_passed_review")
     if obsolete_review_count:
         blocked_reasons.append("obsolete_annotation_review_present")
+    for split in REQUIRED_CORPUS_SPLITS:
+        if split not in reviewed_usable_splits:
+            blocked_reasons.append(f"{split}_split_has_no_reviewed_usable_annotation")
     if workflow.freeze_record is not None:
         blocked_reasons.append("corpus_version_already_frozen")
 
@@ -270,17 +282,9 @@ def freeze_spatial_corpus(
 ) -> SpatialAnnotationWorkflow:
     """Freeze exactly one valid corpus version after successful file-integrity validation."""
 
-    if workflow.freeze_record is not None:
-        msg = "corpus version is already frozen; create a new corpus version for further changes"
-        raise ValueError(msg)
-    if not integrity_result.valid:
-        msg = "cannot freeze a corpus with failed file-integrity validation"
-        raise ValueError(msg)
-    if integrity_result.corpus_id != workflow.manifest.corpus_id:
-        msg = "integrity result corpus_id does not match the workflow manifest"
-        raise ValueError(msg)
-    if integrity_result.manifest_fingerprint != workflow.manifest.fingerprint():
-        msg = "integrity result does not match the current workflow manifest"
+    readiness = assess_spatial_corpus_readiness(workflow, integrity_result)
+    if not readiness.freeze_ready:
+        msg = f"corpus is not ready to freeze: {', '.join(readiness.blocked_reasons)}"
         raise ValueError(msg)
 
     freeze_record = SpatialPerceptionCorpusFreezeRecord(

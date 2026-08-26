@@ -177,24 +177,8 @@ def test_cli_assembles_annotates_reviews_summarizes_validates_and_freezes(tmp_pa
     assert review.exit_code == 0, review.output
     assert validation.exit_code == 0, validation.output
     assert json.loads(validation.output)["valid"] is True
-    assert freeze.exit_code == 0, freeze.output
-    frozen_mutation = runner.invoke(
-        app,
-        [
-            "spatial-corpus-annotate",
-            "--workflow",
-            str(frozen),
-            "--frame-id",
-            frame_id,
-            "--status",
-            "exclude",
-            "--overwrite-annotation",
-            "--output",
-            str(tmp_path / "frozen-mutation.json"),
-        ],
-    )
-    assert frozen_mutation.exit_code == 1
-    assert "frozen" in frozen_mutation.output
+    assert freeze.exit_code == 1
+    assert "train_split_has_no_reviewed_usable_annotation" in freeze.output
 
 
 def test_cli_reports_obsolete_review_and_refuses_freeze(tmp_path: Path) -> None:

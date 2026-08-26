@@ -37,5 +37,10 @@ contains corpus ID/version/schema, the canonical corpus fingerprint, a separate 
 and a timestamp. A frozen workflow rejects annotation mutation. Future annotation changes require a
 new corpus version and a new freeze record; they must not rewrite the frozen version.
 
+Freeze readiness also requires at least one `usable` annotation with a current `passed` review in
+each `train`, `validation`, and `test` split. Every `usable` annotation must have such a review, and
+any obsolete review blocks the gate. Additional `uncertain` or `exclude` frames remain legitimate
+and do not themselves block a corpus with this reviewed usable coverage.
+
 No record in this workflow may add enemy, door, NPC, item, exit, hazard, room, map, event, or other
 hidden-state fields.

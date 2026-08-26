@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from fh_agent.evals.spatial_annotation_review import (
     SpatialAnnotationWorkflow,
     annotation_fingerprint,
+    assess_spatial_corpus_readiness,
     create_annotation_review,
     freeze_spatial_corpus,
     record_spatial_annotation,
@@ -21,14 +22,14 @@ from fh_agent.evals.spatial_perception_dataset import SpatialPerceptionFrameAnno
 from fh_agent.perception.screen_capture import ScreenFrame
 
 
-def write_ppm(root: Path, relative_path: str) -> None:
+def write_ppm(root: Path, relative_path: str, *, rgb: bytes = b"\x01\x02\x03") -> None:
     path = root / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
         ScreenFrame(
             width=2,
             height=1,
-            rgb=b"\x01\x02\x03\x04\x05\x06",
+            rgb=rgb * 2,
             captured_at=datetime(2026, 8, 24, tzinfo=UTC),
         ).to_ppm_bytes()
     )
@@ -49,6 +50,72 @@ def workflow(root: Path) -> SpatialAnnotationWorkflow:
         ),
     )
     return SpatialAnnotationWorkflow(manifest=manifest)
+
+
+def three_split_workflow(root: Path) -> SpatialAnnotationWorkflow:
+    sources = []
+    for index, split in enumerate(("train", "validation", "test"), start=1):
+        sequence_id = f"sequence-{split}"
+        write_ppm(root, f"{sequence_id}/00-reviewed.ppm", rgb=bytes((index, index, index)))
+        write_ppm(
+            root,
+            f"{sequence_id}/01-unscored.ppm",
+            rgb=bytes((index, index, index + 10)),
+        )
+        sources.append(
+            SpatialCorpusSequenceSource(
+                sequence_id=sequence_id,
+                relative_directory=sequence_id,
+                split=split,
+            )
+        )
+    manifest = assemble_spatial_perception_corpus(
+        root,
+        corpus_id="visible-corpus",
+        schema_version="1",
+        corpus_version="0.1.0",
+        annotation_dataset_version="0.1.0",
+        sequence_sources=tuple(sources),
+    )
+    return SpatialAnnotationWorkflow(manifest=manifest)
+
+
+def annotation_by_split(
+    state: SpatialAnnotationWorkflow,
+) -> dict[str, SpatialPerceptionFrameAnnotation]:
+    annotations_by_sequence_id = {
+        sequence.sequence_id: sequence.frames for sequence in state.manifest.annotations.sequences
+    }
+    return {
+        sequence.split: annotations_by_sequence_id[sequence.sequence_id][0]
+        for sequence in state.manifest.sequences
+    }
+
+
+def reviewed_usable_workflow(
+    state: SpatialAnnotationWorkflow,
+    *,
+    omit_split: str | None = None,
+) -> SpatialAnnotationWorkflow:
+    revised = state
+    for split, annotation in annotation_by_split(state).items():
+        if split == omit_split:
+            continue
+        revised = record_spatial_annotation(
+            revised,
+            revised_annotation(annotation),
+            overwrite=True,
+        )
+    for split, annotation in annotation_by_split(revised).items():
+        if split == omit_split:
+            continue
+        revised = create_annotation_review(
+            revised,
+            frame_id=annotation.frame_id,
+            status="passed",
+            clock=lambda: datetime(2026, 8, 25, tzinfo=UTC),
+        )
+    return revised
 
 
 def revised_annotation(
@@ -125,13 +192,74 @@ def test_review_binds_to_exact_annotation_and_is_invalidated_by_revision(tmp_pat
     assert review_is_current(review, revised.manifest) is False
 
 
-def test_freeze_blocks_mutating_the_frozen_test_corpus_version(tmp_path: Path) -> None:
-    state = workflow(tmp_path)
+def test_all_uncertain_corpus_is_not_freeze_ready_and_direct_freeze_cannot_bypass_gate(
+    tmp_path: Path,
+) -> None:
+    state = three_split_workflow(tmp_path)
+    integrity = validate_spatial_perception_corpus_files(state.manifest, tmp_path)
+    readiness = assess_spatial_corpus_readiness(state, integrity)
+
+    assert readiness.freeze_ready is False
+    assert readiness.blocked_reasons == (
+        "train_split_has_no_reviewed_usable_annotation",
+        "validation_split_has_no_reviewed_usable_annotation",
+        "test_split_has_no_reviewed_usable_annotation",
+    )
+    with pytest.raises(ValueError, match="train_split_has_no_reviewed_usable_annotation"):
+        freeze_spatial_corpus(state, integrity)
+
+
+@pytest.mark.parametrize("missing_split", ["train", "validation", "test"])
+def test_missing_reviewed_usable_coverage_in_any_split_blocks_freeze(
+    tmp_path: Path,
+    missing_split: str,
+) -> None:
+    state = reviewed_usable_workflow(three_split_workflow(tmp_path), omit_split=missing_split)
+    integrity = validate_spatial_perception_corpus_files(state.manifest, tmp_path)
+    readiness = assess_spatial_corpus_readiness(state, integrity)
+
+    assert readiness.freeze_ready is False
+    assert f"{missing_split}_split_has_no_reviewed_usable_annotation" in readiness.blocked_reasons
+
+
+def test_reviewed_usable_coverage_in_every_split_permits_uncertain_and_exclude_frames(
+    tmp_path: Path,
+) -> None:
+    initial = three_split_workflow(tmp_path)
+    excluded = (
+        initial.manifest.annotations.sequences[0].frames[1].model_copy(update={"status": "exclude"})
+    )
+    with_excluded_frame = record_spatial_annotation(initial, excluded, overwrite=True)
+    state = reviewed_usable_workflow(with_excluded_frame)
+    integrity = validate_spatial_perception_corpus_files(state.manifest, tmp_path)
+    readiness = assess_spatial_corpus_readiness(state, integrity)
+
+    assert readiness.freeze_ready is True
+    assert readiness.uncertain_annotation_count == 2
+    assert readiness.exclude_annotation_count == 1
+    assert readiness.usable_annotations_with_valid_passed_review == 3
+
+
+def test_usable_annotation_without_current_passed_review_still_blocks_freeze(
+    tmp_path: Path,
+) -> None:
+    state = three_split_workflow(tmp_path)
+    usable = revised_annotation(annotation_by_split(state)["train"])
+    state = record_spatial_annotation(state, usable, overwrite=True)
+    integrity = validate_spatial_perception_corpus_files(state.manifest, tmp_path)
+    readiness = assess_spatial_corpus_readiness(state, integrity)
+
+    assert readiness.freeze_ready is False
+    assert "usable_annotations_lack_valid_passed_review" in readiness.blocked_reasons
+
+
+def test_ready_corpus_freezes_and_remains_immutable(tmp_path: Path) -> None:
+    state = reviewed_usable_workflow(three_split_workflow(tmp_path))
     integrity = validate_spatial_perception_corpus_files(state.manifest, tmp_path)
     frozen = freeze_spatial_corpus(
         state,
         integrity,
-        clock=lambda: datetime(2026, 8, 24, tzinfo=UTC),
+        clock=lambda: datetime(2026, 8, 25, tzinfo=UTC),
     )
 
     assert frozen.freeze_record is not None
@@ -140,7 +268,7 @@ def test_freeze_blocks_mutating_the_frozen_test_corpus_version(tmp_path: Path) -
     with pytest.raises(ValueError, match="frozen"):
         record_spatial_annotation(
             frozen,
-            revised_annotation(current_annotation(frozen)),
+            revised_annotation(annotation_by_split(frozen)["test"]),
             overwrite=True,
         )
 
