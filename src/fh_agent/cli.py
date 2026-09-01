@@ -61,6 +61,10 @@ from fh_agent.evals.spatial_annotation_review import (
     freeze_spatial_corpus,
     record_spatial_annotation,
 )
+from fh_agent.evals.spatial_annotation_ui import (
+    SpatialAnnotationSession,
+    launch_spatial_annotation_ui,
+)
 from fh_agent.evals.spatial_corpus_assembler import (
     SpatialCorpusSequenceSource,
     assemble_spatial_perception_corpus,
@@ -283,6 +287,42 @@ def spatial_corpus_annotate(
     except (FileExistsError, OSError, ValidationError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     typer.echo(str(path))
+
+
+@app.command("spatial-corpus-annotate-ui")
+def spatial_corpus_annotate_ui(
+    workflow: Annotated[
+        Path, typer.Option("--workflow", help="Existing corpus workflow JSON path.")
+    ],
+    corpus_root: Annotated[
+        Path,
+        typer.Option(
+            "--corpus-root", help="Root containing the externally stored PPM corpus files."
+        ),
+    ],
+    output: Annotated[
+        Path, typer.Option("--output", help="Revised workflow JSON output path.")
+    ] = Path("spatial_annotation_workflow.json"),
+    overwrite_output: Annotated[
+        bool,
+        typer.Option("--overwrite-output", help="Replace an existing workflow JSON output."),
+    ] = False,
+) -> None:
+    """Open a local point-only Tk annotator for an existing offline PPM corpus."""
+
+    try:
+        session = SpatialAnnotationSession(_read_spatial_annotation_workflow(workflow))
+        launch_spatial_annotation_ui(
+            session,
+            corpus_root=corpus_root,
+            persist=lambda revised_workflow: _write_spatial_annotation_workflow(
+                revised_workflow,
+                output,
+                overwrite=overwrite_output,
+            ),
+        )
+    except (FileExistsError, OSError, ValidationError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 @app.command("spatial-corpus-review")

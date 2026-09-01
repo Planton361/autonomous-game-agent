@@ -322,3 +322,47 @@ def test_cli_rejects_integrity_and_split_leakage_failures(tmp_path: Path) -> Non
 
     assert validation.exit_code == 1
     assert json.loads(validation.output)["valid"] is False
+
+
+def test_cli_annotation_ui_uses_a_headless_replaceable_launcher_and_existing_output_policy(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    write_ppm(corpus_root, "sequence-a/frame.ppm")
+    initial = tmp_path / "initial.json"
+    runner = CliRunner()
+    assert (
+        runner.invoke(
+            app,
+            assemble_args(corpus_root, initial, "sequence-a:sequence-a:train"),
+        ).exit_code
+        == 0
+    )
+    output = tmp_path / "annotated.json"
+
+    def headless_launcher(session, *, corpus_root, persist) -> None:
+        assert corpus_root.is_dir()
+        session.set_status("usable")
+        session.set_player_point((0, 0))
+        session.save_current(persist)
+
+    monkeypatch.setattr("fh_agent.cli.launch_spatial_annotation_ui", headless_launcher)
+    result = runner.invoke(
+        app,
+        [
+            "spatial-corpus-annotate-ui",
+            "--workflow",
+            str(initial),
+            "--corpus-root",
+            str(corpus_root),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    saved = SpatialAnnotationWorkflow.model_validate_json(output.read_text(encoding="utf-8"))
+    annotation = saved.manifest.annotations.sequences[0].frames[0]
+    assert annotation.status == "usable"
+    assert annotation.player_screen_position == (0, 0)
