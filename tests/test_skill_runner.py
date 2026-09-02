@@ -13,8 +13,14 @@ from fh_agent.verifier.dialogue import ContinueDialogueVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
-def dialogue_observation(text: str, evidence_id: str) -> Observation:
+def dialogue_observation(
+    text: str,
+    evidence_id: str,
+    *,
+    observation_id: str | None = None,
+) -> Observation:
     return Observation(
+        observation_id=observation_id,
         run_id="run-1",
         ui_state="dialogue",
         message_window_visible=True,
@@ -35,6 +41,16 @@ class FixedVerifier:
     def verify(self, before: Observation, after: Observation) -> VerifierResult:
         self.calls.append((before, after))
         return self.result
+
+
+class SequenceVerifier:
+    def __init__(self, results: list[VerifierResult]) -> None:
+        self.results = results
+        self.calls: list[tuple[Observation, Observation]] = []
+
+    def verify(self, before: Observation, after: Observation) -> VerifierResult:
+        self.calls.append((before, after))
+        return self.results[len(self.calls) - 1]
 
 
 class NoEvaluateSkill:
@@ -163,18 +179,156 @@ def test_runner_logs_skill_result_to_event_log_path(tmp_path) -> None:
     run = runner.run(
         ContinueDialogueSkill(),
         [
-            dialogue_observation("First", "e1"),
-            dialogue_observation("Second", "e2"),
+            dialogue_observation("First", "e1", observation_id="before-observation"),
+            dialogue_observation("Second", "e2", observation_id="after-observation"),
         ],
         verifier=ContinueDialogueVerifier(),
     )
 
     records = EventLogger(event_log_path, run_id="run-1").read_all()
     assert run.event_record is not None
-    assert len(records) == 1
-    assert records[0].event_type == "skill_result"
-    assert records[0].payload["skill_name"] == "continue_dialogue"
-    assert records[0].evidence_ids == ["e1", "e2"]
+    assert records == [*run.verifier_event_records, run.event_record]
+    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert records[0].payload["verifier_result"] == {
+        "status": "success",
+        "failure_kind": None,
+        "evidence_ids": ["e1", "e2"],
+    }
+    assert records[0].payload["steps_taken"] == 1
+    assert records[0].payload["before_observation_id"] == "before-observation"
+    assert records[0].payload["after_observation_id"] == "after-observation"
+    assert records[1].payload["skill_name"] == "continue_dialogue"
+    assert records[1].evidence_ids == ["e1", "e2"]
+    assert run.skill_result.reward is None
+
+
+def test_runner_logs_terminal_failure_after_its_verifier_event(tmp_path) -> None:
+    event_log_path = tmp_path / "run-1" / "events.jsonl"
+    verifier_result = VerifierResult(
+        status=VerifierStatus.FAILURE,
+        failure_kind=FailureKind.SKILL_FAILED,
+        evidence_ids=["failure-evidence"],
+    )
+
+    run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
+        NoEvaluateSkill(),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(verifier_result),
+    )
+    records = EventLogger(event_log_path, run_id="run-1").read_all()
+
+    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert VerifierResult.model_validate(records[0].payload["verifier_result"]) == verifier_result
+    assert run.verifier_event_records == [records[0]]
+    assert run.event_record == records[1]
+    assert run.skill_result.failure_reason == "skill_failed"
+    assert run.skill_result.reward is None
+
+
+def test_runner_logs_non_terminal_abstain_and_progress(tmp_path) -> None:
+    event_log_path = tmp_path / "run-1" / "events.jsonl"
+    runner = SkillRunner(event_log_path=event_log_path, run_id="run-1")
+    results = [
+        VerifierResult(status=VerifierStatus.ABSTAIN),
+        VerifierResult(status=VerifierStatus.PROGRESS),
+    ]
+
+    runs = [
+        runner.run(
+            NoEvaluateSkill(max_steps=1),
+            [field_observation("before"), field_observation("after")],
+            verifier=FixedVerifier(result),
+        )
+        for result in results
+    ]
+    records = EventLogger(event_log_path, run_id="run-1").read_all()
+
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "skill_result",
+        "verifier_result",
+        "skill_result",
+    ]
+    assert [
+        VerifierResult.model_validate(records[index].payload["verifier_result"]) for index in (0, 2)
+    ] == results
+    assert all(len(run.verifier_event_records) == 1 for run in runs)
+    assert all(run.skill_result.reward is None for run in runs)
+
+
+def test_runner_logs_each_timeout_verification_in_order(tmp_path) -> None:
+    event_log_path = tmp_path / "run-1" / "events.jsonl"
+    verifier = SequenceVerifier(
+        [
+            VerifierResult(status=VerifierStatus.ABSTAIN, evidence_ids=["first"]),
+            VerifierResult(status=VerifierStatus.PROGRESS, evidence_ids=["second"]),
+        ]
+    )
+
+    run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
+        NoEvaluateSkill(max_steps=2),
+        [field_observation("before"), field_observation("during"), field_observation("after")],
+        verifier=verifier,
+    )
+    records = EventLogger(event_log_path, run_id="run-1").read_all()
+
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "verifier_result",
+        "skill_result",
+    ]
+    assert [record.payload["steps_taken"] for record in records[:-1]] == [1, 2]
+    assert [
+        VerifierResult.model_validate(record.payload["verifier_result"]) for record in records[:-1]
+    ] == verifier.results
+    assert run.verifier_event_records == records[:-1]
+    assert run.verifier_result == verifier.results[-1]
+    assert run.event_record == records[-1]
+    assert run.skill_result.failure_reason == "timeout"
+    assert run.skill_result.reward is None
+
+
+def test_runner_logs_final_non_terminal_verifier_result_before_exhaustion(tmp_path) -> None:
+    event_log_path = tmp_path / "run-1" / "events.jsonl"
+    verifier_result = VerifierResult(status=VerifierStatus.ABSTAIN, evidence_ids=["latest"])
+
+    run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
+        NoEvaluateSkill(),
+        [field_observation("only")],
+        verifier=FixedVerifier(verifier_result),
+    )
+    records = EventLogger(event_log_path, run_id="run-1").read_all()
+
+    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert run.verifier_event_records == [records[0]]
+    assert run.verifier_result == verifier_result
+    assert run.skill_result.failure_reason == "observation_sequence_exhausted"
+    assert run.skill_result.reward is None
+
+
+def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp_path) -> None:
+    empty_path = tmp_path / "empty.jsonl"
+    precondition_path = tmp_path / "precondition.jsonl"
+
+    empty_run = SkillRunner(event_log_path=empty_path, run_id="run-1").run(
+        ContinueDialogueSkill(),
+        [],
+        verifier=ContinueDialogueVerifier(),
+    )
+    precondition_run = SkillRunner(event_log_path=precondition_path, run_id="run-1").run(
+        ContinueDialogueSkill(),
+        [field_observation()],
+        verifier=ContinueDialogueVerifier(),
+    )
+
+    assert empty_run.verifier_event_records == []
+    assert precondition_run.verifier_event_records == []
+    assert [record.event_type for record in EventLogger(empty_path, run_id="run-1").read_all()] == [
+        "skill_result"
+    ]
+    assert [
+        record.event_type for record in EventLogger(precondition_path, run_id="run-1").read_all()
+    ] == ["skill_result"]
 
 
 def test_runner_collects_declarative_primitive_actions_without_execution() -> None:
@@ -211,6 +365,7 @@ def test_runner_succeeds_with_a_skill_that_has_no_evaluate_method() -> None:
     assert run.skill_result.success
     assert run.skill_result.evidence_ids == ["verified-evidence"]
     assert run.verifier_result is verifier_result
+    assert run.verifier_event_records == []
 
 
 def test_runner_never_calls_an_exploding_body_evaluate_method() -> None:
@@ -383,5 +538,6 @@ def test_runner_has_no_body_evaluate_dependency() -> None:
     source = inspect.getsource(SkillRunner)
 
     assert "RewardComputer" not in source
+    assert "VerifierCatalog" not in source
     assert "skill.evaluate(" not in source
     assert "evaluate" not in inspect.getsource(RunnableSkill)

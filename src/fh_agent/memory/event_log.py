@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from fh_agent.observation.schemas import SkillResult
+    from fh_agent.verifier.schemas import VerifierResult
 
 
 class EventRecord(BaseModel):
@@ -66,6 +67,32 @@ class EventLogger:
         return self.append(
             "skill_result",
             payload=json.loads(result.model_dump_json()),
+            evidence_ids=result.evidence_ids,
+        )
+
+    def append_verifier_result(
+        self,
+        result: "VerifierResult",
+        *,
+        skill_name: str,
+        steps_taken: int,
+        before_observation_id: str | None,
+        after_observation_id: str | None,
+    ) -> EventRecord:
+        """Append one canonical verifier outcome with its local evaluation context."""
+        if steps_taken < 0:
+            msg = "steps_taken must be non-negative"
+            raise ValueError(msg)
+
+        return self.append(
+            "verifier_result",
+            payload={
+                "skill_name": skill_name,
+                "steps_taken": steps_taken,
+                "before_observation_id": before_observation_id,
+                "after_observation_id": after_observation_id,
+                "verifier_result": result.model_dump(mode="json"),
+            },
             evidence_ids=result.evidence_ids,
         )
 

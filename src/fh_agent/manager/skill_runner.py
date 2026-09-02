@@ -35,6 +35,7 @@ class SkillRunResult:
 
     skill_result: SkillResult
     verifier_result: VerifierResult | None = None
+    verifier_event_records: list[SkillEventRecord] = field(default_factory=list)
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -77,6 +78,7 @@ class SkillRunner:
                 ),
                 steps=[],
                 verifier_result=None,
+                verifier_event_records=[],
             )
 
         start = observations[0]
@@ -91,11 +93,13 @@ class SkillRunner:
                 ),
                 steps=[],
                 verifier_result=None,
+                verifier_event_records=[],
             )
 
         steps: list[SkillStep] = []
         latest = start
         latest_verifier_result: VerifierResult | None = None
+        verifier_event_records: list[SkillEventRecord] = []
         max_steps = skill.contract.max_steps
 
         for step_index in range(max_steps):
@@ -104,7 +108,15 @@ class SkillRunner:
 
             next_index = step_index + 1
             if next_index >= len(observations):
-                latest_verifier_result = verifier.verify(start, latest)
+                latest_verifier_result, verifier_event_record = self._verify(
+                    verifier,
+                    start,
+                    latest,
+                    skill_name=skill.contract.skill_name,
+                    steps_taken=len(steps),
+                )
+                if verifier_event_record is not None:
+                    verifier_event_records.append(verifier_event_record)
                 terminal_result = self._terminal_result(
                     skill,
                     start,
@@ -116,6 +128,7 @@ class SkillRunner:
                         terminal_result,
                         steps=steps,
                         verifier_result=latest_verifier_result,
+                        verifier_event_records=verifier_event_records,
                     )
 
                 return self._finish(
@@ -128,10 +141,19 @@ class SkillRunner:
                     ),
                     steps=steps,
                     verifier_result=latest_verifier_result,
+                    verifier_event_records=verifier_event_records,
                 )
 
             latest = observations[next_index]
-            latest_verifier_result = verifier.verify(start, latest)
+            latest_verifier_result, verifier_event_record = self._verify(
+                verifier,
+                start,
+                latest,
+                skill_name=skill.contract.skill_name,
+                steps_taken=len(steps),
+            )
+            if verifier_event_record is not None:
+                verifier_event_records.append(verifier_event_record)
             terminal_result = self._terminal_result(
                 skill,
                 start,
@@ -143,6 +165,7 @@ class SkillRunner:
                     terminal_result,
                     steps=steps,
                     verifier_result=latest_verifier_result,
+                    verifier_event_records=verifier_event_records,
                 )
 
         return self._finish(
@@ -155,7 +178,30 @@ class SkillRunner:
             ),
             steps=steps,
             verifier_result=latest_verifier_result,
+            verifier_event_records=verifier_event_records,
         )
+
+    def _verify(
+        self,
+        verifier: OutcomeVerifier,
+        before: Observation,
+        after: Observation,
+        *,
+        skill_name: str,
+        steps_taken: int,
+    ) -> tuple[VerifierResult, SkillEventRecord | None]:
+        """Evaluate and durably record one independent verifier result."""
+        result = verifier.verify(before, after)
+        event_record = None
+        if self.event_logger is not None:
+            event_record = self.event_logger.append_verifier_result(
+                result,
+                skill_name=skill_name,
+                steps_taken=steps_taken,
+                before_observation_id=before.observation_id,
+                after_observation_id=after.observation_id,
+            )
+        return result, event_record
 
     def _terminal_result(
         self,
@@ -233,6 +279,7 @@ class SkillRunner:
         *,
         steps: list[SkillStep],
         verifier_result: VerifierResult | None,
+        verifier_event_records: list[SkillEventRecord],
     ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:
@@ -240,6 +287,7 @@ class SkillRunner:
         return SkillRunResult(
             skill_result=result,
             verifier_result=verifier_result,
+            verifier_event_records=verifier_event_records,
             steps=steps,
             event_record=event_record,
         )
