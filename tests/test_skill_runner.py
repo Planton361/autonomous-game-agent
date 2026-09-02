@@ -2,7 +2,6 @@ import inspect
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
-from fh_agent.manager.reward_computer import RewardProfile
 from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.skill_runner import RunnableSkill, SkillRunner
@@ -43,7 +42,6 @@ class NoEvaluateSkill:
         self,
         *,
         max_steps: int = 2,
-        reward_profile: RewardProfile | None = None,
         failure_detector: list[str] | None = None,
     ) -> None:
         self._contract = SkillContract(
@@ -53,7 +51,6 @@ class NoEvaluateSkill:
             success_detector=["dialogue_visible"],
             failure_detector=[] if failure_detector is None else failure_detector,  # type: ignore[arg-type]
             max_steps=max_steps,
-            reward_profile=reward_profile or RewardProfile(),
         )
 
     @property
@@ -271,17 +268,70 @@ def test_runner_abstain_and_progress_are_non_terminal() -> None:
     assert len(progress_verifier.calls) == 2
 
 
-def test_reward_cannot_override_abstain_or_verified_success() -> None:
-    positive_abstain = SkillRunner().run(
-        NoEvaluateSkill(
-            max_steps=1,
-            reward_profile=RewardProfile(
-                visible_text_changed=3.0,
-                failure=0.0,
-                timeout=0.0,
-                no_change=0.0,
-            ),
+def test_runner_emits_no_reward_for_verified_success_or_failure() -> None:
+    success = SkillRunner().run(
+        NoEvaluateSkill(),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
+    )
+    failure = SkillRunner().run(
+        NoEvaluateSkill(),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(
+            VerifierResult(
+                status=VerifierStatus.FAILURE,
+                failure_kind=FailureKind.SKILL_FAILED,
+            )
         ),
+    )
+
+    assert success.skill_result.reward is None
+    assert failure.skill_result.reward is None
+
+
+def test_runner_emits_no_reward_for_abstain_and_progress_timeout_or_exhaustion() -> None:
+    timeout_observations = [field_observation("before"), field_observation("after")]
+    exhaustion_observations = [field_observation("only")]
+
+    abstain_timeout = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1),
+        timeout_observations,
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+    abstain_exhaustion = SkillRunner().run(
+        NoEvaluateSkill(),
+        exhaustion_observations,
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+    progress_timeout = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1),
+        timeout_observations,
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
+    )
+    progress_exhaustion = SkillRunner().run(
+        NoEvaluateSkill(),
+        exhaustion_observations,
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
+    )
+
+    assert abstain_timeout.skill_result.failure_reason == "timeout"
+    assert abstain_exhaustion.skill_result.failure_reason == "observation_sequence_exhausted"
+    assert progress_timeout.skill_result.failure_reason == "timeout"
+    assert progress_exhaustion.skill_result.failure_reason == "observation_sequence_exhausted"
+    assert all(
+        run.skill_result.reward is None
+        for run in (
+            abstain_timeout,
+            abstain_exhaustion,
+            progress_timeout,
+            progress_exhaustion,
+        )
+    )
+
+
+def test_runner_raw_observation_changes_cannot_create_reward() -> None:
+    visible_text_change = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1),
         [
             field_observation("before"),
             Observation(
@@ -293,22 +343,20 @@ def test_reward_cannot_override_abstain_or_verified_success() -> None:
         ],
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
-    negative_success = SkillRunner().run(
-        NoEvaluateSkill(reward_profile=RewardProfile(no_change=-3.0)),
+    ui_state_change = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1),
+        [dialogue_observation("Before", "before"), field_observation("after")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+    new_evidence = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1),
         [field_observation("before"), field_observation("after")],
-        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
 
-    assert (
-        positive_abstain.skill_result.reward is not None
-        and positive_abstain.skill_result.reward > 0
-    )
-    assert not positive_abstain.skill_result.success
-    assert (
-        negative_success.skill_result.reward is not None
-        and negative_success.skill_result.reward < 0
-    )
-    assert negative_success.skill_result.success
+    assert visible_text_change.skill_result.reward is None
+    assert ui_state_change.skill_result.reward is None
+    assert new_evidence.skill_result.reward is None
 
 
 def test_manager_selected_verifier_runs_through_skill_runner() -> None:
@@ -334,5 +382,6 @@ def test_manager_selected_verifier_runs_through_skill_runner() -> None:
 def test_runner_has_no_body_evaluate_dependency() -> None:
     source = inspect.getsource(SkillRunner)
 
+    assert "RewardComputer" not in source
     assert "skill.evaluate(" not in source
     assert "evaluate" not in inspect.getsource(RunnableSkill)

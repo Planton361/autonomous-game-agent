@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from fh_agent.manager.reward_computer import RewardComputer
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.observation.schemas import Observation, SkillResult
 from fh_agent.verifier.ports import OutcomeVerifier
@@ -74,6 +73,7 @@ class SkillRunner:
                     success=False,
                     failure_reason="empty_observation_sequence",
                     evidence_ids=[],
+                    reward=None,
                 ),
                 steps=[],
                 verifier_result=None,
@@ -87,6 +87,7 @@ class SkillRunner:
                     success=False,
                     failure_reason="precondition_failed",
                     evidence_ids=start.evidence_ids,
+                    reward=None,
                 ),
                 steps=[],
                 verifier_result=None,
@@ -124,7 +125,6 @@ class SkillRunner:
                         latest,
                         success=False,
                         failure_reason="observation_sequence_exhausted",
-                        failure=False,
                     ),
                     steps=steps,
                     verifier_result=latest_verifier_result,
@@ -152,7 +152,6 @@ class SkillRunner:
                 latest,
                 success=False,
                 failure_reason="timeout",
-                timeout=True,
             ),
             steps=steps,
             verifier_result=latest_verifier_result,
@@ -213,8 +212,6 @@ class SkillRunner:
         success: bool,
         failure_reason: str | None = None,
         verifier_result: VerifierResult | None = None,
-        timeout: bool = False,
-        failure: bool | None = None,
     ) -> SkillResult:
         evidence_ids = (
             verifier_result.evidence_ids
@@ -222,18 +219,12 @@ class SkillRunner:
             and verifier_result.status in {VerifierStatus.SUCCESS, VerifierStatus.FAILURE}
             else merged_evidence_ids(before, after)
         )
-        reward = RewardComputer(skill.contract.reward_profile).compute(
-            before,
-            after,
-            timeout=timeout,
-            failure=failure_reason is not None if failure is None else failure,
-        )
         return SkillResult(
             skill_name=skill.contract.skill_name,
             success=success,
             failure_reason=failure_reason,
             evidence_ids=evidence_ids,
-            reward=reward.total,
+            reward=None,
         )
 
     def _finish(
