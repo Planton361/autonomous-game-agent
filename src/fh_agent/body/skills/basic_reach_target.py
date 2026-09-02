@@ -1,32 +1,26 @@
 from dataclasses import dataclass, field
-from math import hypot
-
-from pydantic import BaseModel, ConfigDict, Field
+from math import hypot, isfinite
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
+from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation, SkillResult
-
-
-class ScreenTarget(BaseModel):
-    """Explicit mock target in visible screen coordinates."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    target_id: str
-    target_screen_pos: tuple[int, int]
-    tolerance_px: float = Field(default=4.0, ge=0.0)
-    evidence_ids: list[str] = Field(default_factory=list)
 
 
 @dataclass(slots=True)
 class BasicReachTargetSkill:
     """Universal offline reach-target skill based on visible screen positions."""
 
-    target: ScreenTarget | None = None
+    target: VisibleScreenPointTarget | None = None
+    tolerance_px: float = 4.0
     max_steps: int = 8
     reward_profile: RewardProfile = field(default_factory=RewardProfile)
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.tolerance_px) or self.tolerance_px < 0:
+            msg = "tolerance_px must be finite and non-negative"
+            raise ValueError(msg)
 
     @property
     def contract(self) -> SkillContract:
@@ -61,7 +55,7 @@ class BasicReachTargetSkill:
 
         action = movement_action_toward(
             observation.player_screen_position,
-            self.target.target_screen_pos,
+            self.target.screen_position,
         )
         return SkillStep(
             skill_name=self.contract.skill_name,
@@ -113,8 +107,8 @@ class BasicReachTargetSkill:
 
         reached = (
             after.player_screen_position is not None
-            and distance(after.player_screen_position, self.target.target_screen_pos)
-            <= self.target.tolerance_px
+            and distance(after.player_screen_position, self.target.screen_position)
+            <= self.tolerance_px
         )
         signature_changed = (
             before.screen_signature is not None
@@ -151,7 +145,7 @@ def distance(first: tuple[int, int], second: tuple[int, int]) -> float:
     return hypot(second[0] - first[0], second[1] - first[1])
 
 
-def step_evidence_ids(observation: Observation, target: ScreenTarget) -> list[str]:
+def step_evidence_ids(observation: Observation, target: VisibleScreenPointTarget) -> list[str]:
     evidence_ids = list(observation.evidence_ids)
     for evidence_id in target.evidence_ids:
         if evidence_id not in evidence_ids:

@@ -1,6 +1,6 @@
 """Reusable body skills that emit primitive actions only."""
 
-from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill, ScreenTarget
+from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
 from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVisibleObjectSkill
 from fh_agent.body.skills.safe_reach_target import (
@@ -20,6 +20,5 @@ __all__ = [
     "SafeReachTargetSkill",
     "SafeReachTargetSkillResult",
     "SafeReachTargetState",
-    "ScreenTarget",
     "choose_safe_reach_action",
 ]

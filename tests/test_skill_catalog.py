@@ -2,11 +2,12 @@ import sys
 
 import pytest
 
-from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill, ScreenTarget
+from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
 from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVisibleObjectSkill
 from fh_agent.manager.skill_catalog import SkillCatalog, SkillCatalogError
 from fh_agent.manager.skill_runner import SkillRunner
+from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
 from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS
 
@@ -26,6 +27,15 @@ def field_observation(*, player_pos: tuple[int, int] | None = None) -> Observati
         ui_state="field",
         player_screen_position=player_pos,
         evidence_ids=["e1"],
+    )
+
+
+def reach_target() -> VisibleScreenPointTarget:
+    return VisibleScreenPointTarget(
+        target_id="exit",
+        confidence=0.9,
+        evidence_ids=("target-evidence",),
+        screen_position=(10, 0),
     )
 
 
@@ -74,19 +84,19 @@ def test_interaction_target_selects_interact_visible_object() -> None:
     assert skill.target == task
 
 
-def test_screen_target_selects_basic_reach_target() -> None:
-    task = ScreenTarget(target_id="exit", target_screen_pos=(10, 0), tolerance_px=1)
+def test_visible_screen_point_target_selects_basic_reach_target() -> None:
+    task = reach_target()
 
     skill = SkillCatalog.default().select(
         observation=field_observation(player_pos=(0, 0)), task=task
     )
 
     assert isinstance(skill, BasicReachTargetSkill)
-    assert skill.target == task
+    assert skill.target is task
 
 
 def test_explicit_skill_name_wins_over_observation_heuristic() -> None:
-    task = ScreenTarget(target_id="exit", target_screen_pos=(10, 0), tolerance_px=1)
+    task = reach_target()
 
     skill = SkillCatalog.default().select(
         observation=dialogue_observation(),
@@ -95,11 +105,11 @@ def test_explicit_skill_name_wins_over_observation_heuristic() -> None:
     )
 
     assert isinstance(skill, BasicReachTargetSkill)
-    assert skill.target == task
+    assert skill.target is task
 
 
 def test_selected_skill_runs_through_skill_runner() -> None:
-    task = ScreenTarget(target_id="exit", target_screen_pos=(10, 0), tolerance_px=1)
+    task = reach_target()
     skill = SkillCatalog.default().select(
         observation=field_observation(player_pos=(0, 0)),
         task=task,
@@ -115,6 +125,18 @@ def test_selected_skill_runs_through_skill_runner() -> None:
 
     assert run.skill_result.success
     assert run.skill_result.skill_name == "basic_reach_target"
+
+
+def test_visible_object_target_is_not_accepted_as_a_reach_target_task() -> None:
+    task = VisibleObjectTarget(
+        target_id="visible-object",
+        confidence=0.9,
+        evidence_ids=("target-evidence",),
+        screen_position=(10, 0),
+    )
+
+    with pytest.raises(SkillCatalogError, match="no skill could be selected"):
+        SkillCatalog.default().select(observation=field_observation(), task=task)
 
 
 def test_skill_catalog_does_not_import_memory_registry() -> None:

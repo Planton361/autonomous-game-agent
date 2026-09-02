@@ -4,11 +4,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill, ScreenTarget
+from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
 from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVisibleObjectSkill
 from fh_agent.manager.skill_contracts import is_dialogue_observation
 from fh_agent.manager.skill_runner import RunnableSkill
+from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
 from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS, UniversalSkillName
 
@@ -22,7 +23,7 @@ DEFAULT_SKILL_FACTORIES: MappingProxyType[UniversalSkillName, SkillFactory] = Ma
             target=task if isinstance(task, InteractionTarget) else None
         ),
         "basic_reach_target": lambda task=None: BasicReachTargetSkill(
-            target=task if isinstance(task, ScreenTarget) else None
+            target=task if isinstance(task, VisibleScreenPointTarget) else None
         ),
     }
 )
@@ -77,7 +78,7 @@ class SkillCatalog:
             return self.get("continue_dialogue")
         if isinstance(task, InteractionTarget):
             return self.get("interact_visible_object", task=task)
-        if isinstance(task, ScreenTarget):
+        if isinstance(task, VisibleScreenPointTarget):
             return self.get("basic_reach_target", task=task)
 
         msg = "no skill could be selected from visible observation and task"
