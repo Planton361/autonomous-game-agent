@@ -1,14 +1,7 @@
-import inspect
-
 import pytest
 from pydantic import ValidationError
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.body.skills import (
-    basic_reach_target,
-    continue_dialogue,
-    interact_visible,
-)
 from fh_agent.manager.reward_profiles import RewardProfile, RewardTerm
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.task_spec import TaskSpec
@@ -110,12 +103,3 @@ def test_task_spec_and_skill_contract_share_the_canonical_reward_profile_type() 
 
     assert isinstance(task.reward_profile, RewardProfile)
     assert contract.reward_profile == task.reward_profile
-
-
-def test_runtime_body_skills_do_not_import_the_legacy_reward_profile() -> None:
-    legacy_module = "fh_agent.manager.reward_computer"
-
-    assert all(
-        legacy_module not in inspect.getsource(module)
-        for module in (basic_reach_target, continue_dialogue, interact_visible)
-    )

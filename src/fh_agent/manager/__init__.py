@@ -6,7 +6,6 @@ from fh_agent.manager.mock_completion import (
     apply_mock_completion_signal,
 )
 from fh_agent.manager.orchestrator import ManagerOrchestrator
-from fh_agent.manager.reward_computer import RewardBreakdown, RewardComputer
 from fh_agent.manager.reward_profiles import (
     ALLOWED_REWARD_TERMS,
     DEFAULT_REWARD_PROFILES,
@@ -39,8 +38,6 @@ __all__ = [
     "ManagerGroundingError",
     "ManagerEventSink",
     "MockSkillCompletionSignal",
-    "RewardBreakdown",
-    "RewardComputer",
     "RewardProfile",
     "RewardTerm",
     "ScheduledTask",

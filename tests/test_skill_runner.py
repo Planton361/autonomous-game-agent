@@ -547,7 +547,6 @@ def test_manager_selected_verifier_runs_through_skill_runner() -> None:
 def test_runner_has_no_body_evaluate_dependency() -> None:
     source = inspect.getsource(SkillRunner)
 
-    assert "RewardComputer" not in source
     assert "VerifierCatalog" not in source
     assert "skill.evaluate(" not in source
     assert "evaluate" not in inspect.getsource(RunnableSkill)

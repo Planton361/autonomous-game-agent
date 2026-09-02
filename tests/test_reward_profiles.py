@@ -1,6 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
+from fh_agent.manager import RewardProfile as PublicRewardProfile
+from fh_agent.manager import RewardTerm as PublicRewardTerm
 from fh_agent.manager.reward_profiles import (
     ALLOWED_REWARD_TERMS,
     DEFAULT_REWARD_PROFILES,
@@ -8,6 +10,11 @@ from fh_agent.manager.reward_profiles import (
     RewardTerm,
     default_reward_profile_for_skill,
 )
+
+
+def test_manager_public_api_exports_canonical_reward_types() -> None:
+    assert PublicRewardProfile is RewardProfile
+    assert PublicRewardTerm is RewardTerm
 
 
 def test_unknown_reward_term_is_rejected() -> None:

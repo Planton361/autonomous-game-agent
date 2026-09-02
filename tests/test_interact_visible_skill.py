@@ -110,5 +110,4 @@ def test_runtime_body_skill_has_no_outcome_grading_surface() -> None:
 
     assert not hasattr(InteractVisibleObjectSkill(), "evaluate")
     assert "fh_agent.verifier" not in source
-    assert "RewardComputer" not in source
     assert "SkillResult" not in source

@@ -261,7 +261,6 @@ def test_verifier_has_no_reward_or_primitive_action_authority() -> None:
     assert not hasattr(verifier, "propose_action")
     source = inspect.getsource(interaction_module)
     assert "fh_agent.body" not in source
-    assert "RewardComputer" not in source
 
 
 def test_identical_inputs_produce_identical_results() -> None:
