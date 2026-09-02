@@ -6,6 +6,11 @@ import pytest
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.body.skills import basic_reach_target as basic_reach_target_module
 from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
+from fh_agent.manager.reward_profiles import (
+    RewardProfile,
+    RewardTerm,
+    default_reward_profile_for_skill,
+)
 from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
 
@@ -110,6 +115,19 @@ def test_basic_reach_target_contract_declares_body_execution_constraints() -> No
     assert "screen_signature_changed" not in contract.success_detector
     assert "death_screen" in contract.failure_detector
     assert "combat_started" in contract.failure_detector
+
+
+def test_basic_reach_target_uses_and_preserves_canonical_reward_profile() -> None:
+    custom_profile = RewardProfile(
+        profile_name="custom_reach",
+        terms=(RewardTerm(name="skill_success", weight=0.0),),
+    )
+    default_skill = BasicReachTargetSkill(target=target())
+    custom_skill = BasicReachTargetSkill(target=target(), reward_profile=custom_profile)
+
+    assert default_skill.reward_profile == default_reward_profile_for_skill("basic_reach_target")
+    assert default_skill.contract.reward_profile == default_skill.reward_profile
+    assert custom_skill.contract.reward_profile == custom_profile
 
 
 def test_basic_reach_target_step_preserves_observation_and_target_evidence() -> None:

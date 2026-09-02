@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardProfile
+from fh_agent.manager.reward_profiles import RewardProfile, default_reward_profile_for_skill
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.observation.schemas import Observation
@@ -13,7 +13,9 @@ class InteractVisibleObjectSkill:
 
     target: VisibleObjectTarget | None = None
     max_steps: int = 2
-    reward_profile: RewardProfile = field(default_factory=RewardProfile)
+    reward_profile: RewardProfile = field(
+        default_factory=lambda: default_reward_profile_for_skill("interact_visible_object")
+    )
 
     @property
     def contract(self) -> SkillContract:

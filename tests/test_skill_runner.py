@@ -2,7 +2,11 @@ import inspect
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
-from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
+from fh_agent.manager.reward_profiles import (
+    RewardProfile,
+    RewardTerm,
+    default_reward_profile_for_skill,
+)
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.skill_runner import RunnableSkill, SkillRunner
 from fh_agent.manager.task_spec import TaskSpec
@@ -11,6 +15,11 @@ from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import Observation
 from fh_agent.verifier.dialogue import ContinueDialogueVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
+
+TEST_REWARD_PROFILE = RewardProfile(
+    profile_name="test_profile",
+    terms=(RewardTerm(name="skill_success", weight=0.0),),
+)
 
 
 def dialogue_observation(
@@ -67,6 +76,7 @@ class NoEvaluateSkill:
             success_detector=["dialogue_visible"],
             failure_detector=[] if failure_detector is None else failure_detector,  # type: ignore[arg-type]
             max_steps=max_steps,
+            reward_profile=TEST_REWARD_PROFILE,
         )
 
     @property

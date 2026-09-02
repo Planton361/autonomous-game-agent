@@ -3,6 +3,11 @@ import inspect
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.body.skills import continue_dialogue as continue_dialogue_module
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
+from fh_agent.manager.reward_profiles import (
+    RewardProfile,
+    RewardTerm,
+    default_reward_profile_for_skill,
+)
 from fh_agent.observation.schemas import Observation
 
 
@@ -55,6 +60,19 @@ def test_continue_dialogue_contract_declares_visible_outcome_conditions() -> Non
     assert "new_evidence" not in contract.success_detector
     assert "death_screen" in contract.failure_detector
     assert "timeout" in contract.failure_detector
+
+
+def test_continue_dialogue_uses_and_preserves_canonical_reward_profile() -> None:
+    custom_profile = RewardProfile(
+        profile_name="custom_dialogue",
+        terms=(RewardTerm(name="skill_success", weight=0.0),),
+    )
+    default_skill = ContinueDialogueSkill()
+    custom_skill = ContinueDialogueSkill(reward_profile=custom_profile)
+
+    assert default_skill.reward_profile == default_reward_profile_for_skill("continue_dialogue")
+    assert default_skill.contract.reward_profile == default_skill.reward_profile
+    assert custom_skill.contract.reward_profile == custom_profile
 
 
 def test_runtime_body_skill_has_no_outcome_grading_surface() -> None:

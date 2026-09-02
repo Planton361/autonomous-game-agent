@@ -3,6 +3,11 @@ import inspect
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.body.skills import interact_visible as interact_visible_module
 from fh_agent.body.skills.interact_visible import InteractVisibleObjectSkill
+from fh_agent.manager.reward_profiles import (
+    RewardProfile,
+    RewardTerm,
+    default_reward_profile_for_skill,
+)
 from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.observation.schemas import Observation
 
@@ -83,6 +88,21 @@ def test_interact_visible_contract_declares_supported_outcome_conditions() -> No
     assert "screen_signature_changed" not in contract.success_detector
     assert "new_evidence" not in contract.success_detector
     assert "death_screen" in contract.failure_detector
+
+
+def test_interact_visible_uses_and_preserves_canonical_reward_profile() -> None:
+    custom_profile = RewardProfile(
+        profile_name="custom_interaction",
+        terms=(RewardTerm(name="skill_success", weight=0.0),),
+    )
+    default_skill = InteractVisibleObjectSkill()
+    custom_skill = InteractVisibleObjectSkill(reward_profile=custom_profile)
+
+    assert default_skill.reward_profile == default_reward_profile_for_skill(
+        "interact_visible_object"
+    )
+    assert default_skill.contract.reward_profile == default_skill.reward_profile
+    assert custom_skill.contract.reward_profile == custom_profile
 
 
 def test_runtime_body_skill_has_no_outcome_grading_surface() -> None:

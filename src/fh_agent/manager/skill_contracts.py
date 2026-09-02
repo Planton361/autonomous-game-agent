@@ -3,7 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardProfile
+from fh_agent.manager.reward_profiles import RewardProfile
 from fh_agent.observation.schemas import Observation
 
 SkillCondition = Literal[
@@ -36,7 +36,7 @@ class SkillContract(BaseModel):
     success_detector: list[SkillCondition]
     failure_detector: list[SkillCondition]
     max_steps: int = Field(gt=0)
-    reward_profile: RewardProfile = Field(default_factory=RewardProfile)
+    reward_profile: RewardProfile
 
     @field_validator("allowed_actions")
     @classmethod

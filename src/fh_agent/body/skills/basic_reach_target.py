@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from math import isfinite
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardProfile
+from fh_agent.manager.reward_profiles import RewardProfile, default_reward_profile_for_skill
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
@@ -15,7 +15,9 @@ class BasicReachTargetSkill:
     target: VisibleScreenPointTarget | None = None
     tolerance_px: float = 4.0
     max_steps: int = 8
-    reward_profile: RewardProfile = field(default_factory=RewardProfile)
+    reward_profile: RewardProfile = field(
+        default_factory=lambda: default_reward_profile_for_skill("basic_reach_target")
+    )
 
     def __post_init__(self) -> None:
         if not isfinite(self.tolerance_px) or self.tolerance_px < 0:
