@@ -6,10 +6,10 @@ from types import MappingProxyType
 
 from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
-from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVisibleObjectSkill
+from fh_agent.body.skills.interact_visible import InteractVisibleObjectSkill
 from fh_agent.manager.skill_contracts import is_dialogue_observation
 from fh_agent.manager.skill_runner import RunnableSkill
-from fh_agent.manager.target_ref import VisibleScreenPointTarget
+from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
 from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS, UniversalSkillName
 
@@ -20,7 +20,7 @@ DEFAULT_SKILL_FACTORIES: MappingProxyType[UniversalSkillName, SkillFactory] = Ma
     {
         "continue_dialogue": lambda task=None: ContinueDialogueSkill(),
         "interact_visible_object": lambda task=None: InteractVisibleObjectSkill(
-            target=task if isinstance(task, InteractionTarget) else None
+            target=task if isinstance(task, VisibleObjectTarget) else None
         ),
         "basic_reach_target": lambda task=None: BasicReachTargetSkill(
             target=task if isinstance(task, VisibleScreenPointTarget) else None
@@ -76,7 +76,7 @@ class SkillCatalog:
 
         if is_dialogue_observation(observation):
             return self.get("continue_dialogue")
-        if isinstance(task, InteractionTarget):
+        if isinstance(task, VisibleObjectTarget):
             return self.get("interact_visible_object", task=task)
         if isinstance(task, VisibleScreenPointTarget):
             return self.get("basic_reach_target", task=task)

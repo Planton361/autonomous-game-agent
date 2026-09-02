@@ -1,9 +1,7 @@
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.body.skills.interact_visible import (
-    InteractionTarget,
-    InteractVisibleObjectSkill,
-)
+from fh_agent.body.skills.interact_visible import InteractVisibleObjectSkill
 from fh_agent.manager.skill_runner import SkillRunner
+from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import Observation
 
@@ -25,18 +23,40 @@ def field_observation(
     )
 
 
+def visible_object_target(
+    *, evidence_ids: tuple[str, ...] = ("target-evidence",)
+) -> VisibleObjectTarget:
+    return VisibleObjectTarget(
+        target_id="visible-object",
+        confidence=0.9,
+        evidence_ids=evidence_ids,
+        screen_position=(10, 20),
+        visual_hash="visible-hash",
+    )
+
+
 def test_interact_visible_does_not_start_without_visible_target() -> None:
     skill = InteractVisibleObjectSkill()
 
     assert not skill.can_start(field_observation())
 
 
-def test_interact_visible_starts_with_explicit_mock_target() -> None:
-    skill = InteractVisibleObjectSkill(
-        target=InteractionTarget(target_id="visible-object", evidence_ids=["target-evidence"])
-    )
+def test_interact_visible_starts_with_canonical_explicit_target() -> None:
+    target = visible_object_target()
+    skill = InteractVisibleObjectSkill(target=target)
 
     assert skill.can_start(field_observation())
+    assert skill.target is target
+
+
+def test_explicit_target_confirm_step_preserves_observation_and_target_evidence() -> None:
+    target = visible_object_target(evidence_ids=("observation-evidence", "target-evidence"))
+    skill = InteractVisibleObjectSkill(target=target)
+
+    step = skill.next_action(field_observation(evidence_id="observation-evidence"), step_index=0)
+
+    assert step.action is PrimitiveAction.CONFIRM
+    assert step.evidence_ids == ["observation-evidence", "target-evidence"]
 
 
 def test_interact_visible_emits_only_confirm_or_wait() -> None:

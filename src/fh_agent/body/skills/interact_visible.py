@@ -1,29 +1,17 @@
 from dataclasses import dataclass, field
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.manager.reward_computer import RewardComputer, RewardProfile, observation_visible_text
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
+from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.observation.schemas import Observation, SkillResult
-
-
-class InteractionTarget(BaseModel):
-    """Explicit mock task target derived from visible evidence."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    target_id: str
-    evidence_ids: list[str] = Field(default_factory=list)
-    screen_position: tuple[int, int] | None = None
-    visual_hash: str | None = None
 
 
 @dataclass(slots=True)
 class InteractVisibleObjectSkill:
     """Universal interaction skill for visible or explicit mock targets."""
 
-    target: InteractionTarget | None = None
+    target: VisibleObjectTarget | None = None
     max_steps: int = 2
     reward_profile: RewardProfile = field(default_factory=RewardProfile)
 
@@ -136,7 +124,7 @@ def has_visible_target(observation: Observation) -> bool:
 
 def step_evidence_ids(
     observation: Observation,
-    target: InteractionTarget | None,
+    target: VisibleObjectTarget | None,
 ) -> list[str]:
     evidence_ids = list(observation.evidence_ids)
     if target is not None:

@@ -4,7 +4,7 @@ import pytest
 
 from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
-from fh_agent.body.skills.interact_visible import InteractionTarget, InteractVisibleObjectSkill
+from fh_agent.body.skills.interact_visible import InteractVisibleObjectSkill
 from fh_agent.manager.skill_catalog import SkillCatalog, SkillCatalogError
 from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
@@ -36,6 +36,16 @@ def reach_target() -> VisibleScreenPointTarget:
         confidence=0.9,
         evidence_ids=("target-evidence",),
         screen_position=(10, 0),
+    )
+
+
+def visible_object_target() -> VisibleObjectTarget:
+    return VisibleObjectTarget(
+        target_id="visible-object",
+        confidence=0.9,
+        evidence_ids=("target-evidence",),
+        screen_position=(10, 0),
+        visual_hash="visible-hash",
     )
 
 
@@ -75,13 +85,13 @@ def test_dialogue_observation_selects_continue_dialogue() -> None:
     assert isinstance(skill, ContinueDialogueSkill)
 
 
-def test_interaction_target_selects_interact_visible_object() -> None:
-    task = InteractionTarget(target_id="visible-object", evidence_ids=["target-evidence"])
+def test_visible_object_target_selects_interact_visible_object() -> None:
+    task = visible_object_target()
 
     skill = SkillCatalog.default().select(observation=field_observation(), task=task)
 
     assert isinstance(skill, InteractVisibleObjectSkill)
-    assert skill.target == task
+    assert skill.target is task
 
 
 def test_visible_screen_point_target_selects_basic_reach_target() -> None:
@@ -127,16 +137,13 @@ def test_selected_skill_runs_through_skill_runner() -> None:
     assert run.skill_result.skill_name == "basic_reach_target"
 
 
-def test_visible_object_target_is_not_accepted_as_a_reach_target_task() -> None:
-    task = VisibleObjectTarget(
-        target_id="visible-object",
-        confidence=0.9,
-        evidence_ids=("target-evidence",),
-        screen_position=(10, 0),
+def test_visible_object_target_is_not_routed_to_basic_reach_target() -> None:
+    skill = SkillCatalog.default().select(
+        observation=field_observation(),
+        task=visible_object_target(),
     )
 
-    with pytest.raises(SkillCatalogError, match="no skill could be selected"):
-        SkillCatalog.default().select(observation=field_observation(), task=task)
+    assert isinstance(skill, InteractVisibleObjectSkill)
 
 
 def test_skill_catalog_does_not_import_memory_registry() -> None:
