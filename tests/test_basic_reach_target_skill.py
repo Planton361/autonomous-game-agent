@@ -13,9 +13,10 @@ from fh_agent.observation.schemas import Observation
 def observation(
     *,
     pos: tuple[int, int] | None,
-    evidence_id: str = "e1",
+    evidence_id: str | None = "e1",
     ui_state: str = "field",
     screen_signature: str | None = None,
+    visible_message_text: str | None = None,
 ) -> Observation:
     return Observation(
         run_id="run-1",
@@ -24,7 +25,8 @@ def observation(
         screen_signature=screen_signature,
         combat_ui_visible=ui_state == "combat",
         death_screen_visible=ui_state == "death",
-        evidence_ids=[evidence_id],
+        visible_message_text=visible_message_text,
+        evidence_ids=[] if evidence_id is None else [evidence_id],
     )
 
 
@@ -129,10 +131,10 @@ def test_basic_reach_target_succeeds_when_target_is_within_tolerance() -> None:
 
     assert result.success
     assert result.failure_reason is None
-    assert result.evidence_ids == ["e1", "e2"]
+    assert result.evidence_ids == ["target-evidence", "e2", "e1"]
 
 
-def test_basic_reach_target_succeeds_when_screen_signature_changes() -> None:
+def test_basic_reach_target_does_not_succeed_when_screen_signature_changes() -> None:
     skill = BasicReachTargetSkill(target=target(100, 100))
 
     result = skill.evaluate(
@@ -141,7 +143,61 @@ def test_basic_reach_target_succeeds_when_screen_signature_changes() -> None:
         steps_taken=1,
     )
 
-    assert result.success
+    assert not result.success
+    assert result.failure_reason is None
+
+
+def test_basic_reach_target_requires_after_evidence_for_success() -> None:
+    result = BasicReachTargetSkill(target=target(10, 10)).evaluate(
+        observation(pos=(0, 0), evidence_id="before-evidence"),
+        observation(pos=(10, 10), evidence_id=None),
+        steps_taken=1,
+    )
+
+    assert not result.success
+    assert result.failure_reason is None
+
+
+def test_basic_reach_target_outside_tolerance_is_not_success() -> None:
+    result = BasicReachTargetSkill(target=target(10, 10), tolerance_px=1.0).evaluate(
+        observation(pos=(0, 0)),
+        observation(pos=(12, 10), evidence_id="after-evidence"),
+        steps_taken=1,
+    )
+
+    assert not result.success
+
+
+def test_new_evidence_alone_outside_target_is_not_success() -> None:
+    result = BasicReachTargetSkill(target=target(100, 100)).evaluate(
+        observation(pos=(0, 0), evidence_id="before-evidence"),
+        observation(pos=(0, 0), evidence_id="new-evidence"),
+        steps_taken=1,
+    )
+
+    assert not result.success
+
+
+def test_visible_text_and_ui_change_outside_target_are_not_success() -> None:
+    result = BasicReachTargetSkill(target=target(100, 100)).evaluate(
+        observation(pos=(0, 0), ui_state="field", evidence_id="before-evidence"),
+        observation(
+            pos=(0, 0),
+            ui_state="dialogue",
+            evidence_id="after-evidence",
+            visible_message_text="Changed visible text",
+        ),
+        steps_taken=1,
+    )
+
+    assert not result.success
+
+
+def test_basic_reach_target_contract_only_advertises_target_reached_success() -> None:
+    success_detector = BasicReachTargetSkill(target=target()).contract.success_detector
+
+    assert "target_reached" in success_detector
+    assert "screen_signature_changed" not in success_detector
 
 
 def test_basic_reach_target_times_out_with_no_progress() -> None:
@@ -177,6 +233,29 @@ def test_basic_reach_target_fails_on_death_or_combat() -> None:
 
     assert death_run.skill_result.failure_reason == "death_screen"
     assert combat_run.skill_result.failure_reason == "combat_started"
+
+
+def test_visible_death_without_evidence_does_not_map_to_legacy_death_screen() -> None:
+    result = BasicReachTargetSkill(target=target(10, 10)).evaluate(
+        observation(pos=(0, 0), evidence_id="before-evidence"),
+        observation(pos=(10, 10), evidence_id=None, ui_state="death"),
+        steps_taken=1,
+    )
+
+    assert not result.success
+    assert result.failure_reason is None
+
+
+def test_verifier_death_takes_priority_over_apparent_reach() -> None:
+    result = BasicReachTargetSkill(target=target(10, 10)).evaluate(
+        observation(pos=(0, 0), evidence_id="before-evidence"),
+        observation(pos=(10, 10), evidence_id="death-evidence", ui_state="death"),
+        steps_taken=1,
+    )
+
+    assert not result.success
+    assert result.failure_reason == "death_screen"
+    assert result.evidence_ids == ["death-evidence", "before-evidence"]
 
 
 def test_basic_reach_target_runs_and_logs_with_skill_runner(tmp_path) -> None:
@@ -215,6 +294,46 @@ def test_basic_reach_target_step_preserves_observation_and_target_evidence() -> 
     )
 
     assert step.evidence_ids == ["shared", "target-evidence"]
+
+
+def test_terminal_verifier_evidence_is_deterministic_and_deduplicated() -> None:
+    skill = BasicReachTargetSkill(
+        target=VisibleScreenPointTarget(
+            target_id="visible-target",
+            confidence=0.9,
+            screen_position=(10, 10),
+            evidence_ids=("target-evidence", "shared"),
+        )
+    )
+
+    result = skill.evaluate(
+        observation(pos=(0, 0), evidence_id="before-evidence"),
+        observation(pos=(10, 10), evidence_id="shared"),
+        steps_taken=1,
+    )
+
+    assert result.evidence_ids == ["target-evidence", "shared", "before-evidence"]
+
+
+def test_positive_observation_reward_cannot_override_verifier_abstention() -> None:
+    result = BasicReachTargetSkill(target=target(100, 100)).evaluate(
+        observation(
+            pos=(0, 0),
+            ui_state="dialogue",
+            evidence_id="before-evidence",
+            visible_message_text="First line",
+        ),
+        observation(
+            pos=(0, 0),
+            ui_state="dialogue",
+            evidence_id="after-evidence",
+            visible_message_text="Second line",
+        ),
+        steps_taken=1,
+    )
+
+    assert result.reward is not None and result.reward > 0
+    assert not result.success
 
 
 @pytest.mark.parametrize("tolerance_px", [0.0, 1.5])

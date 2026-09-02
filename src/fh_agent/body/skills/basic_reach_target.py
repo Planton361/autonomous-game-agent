@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
-from math import hypot, isfinite
+from math import isfinite
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.verifier.reach_target import ReachTargetVerifier
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 @dataclass(slots=True)
@@ -34,7 +36,7 @@ class BasicReachTargetSkill:
                 PrimitiveAction.WAIT,
             ],
             preconditions=["reach_target_visible", "player_position_visible"],
-            success_detector=["target_reached", "screen_signature_changed"],
+            success_detector=["target_reached"],
             failure_detector=["death_screen", "combat_started", "timeout", "no_progress"],
             max_steps=self.max_steps,
             reward_profile=self.reward_profile,
@@ -72,19 +74,28 @@ class BasicReachTargetSkill:
         *,
         steps_taken: int,
     ) -> SkillResult:
-        evidence_ids = merged_evidence_ids(before, after)
+        verifier_result = (
+            ReachTargetVerifier(tolerance_px=self.tolerance_px).verify(self.target, after)
+            if self.target is not None
+            else None
+        )
         timed_out = steps_taken >= self.max_steps
-        success = self._is_success(before, after)
-        failure_reason = None
+        success = verifier_result is not None and verifier_result.status is VerifierStatus.SUCCESS
+        failure_reason: str | None = None
 
-        if after.ui_state == "death" or after.death_screen_visible is True:
-            success = False
+        if (
+            verifier_result is not None
+            and verifier_result.status is VerifierStatus.FAILURE
+            and verifier_result.failure_kind is FailureKind.DEATH
+        ):
             failure_reason = "death_screen"
         elif after.ui_state == "combat" or after.combat_ui_visible is True:
             success = False
             failure_reason = "combat_started"
         elif not success and timed_out:
             failure_reason = "timeout"
+
+        evidence_ids = outcome_evidence_ids(before, after, verifier_result)
 
         reward = RewardComputer(self.reward_profile).compute(
             before,
@@ -100,22 +111,6 @@ class BasicReachTargetSkill:
             reward=reward.total,
             evidence_ids=evidence_ids,
         )
-
-    def _is_success(self, before: Observation, after: Observation) -> bool:
-        if self.target is None:
-            return False
-
-        reached = (
-            after.player_screen_position is not None
-            and distance(after.player_screen_position, self.target.screen_position)
-            <= self.tolerance_px
-        )
-        signature_changed = (
-            before.screen_signature is not None
-            and after.screen_signature is not None
-            and before.screen_signature != after.screen_signature
-        )
-        return reached or signature_changed
 
 
 def movement_action_toward(
@@ -141,13 +136,27 @@ def movement_action_toward(
     return PrimitiveAction.WAIT
 
 
-def distance(first: tuple[int, int], second: tuple[int, int]) -> float:
-    return hypot(second[0] - first[0], second[1] - first[1])
-
-
 def step_evidence_ids(observation: Observation, target: VisibleScreenPointTarget) -> list[str]:
     evidence_ids = list(observation.evidence_ids)
     for evidence_id in target.evidence_ids:
         if evidence_id not in evidence_ids:
             evidence_ids.append(evidence_id)
+    return evidence_ids
+
+
+def outcome_evidence_ids(
+    before: Observation,
+    after: Observation,
+    verifier_result: VerifierResult | None,
+) -> list[str]:
+    """Preserve canonical outcome evidence before legacy observation context."""
+
+    if verifier_result is None:
+        return merged_evidence_ids(before, after)
+
+    evidence_ids = list(verifier_result.evidence_ids)
+    for observation in (before, after):
+        for evidence_id in observation.evidence_ids:
+            if evidence_id not in evidence_ids:
+                evidence_ids.append(evidence_id)
     return evidence_ids
