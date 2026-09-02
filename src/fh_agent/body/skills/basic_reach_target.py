@@ -2,12 +2,10 @@ from dataclasses import dataclass, field
 from math import isfinite
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
-from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
+from fh_agent.manager.reward_computer import RewardProfile
+from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.target_ref import VisibleScreenPointTarget
-from fh_agent.observation.schemas import Observation, SkillResult
-from fh_agent.verifier.reach_target import ReachTargetVerifier
-from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
+from fh_agent.observation.schemas import Observation
 
 
 @dataclass(slots=True)
@@ -67,54 +65,6 @@ class BasicReachTargetSkill:
             evidence_ids=step_evidence_ids(observation, self.target),
         )
 
-    def evaluate(
-        self,
-        before: Observation,
-        after: Observation,
-        *,
-        steps_taken: int,
-    ) -> SkillResult:
-        verifier_result = (
-            ReachTargetVerifier(
-                target=self.target,
-                tolerance_px=self.tolerance_px,
-            ).verify(before, after)
-            if self.target is not None
-            else None
-        )
-        timed_out = steps_taken >= self.max_steps
-        success = verifier_result is not None and verifier_result.status is VerifierStatus.SUCCESS
-        failure_reason: str | None = None
-
-        if (
-            verifier_result is not None
-            and verifier_result.status is VerifierStatus.FAILURE
-            and verifier_result.failure_kind is FailureKind.DEATH
-        ):
-            failure_reason = "death_screen"
-        elif after.ui_state == "combat" or after.combat_ui_visible is True:
-            success = False
-            failure_reason = "combat_started"
-        elif not success and timed_out:
-            failure_reason = "timeout"
-
-        evidence_ids = outcome_evidence_ids(before, after, verifier_result)
-
-        reward = RewardComputer(self.reward_profile).compute(
-            before,
-            after,
-            timeout=timed_out and not success,
-            failure=failure_reason is not None,
-        )
-
-        return SkillResult(
-            skill_name=self.contract.skill_name,
-            success=success,
-            failure_reason=failure_reason,
-            reward=reward.total,
-            evidence_ids=evidence_ids,
-        )
-
 
 def movement_action_toward(
     current_pos: tuple[int, int],
@@ -144,22 +94,4 @@ def step_evidence_ids(observation: Observation, target: VisibleScreenPointTarget
     for evidence_id in target.evidence_ids:
         if evidence_id not in evidence_ids:
             evidence_ids.append(evidence_id)
-    return evidence_ids
-
-
-def outcome_evidence_ids(
-    before: Observation,
-    after: Observation,
-    verifier_result: VerifierResult | None,
-) -> list[str]:
-    """Preserve canonical outcome evidence before legacy observation context."""
-
-    if verifier_result is None:
-        return merged_evidence_ids(before, after)
-
-    evidence_ids = list(verifier_result.evidence_ids)
-    for observation in (before, after):
-        for evidence_id in observation.evidence_ids:
-            if evidence_id not in evidence_ids:
-                evidence_ids.append(evidence_id)
     return evidence_ids

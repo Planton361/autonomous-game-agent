@@ -1,12 +1,10 @@
 from dataclasses import dataclass, field
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
-from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
+from fh_agent.manager.reward_computer import RewardProfile
+from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.target_ref import VisibleObjectTarget
-from fh_agent.observation.schemas import Observation, SkillResult
-from fh_agent.verifier.interaction import InteractVisibleObjectVerifier
-from fh_agent.verifier.schemas import FailureKind, VerifierStatus
+from fh_agent.observation.schemas import Observation
 
 
 @dataclass(slots=True)
@@ -51,46 +49,6 @@ class InteractVisibleObjectSkill:
             step_index=step_index,
             reason="no_visible_interaction_target",
             evidence_ids=observation.evidence_ids,
-        )
-
-    def evaluate(
-        self,
-        before: Observation,
-        after: Observation,
-        *,
-        steps_taken: int,
-    ) -> SkillResult:
-        timed_out = steps_taken >= self.max_steps
-        verifier_result = InteractVisibleObjectVerifier(target=self.target).verify(before, after)
-        success = verifier_result.status is VerifierStatus.SUCCESS
-        failure_reason = None
-        if (
-            verifier_result.status is VerifierStatus.FAILURE
-            and verifier_result.failure_kind is FailureKind.DEATH
-        ):
-            failure_reason = "death_screen"
-        elif not success and timed_out:
-            failure_reason = "timeout"
-
-        evidence_ids = (
-            verifier_result.evidence_ids
-            if verifier_result.status is not VerifierStatus.ABSTAIN
-            else merged_evidence_ids(before, after)
-        )
-
-        reward = RewardComputer(self.reward_profile).compute(
-            before,
-            after,
-            timeout=timed_out and not success,
-            failure=failure_reason is not None,
-        )
-
-        return SkillResult(
-            skill_name=self.contract.skill_name,
-            success=success,
-            failure_reason=failure_reason,
-            reward=reward.total,
-            evidence_ids=evidence_ids,
         )
 
 
