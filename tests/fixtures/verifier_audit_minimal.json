@@ -1,0 +1,55 @@
+{
+  "dataset_version": "synthetic-verifier-audit-v1",
+  "annotations": [
+    {
+      "audit_id": "audit-success",
+      "run_id": "synthetic-run",
+      "verifier_event_id": "verifier-success",
+      "skill_name": "continue_dialogue",
+      "annotation_status": "usable",
+      "evidence_ids": ["audit-evidence-success"],
+      "expected_status": "success",
+      "expected_failure_kind": null
+    },
+    {
+      "audit_id": "audit-failure",
+      "run_id": "synthetic-run",
+      "verifier_event_id": "verifier-failure",
+      "skill_name": "basic_reach_target",
+      "annotation_status": "usable",
+      "evidence_ids": ["audit-evidence-failure"],
+      "expected_status": "failure",
+      "expected_failure_kind": "death"
+    },
+    {
+      "audit_id": "audit-abstain",
+      "run_id": "synthetic-run",
+      "verifier_event_id": "verifier-abstain",
+      "skill_name": "interact_visible_object",
+      "annotation_status": "usable",
+      "evidence_ids": ["audit-evidence-abstain"],
+      "expected_status": "abstain",
+      "expected_failure_kind": null
+    },
+    {
+      "audit_id": "audit-uncertain",
+      "run_id": "synthetic-run",
+      "verifier_event_id": "verifier-uncertain",
+      "skill_name": "continue_dialogue",
+      "annotation_status": "uncertain",
+      "evidence_ids": ["audit-evidence-uncertain"],
+      "expected_status": null,
+      "expected_failure_kind": null
+    },
+    {
+      "audit_id": "audit-exclude",
+      "run_id": "synthetic-run",
+      "verifier_event_id": "verifier-exclude",
+      "skill_name": "continue_dialogue",
+      "annotation_status": "exclude",
+      "evidence_ids": ["audit-evidence-exclude"],
+      "expected_status": null,
+      "expected_failure_kind": null
+    }
+  ]
+}
