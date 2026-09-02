@@ -9,6 +9,7 @@ from fh_agent.manager.skill_catalog import SkillCatalog, SkillCatalogError
 from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
+from fh_agent.observation.source import SequenceObservationSource
 from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS
 from fh_agent.verifier.reach_target import ReachTargetVerifier
 
@@ -128,10 +129,12 @@ def test_selected_skill_runs_through_skill_runner() -> None:
 
     run = SkillRunner().run(
         skill,
-        [
-            field_observation(player_pos=(0, 0)),
-            field_observation(player_pos=(10, 0)),
-        ],
+        SequenceObservationSource(
+            (
+                field_observation(player_pos=(0, 0)),
+                field_observation(player_pos=(10, 0)),
+            )
+        ),
         verifier=ReachTargetVerifier(task),
     )
 

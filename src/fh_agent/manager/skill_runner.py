@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
@@ -10,6 +9,7 @@ from fh_agent.manager.verified_reward import (
     derive_verified_reward,
 )
 from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.observation.source import ObservationSource, ObservationSourceExhausted
 from fh_agent.verifier.ports import OutcomeVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
@@ -70,11 +70,13 @@ class SkillRunner:
     def run(
         self,
         skill: RunnableSkill,
-        observations: Sequence[Observation],
+        observation_source: ObservationSource,
         *,
         verifier: OutcomeVerifier,
     ) -> SkillRunResult:
-        if not observations:
+        try:
+            start = observation_source.observe()
+        except ObservationSourceExhausted:
             return self._finish(
                 SkillResult(
                     skill_name=skill.contract.skill_name,
@@ -90,7 +92,6 @@ class SkillRunner:
                 reward_event_records=[],
             )
 
-        start = observations[0]
         if not skill.can_start(start):
             return self._finish(
                 SkillResult(
@@ -119,8 +120,9 @@ class SkillRunner:
             step = skill.next_action(latest, step_index=step_index)
             steps.append(step)
 
-            next_index = step_index + 1
-            if next_index >= len(observations):
+            try:
+                latest = observation_source.observe()
+            except ObservationSourceExhausted:
                 (
                     latest_verifier_result,
                     verifier_event_record,
@@ -170,7 +172,6 @@ class SkillRunner:
                     reward_event_records=reward_event_records,
                 )
 
-            latest = observations[next_index]
             (
                 latest_verifier_result,
                 verifier_event_record,

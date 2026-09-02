@@ -14,6 +14,10 @@ from fh_agent.manager.verified_reward import VerifiedRewardBreakdown, VerifiedRe
 from fh_agent.manager.verifier_catalog import VerifierCatalog
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import Observation
+from fh_agent.observation.source import (
+    ObservationSourceExhausted,
+    SequenceObservationSource,
+)
 from fh_agent.verifier.dialogue import ContinueDialogueVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
@@ -48,6 +52,26 @@ def dialogue_observation(
 
 def field_observation(evidence_id: str = "field-evidence") -> Observation:
     return Observation(run_id="run-1", ui_state="field", evidence_ids=[evidence_id])
+
+
+def observation_source(*observations: Observation) -> SequenceObservationSource:
+    return SequenceObservationSource(observations)
+
+
+class RecordingObservationSource:
+    def __init__(self, *observations: Observation) -> None:
+        self._observations = observations
+        self._next_index = 0
+        self.observe_calls = 0
+
+    def observe(self) -> Observation:
+        self.observe_calls += 1
+        if self._next_index >= len(self._observations):
+            raise ObservationSourceExhausted
+
+        observation = self._observations[self._next_index]
+        self._next_index += 1
+        return observation
 
 
 class FixedVerifier:
@@ -105,42 +129,177 @@ class NoEvaluateSkill:
         )
 
 
+class RecordingSkill(NoEvaluateSkill):
+    def __init__(self, *, can_start: bool = True, max_steps: int = 2) -> None:
+        super().__init__(max_steps=max_steps)
+        self._can_start = can_start
+        self.can_start_observations: list[Observation] = []
+        self.next_action_observations: list[Observation] = []
+
+    def can_start(self, observation: Observation) -> bool:
+        self.can_start_observations.append(observation)
+        return self._can_start
+
+    def next_action(self, observation: Observation, *, step_index: int) -> SkillStep:
+        self.next_action_observations.append(observation)
+        return super().next_action(observation, step_index=step_index)
+
+
 class ExplodingEvaluateSkill(NoEvaluateSkill):
     def evaluate(self) -> None:
         raise AssertionError("SkillRunner must not call Body evaluate")
 
 
 def test_runner_rejects_continue_dialogue_when_start_observation_is_not_dialogue() -> None:
+    source = RecordingObservationSource(
+        field_observation(),
+        dialogue_observation("unused", "unused"),
+    )
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS))
     run = SkillRunner().run(
         ContinueDialogueSkill(),
-        [field_observation()],
-        verifier=ContinueDialogueVerifier(),
+        source,
+        verifier=verifier,
     )
 
     assert not run.skill_result.success
     assert run.skill_result.failure_reason == "precondition_failed"
     assert run.steps == []
     assert run.verifier_result is None
+    assert source.observe_calls == 1
+    assert verifier.calls == []
+    assert run.verified_reward_breakdowns == []
 
 
 def test_runner_preserves_empty_sequence_compatibility_without_verification() -> None:
+    source = RecordingObservationSource()
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS))
     run = SkillRunner().run(
         ContinueDialogueSkill(),
-        [],
-        verifier=ContinueDialogueVerifier(),
+        source,
+        verifier=verifier,
     )
 
     assert run.skill_result.failure_reason == "empty_observation_sequence"
     assert run.verifier_result is None
+    assert source.observe_calls == 1
+    assert verifier.calls == []
+    assert run.verified_reward_breakdowns == []
+
+
+def test_runner_pulls_observations_without_prefetching_after_terminal_success() -> None:
+    start = field_observation("start")
+    after = field_observation("after")
+    source = RecordingObservationSource(start, after, field_observation("unused"))
+    skill = RecordingSkill()
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS))
+
+    run = SkillRunner().run(skill, source, verifier=verifier)
+
+    assert run.skill_result.success
+    assert source.observe_calls == 2
+    assert skill.can_start_observations[0] is start
+    assert skill.next_action_observations[0] is start
+    assert verifier.calls[0][0] is start
+    assert verifier.calls[0][1] is after
+
+
+def test_runner_stops_pulling_after_terminal_failure() -> None:
+    start = field_observation("start")
+    after = field_observation("after")
+    source = RecordingObservationSource(start, after, field_observation("unused"))
+    verifier = FixedVerifier(
+        VerifierResult(status=VerifierStatus.FAILURE, failure_kind=FailureKind.SKILL_FAILED)
+    )
+
+    run = SkillRunner().run(NoEvaluateSkill(), source, verifier=verifier)
+
+    assert run.skill_result.failure_reason == "skill_failed"
+    assert source.observe_calls == 2
+    assert verifier.calls == [(start, after)]
+
+
+def test_runner_verifies_latest_observation_when_source_exhausts_after_step() -> None:
+    start = field_observation("start")
+    source = RecordingObservationSource(start)
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN))
+
+    run = SkillRunner().run(NoEvaluateSkill(), source, verifier=verifier)
+
+    assert run.skill_result.failure_reason == "observation_sequence_exhausted"
+    assert source.observe_calls == 2
+    assert verifier.calls == [(start, start)]
+    assert len(run.verified_reward_breakdowns) == 1
+
+
+def test_runner_preserves_terminal_verifier_results_when_source_exhausts_after_step() -> None:
+    cases = [
+        (VerifierResult(status=VerifierStatus.SUCCESS), True, None),
+        (
+            VerifierResult(status=VerifierStatus.FAILURE, failure_kind=FailureKind.SKILL_FAILED),
+            False,
+            "skill_failed",
+        ),
+    ]
+
+    for verifier_result, expected_success, expected_reason in cases:
+        source = RecordingObservationSource(field_observation("start"))
+        run = SkillRunner().run(
+            NoEvaluateSkill(),
+            source,
+            verifier=FixedVerifier(verifier_result),
+        )
+
+        assert run.skill_result.success is expected_success
+        assert run.skill_result.failure_reason == expected_reason
+        assert source.observe_calls == 2
+
+
+def test_runner_stops_at_max_steps_without_extra_observation_pull() -> None:
+    start = field_observation("start")
+    first = field_observation("first")
+    source = RecordingObservationSource(
+        start,
+        first,
+        field_observation("second"),
+        field_observation("unused"),
+    )
+    skill = RecordingSkill(max_steps=2)
+    verifier = SequenceVerifier(
+        [
+            VerifierResult(status=VerifierStatus.ABSTAIN),
+            VerifierResult(status=VerifierStatus.PROGRESS),
+        ]
+    )
+
+    run = SkillRunner().run(skill, source, verifier=verifier)
+
+    assert run.skill_result.failure_reason == "timeout"
+    assert source.observe_calls == 3
+    assert len(verifier.calls) == 2
+    assert skill.next_action_observations[0] is start
+    assert skill.next_action_observations[1] is first
+
+
+def test_runner_has_no_precomputed_observation_sequence_dependency() -> None:
+    source = inspect.getsource(SkillRunner)
+
+    assert "Sequence[Observation]" not in source
+    assert "len(observations)" not in source
+    assert "observations[" not in source
+    assert "SequenceObservationSource" not in source
+    assert "InputExecutor" not in source
+    assert "DryRunInputBackend" not in source
+    assert ".execute(" not in source
 
 
 def test_runner_returns_success_when_dialogue_text_changes() -> None:
     run = SkillRunner().run(
         ContinueDialogueSkill(),
-        [
+        observation_source(
             dialogue_observation("First", "e1"),
             dialogue_observation("Second", "e2"),
-        ],
+        ),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -152,10 +311,10 @@ def test_runner_returns_success_when_dialogue_text_changes() -> None:
 def test_runner_returns_success_when_dialogue_ends() -> None:
     run = SkillRunner().run(
         ContinueDialogueSkill(),
-        [
+        observation_source(
             dialogue_observation("Done", "e1"),
             field_observation("e2"),
-        ],
+        ),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -166,11 +325,11 @@ def test_runner_returns_success_when_dialogue_ends() -> None:
 def test_runner_returns_timeout_failure_at_max_steps() -> None:
     run = SkillRunner().run(
         ContinueDialogueSkill(max_steps=2),
-        [
+        observation_source(
             dialogue_observation("Same", "e1"),
             dialogue_observation("Same", "e1"),
             dialogue_observation("Same", "e1"),
-        ],
+        ),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -182,7 +341,7 @@ def test_runner_returns_timeout_failure_at_max_steps() -> None:
 def test_runner_stops_when_observation_sequence_is_exhausted_after_start() -> None:
     run = SkillRunner().run(
         ContinueDialogueSkill(max_steps=3),
-        [dialogue_observation("Only", "e1")],
+        observation_source(dialogue_observation("Only", "e1")),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -197,10 +356,10 @@ def test_runner_logs_skill_result_to_event_log_path(tmp_path) -> None:
 
     run = runner.run(
         ContinueDialogueSkill(),
-        [
+        observation_source(
             dialogue_observation("First", "e1", observation_id="before-observation"),
             dialogue_observation("Second", "e2", observation_id="after-observation"),
-        ],
+        ),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -248,7 +407,7 @@ def test_runner_logs_terminal_failure_after_its_verifier_event(tmp_path) -> None
 
     run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(verifier_result),
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
@@ -277,7 +436,7 @@ def test_runner_logs_non_terminal_abstain_and_progress(tmp_path) -> None:
     runs = [
         runner.run(
             NoEvaluateSkill(max_steps=1),
-            [field_observation("before"), field_observation("after")],
+            observation_source(field_observation("before"), field_observation("after")),
             verifier=FixedVerifier(result),
         )
         for result in results
@@ -312,7 +471,11 @@ def test_runner_logs_each_timeout_verification_in_order(tmp_path) -> None:
 
     run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
         NoEvaluateSkill(max_steps=2),
-        [field_observation("before"), field_observation("during"), field_observation("after")],
+        observation_source(
+            field_observation("before"),
+            field_observation("during"),
+            field_observation("after"),
+        ),
         verifier=verifier,
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
@@ -343,7 +506,7 @@ def test_runner_logs_final_non_terminal_verifier_result_before_exhaustion(tmp_pa
 
     run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
         NoEvaluateSkill(),
-        [field_observation("only")],
+        observation_source(field_observation("only")),
         verifier=FixedVerifier(verifier_result),
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
@@ -366,12 +529,12 @@ def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp
 
     empty_run = SkillRunner(event_log_path=empty_path, run_id="run-1").run(
         ContinueDialogueSkill(),
-        [],
+        observation_source(),
         verifier=ContinueDialogueVerifier(),
     )
     precondition_run = SkillRunner(event_log_path=precondition_path, run_id="run-1").run(
         ContinueDialogueSkill(),
-        [field_observation()],
+        observation_source(field_observation()),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -392,11 +555,11 @@ def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp
 def test_runner_collects_declarative_primitive_actions_without_execution() -> None:
     run = SkillRunner().run(
         ContinueDialogueSkill(max_steps=2),
-        [
+        observation_source(
             dialogue_observation("Same", "e1"),
             dialogue_observation("Same", "e1"),
             dialogue_observation("Same", "e1"),
-        ],
+        ),
         verifier=ContinueDialogueVerifier(),
     )
 
@@ -416,7 +579,7 @@ def test_runner_succeeds_with_a_skill_that_has_no_evaluate_method() -> None:
 
     run = SkillRunner().run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=verifier,
     )
 
@@ -429,7 +592,7 @@ def test_runner_succeeds_with_a_skill_that_has_no_evaluate_method() -> None:
 def test_runner_never_calls_an_exploding_body_evaluate_method() -> None:
     run = SkillRunner().run(
         ExplodingEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
     )
 
@@ -439,7 +602,7 @@ def test_runner_never_calls_an_exploding_body_evaluate_method() -> None:
 def test_runner_maps_canonical_failure_kinds_to_legacy_reasons() -> None:
     generic_failure = SkillRunner().run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(
             VerifierResult(
                 status=VerifierStatus.FAILURE,
@@ -450,7 +613,7 @@ def test_runner_maps_canonical_failure_kinds_to_legacy_reasons() -> None:
     )
     death_failure = SkillRunner().run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(
             VerifierResult(status=VerifierStatus.FAILURE, failure_kind=FailureKind.DEATH)
         ),
@@ -470,8 +633,16 @@ def test_runner_abstain_and_progress_are_non_terminal() -> None:
         field_observation("after"),
     ]
 
-    abstain_run = SkillRunner().run(NoEvaluateSkill(), observations, verifier=abstain_verifier)
-    progress_run = SkillRunner().run(NoEvaluateSkill(), observations, verifier=progress_verifier)
+    abstain_run = SkillRunner().run(
+        NoEvaluateSkill(),
+        observation_source(*observations),
+        verifier=abstain_verifier,
+    )
+    progress_run = SkillRunner().run(
+        NoEvaluateSkill(),
+        observation_source(*observations),
+        verifier=progress_verifier,
+    )
 
     assert abstain_run.skill_result.failure_reason == "timeout"
     assert progress_run.skill_result.failure_reason == "timeout"
@@ -484,12 +655,12 @@ def test_runner_abstain_and_progress_are_non_terminal() -> None:
 def test_runner_emits_no_reward_for_verified_success_or_failure() -> None:
     success = SkillRunner().run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
     )
     failure = SkillRunner().run(
         NoEvaluateSkill(),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(
             VerifierResult(
                 status=VerifierStatus.FAILURE,
@@ -508,22 +679,22 @@ def test_runner_emits_no_reward_for_abstain_and_progress_timeout_or_exhaustion()
 
     abstain_timeout = SkillRunner().run(
         NoEvaluateSkill(max_steps=1),
-        timeout_observations,
+        observation_source(*timeout_observations),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
     abstain_exhaustion = SkillRunner().run(
         NoEvaluateSkill(),
-        exhaustion_observations,
+        observation_source(*exhaustion_observations),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
     progress_timeout = SkillRunner().run(
         NoEvaluateSkill(max_steps=1),
-        timeout_observations,
+        observation_source(*timeout_observations),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
     )
     progress_exhaustion = SkillRunner().run(
         NoEvaluateSkill(),
-        exhaustion_observations,
+        observation_source(*exhaustion_observations),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
     )
 
@@ -545,7 +716,7 @@ def test_runner_emits_no_reward_for_abstain_and_progress_timeout_or_exhaustion()
 def test_runner_raw_observation_changes_cannot_create_reward() -> None:
     visible_text_change = SkillRunner().run(
         NoEvaluateSkill(max_steps=1),
-        [
+        observation_source(
             field_observation("before"),
             Observation(
                 run_id="run-1",
@@ -553,17 +724,17 @@ def test_runner_raw_observation_changes_cannot_create_reward() -> None:
                 visible_message_text="New",
                 evidence_ids=["after"],
             ),
-        ],
+        ),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
     ui_state_change = SkillRunner().run(
         NoEvaluateSkill(max_steps=1),
-        [dialogue_observation("Before", "before"), field_observation("after")],
+        observation_source(dialogue_observation("Before", "before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
     new_evidence = SkillRunner().run(
         NoEvaluateSkill(max_steps=1),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
 
@@ -588,7 +759,10 @@ def test_manager_selected_verifier_runs_through_skill_runner() -> None:
 
     run = SkillRunner().run(
         ContinueDialogueSkill(),
-        [dialogue_observation("First", "before"), dialogue_observation("Second", "after")],
+        observation_source(
+            dialogue_observation("First", "before"),
+            dialogue_observation("Second", "after"),
+        ),
         verifier=verifier,
     )
 
@@ -607,7 +781,7 @@ def test_runner_has_no_body_evaluate_dependency() -> None:
 def test_runner_derives_in_memory_reward_from_verified_success_only() -> None:
     run = SkillRunner().run(
         NoEvaluateSkill(reward_profile=reward_profile(("skill_success", 2.5))),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(
             VerifierResult(status=VerifierStatus.SUCCESS, evidence_ids=["verified-evidence"])
         ),
@@ -631,7 +805,7 @@ def test_runner_derives_in_memory_reward_from_verified_success_only() -> None:
 def test_runner_preserves_configured_success_reward_weight() -> None:
     run = SkillRunner().run(
         NoEvaluateSkill(reward_profile=reward_profile(("skill_success", 2.5))),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
     )
 
@@ -648,7 +822,7 @@ def test_runner_derives_supported_canonical_failure_rewards() -> None:
     for failure_kind, term_name, expected_total in cases:
         run = SkillRunner().run(
             NoEvaluateSkill(reward_profile=reward_profile((term_name, -expected_total))),
-            [field_observation("before"), field_observation("after")],
+            observation_source(field_observation("before"), field_observation("after")),
             verifier=FixedVerifier(
                 VerifierResult(status=VerifierStatus.FAILURE, failure_kind=failure_kind)
             ),
@@ -662,17 +836,17 @@ def test_runner_legacy_timeout_and_exhaustion_cannot_create_reward() -> None:
     profile = reward_profile(("avoid_timeout", 10.0), ("skill_success", 4.0))
     abstain_timeout = SkillRunner().run(
         NoEvaluateSkill(max_steps=1, reward_profile=profile),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
     progress_timeout = SkillRunner().run(
         NoEvaluateSkill(max_steps=1, reward_profile=profile),
-        [field_observation("before"), field_observation("after")],
+        observation_source(field_observation("before"), field_observation("after")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
     )
     exhaustion = SkillRunner().run(
         NoEvaluateSkill(reward_profile=profile),
-        [field_observation("only")],
+        observation_source(field_observation("only")),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
 
@@ -698,7 +872,10 @@ def test_runner_legacy_combat_compatibility_cannot_activate_avoid_combat() -> No
             failure_detector=["combat_started"],
             reward_profile=reward_profile(("avoid_combat", 100.0)),
         ),
-        [field_observation("before"), Observation(run_id="run-1", ui_state="combat")],
+        observation_source(
+            field_observation("before"),
+            Observation(run_id="run-1", ui_state="combat"),
+        ),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
     )
 
@@ -717,12 +894,12 @@ def test_runner_tracks_reward_breakdowns_and_events_per_verifier_invocation(tmp_
 
     run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
         NoEvaluateSkill(max_steps=3, reward_profile=reward_profile(("skill_success", 1.5))),
-        [
+        observation_source(
             field_observation("before"),
             field_observation("first"),
             field_observation("second"),
             field_observation("third"),
-        ],
+        ),
         verifier=SequenceVerifier(results),
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
@@ -750,12 +927,12 @@ def test_runner_tracks_reward_breakdowns_and_events_per_verifier_invocation(tmp_
 def test_runner_skips_reward_derivation_when_no_verifier_runs() -> None:
     empty = SkillRunner().run(
         NoEvaluateSkill(),
-        [],
+        observation_source(),
         verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
     )
     precondition = SkillRunner().run(
         ContinueDialogueSkill(),
-        [field_observation()],
+        observation_source(field_observation()),
         verifier=ContinueDialogueVerifier(),
     )
 
