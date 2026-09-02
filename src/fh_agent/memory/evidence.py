@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
-from fh_agent.perception.screen_capture import ScreenFrame
+if TYPE_CHECKING:
+    from fh_agent.perception.screen_capture import ScreenFrame
 
 
 class EvidenceRecord(BaseModel):
