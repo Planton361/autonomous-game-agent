@@ -3,7 +3,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+from fh_agent.manager.reward_profiles import RewardProfile
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
+from fh_agent.manager.verified_reward import (
+    VerifiedRewardBreakdown,
+    derive_verified_reward,
+)
 from fh_agent.observation.schemas import Observation, SkillResult
 from fh_agent.verifier.ports import OutcomeVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
@@ -36,6 +41,8 @@ class SkillRunResult:
     skill_result: SkillResult
     verifier_result: VerifierResult | None = None
     verifier_event_records: list[SkillEventRecord] = field(default_factory=list)
+    verified_reward_breakdowns: list[VerifiedRewardBreakdown] = field(default_factory=list)
+    reward_event_records: list[SkillEventRecord] = field(default_factory=list)
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -79,6 +86,8 @@ class SkillRunner:
                 steps=[],
                 verifier_result=None,
                 verifier_event_records=[],
+                verified_reward_breakdowns=[],
+                reward_event_records=[],
             )
 
         start = observations[0]
@@ -94,12 +103,16 @@ class SkillRunner:
                 steps=[],
                 verifier_result=None,
                 verifier_event_records=[],
+                verified_reward_breakdowns=[],
+                reward_event_records=[],
             )
 
         steps: list[SkillStep] = []
         latest = start
         latest_verifier_result: VerifierResult | None = None
         verifier_event_records: list[SkillEventRecord] = []
+        verified_reward_breakdowns: list[VerifiedRewardBreakdown] = []
+        reward_event_records: list[SkillEventRecord] = []
         max_steps = skill.contract.max_steps
 
         for step_index in range(max_steps):
@@ -108,15 +121,24 @@ class SkillRunner:
 
             next_index = step_index + 1
             if next_index >= len(observations):
-                latest_verifier_result, verifier_event_record = self._verify(
+                (
+                    latest_verifier_result,
+                    verifier_event_record,
+                    verified_reward_breakdown,
+                    reward_event_record,
+                ) = self._verify(
                     verifier,
                     start,
                     latest,
                     skill_name=skill.contract.skill_name,
+                    reward_profile=skill.contract.reward_profile,
                     steps_taken=len(steps),
                 )
                 if verifier_event_record is not None:
                     verifier_event_records.append(verifier_event_record)
+                verified_reward_breakdowns.append(verified_reward_breakdown)
+                if reward_event_record is not None:
+                    reward_event_records.append(reward_event_record)
                 terminal_result = self._terminal_result(
                     skill,
                     start,
@@ -129,6 +151,8 @@ class SkillRunner:
                         steps=steps,
                         verifier_result=latest_verifier_result,
                         verifier_event_records=verifier_event_records,
+                        verified_reward_breakdowns=verified_reward_breakdowns,
+                        reward_event_records=reward_event_records,
                     )
 
                 return self._finish(
@@ -142,18 +166,29 @@ class SkillRunner:
                     steps=steps,
                     verifier_result=latest_verifier_result,
                     verifier_event_records=verifier_event_records,
+                    verified_reward_breakdowns=verified_reward_breakdowns,
+                    reward_event_records=reward_event_records,
                 )
 
             latest = observations[next_index]
-            latest_verifier_result, verifier_event_record = self._verify(
+            (
+                latest_verifier_result,
+                verifier_event_record,
+                verified_reward_breakdown,
+                reward_event_record,
+            ) = self._verify(
                 verifier,
                 start,
                 latest,
                 skill_name=skill.contract.skill_name,
+                reward_profile=skill.contract.reward_profile,
                 steps_taken=len(steps),
             )
             if verifier_event_record is not None:
                 verifier_event_records.append(verifier_event_record)
+            verified_reward_breakdowns.append(verified_reward_breakdown)
+            if reward_event_record is not None:
+                reward_event_records.append(reward_event_record)
             terminal_result = self._terminal_result(
                 skill,
                 start,
@@ -166,6 +201,8 @@ class SkillRunner:
                     steps=steps,
                     verifier_result=latest_verifier_result,
                     verifier_event_records=verifier_event_records,
+                    verified_reward_breakdowns=verified_reward_breakdowns,
+                    reward_event_records=reward_event_records,
                 )
 
         return self._finish(
@@ -179,6 +216,8 @@ class SkillRunner:
             steps=steps,
             verifier_result=latest_verifier_result,
             verifier_event_records=verifier_event_records,
+            verified_reward_breakdowns=verified_reward_breakdowns,
+            reward_event_records=reward_event_records,
         )
 
     def _verify(
@@ -188,20 +227,34 @@ class SkillRunner:
         after: Observation,
         *,
         skill_name: str,
+        reward_profile: RewardProfile,
         steps_taken: int,
-    ) -> tuple[VerifierResult, SkillEventRecord | None]:
-        """Evaluate and durably record one independent verifier result."""
+    ) -> tuple[
+        VerifierResult,
+        SkillEventRecord | None,
+        VerifiedRewardBreakdown,
+        SkillEventRecord | None,
+    ]:
+        """Evaluate, derive, and durably record one canonical outcome."""
         result = verifier.verify(before, after)
-        event_record = None
+        verifier_event_record = None
+        reward_event_record = None
         if self.event_logger is not None:
-            event_record = self.event_logger.append_verifier_result(
+            verifier_event_record = self.event_logger.append_verifier_result(
                 result,
                 skill_name=skill_name,
                 steps_taken=steps_taken,
                 before_observation_id=before.observation_id,
                 after_observation_id=after.observation_id,
             )
-        return result, event_record
+        reward = derive_verified_reward(reward_profile, result)
+        if verifier_event_record is not None:
+            reward_event_record = self.event_logger.append_verified_reward(
+                reward,
+                skill_name=skill_name,
+                verifier_event_id=verifier_event_record.event_id,
+            )
+        return result, verifier_event_record, reward, reward_event_record
 
     def _terminal_result(
         self,
@@ -280,6 +333,8 @@ class SkillRunner:
         steps: list[SkillStep],
         verifier_result: VerifierResult | None,
         verifier_event_records: list[SkillEventRecord],
+        verified_reward_breakdowns: list[VerifiedRewardBreakdown],
+        reward_event_records: list[SkillEventRecord],
     ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:
@@ -288,6 +343,8 @@ class SkillRunner:
             skill_result=result,
             verifier_result=verifier_result,
             verifier_event_records=verifier_event_records,
+            verified_reward_breakdowns=verified_reward_breakdowns,
+            reward_event_records=reward_event_records,
             steps=steps,
             event_record=event_record,
         )

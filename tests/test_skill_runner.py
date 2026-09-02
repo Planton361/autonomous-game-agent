@@ -10,6 +10,7 @@ from fh_agent.manager.reward_profiles import (
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.skill_runner import RunnableSkill, SkillRunner
 from fh_agent.manager.task_spec import TaskSpec
+from fh_agent.manager.verified_reward import VerifiedRewardBreakdown, VerifiedRewardContribution
 from fh_agent.manager.verifier_catalog import VerifierCatalog
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import Observation
@@ -20,6 +21,13 @@ TEST_REWARD_PROFILE = RewardProfile(
     profile_name="test_profile",
     terms=(RewardTerm(name="skill_success", weight=0.0),),
 )
+
+
+def reward_profile(*terms: tuple[str, float]) -> RewardProfile:
+    return RewardProfile(
+        profile_name="runner_test_profile",
+        terms=tuple(RewardTerm(name=name, weight=weight) for name, weight in terms),
+    )
 
 
 def dialogue_observation(
@@ -68,6 +76,7 @@ class NoEvaluateSkill:
         *,
         max_steps: int = 2,
         failure_detector: list[str] | None = None,
+        reward_profile: RewardProfile = TEST_REWARD_PROFILE,
     ) -> None:
         self._contract = SkillContract(
             skill_name="fake_skill",
@@ -76,7 +85,7 @@ class NoEvaluateSkill:
             success_detector=["dialogue_visible"],
             failure_detector=[] if failure_detector is None else failure_detector,  # type: ignore[arg-type]
             max_steps=max_steps,
-            reward_profile=TEST_REWARD_PROFILE,
+            reward_profile=reward_profile,
         )
 
     @property
@@ -197,8 +206,19 @@ def test_runner_logs_skill_result_to_event_log_path(tmp_path) -> None:
 
     records = EventLogger(event_log_path, run_id="run-1").read_all()
     assert run.event_record is not None
-    assert records == [*run.verifier_event_records, run.event_record]
-    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert records == [
+        *[
+            item
+            for pair in zip(run.verifier_event_records, run.reward_event_records, strict=True)
+            for item in pair
+        ],
+        run.event_record,
+    ]
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "verified_reward",
+        "skill_result",
+    ]
     assert records[0].payload["verifier_result"] == {
         "status": "success",
         "failure_kind": None,
@@ -207,8 +227,14 @@ def test_runner_logs_skill_result_to_event_log_path(tmp_path) -> None:
     assert records[0].payload["steps_taken"] == 1
     assert records[0].payload["before_observation_id"] == "before-observation"
     assert records[0].payload["after_observation_id"] == "after-observation"
-    assert records[1].payload["skill_name"] == "continue_dialogue"
+    assert records[1].payload["verifier_event_id"] == records[0].event_id
     assert records[1].evidence_ids == ["e1", "e2"]
+    assert (
+        VerifiedRewardBreakdown.model_validate(records[1].payload["verified_reward"])
+        == (run.verified_reward_breakdowns[0])
+    )
+    assert records[2].payload["skill_name"] == "continue_dialogue"
+    assert records[2].evidence_ids == ["e1", "e2"]
     assert run.skill_result.reward is None
 
 
@@ -227,10 +253,15 @@ def test_runner_logs_terminal_failure_after_its_verifier_event(tmp_path) -> None
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
 
-    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "verified_reward",
+        "skill_result",
+    ]
     assert VerifierResult.model_validate(records[0].payload["verifier_result"]) == verifier_result
     assert run.verifier_event_records == [records[0]]
-    assert run.event_record == records[1]
+    assert run.reward_event_records == [records[1]]
+    assert run.event_record == records[2]
     assert run.skill_result.failure_reason == "skill_failed"
     assert run.skill_result.reward is None
 
@@ -255,14 +286,18 @@ def test_runner_logs_non_terminal_abstain_and_progress(tmp_path) -> None:
 
     assert [record.event_type for record in records] == [
         "verifier_result",
+        "verified_reward",
         "skill_result",
         "verifier_result",
+        "verified_reward",
         "skill_result",
     ]
     assert [
-        VerifierResult.model_validate(records[index].payload["verifier_result"]) for index in (0, 2)
+        VerifierResult.model_validate(records[index].payload["verifier_result"]) for index in (0, 3)
     ] == results
     assert all(len(run.verifier_event_records) == 1 for run in runs)
+    assert all(len(run.verified_reward_breakdowns) == 1 for run in runs)
+    assert all(len(run.reward_event_records) == 1 for run in runs)
     assert all(run.skill_result.reward is None for run in runs)
 
 
@@ -284,14 +319,18 @@ def test_runner_logs_each_timeout_verification_in_order(tmp_path) -> None:
 
     assert [record.event_type for record in records] == [
         "verifier_result",
+        "verified_reward",
         "verifier_result",
+        "verified_reward",
         "skill_result",
     ]
-    assert [record.payload["steps_taken"] for record in records[:-1]] == [1, 2]
+    assert [record.payload["steps_taken"] for record in records[::2][:-1]] == [1, 2]
     assert [
-        VerifierResult.model_validate(record.payload["verifier_result"]) for record in records[:-1]
+        VerifierResult.model_validate(record.payload["verifier_result"])
+        for record in records[::2][:-1]
     ] == verifier.results
-    assert run.verifier_event_records == records[:-1]
+    assert run.verifier_event_records == [records[0], records[2]]
+    assert run.reward_event_records == [records[1], records[3]]
     assert run.verifier_result == verifier.results[-1]
     assert run.event_record == records[-1]
     assert run.skill_result.failure_reason == "timeout"
@@ -309,8 +348,13 @@ def test_runner_logs_final_non_terminal_verifier_result_before_exhaustion(tmp_pa
     )
     records = EventLogger(event_log_path, run_id="run-1").read_all()
 
-    assert [record.event_type for record in records] == ["verifier_result", "skill_result"]
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "verified_reward",
+        "skill_result",
+    ]
     assert run.verifier_event_records == [records[0]]
+    assert run.reward_event_records == [records[1]]
     assert run.verifier_result == verifier_result
     assert run.skill_result.failure_reason == "observation_sequence_exhausted"
     assert run.skill_result.reward is None
@@ -333,6 +377,10 @@ def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp
 
     assert empty_run.verifier_event_records == []
     assert precondition_run.verifier_event_records == []
+    assert empty_run.verified_reward_breakdowns == []
+    assert precondition_run.verified_reward_breakdowns == []
+    assert empty_run.reward_event_records == []
+    assert precondition_run.reward_event_records == []
     assert [record.event_type for record in EventLogger(empty_path, run_id="run-1").read_all()] == [
         "skill_result"
     ]
@@ -522,6 +570,10 @@ def test_runner_raw_observation_changes_cannot_create_reward() -> None:
     assert visible_text_change.skill_result.reward is None
     assert ui_state_change.skill_result.reward is None
     assert new_evidence.skill_result.reward is None
+    assert all(
+        run.verified_reward_breakdowns[0].total == 0.0
+        for run in (visible_text_change, ui_state_change, new_evidence)
+    )
 
 
 def test_manager_selected_verifier_runs_through_skill_runner() -> None:
@@ -550,3 +602,175 @@ def test_runner_has_no_body_evaluate_dependency() -> None:
     assert "VerifierCatalog" not in source
     assert "skill.evaluate(" not in source
     assert "evaluate" not in inspect.getsource(RunnableSkill)
+
+
+def test_runner_derives_in_memory_reward_from_verified_success_only() -> None:
+    run = SkillRunner().run(
+        NoEvaluateSkill(reward_profile=reward_profile(("skill_success", 2.5))),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(
+            VerifierResult(status=VerifierStatus.SUCCESS, evidence_ids=["verified-evidence"])
+        ),
+    )
+
+    assert run.verified_reward_breakdowns == [
+        VerifiedRewardBreakdown(
+            profile_name="runner_test_profile",
+            verifier_result=VerifierResult(
+                status=VerifierStatus.SUCCESS,
+                evidence_ids=["verified-evidence"],
+            ),
+            contributions=(VerifiedRewardContribution(name="skill_success", value=2.5),),
+            total=2.5,
+        )
+    ]
+    assert run.reward_event_records == []
+    assert run.skill_result.reward is None
+
+
+def test_runner_preserves_configured_success_reward_weight() -> None:
+    run = SkillRunner().run(
+        NoEvaluateSkill(reward_profile=reward_profile(("skill_success", 2.5))),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
+    )
+
+    assert run.verified_reward_breakdowns[0].total == 2.5
+
+
+def test_runner_derives_supported_canonical_failure_rewards() -> None:
+    cases = [
+        (FailureKind.DEATH, "avoid_death", -3.0),
+        (FailureKind.TIMEOUT, "avoid_timeout", -2.0),
+        (FailureKind.NO_PROGRESS, "avoid_repeated_no_progress", -1.0),
+    ]
+
+    for failure_kind, term_name, expected_total in cases:
+        run = SkillRunner().run(
+            NoEvaluateSkill(reward_profile=reward_profile((term_name, -expected_total))),
+            [field_observation("before"), field_observation("after")],
+            verifier=FixedVerifier(
+                VerifierResult(status=VerifierStatus.FAILURE, failure_kind=failure_kind)
+            ),
+        )
+
+        assert run.verified_reward_breakdowns[0].total == expected_total
+        assert run.skill_result.reward is None
+
+
+def test_runner_legacy_timeout_and_exhaustion_cannot_create_reward() -> None:
+    profile = reward_profile(("avoid_timeout", 10.0), ("skill_success", 4.0))
+    abstain_timeout = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1, reward_profile=profile),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+    progress_timeout = SkillRunner().run(
+        NoEvaluateSkill(max_steps=1, reward_profile=profile),
+        [field_observation("before"), field_observation("after")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.PROGRESS)),
+    )
+    exhaustion = SkillRunner().run(
+        NoEvaluateSkill(reward_profile=profile),
+        [field_observation("only")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+
+    assert [run.skill_result.failure_reason for run in (abstain_timeout, progress_timeout)] == [
+        "timeout",
+        "timeout",
+    ]
+    assert exhaustion.skill_result.failure_reason == "observation_sequence_exhausted"
+    assert all(
+        run.verified_reward_breakdowns[0].total == 0.0
+        for run in (
+            abstain_timeout,
+            progress_timeout,
+            exhaustion,
+        )
+    )
+
+
+def test_runner_legacy_combat_compatibility_cannot_activate_avoid_combat() -> None:
+    run = SkillRunner().run(
+        NoEvaluateSkill(
+            max_steps=1,
+            failure_detector=["combat_started"],
+            reward_profile=reward_profile(("avoid_combat", 100.0)),
+        ),
+        [field_observation("before"), Observation(run_id="run-1", ui_state="combat")],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.ABSTAIN)),
+    )
+
+    assert run.skill_result.failure_reason == "combat_started"
+    assert run.verified_reward_breakdowns[0].total == 0.0
+    assert run.skill_result.reward is None
+
+
+def test_runner_tracks_reward_breakdowns_and_events_per_verifier_invocation(tmp_path) -> None:
+    event_log_path = tmp_path / "run-1" / "events.jsonl"
+    results = [
+        VerifierResult(status=VerifierStatus.PROGRESS),
+        VerifierResult(status=VerifierStatus.ABSTAIN),
+        VerifierResult(status=VerifierStatus.SUCCESS, evidence_ids=["success-evidence"]),
+    ]
+
+    run = SkillRunner(event_log_path=event_log_path, run_id="run-1").run(
+        NoEvaluateSkill(max_steps=3, reward_profile=reward_profile(("skill_success", 1.5))),
+        [
+            field_observation("before"),
+            field_observation("first"),
+            field_observation("second"),
+            field_observation("third"),
+        ],
+        verifier=SequenceVerifier(results),
+    )
+    records = EventLogger(event_log_path, run_id="run-1").read_all()
+
+    assert len(run.verifier_event_records) == len(results)
+    assert len(run.verified_reward_breakdowns) == len(results)
+    assert len(run.reward_event_records) == len(results)
+    assert [breakdown.verifier_result for breakdown in run.verified_reward_breakdowns] == results
+    assert [breakdown.total for breakdown in run.verified_reward_breakdowns] == [0.0, 0.0, 1.5]
+    assert [record.payload["verifier_event_id"] for record in run.reward_event_records] == [
+        record.event_id for record in run.verifier_event_records
+    ]
+    assert [record.event_type for record in records] == [
+        "verifier_result",
+        "verified_reward",
+        "verifier_result",
+        "verified_reward",
+        "verifier_result",
+        "verified_reward",
+        "skill_result",
+    ]
+    assert run.skill_result.reward is None
+
+
+def test_runner_skips_reward_derivation_when_no_verifier_runs() -> None:
+    empty = SkillRunner().run(
+        NoEvaluateSkill(),
+        [],
+        verifier=FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS)),
+    )
+    precondition = SkillRunner().run(
+        ContinueDialogueSkill(),
+        [field_observation()],
+        verifier=ContinueDialogueVerifier(),
+    )
+
+    assert empty.verified_reward_breakdowns == []
+    assert empty.reward_event_records == []
+    assert precondition.verified_reward_breakdowns == []
+    assert precondition.reward_event_records == []
+
+
+def test_runner_delegates_all_reward_mapping_to_verified_reward_module() -> None:
+    source = inspect.getsource(SkillRunner)
+
+    assert "derive_verified_reward" in source
+    assert "avoid_death" not in source
+    assert "avoid_timeout" not in source
+    assert "avoid_repeated_no_progress" not in source
+    assert "FailureKind.TIMEOUT" not in source
+    assert "FailureKind.NO_PROGRESS" not in source

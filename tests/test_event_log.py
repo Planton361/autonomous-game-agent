@@ -1,6 +1,12 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
+from fh_agent.manager.verified_reward import (
+    VerifiedRewardBreakdown,
+    VerifiedRewardContribution,
+)
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
@@ -154,3 +160,85 @@ def test_verifier_result_append_order_remains_append_only_with_ordinary_events(
     skill = logger.append("skill_result", payload={"success": True})
 
     assert logger.read_all() == [observation, verifier, skill]
+
+
+def test_append_verified_reward_persists_exact_breakdown_and_provenance(tmp_path: Path) -> None:
+    logger = EventLogger(
+        tmp_path / "run.jsonl",
+        run_id="run-1",
+        clock=ManualClock(),
+        id_factory=SequenceFactory("event"),
+    )
+    verifier_result = VerifierResult(
+        status=VerifierStatus.SUCCESS,
+        evidence_ids=["first-evidence", "second-evidence"],
+    )
+    reward = VerifiedRewardBreakdown(
+        profile_name="test_profile",
+        verifier_result=verifier_result,
+        contributions=(
+            VerifiedRewardContribution(name="skill_success", value=1.0),
+            VerifiedRewardContribution(name="avoid_death", value=-0.25),
+        ),
+        total=0.75,
+    )
+
+    record = logger.append_verified_reward(
+        reward,
+        skill_name="continue_dialogue",
+        verifier_event_id="verifier-event-1",
+    )
+
+    assert record.event_type == "verified_reward"
+    assert record.payload["skill_name"] == "continue_dialogue"
+    assert record.payload["verifier_event_id"] == "verifier-event-1"
+    assert record.evidence_ids == ["first-evidence", "second-evidence"]
+    assert VerifiedRewardBreakdown.model_validate(record.payload["verified_reward"]) == reward
+    assert logger.read_all() == [record]
+
+
+def test_append_verified_reward_rejects_empty_verifier_event_id(tmp_path: Path) -> None:
+    logger = EventLogger(tmp_path / "run.jsonl", run_id="run-1")
+    reward = VerifiedRewardBreakdown(
+        profile_name="test_profile",
+        verifier_result=VerifierResult(status=VerifierStatus.ABSTAIN),
+        total=0.0,
+    )
+
+    with pytest.raises(ValueError, match="verifier_event_id must be non-empty"):
+        logger.append_verified_reward(
+            reward,
+            skill_name="continue_dialogue",
+            verifier_event_id="",
+        )
+
+
+def test_verified_reward_append_order_remains_deterministic(tmp_path: Path) -> None:
+    logger = EventLogger(
+        tmp_path / "run.jsonl",
+        run_id="run-1",
+        clock=ManualClock(),
+        id_factory=SequenceFactory("event"),
+    )
+    verifier = logger.append_verifier_result(
+        VerifierResult(status=VerifierStatus.SUCCESS, evidence_ids=["evidence"]),
+        skill_name="continue_dialogue",
+        steps_taken=1,
+        before_observation_id=None,
+        after_observation_id=None,
+    )
+    reward = logger.append_verified_reward(
+        VerifiedRewardBreakdown(
+            profile_name="test_profile",
+            verifier_result=VerifierResult(
+                status=VerifierStatus.SUCCESS, evidence_ids=["evidence"]
+            ),
+            contributions=(VerifiedRewardContribution(name="skill_success", value=1.0),),
+            total=1.0,
+        ),
+        skill_name="continue_dialogue",
+        verifier_event_id=verifier.event_id,
+    )
+    skill = logger.append("skill_result", payload={"success": True})
+
+    assert logger.read_all() == [verifier, reward, skill]

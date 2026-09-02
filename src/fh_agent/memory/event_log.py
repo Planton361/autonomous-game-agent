@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from fh_agent.manager.verified_reward import VerifiedRewardBreakdown
     from fh_agent.observation.schemas import SkillResult
     from fh_agent.verifier.schemas import VerifierResult
 
@@ -94,6 +95,28 @@ class EventLogger:
                 "verifier_result": result.model_dump(mode="json"),
             },
             evidence_ids=result.evidence_ids,
+        )
+
+    def append_verified_reward(
+        self,
+        reward: "VerifiedRewardBreakdown",
+        *,
+        skill_name: str,
+        verifier_event_id: str,
+    ) -> EventRecord:
+        """Append a reward derived from one canonical verifier outcome."""
+        if not verifier_event_id:
+            msg = "verifier_event_id must be non-empty"
+            raise ValueError(msg)
+
+        return self.append(
+            "verified_reward",
+            payload={
+                "skill_name": skill_name,
+                "verifier_event_id": verifier_event_id,
+                "verified_reward": reward.model_dump(mode="json"),
+            },
+            evidence_ids=reward.verifier_result.evidence_ids,
         )
 
     def read_all(self) -> list[EventRecord]:
