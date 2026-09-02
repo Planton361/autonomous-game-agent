@@ -1,14 +1,19 @@
 import inspect
+from dataclasses import dataclass
 
 import pytest
 
 from fh_agent.manager import orchestrator as orchestrator_module
+from fh_agent.manager.event_sink import InMemoryManagerEventSink
 from fh_agent.manager.orchestrator import ManagerOrchestrator
 from fh_agent.manager.scheduler import TaskSchedulerError, TaskStatus
+from fh_agent.manager.skill_runner import SkillRunResult
 from fh_agent.manager.target_ref import GroundingResult, VisibleScreenPointTarget
 from fh_agent.manager.task_manager import ManagerGroundingError, TaskManagerError
+from fh_agent.observation.schemas import SkillResult
 from fh_agent.planner.planner_output import PlannerOutput
 from fh_agent.skill_capabilities import SkillCapabilityContract
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 def valid_planner_output(
@@ -41,11 +46,42 @@ def valid_planner_output(
     )
 
 
-def started_orchestrator(task_id: str = "task-1") -> ManagerOrchestrator:
-    orchestrator = ManagerOrchestrator()
+def started_orchestrator(
+    task_id: str = "task-1",
+    *,
+    sink: InMemoryManagerEventSink | None = None,
+) -> ManagerOrchestrator:
+    orchestrator = ManagerOrchestrator(event_sink=sink)
     orchestrator.submit_planner_output(valid_planner_output(), task_id=task_id)
     orchestrator.start_next()
     return orchestrator
+
+
+@dataclass(frozen=True)
+class VerifierEventRecord:
+    event_id: str
+    run_id: str = "run-1"
+    event_type: str = "verifier_result"
+
+
+def skill_run_result(
+    *,
+    verifier_result: VerifierResult | None,
+    legacy_success: bool,
+    skill_name: str = "continue_dialogue",
+    verifier_event_ids: tuple[str, ...] = (),
+) -> SkillRunResult:
+    return SkillRunResult(
+        skill_result=SkillResult(
+            skill_name=skill_name,
+            success=legacy_success,
+            failure_reason="legacy_compatibility_result",
+            evidence_ids=["legacy-evidence"],
+            reward=None,
+        ),
+        verifier_result=verifier_result,
+        verifier_event_records=[VerifierEventRecord(event_id) for event_id in verifier_event_ids],
+    )
 
 
 def test_submit_planner_output_creates_queued_scheduled_task() -> None:
@@ -299,6 +335,165 @@ def test_invalid_failure_condition_propagates_scheduler_validation_error() -> No
         )
 
 
+def test_complete_from_skill_run_closes_from_canonical_success_not_legacy_result() -> None:
+    orchestrator = started_orchestrator()
+    assert orchestrator.scheduler.current_task is not None
+    assert orchestrator.scheduler.current_task.task_spec.success_conditions == ["new_visible_text"]
+    verifier_result = VerifierResult(
+        status=VerifierStatus.SUCCESS,
+        evidence_ids=["verifier-evidence-1", "verifier-evidence-2"],
+    )
+    run = skill_run_result(
+        verifier_result=verifier_result,
+        legacy_success=False,
+        verifier_event_ids=("verifier-event-1", "verifier-event-2"),
+    )
+
+    event = orchestrator.complete_from_skill_run(
+        run,
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-1",
+        created_at="2026-05-16T12:00:00+00:00",
+    )
+
+    assert event is not None
+    assert event.status == TaskStatus.SUCCEEDED
+    assert event.condition == "success"
+    assert event.completion_evidence_ids == ["verifier-evidence-1", "verifier-evidence-2"]
+    assert event.verifier_result == verifier_result
+    assert event.verifier_event_id == "verifier-event-2"
+    assert orchestrator.scheduler.current_task is None
+
+
+def test_complete_from_skill_run_closes_from_canonical_failure_not_legacy_result() -> None:
+    orchestrator = started_orchestrator()
+    assert orchestrator.scheduler.current_task is not None
+    assert "death_screen" in orchestrator.scheduler.current_task.task_spec.failure_conditions
+    verifier_result = VerifierResult(
+        status=VerifierStatus.FAILURE,
+        failure_kind=FailureKind.DEATH,
+        evidence_ids=["death-evidence"],
+    )
+    run = skill_run_result(verifier_result=verifier_result, legacy_success=True)
+
+    event = orchestrator.complete_from_skill_run(
+        run,
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-1",
+    )
+
+    assert event is not None
+    assert event.status == TaskStatus.FAILED
+    assert event.condition == "death"
+    assert event.condition != "death_screen"
+    assert event.verifier_result == verifier_result
+    assert event.verifier_event_id is None
+    assert orchestrator.scheduler.current_task is None
+
+
+@pytest.mark.parametrize(
+    "verifier_result",
+    [
+        None,
+        VerifierResult(status=VerifierStatus.ABSTAIN),
+        VerifierResult(status=VerifierStatus.PROGRESS),
+    ],
+)
+def test_non_terminal_or_missing_verifier_result_keeps_task_running(
+    verifier_result: VerifierResult | None,
+) -> None:
+    orchestrator = started_orchestrator()
+    before = orchestrator.scheduler.current_task
+    run = skill_run_result(verifier_result=verifier_result, legacy_success=True)
+
+    event = orchestrator.complete_from_skill_run(
+        run,
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-1",
+    )
+
+    assert event is None
+    assert orchestrator.scheduler.current_task == before
+    assert orchestrator.scheduler.completed_tasks == ()
+
+
+def test_complete_from_skill_run_rejects_stale_task_or_skill_identity() -> None:
+    orchestrator = started_orchestrator()
+    run = skill_run_result(
+        verifier_result=VerifierResult(status=VerifierStatus.SUCCESS),
+        legacy_success=True,
+    )
+
+    with pytest.raises(TaskSchedulerError, match="task_id does not match"):
+        orchestrator.complete_from_skill_run(
+            run,
+            task_id="stale-task",
+            run_id="run-1",
+            event_id="completion-event-1",
+        )
+    with pytest.raises(TaskSchedulerError, match="skill name does not match"):
+        orchestrator.complete_from_skill_run(
+            skill_run_result(
+                verifier_result=VerifierResult(status=VerifierStatus.SUCCESS),
+                legacy_success=True,
+                skill_name="interact_visible_object",
+            ),
+            task_id="task-1",
+            run_id="run-1",
+            event_id="completion-event-1",
+        )
+
+
+def test_complete_from_skill_run_requires_a_running_task() -> None:
+    with pytest.raises(TaskSchedulerError, match="no running task"):
+        ManagerOrchestrator().complete_from_skill_run(
+            skill_run_result(
+                verifier_result=VerifierResult(status=VerifierStatus.SUCCESS),
+                legacy_success=True,
+            ),
+            task_id="task-1",
+            run_id="run-1",
+            event_id="completion-event-1",
+        )
+
+
+def test_canonical_task_completion_records_only_terminal_events_in_sink() -> None:
+    sink = InMemoryManagerEventSink()
+    orchestrator = started_orchestrator(sink=sink)
+    success = skill_run_result(
+        verifier_result=VerifierResult(status=VerifierStatus.SUCCESS),
+        legacy_success=False,
+    )
+
+    event = orchestrator.complete_from_skill_run(
+        success,
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-1",
+    )
+
+    assert event is not None
+    assert sink.list_task_completions() == [event]
+
+    non_terminal_sink = InMemoryManagerEventSink()
+    non_terminal = started_orchestrator(sink=non_terminal_sink)
+    result = non_terminal.complete_from_skill_run(
+        skill_run_result(
+            verifier_result=VerifierResult(status=VerifierStatus.ABSTAIN),
+            legacy_success=True,
+        ),
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-2",
+    )
+
+    assert result is None
+    assert non_terminal_sink.list_task_completions() == []
+
+
 def test_orchestrator_module_has_no_forbidden_imports() -> None:
     source = inspect.getsource(orchestrator_module)
 
@@ -309,5 +504,7 @@ def test_orchestrator_module_has_no_forbidden_imports() -> None:
     assert "fh_agent.memory" not in source
     assert "LLMClient" not in source
     assert "fh_agent.planner.llm_client" not in source
+    assert "VerifierCatalog" not in source
+    assert ".verify(" not in source
     assert "sqlite" not in source.lower()
     assert "jsonl" not in source.lower()

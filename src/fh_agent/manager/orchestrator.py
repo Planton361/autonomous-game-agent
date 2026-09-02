@@ -1,5 +1,6 @@
 from fh_agent.manager.event_sink import ManagerEventSink
-from fh_agent.manager.scheduler import ScheduledTask, TaskScheduler
+from fh_agent.manager.scheduler import ScheduledTask, TaskScheduler, TaskSchedulerError
+from fh_agent.manager.skill_runner import SkillRunResult
 from fh_agent.manager.target_ref import GroundingResult
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
 from fh_agent.manager.task_manager import TaskManager
@@ -123,6 +124,52 @@ class ManagerOrchestrator:
         created_at: str | None = None,
     ) -> TaskCompletionEvent:
         completion = self.scheduler.cancel_current(reason, evidence_ids=evidence_ids)
+        event = task_completion_to_event(
+            completion,
+            run_id=run_id,
+            event_id=event_id,
+            created_at=created_at,
+        )
+        self._record_task_completion(event)
+        return event
+
+    def complete_from_skill_run(
+        self,
+        skill_run_result: SkillRunResult,
+        *,
+        task_id: str,
+        run_id: str,
+        event_id: str,
+        created_at: str | None = None,
+    ) -> TaskCompletionEvent | None:
+        """Close the matching task only from its independent verifier outcome."""
+        current_task = self.scheduler.current_task
+        if current_task is None:
+            msg = "no running task"
+            raise TaskSchedulerError(msg)
+        if task_id != current_task.task_spec.task_id:
+            msg = "task_id does not match the running task"
+            raise TaskSchedulerError(msg)
+        if skill_run_result.skill_result.skill_name != current_task.task_spec.selected_skill:
+            msg = "skill name does not match the running task"
+            raise TaskSchedulerError(msg)
+
+        verifier_result = skill_run_result.verifier_result
+        if verifier_result is None:
+            return None
+
+        verifier_event_id = (
+            skill_run_result.verifier_event_records[-1].event_id
+            if skill_run_result.verifier_event_records
+            else None
+        )
+        completion = self.scheduler.complete_from_verifier(
+            verifier_result,
+            verifier_event_id=verifier_event_id,
+        )
+        if completion is None:
+            return None
+
         event = task_completion_to_event(
             completion,
             run_id=run_id,

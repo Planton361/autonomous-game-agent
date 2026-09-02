@@ -9,6 +9,7 @@ from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
 from fh_agent.manager.scheduler import TaskCompletion, TaskScheduler, TaskStatus
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
 from fh_agent.manager.task_spec import TaskSpec
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 def make_task_spec(task_id: str = "task-1", *, timeout_steps: int = 3) -> TaskSpec:
@@ -62,6 +63,27 @@ def event_for_status(status: TaskStatus) -> TaskCompletionEvent:
     )
 
 
+def verifier_completion_event(
+    verifier_result: VerifierResult,
+    *,
+    verifier_event_id: str | None = None,
+) -> TaskCompletionEvent:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+    completion = scheduler.complete_from_verifier(
+        verifier_result,
+        verifier_event_id=verifier_event_id,
+    )
+    assert completion is not None
+    return task_completion_to_event(
+        completion,
+        run_id="run-1",
+        event_id="event-verifier",
+        created_at="2026-05-16T12:00:00+00:00",
+    )
+
+
 def test_succeeded_completion_converts_correctly() -> None:
     event = event_for_status(TaskStatus.SUCCEEDED)
 
@@ -70,6 +92,8 @@ def test_succeeded_completion_converts_correctly() -> None:
     assert event.condition == "new_visible_text"
     assert event.reason is None
     assert event.completion_evidence_ids == ["completion-shot-1"]
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
 
 
 def test_failed_completion_converts_correctly() -> None:
@@ -79,6 +103,8 @@ def test_failed_completion_converts_correctly() -> None:
     assert event.condition == "death_screen"
     assert event.reason == "visible failure state"
     assert event.completion_evidence_ids == ["completion-shot-2"]
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
 
 
 def test_timed_out_completion_converts_correctly() -> None:
@@ -89,6 +115,8 @@ def test_timed_out_completion_converts_correctly() -> None:
     assert event.reason == "timeout"
     assert event.elapsed_steps == 2
     assert event.timeout_steps == 2
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
 
 
 def test_cancelled_completion_converts_correctly() -> None:
@@ -97,6 +125,41 @@ def test_cancelled_completion_converts_correctly() -> None:
     assert event.status == TaskStatus.CANCELLED
     assert event.condition == "cancelled"
     assert event.reason == "superseded by newer task"
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
+
+
+def test_canonical_success_event_preserves_verifier_provenance() -> None:
+    verifier_result = VerifierResult(
+        status=VerifierStatus.SUCCESS,
+        evidence_ids=["verifier-evidence-1", "verifier-evidence-2"],
+    )
+
+    event = verifier_completion_event(
+        verifier_result,
+        verifier_event_id="verifier-event-1",
+    )
+
+    assert event.condition == "success"
+    assert event.completion_evidence_ids == ["verifier-evidence-1", "verifier-evidence-2"]
+    assert event.verifier_result == verifier_result
+    assert event.verifier_event_id == "verifier-event-1"
+
+
+def test_canonical_failure_event_preserves_failure_kind_and_json_payload() -> None:
+    verifier_result = VerifierResult(
+        status=VerifierStatus.FAILURE,
+        failure_kind=FailureKind.DEATH,
+        evidence_ids=["death-evidence"],
+    )
+
+    event = verifier_completion_event(verifier_result)
+    payload = json.loads(event.model_dump_json())
+
+    assert event.condition == "death"
+    assert event.verifier_result == verifier_result
+    assert event.verifier_event_id is None
+    assert VerifierResult.model_validate(payload["verifier_result"]) == verifier_result
 
 
 def test_event_preserves_task_completion_core_fields() -> None:
