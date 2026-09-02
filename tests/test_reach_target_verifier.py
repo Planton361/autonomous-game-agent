@@ -38,9 +38,13 @@ def observation(
     )
 
 
+def before_observation() -> Observation:
+    return Observation(run_id="run-1")
+
+
 def test_exact_target_position_with_outcome_evidence_is_success() -> None:
-    result = ReachTargetVerifier().verify(
-        target(), observation(position=(10, 10), evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=(10, 10), evidence_ids=["after-1"])
     )
 
     assert result.status is VerifierStatus.SUCCESS
@@ -48,46 +52,48 @@ def test_exact_target_position_with_outcome_evidence_is_success() -> None:
 
 
 def test_position_within_tolerance_is_success() -> None:
-    result = ReachTargetVerifier(tolerance_px=3.0).verify(
-        target(), observation(position=(12, 11), evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target(), tolerance_px=3.0).verify(
+        before_observation(), observation(position=(12, 11), evidence_ids=["after-1"])
     )
 
     assert result.status is VerifierStatus.SUCCESS
 
 
 def test_position_on_tolerance_boundary_is_success() -> None:
-    result = ReachTargetVerifier(tolerance_px=5.0).verify(
-        target(), observation(position=(13, 14), evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target(), tolerance_px=5.0).verify(
+        before_observation(), observation(position=(13, 14), evidence_ids=["after-1"])
     )
 
     assert result.status is VerifierStatus.SUCCESS
 
 
 def test_position_outside_tolerance_is_abstain() -> None:
-    result = ReachTargetVerifier(tolerance_px=2.0).verify(
-        target(), observation(position=(13, 10), evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target(), tolerance_px=2.0).verify(
+        before_observation(), observation(position=(13, 10), evidence_ids=["after-1"])
     )
 
     assert result.status is VerifierStatus.ABSTAIN
 
 
 def test_missing_player_position_is_abstain() -> None:
-    result = ReachTargetVerifier().verify(
-        target(), observation(position=None, evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=None, evidence_ids=["after-1"])
     )
 
     assert result.status is VerifierStatus.ABSTAIN
 
 
 def test_reached_position_without_outcome_evidence_is_abstain() -> None:
-    result = ReachTargetVerifier().verify(target(), observation(position=(10, 10)))
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=(10, 10))
+    )
 
     assert result.status is VerifierStatus.ABSTAIN
 
 
 def test_visible_death_with_evidence_is_failure() -> None:
-    result = ReachTargetVerifier().verify(
-        target(),
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(),
         observation(position=(0, 0), ui_state="death", evidence_ids=["death-evidence"]),
     )
 
@@ -97,14 +103,16 @@ def test_visible_death_with_evidence_is_failure() -> None:
 
 
 def test_visible_death_without_evidence_is_abstain() -> None:
-    result = ReachTargetVerifier().verify(target(), observation(position=(0, 0), ui_state="death"))
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=(0, 0), ui_state="death")
+    )
 
     assert result.status is VerifierStatus.ABSTAIN
 
 
 def test_visible_death_takes_priority_over_apparent_target_reach() -> None:
-    result = ReachTargetVerifier().verify(
-        target(),
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(),
         observation(position=(10, 10), death_screen_visible=True, evidence_ids=["death-evidence"]),
     )
 
@@ -113,8 +121,8 @@ def test_visible_death_takes_priority_over_apparent_target_reach() -> None:
 
 
 def test_success_preserves_target_then_outcome_evidence_in_order() -> None:
-    result = ReachTargetVerifier().verify(
-        target(evidence_ids=("target-1", "target-2")),
+    result = ReachTargetVerifier(target(evidence_ids=("target-1", "target-2"))).verify(
+        before_observation(),
         observation(position=(10, 10), evidence_ids=["outcome-1", "outcome-2"]),
     )
 
@@ -122,8 +130,8 @@ def test_success_preserves_target_then_outcome_evidence_in_order() -> None:
 
 
 def test_success_does_not_duplicate_evidence_ids() -> None:
-    result = ReachTargetVerifier().verify(
-        target(evidence_ids=("shared", "target-2")),
+    result = ReachTargetVerifier(target(evidence_ids=("shared", "target-2"))).verify(
+        before_observation(),
         observation(position=(10, 10), evidence_ids=["shared", "outcome-1", "shared"]),
     )
 
@@ -131,8 +139,8 @@ def test_success_does_not_duplicate_evidence_ids() -> None:
 
 
 def test_changed_screen_signature_outside_target_is_abstain() -> None:
-    result = ReachTargetVerifier().verify(
-        target(),
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(),
         observation(position=(0, 0), evidence_ids=["after-1"], screen_signature="changed"),
     )
 
@@ -140,16 +148,16 @@ def test_changed_screen_signature_outside_target_is_abstain() -> None:
 
 
 def test_new_evidence_alone_outside_target_is_abstain() -> None:
-    result = ReachTargetVerifier().verify(
-        target(), observation(position=(0, 0), evidence_ids=["new-evidence"])
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=(0, 0), evidence_ids=["new-evidence"])
     )
 
     assert result.status is VerifierStatus.ABSTAIN
 
 
 def test_visible_text_and_ui_changes_outside_target_are_abstain() -> None:
-    result = ReachTargetVerifier().verify(
-        target(),
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(),
         observation(
             position=(0, 0),
             evidence_ids=["after-1"],
@@ -162,15 +170,15 @@ def test_visible_text_and_ui_changes_outside_target_are_abstain() -> None:
 
 
 def test_verifier_result_has_no_reward_field() -> None:
-    result = ReachTargetVerifier().verify(
-        target(), observation(position=(10, 10), evidence_ids=["after-1"])
+    result = ReachTargetVerifier(target()).verify(
+        before_observation(), observation(position=(10, 10), evidence_ids=["after-1"])
     )
 
     assert "reward" not in type(result).model_fields
 
 
 def test_verifier_does_not_propose_primitive_actions() -> None:
-    verifier = ReachTargetVerifier()
+    verifier = ReachTargetVerifier(target())
 
     assert not hasattr(verifier, "next_action")
     assert not hasattr(verifier, "propose_action")
@@ -180,12 +188,12 @@ def test_verifier_does_not_propose_primitive_actions() -> None:
 
 def test_negative_tolerance_is_rejected() -> None:
     with pytest.raises(ValueError, match="non-negative"):
-        ReachTargetVerifier(tolerance_px=-0.1)
+        ReachTargetVerifier(target(), tolerance_px=-0.1)
 
 
 def test_identical_inputs_produce_identical_results() -> None:
-    verifier = ReachTargetVerifier(tolerance_px=2.0)
-    grounded_target = target()
+    verifier = ReachTargetVerifier(target(), tolerance_px=2.0)
+    before = before_observation()
     after = observation(position=(11, 11), evidence_ids=["after-1"])
 
-    assert verifier.verify(grounded_target, after) == verifier.verify(grounded_target, after)
+    assert verifier.verify(before, after) == verifier.verify(before, after)

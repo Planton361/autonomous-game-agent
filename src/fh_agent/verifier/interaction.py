@@ -1,19 +1,22 @@
 """Deterministic visible verification for visible-object interaction outcomes."""
 
+from dataclasses import dataclass
+
 from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.observation.schemas import Observation
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
+@dataclass(frozen=True, slots=True)
 class InteractVisibleObjectVerifier:
     """Verify a narrow, visible interaction outcome without game semantics."""
+
+    target: VisibleObjectTarget | None = None
 
     def verify(
         self,
         before: Observation,
         after: Observation,
-        *,
-        target: VisibleObjectTarget | None = None,
     ) -> VerifierResult:
         """Return an evidence-backed visible outcome or abstention."""
 
@@ -37,10 +40,10 @@ class InteractVisibleObjectVerifier:
             return VerifierResult(status=VerifierStatus.ABSTAIN)
 
         evidence_sources: tuple[tuple[str, ...] | list[str], ...]
-        if target is None:
+        if self.target is None:
             evidence_sources = (before.evidence_ids, after.evidence_ids)
         else:
-            evidence_sources = (target.evidence_ids, before.evidence_ids, after.evidence_ids)
+            evidence_sources = (self.target.evidence_ids, before.evidence_ids, after.evidence_ids)
         return VerifierResult(
             status=VerifierStatus.SUCCESS,
             evidence_ids=_deduplicated_evidence_ids(*evidence_sources),

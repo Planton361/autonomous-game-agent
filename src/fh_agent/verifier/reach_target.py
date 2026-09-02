@@ -12,6 +12,7 @@ from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatu
 class ReachTargetVerifier:
     """Verify visible arrival at an already grounded screen-point target."""
 
+    target: VisibleScreenPointTarget
     tolerance_px: float = 4.0
 
     def __post_init__(self) -> None:
@@ -21,7 +22,7 @@ class ReachTargetVerifier:
 
     def verify(
         self,
-        target: VisibleScreenPointTarget,
+        before: Observation,
         after: Observation,
     ) -> VerifierResult:
         """Return only a visible, evidence-backed terminal outcome or abstention."""
@@ -39,12 +40,12 @@ class ReachTargetVerifier:
         if after.player_screen_position is None or not outcome_evidence_ids:
             return VerifierResult(status=VerifierStatus.ABSTAIN)
 
-        if _distance(after.player_screen_position, target.screen_position) > self.tolerance_px:
+        if _distance(after.player_screen_position, self.target.screen_position) > self.tolerance_px:
             return VerifierResult(status=VerifierStatus.ABSTAIN)
 
         return VerifierResult(
             status=VerifierStatus.SUCCESS,
-            evidence_ids=_deduplicated_evidence_ids(target.evidence_ids, outcome_evidence_ids),
+            evidence_ids=_deduplicated_evidence_ids(self.target.evidence_ids, outcome_evidence_ids),
         )
 
     @staticmethod

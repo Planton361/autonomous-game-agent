@@ -61,11 +61,7 @@ class InteractVisibleObjectSkill:
         steps_taken: int,
     ) -> SkillResult:
         timed_out = steps_taken >= self.max_steps
-        verifier_result = InteractVisibleObjectVerifier().verify(
-            before,
-            after,
-            target=self.target,
-        )
+        verifier_result = InteractVisibleObjectVerifier(target=self.target).verify(before, after)
         success = verifier_result.status is VerifierStatus.SUCCESS
         failure_reason = None
         if (

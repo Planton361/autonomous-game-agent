@@ -1,10 +1,15 @@
 import inspect
 
-from fh_agent.manager.target_ref import VisibleObjectTarget
+import pytest
+
+from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.observation.schemas import ActionResult, Observation, VisibleTextSpan
 from fh_agent.verifier import interaction as interaction_module
+from fh_agent.verifier.dialogue import ContinueDialogueVerifier
 from fh_agent.verifier.interaction import InteractVisibleObjectVerifier
-from fh_agent.verifier.schemas import FailureKind, VerifierStatus
+from fh_agent.verifier.ports import OutcomeVerifier
+from fh_agent.verifier.reach_target import ReachTargetVerifier
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 def observation(
@@ -43,6 +48,23 @@ def target(*, evidence_ids: tuple[str, ...] = ("target-1",)) -> VisibleObjectTar
         screen_position=(10, 20),
         visual_hash="visible-hash",
     )
+
+
+def point_target() -> VisibleScreenPointTarget:
+    return VisibleScreenPointTarget(
+        target_id="visible-point-1",
+        confidence=0.9,
+        evidence_ids=("point-target-1",),
+        screen_position=(10, 20),
+    )
+
+
+def run_verifier(
+    verifier: OutcomeVerifier,
+    before: Observation,
+    after: Observation,
+) -> VerifierResult:
+    return verifier.verify(before, after)
 
 
 def test_supported_ui_transitions_with_evidence_are_success() -> None:
@@ -144,10 +166,9 @@ def test_executed_action_and_new_evidence_alone_abstain() -> None:
 
 
 def test_visual_hash_change_alone_abstains() -> None:
-    result = InteractVisibleObjectVerifier().verify(
+    result = InteractVisibleObjectVerifier(target()).verify(
         observation(evidence_ids=["before-1"], visible_sprite_visual_hashes=["before-hash"]),
         observation(evidence_ids=["after-1"], visible_sprite_visual_hashes=["after-hash"]),
-        target=target(),
     )
 
     assert result.status is VerifierStatus.ABSTAIN
@@ -206,10 +227,9 @@ def test_visible_death_takes_priority_over_apparent_interaction_success() -> Non
 
 
 def test_explicit_target_success_evidence_is_target_before_after_deduplicated() -> None:
-    result = InteractVisibleObjectVerifier().verify(
+    result = InteractVisibleObjectVerifier(target(evidence_ids=("target-1", "shared"))).verify(
         observation(evidence_ids=["shared", "before-2"]),
         observation(ui_state="menu", evidence_ids=["shared", "after-1", "after-1"]),
-        target=target(evidence_ids=("target-1", "shared")),
     )
 
     assert result.evidence_ids == ["target-1", "shared", "before-2", "after-1"]
@@ -245,10 +265,55 @@ def test_verifier_has_no_reward_or_primitive_action_authority() -> None:
 
 
 def test_identical_inputs_produce_identical_results() -> None:
-    verifier = InteractVisibleObjectVerifier()
+    verifier = InteractVisibleObjectVerifier(target())
     before = observation(evidence_ids=["before-1"])
     after = observation(ui_state="dialogue", evidence_ids=["after-1"])
 
-    assert verifier.verify(before, after, target=target()) == verifier.verify(
-        before, after, target=target()
+    assert verifier.verify(before, after) == verifier.verify(before, after)
+
+
+def test_all_current_verifiers_use_the_common_outcome_verifier_port() -> None:
+    interaction_before = observation(evidence_ids=["interaction-before"])
+    interaction_after = observation(ui_state="dialogue", evidence_ids=["interaction-after"])
+    dialogue_before = observation(
+        ui_state="dialogue", message="First", evidence_ids=["dialogue-before"]
     )
+    dialogue_after = observation(
+        ui_state="dialogue", message="Second", evidence_ids=["dialogue-after"]
+    )
+    reach_before = observation(evidence_ids=["reach-before"])
+    reach_after = Observation(
+        run_id="run-1",
+        player_screen_position=(10, 20),
+        evidence_ids=["reach-after"],
+    )
+
+    results = [
+        run_verifier(ReachTargetVerifier(point_target()), reach_before, reach_after),
+        run_verifier(ContinueDialogueVerifier(), dialogue_before, dialogue_after),
+        run_verifier(
+            InteractVisibleObjectVerifier(target()),
+            interaction_before,
+            interaction_after,
+        ),
+        run_verifier(InteractVisibleObjectVerifier(), interaction_before, interaction_after),
+    ]
+
+    assert all(isinstance(result, VerifierResult) for result in results)
+    assert all(result.status is VerifierStatus.SUCCESS for result in results)
+
+
+def test_targets_are_bound_and_not_accepted_by_verify() -> None:
+    before = observation(evidence_ids=["before-1"])
+    after = observation(ui_state="dialogue", evidence_ids=["after-1"])
+
+    with pytest.raises(TypeError):
+        ReachTargetVerifier(point_target()).verify(before, after, point_target())
+    with pytest.raises(TypeError):
+        InteractVisibleObjectVerifier(target()).verify(before, after, target=target())
+
+
+def test_outcome_verifier_port_has_no_action_reward_or_input_surface() -> None:
+    assert not hasattr(OutcomeVerifier, "next_action")
+    assert not hasattr(OutcomeVerifier, "reward")
+    assert not hasattr(OutcomeVerifier, "execute")

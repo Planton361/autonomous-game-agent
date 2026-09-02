@@ -75,7 +75,10 @@ class BasicReachTargetSkill:
         steps_taken: int,
     ) -> SkillResult:
         verifier_result = (
-            ReachTargetVerifier(tolerance_px=self.tolerance_px).verify(self.target, after)
+            ReachTargetVerifier(
+                target=self.target,
+                tolerance_px=self.tolerance_px,
+            ).verify(before, after)
             if self.target is not None
             else None
         )
