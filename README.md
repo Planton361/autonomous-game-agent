@@ -38,9 +38,10 @@ every key press:
 - an input executor applies those actions through guarded interfaces;
 - audit tooling records what happened and why.
 
-The current repository is a research prototype. It contains substantial
-architecture, tests and controlled live-run tooling, but it is not yet a
-general-purpose agent capable of completing arbitrary games unattended.
+The current repository is a research prototype. It contains implementation
+experiments and controlled-run tooling toward the target architecture, but the
+canonical architecture is not a claim that every proposed component is already
+implemented or integrated.
 
 ## Why this project exists
 
@@ -290,10 +291,10 @@ uv run ruff format --check .
 
 ### Inspect the CLI
 
-After applying the proposed package and CLI rename:
+Use the current `fh-agent` package CLI:
 
 ```bash
-uv run game-agent --help
+uv run fh-agent --help
 ```
 
 The CLI includes tools for offline capture and parsing, live-run preflight,
@@ -306,7 +307,7 @@ validation.
 autonomous-game-agent/
 ├── configs/                  # Capture, bridge and runtime configuration
 ├── bridge/                   # Optional visible-state bridge prototypes
-├── src/game_agent/
+├── src/fh_agent/
 │   ├── body/                 # Primitive actions, skills and safety filters
 │   ├── bridge/               # Visible-state sanitization and firewall
 │   ├── evals/                # Preflight, smoke runs, audits and reports
@@ -324,31 +325,6 @@ autonomous-game-agent/
 
 `runs/` and `screenshots/` contain generated evidence and should not be treated
 as source code.
-
-## Current status
-
-| Area | Status |
-|---|---|
-| Project skeleton and CLI | Implemented |
-| Primitive action safety | Implemented |
-| Capture and evidence logging | Implemented |
-| Observation schemas | Implemented |
-| Hidden-state firewall | Implemented |
-| Offline frame processing | Implemented |
-| SQLite memory | Implemented |
-| Local LLM planning boundary | Implemented |
-| Manager and task scheduler | Implemented |
-| Risk-aware navigation | Implemented in synthetic and bounded form |
-| RL and replay scaffolding | Implemented for proxy tasks |
-| Controlled observation runs | Implemented |
-| Wait-only dry-run validation | Implemented |
-| Tightly scoped live input smoke tests | Experimental |
-| Long autonomous sessions | Not yet established |
-| Cross-game generalization | Future research |
-
-The immediate focus is reliability: proving that perception, action logging,
-focus checks, emergency controls and evidence artifacts remain stable before
-increasing the duration or complexity of autonomous runs.
 
 ## Testing strategy
 
@@ -386,25 +362,15 @@ experimentation.
 - Keep official evidence-grounded runs separate from debugging runs that use
   additional instrumentation.
 
-## Roadmap
-
-The next meaningful steps are:
-
-1. stabilize repeated controlled live observation and input runs;
-2. connect perception, memory, planning and bounded skills end to end;
-3. expand the reusable skill library;
-4. improve loop, failure and repeated-death detection;
-5. evaluate longer sessions with explicit stop conditions;
-6. use replay data for carefully scoped learning experiments;
-7. test which components generalize across different game environments.
-
 ## Documentation
 
 | Document | Purpose |
 |---|---|
-| [`ROADMAP.md`](./ROADMAP.md) | Milestones, deliverables and acceptance criteria |
+| [`docs/canonical/00_CANONICAL_SOURCE_INDEX.md`](./docs/canonical/00_CANONICAL_SOURCE_INDEX.md) | Authority hierarchy and canonical-source guide |
+| [`docs/canonical/02_ARCHITECTURE_CANONICAL.md`](./docs/canonical/02_ARCHITECTURE_CANONICAL.md) | Target architecture and component authorities |
+| [`docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md`](./docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md) | Stable capability sequence and research gates |
+| [`ROADMAP.md`](./ROADMAP.md) | Compatibility entry point to the canonical roadmap |
 | [`AGENTS.md`](./AGENTS.md) | Repository rules for coding agents |
-| [`CODEX_FIRST_TICKETS.md`](./CODEX_FIRST_TICKETS.md) | Initial implementation tickets and workflow |
 | [`pyproject.toml`](./pyproject.toml) | Package metadata, dependencies and tooling |
 
 ## Project principle
