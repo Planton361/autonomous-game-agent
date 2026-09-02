@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardComputer, RewardProfile, observation_visible_text
+from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.verifier.interaction import InteractVisibleObjectVerifier
+from fh_agent.verifier.schemas import FailureKind, VerifierStatus
 
 
 @dataclass(slots=True)
@@ -24,9 +26,6 @@ class InteractVisibleObjectSkill:
             success_detector=[
                 "dialogue_visible",
                 "interaction_outcome_visible",
-                "visible_text_changed",
-                "screen_signature_changed",
-                "new_evidence",
             ],
             failure_detector=["death_screen", "timeout", "repeated_no_change"],
             max_steps=self.max_steps,
@@ -61,15 +60,27 @@ class InteractVisibleObjectSkill:
         *,
         steps_taken: int,
     ) -> SkillResult:
-        evidence_ids = merged_evidence_ids(before, after)
         timed_out = steps_taken >= self.max_steps
-        success = self._is_success(before, after)
+        verifier_result = InteractVisibleObjectVerifier().verify(
+            before,
+            after,
+            target=self.target,
+        )
+        success = verifier_result.status is VerifierStatus.SUCCESS
         failure_reason = None
-        if after.ui_state == "death" or after.death_screen_visible is True:
-            success = False
+        if (
+            verifier_result.status is VerifierStatus.FAILURE
+            and verifier_result.failure_kind is FailureKind.DEATH
+        ):
             failure_reason = "death_screen"
         elif not success and timed_out:
             failure_reason = "timeout"
+
+        evidence_ids = (
+            verifier_result.evidence_ids
+            if verifier_result.status is not VerifierStatus.ABSTAIN
+            else merged_evidence_ids(before, after)
+        )
 
         reward = RewardComputer(self.reward_profile).compute(
             before,
@@ -84,33 +95,6 @@ class InteractVisibleObjectSkill:
             failure_reason=failure_reason,
             reward=reward.total,
             evidence_ids=evidence_ids,
-        )
-
-    def _is_success(self, before: Observation, after: Observation) -> bool:
-        ui_state_outcome = after.ui_state in {"dialogue", "menu", "combat"} and (
-            after.ui_state != before.ui_state
-        )
-        text_changed = observation_visible_text(before) != observation_visible_text(after)
-        text_appeared = not observation_visible_text(before) and bool(
-            observation_visible_text(after)
-        )
-        signature_changed = (
-            before.screen_signature is not None
-            and after.screen_signature is not None
-            and before.screen_signature != after.screen_signature
-        )
-        new_evidence = bool(set(after.evidence_ids) - set(before.evidence_ids))
-        visible_action_outcome = (
-            after.last_action_result is not None
-            and after.last_action_result.executed
-            and new_evidence
-        )
-        return (
-            ui_state_outcome
-            or text_changed
-            or text_appeared
-            or signature_changed
-            or visible_action_outcome
         )
 
 
