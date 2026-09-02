@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from fh_agent.body.primitive_actions import PrimitiveAction
-from fh_agent.manager.reward_computer import RewardComputer, RewardProfile, observation_visible_text
+from fh_agent.manager.reward_computer import RewardComputer, RewardProfile
 from fh_agent.manager.skill_contracts import (
     SkillContract,
     SkillStep,
@@ -9,6 +9,8 @@ from fh_agent.manager.skill_contracts import (
     merged_evidence_ids,
 )
 from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.verifier.dialogue import ContinueDialogueVerifier
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 @dataclass(slots=True)
@@ -24,8 +26,8 @@ class ContinueDialogueSkill:
             skill_name="continue_dialogue",
             allowed_actions=[PrimitiveAction.CONFIRM, PrimitiveAction.WAIT],
             preconditions=["dialogue_visible"],
-            success_detector=["visible_text_changed", "dialogue_closed", "new_evidence"],
-            failure_detector=["timeout", "repeated_no_change"],
+            success_detector=["visible_text_changed", "dialogue_closed"],
+            failure_detector=["death_screen", "timeout", "repeated_no_change"],
             max_steps=self.max_steps,
             reward_profile=self.reward_profile,
         )
@@ -58,12 +60,19 @@ class ContinueDialogueSkill:
         *,
         steps_taken: int,
     ) -> SkillResult:
-        evidence_ids = merged_evidence_ids(before, after)
+        verifier_result = ContinueDialogueVerifier().verify(before, after)
         timed_out = steps_taken >= self.max_steps
-        success = self._is_success(before, after)
-        failure_reason = None
-        if not success and timed_out:
+        success = verifier_result.status is VerifierStatus.SUCCESS
+        failure_reason: str | None = None
+        if (
+            verifier_result.status is VerifierStatus.FAILURE
+            and verifier_result.failure_kind is FailureKind.DEATH
+        ):
+            failure_reason = "death_screen"
+        elif not success and timed_out:
             failure_reason = "timeout"
+
+        evidence_ids = outcome_evidence_ids(before, after, verifier_result)
 
         reward = RewardComputer(self.reward_profile).compute(
             before,
@@ -80,8 +89,14 @@ class ContinueDialogueSkill:
             evidence_ids=evidence_ids,
         )
 
-    def _is_success(self, before: Observation, after: Observation) -> bool:
-        text_changed = observation_visible_text(before) != observation_visible_text(after)
-        dialogue_closed = is_dialogue_observation(before) and not is_dialogue_observation(after)
-        new_evidence = bool(set(after.evidence_ids) - set(before.evidence_ids))
-        return text_changed or dialogue_closed or new_evidence
+
+def outcome_evidence_ids(
+    before: Observation,
+    after: Observation,
+    verifier_result: VerifierResult,
+) -> list[str]:
+    """Use canonical terminal evidence, otherwise preserve legacy audit context."""
+
+    if verifier_result.status is not VerifierStatus.ABSTAIN:
+        return list(verifier_result.evidence_ids)
+    return merged_evidence_ids(before, after)
