@@ -4,6 +4,7 @@ from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleObjectTarget
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import ActionResult, Observation
+from fh_agent.verifier.interaction import InteractVisibleObjectVerifier
 
 
 def field_observation(
@@ -84,6 +85,7 @@ def test_interact_visible_succeeds_when_dialogue_appears() -> None:
             field_observation(visible_target=True, evidence_id="e1"),
             Observation(run_id="run-1", ui_state="dialogue", evidence_ids=["e2"]),
         ],
+        verifier=InteractVisibleObjectVerifier(),
     )
 
     assert run.skill_result.success
@@ -229,6 +231,7 @@ def test_interact_visible_fails_on_timeout_with_no_visible_change() -> None:
             field_observation(visible_target=True, evidence_id="e1", screen_signature="same"),
             field_observation(visible_target=True, evidence_id="e1", screen_signature="same"),
         ],
+        verifier=InteractVisibleObjectVerifier(),
     )
 
     assert not run.skill_result.success
@@ -245,6 +248,7 @@ def test_interact_visible_fails_when_death_screen_appears() -> None:
                 run_id="run-1", ui_state="death", death_screen_visible=True, evidence_ids=["e2"]
             ),
         ],
+        verifier=InteractVisibleObjectVerifier(),
     )
 
     assert not run.skill_result.success
@@ -261,6 +265,7 @@ def test_interact_visible_logs_skill_result_with_skill_runner(tmp_path) -> None:
             field_observation(visible_target=True, evidence_id="e1"),
             Observation(run_id="run-1", ui_state="menu", evidence_ids=["e2"]),
         ],
+        verifier=InteractVisibleObjectVerifier(),
     )
 
     records = EventLogger(event_log_path, run_id="run-1").read_all()

@@ -10,6 +10,7 @@ from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.observation.schemas import Observation
 from fh_agent.skill_capabilities import DEFAULT_RUNTIME_SKILLS
+from fh_agent.verifier.reach_target import ReachTargetVerifier
 
 
 def dialogue_observation(text: str = "Visible text") -> Observation:
@@ -131,6 +132,7 @@ def test_selected_skill_runs_through_skill_runner() -> None:
             field_observation(player_pos=(0, 0)),
             field_observation(player_pos=(10, 0)),
         ],
+        verifier=ReachTargetVerifier(task),
     )
 
     assert run.skill_result.success

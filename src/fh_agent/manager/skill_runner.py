@@ -3,8 +3,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from fh_agent.manager.skill_contracts import SkillContract, SkillStep
+from fh_agent.manager.reward_computer import RewardComputer
+from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.verifier.ports import OutcomeVerifier
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 class SkillEventRecord(Protocol):
@@ -26,21 +29,13 @@ class RunnableSkill(Protocol):
     def next_action(self, observation: Observation, *, step_index: int) -> SkillStep:
         """Return the next declarative primitive action decision."""
 
-    def evaluate(
-        self,
-        before: Observation,
-        after: Observation,
-        *,
-        steps_taken: int,
-    ) -> SkillResult:
-        """Evaluate the skill outcome against visible observations."""
-
 
 @dataclass(frozen=True, slots=True)
 class SkillRunResult:
     """Complete offline skill run summary."""
 
     skill_result: SkillResult
+    verifier_result: VerifierResult | None = None
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -65,7 +60,13 @@ class SkillRunner:
 
         self.event_logger = event_logger
 
-    def run(self, skill: RunnableSkill, observations: Sequence[Observation]) -> SkillRunResult:
+    def run(
+        self,
+        skill: RunnableSkill,
+        observations: Sequence[Observation],
+        *,
+        verifier: OutcomeVerifier,
+    ) -> SkillRunResult:
         if not observations:
             return self._finish(
                 SkillResult(
@@ -75,6 +76,7 @@ class SkillRunner:
                     evidence_ids=[],
                 ),
                 steps=[],
+                verifier_result=None,
             )
 
         start = observations[0]
@@ -87,10 +89,12 @@ class SkillRunner:
                     evidence_ids=start.evidence_ids,
                 ),
                 steps=[],
+                verifier_result=None,
             )
 
         steps: list[SkillStep] = []
         latest = start
+        latest_verifier_result: VerifierResult | None = None
         max_steps = skill.contract.max_steps
 
         for step_index in range(max_steps):
@@ -99,30 +103,152 @@ class SkillRunner:
 
             next_index = step_index + 1
             if next_index >= len(observations):
-                result = skill.evaluate(start, latest, steps_taken=len(steps))
-                if result.success:
-                    return self._finish(result, steps=steps)
+                latest_verifier_result = verifier.verify(start, latest)
+                terminal_result = self._terminal_result(
+                    skill,
+                    start,
+                    latest,
+                    latest_verifier_result,
+                )
+                if terminal_result is not None:
+                    return self._finish(
+                        terminal_result,
+                        steps=steps,
+                        verifier_result=latest_verifier_result,
+                    )
 
                 return self._finish(
-                    result.model_copy(update={"failure_reason": "observation_sequence_exhausted"}),
+                    self._legacy_result(
+                        skill,
+                        start,
+                        latest,
+                        success=False,
+                        failure_reason="observation_sequence_exhausted",
+                        failure=False,
+                    ),
                     steps=steps,
+                    verifier_result=latest_verifier_result,
                 )
 
             latest = observations[next_index]
-            result = skill.evaluate(start, latest, steps_taken=len(steps))
-            if result.success or result.failure_reason is not None:
-                return self._finish(result, steps=steps)
+            latest_verifier_result = verifier.verify(start, latest)
+            terminal_result = self._terminal_result(
+                skill,
+                start,
+                latest,
+                latest_verifier_result,
+            )
+            if terminal_result is not None:
+                return self._finish(
+                    terminal_result,
+                    steps=steps,
+                    verifier_result=latest_verifier_result,
+                )
 
-        result = skill.evaluate(start, latest, steps_taken=len(steps))
-        if result.success:
-            return self._finish(result, steps=steps)
+        return self._finish(
+            self._legacy_result(
+                skill,
+                start,
+                latest,
+                success=False,
+                failure_reason="timeout",
+                timeout=True,
+            ),
+            steps=steps,
+            verifier_result=latest_verifier_result,
+        )
 
-        if result.failure_reason is None:
-            result = result.model_copy(update={"failure_reason": "timeout", "success": False})
-        return self._finish(result, steps=steps)
+    def _terminal_result(
+        self,
+        skill: RunnableSkill,
+        before: Observation,
+        after: Observation,
+        verifier_result: VerifierResult,
+    ) -> SkillResult | None:
+        if verifier_result.status is VerifierStatus.SUCCESS:
+            return self._legacy_result(
+                skill,
+                before,
+                after,
+                success=True,
+                verifier_result=verifier_result,
+            )
+        if verifier_result.status is VerifierStatus.FAILURE:
+            return self._legacy_result(
+                skill,
+                before,
+                after,
+                success=False,
+                failure_reason=self._failure_reason(verifier_result),
+                verifier_result=verifier_result,
+            )
+        if self._combat_is_legacy_failure(skill, after):
+            return self._legacy_result(
+                skill,
+                before,
+                after,
+                success=False,
+                failure_reason="combat_started",
+            )
+        return None
 
-    def _finish(self, result: SkillResult, *, steps: list[SkillStep]) -> SkillRunResult:
+    @staticmethod
+    def _combat_is_legacy_failure(skill: RunnableSkill, observation: Observation) -> bool:
+        return "combat_started" in skill.contract.failure_detector and (
+            observation.ui_state == "combat" or observation.combat_ui_visible is True
+        )
+
+    @staticmethod
+    def _failure_reason(verifier_result: VerifierResult) -> str:
+        if verifier_result.failure_kind is FailureKind.DEATH:
+            return "death_screen"
+        return verifier_result.failure_kind.value
+
+    @staticmethod
+    def _legacy_result(
+        skill: RunnableSkill,
+        before: Observation,
+        after: Observation,
+        *,
+        success: bool,
+        failure_reason: str | None = None,
+        verifier_result: VerifierResult | None = None,
+        timeout: bool = False,
+        failure: bool | None = None,
+    ) -> SkillResult:
+        evidence_ids = (
+            verifier_result.evidence_ids
+            if verifier_result is not None
+            and verifier_result.status in {VerifierStatus.SUCCESS, VerifierStatus.FAILURE}
+            else merged_evidence_ids(before, after)
+        )
+        reward = RewardComputer(skill.contract.reward_profile).compute(
+            before,
+            after,
+            timeout=timeout,
+            failure=failure_reason is not None if failure is None else failure,
+        )
+        return SkillResult(
+            skill_name=skill.contract.skill_name,
+            success=success,
+            failure_reason=failure_reason,
+            evidence_ids=evidence_ids,
+            reward=reward.total,
+        )
+
+    def _finish(
+        self,
+        result: SkillResult,
+        *,
+        steps: list[SkillStep],
+        verifier_result: VerifierResult | None,
+    ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:
             event_record = self.event_logger.append_skill_result(result)
-        return SkillRunResult(skill_result=result, steps=steps, event_record=event_record)
+        return SkillRunResult(
+            skill_result=result,
+            verifier_result=verifier_result,
+            steps=steps,
+            event_record=event_record,
+        )

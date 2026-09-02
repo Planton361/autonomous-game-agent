@@ -8,6 +8,7 @@ from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleScreenPointTarget
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.observation.schemas import Observation
+from fh_agent.verifier.reach_target import ReachTargetVerifier
 
 
 def observation(
@@ -208,6 +209,7 @@ def test_basic_reach_target_times_out_with_no_progress() -> None:
             observation(pos=(0, 0), evidence_id="e1"),
             observation(pos=(0, 0), evidence_id="e1"),
         ],
+        verifier=ReachTargetVerifier(target(20, 0)),
     )
 
     assert not run.skill_result.success
@@ -222,6 +224,7 @@ def test_basic_reach_target_fails_on_death_or_combat() -> None:
             observation(pos=(0, 0), evidence_id="e1"),
             observation(pos=(1, 0), evidence_id="e2", ui_state="death"),
         ],
+        verifier=ReachTargetVerifier(target(20, 0)),
     )
     combat_run = SkillRunner().run(
         BasicReachTargetSkill(target=target(20, 0)),
@@ -229,6 +232,7 @@ def test_basic_reach_target_fails_on_death_or_combat() -> None:
             observation(pos=(0, 0), evidence_id="e1"),
             observation(pos=(1, 0), evidence_id="e2", ui_state="combat"),
         ],
+        verifier=ReachTargetVerifier(target(20, 0)),
     )
 
     assert death_run.skill_result.failure_reason == "death_screen"
@@ -268,6 +272,7 @@ def test_basic_reach_target_runs_and_logs_with_skill_runner(tmp_path) -> None:
             observation(pos=(0, 0), evidence_id="e1"),
             observation(pos=(10, 0), evidence_id="e2"),
         ],
+        verifier=ReachTargetVerifier(target(10, 0), tolerance_px=1.0),
     )
 
     records = EventLogger(event_log_path, run_id="run-1").read_all()
