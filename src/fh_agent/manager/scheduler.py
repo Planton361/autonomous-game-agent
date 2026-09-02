@@ -3,6 +3,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fh_agent.manager.task_spec import TaskSpec
+from fh_agent.verifier.schemas import VerifierResult, VerifierStatus
 
 
 class TaskStatus(StrEnum):
@@ -38,6 +39,8 @@ class TaskCompletion(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     reason: str | None = None
     elapsed_steps: int = Field(ge=0)
+    verifier_result: VerifierResult | None = None
+    verifier_event_id: str | None = None
 
     @field_validator("status")
     @classmethod
@@ -46,6 +49,14 @@ class TaskCompletion(BaseModel):
             msg = "completion status must be terminal"
             raise ValueError(msg)
         return status
+
+    @field_validator("verifier_event_id")
+    @classmethod
+    def verifier_event_id_must_not_be_empty(cls, verifier_event_id: str | None) -> str | None:
+        if verifier_event_id == "":
+            msg = "verifier_event_id must not be empty"
+            raise ValueError(msg)
+        return verifier_event_id
 
 
 class ScheduledTask(BaseModel):
@@ -187,6 +198,40 @@ class TaskScheduler:
             reason=reason,
         )
 
+    def complete_from_verifier(
+        self,
+        verifier_result: VerifierResult,
+        *,
+        verifier_event_id: str | None = None,
+    ) -> TaskCompletion | None:
+        """Apply an already-produced canonical verifier outcome to the running task."""
+        self._require_current_task()
+
+        if verifier_result.status in {VerifierStatus.ABSTAIN, VerifierStatus.PROGRESS}:
+            return None
+        if verifier_result.status is VerifierStatus.SUCCESS:
+            return self._complete_current(
+                status=TaskStatus.SUCCEEDED,
+                condition=VerifierStatus.SUCCESS.value,
+                evidence_ids=list(verifier_result.evidence_ids),
+                reason=None,
+                verifier_result=verifier_result,
+                verifier_event_id=verifier_event_id,
+            )
+
+        failure_kind = verifier_result.failure_kind
+        if failure_kind is None:
+            msg = "failure verifier result requires a failure_kind"
+            raise TaskSchedulerError(msg)
+        return self._complete_current(
+            status=TaskStatus.FAILED,
+            condition=failure_kind.value,
+            evidence_ids=list(verifier_result.evidence_ids),
+            reason=None,
+            verifier_result=verifier_result,
+            verifier_event_id=verifier_event_id,
+        )
+
     def _require_current_task(self) -> ScheduledTask:
         if self._current_task is None:
             msg = "no running task"
@@ -214,6 +259,8 @@ class TaskScheduler:
         condition: str,
         evidence_ids: list[str],
         reason: str | None,
+        verifier_result: VerifierResult | None = None,
+        verifier_event_id: str | None = None,
     ) -> TaskCompletion:
         current = self._require_current_task()
         completion = TaskCompletion(
@@ -224,6 +271,8 @@ class TaskScheduler:
             evidence_ids=evidence_ids,
             reason=reason,
             elapsed_steps=current.elapsed_steps,
+            verifier_result=verifier_result,
+            verifier_event_id=verifier_event_id,
         )
         completed_task = current.model_copy(
             update={

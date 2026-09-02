@@ -6,6 +6,7 @@ from fh_agent.manager import scheduler as scheduler_module
 from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
 from fh_agent.manager.scheduler import TaskScheduler, TaskSchedulerError, TaskStatus
 from fh_agent.manager.task_spec import TaskSpec
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 def make_task_spec(
@@ -110,6 +111,8 @@ def test_timeout_steps_complete_as_timed_out() -> None:
     assert timeout_task.completion is not None
     assert timeout_task.completion.condition == "timeout"
     assert timeout_task.completion.reason == "timeout"
+    assert timeout_task.completion.verifier_result is None
+    assert timeout_task.completion.verifier_event_id is None
     assert scheduler.current_task is None
     assert scheduler.completed_tasks[-1].status == TaskStatus.TIMED_OUT
 
@@ -124,6 +127,8 @@ def test_mark_success_completes_with_succeeded() -> None:
     assert completion.status == TaskStatus.SUCCEEDED
     assert completion.condition == "new_visible_text"
     assert completion.evidence_ids == ["shot-2"]
+    assert completion.verifier_result is None
+    assert completion.verifier_event_id is None
     assert scheduler.completed_tasks[-1].completion == completion
     assert scheduler.current_task is None
 
@@ -138,6 +143,8 @@ def test_mark_failure_completes_with_failed() -> None:
     assert completion.status == TaskStatus.FAILED
     assert completion.condition == "death_screen"
     assert completion.reason == "visible failure state"
+    assert completion.verifier_result is None
+    assert completion.verifier_event_id is None
     assert scheduler.completed_tasks[-1].status == TaskStatus.FAILED
     assert scheduler.current_task is None
 
@@ -152,6 +159,8 @@ def test_cancel_current_completes_with_cancelled() -> None:
     assert completion.status == TaskStatus.CANCELLED
     assert completion.condition == "cancelled"
     assert completion.reason == "superseded by newer task"
+    assert completion.verifier_result is None
+    assert completion.verifier_event_id is None
     assert scheduler.completed_tasks[-1].status == TaskStatus.CANCELLED
     assert scheduler.current_task is None
 
@@ -210,6 +219,106 @@ def test_tick_without_current_task_returns_none() -> None:
 def test_completion_without_running_task_is_rejected() -> None:
     with pytest.raises(TaskSchedulerError, match="no running task"):
         TaskScheduler().mark_success("new_visible_text")
+
+
+def test_verifier_success_closes_task_without_planner_condition_mapping() -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec(success_conditions=["planner_claim"], failure_conditions=[]))
+    scheduler.start_next()
+    scheduler.tick()
+    verifier_result = VerifierResult(
+        status=VerifierStatus.SUCCESS,
+        evidence_ids=["verifier-first", "verifier-second"],
+    )
+
+    completion = scheduler.complete_from_verifier(
+        verifier_result,
+        verifier_event_id="verifier-event-1",
+    )
+
+    assert completion is not None
+    assert completion.status == TaskStatus.SUCCEEDED
+    assert completion.condition == "success"
+    assert completion.reason is None
+    assert completion.evidence_ids == ["verifier-first", "verifier-second"]
+    assert completion.verifier_result == verifier_result
+    assert completion.verifier_event_id == "verifier-event-1"
+    assert completion.elapsed_steps == 1
+    assert scheduler.current_task is None
+    assert len(scheduler.completed_tasks) == 1
+    assert scheduler.completed_tasks[0].completion == completion
+
+
+def test_verifier_failure_closes_task_with_canonical_failure_kind() -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec(success_conditions=[], failure_conditions=["death_screen"]))
+    scheduler.start_next()
+    verifier_result = VerifierResult(
+        status=VerifierStatus.FAILURE,
+        failure_kind=FailureKind.DEATH,
+        evidence_ids=["death-evidence", "death-screen-evidence"],
+    )
+
+    completion = scheduler.complete_from_verifier(verifier_result)
+
+    assert completion is not None
+    assert completion.status == TaskStatus.FAILED
+    assert completion.condition == "death"
+    assert completion.condition != "death_screen"
+    assert completion.reason is None
+    assert completion.evidence_ids == ["death-evidence", "death-screen-evidence"]
+    assert completion.verifier_result == verifier_result
+    assert completion.verifier_event_id is None
+    assert scheduler.current_task is None
+    assert len(scheduler.completed_tasks) == 1
+
+
+@pytest.mark.parametrize("status", [VerifierStatus.ABSTAIN, VerifierStatus.PROGRESS])
+def test_non_terminal_verifier_results_leave_running_task_unchanged(status: VerifierStatus) -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+    scheduler.tick()
+    before = scheduler.current_task
+
+    completion = scheduler.complete_from_verifier(VerifierResult(status=status))
+
+    assert completion is None
+    assert scheduler.current_task == before
+    assert scheduler.current_task is not None
+    assert scheduler.current_task.status == TaskStatus.RUNNING
+    assert scheduler.current_task.elapsed_steps == 1
+    assert scheduler.completed_tasks == ()
+
+
+@pytest.mark.parametrize(
+    "verifier_result",
+    [
+        VerifierResult(status=VerifierStatus.SUCCESS),
+        VerifierResult(status=VerifierStatus.ABSTAIN),
+        VerifierResult(status=VerifierStatus.PROGRESS),
+    ],
+)
+def test_verifier_completion_requires_a_running_task(verifier_result: VerifierResult) -> None:
+    with pytest.raises(TaskSchedulerError, match="no running task"):
+        TaskScheduler().complete_from_verifier(verifier_result)
+
+
+def test_verifier_completion_rejects_empty_event_id_and_accepts_none() -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+
+    with pytest.raises(ValueError, match="verifier_event_id must not be empty"):
+        scheduler.complete_from_verifier(
+            VerifierResult(status=VerifierStatus.SUCCESS),
+            verifier_event_id="",
+        )
+
+    assert scheduler.current_task is not None
+    completion = scheduler.complete_from_verifier(VerifierResult(status=VerifierStatus.SUCCESS))
+    assert completion is not None
+    assert completion.verifier_event_id is None
 
 
 def test_scheduler_state_is_serializable_snapshot() -> None:
