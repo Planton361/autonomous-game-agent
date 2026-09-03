@@ -4,6 +4,7 @@ import pytest
 
 from fh_agent.manager import scheduler as scheduler_module
 from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.scheduler import TaskScheduler, TaskSchedulerError, TaskStatus
 from fh_agent.manager.task_spec import TaskSpec
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
@@ -343,3 +344,73 @@ def test_scheduler_imports_no_body_inputexecutor_memory_game_bridge_or_llm_modul
     assert "fh_agent.memory" not in source
     assert "LLMClient" not in source
     assert "fh_agent.planner.llm_client" not in source
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_status"),
+    [
+        (FailureKind.TIMEOUT, TaskStatus.TIMED_OUT),
+        (FailureKind.CAPABILITY_REJECTED, TaskStatus.FAILED),
+        (FailureKind.FOCUS_LOST, TaskStatus.FAILED),
+        (FailureKind.SAFETY_INTERVENTION, TaskStatus.FAILED),
+    ],
+)
+def test_manager_stop_completes_with_canonical_status_and_provenance(
+    failure_kind: FailureKind,
+    expected_status: TaskStatus,
+) -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec(failure_conditions=[]))
+    scheduler.start_next()
+    scheduler.tick()
+    manager_stop = ManagerStopResult(
+        failure_kind=failure_kind,
+        reason="runtime stop reason",
+        evidence_ids=["first-evidence", "second-evidence"],
+        trigger_event_id="action-event-1",
+    )
+
+    completion = scheduler.complete_from_manager_stop(
+        manager_stop,
+        manager_stop_event_id="manager-stop-event-1",
+    )
+
+    assert completion.status == expected_status
+    assert completion.condition == failure_kind.value
+    assert completion.reason == "runtime stop reason"
+    assert completion.evidence_ids == ["first-evidence", "second-evidence"]
+    assert completion.manager_stop_result is manager_stop
+    assert completion.manager_stop_event_id == "manager-stop-event-1"
+    assert completion.verifier_result is None
+    assert completion.verifier_event_id is None
+    assert scheduler.current_task is None
+    assert scheduler.completed_tasks[-1].completion == completion
+
+
+def test_manager_stop_completion_requires_running_task_and_rejects_empty_event_id() -> None:
+    manager_stop = ManagerStopResult(
+        failure_kind=FailureKind.FOCUS_LOST,
+        reason="not_focused",
+    )
+
+    with pytest.raises(TaskSchedulerError, match="no running task"):
+        TaskScheduler().complete_from_manager_stop(manager_stop)
+
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+    with pytest.raises(ValueError, match="manager_stop_event_id must not be empty"):
+        scheduler.complete_from_manager_stop(manager_stop, manager_stop_event_id="")
+
+    assert scheduler.current_task is not None
+
+
+def test_task_status_has_no_manager_stop_lifecycle_value() -> None:
+    assert set(TaskStatus) == {
+        TaskStatus.PENDING,
+        TaskStatus.RUNNING,
+        TaskStatus.SUCCEEDED,
+        TaskStatus.FAILED,
+        TaskStatus.TIMED_OUT,
+        TaskStatus.CANCELLED,
+    }

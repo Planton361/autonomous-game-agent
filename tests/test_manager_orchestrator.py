@@ -6,6 +6,7 @@ import pytest
 from fh_agent.manager import orchestrator as orchestrator_module
 from fh_agent.manager.event_sink import InMemoryManagerEventSink
 from fh_agent.manager.orchestrator import ManagerOrchestrator
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.scheduler import TaskSchedulerError, TaskStatus
 from fh_agent.manager.skill_runner import SkillRunResult
 from fh_agent.manager.target_ref import GroundingResult, VisibleScreenPointTarget
@@ -64,12 +65,21 @@ class VerifierEventRecord:
     event_type: str = "verifier_result"
 
 
+@dataclass(frozen=True)
+class ManagerStopEventRecord:
+    event_id: str
+    run_id: str = "run-1"
+    event_type: str = "manager_stop"
+
+
 def skill_run_result(
     *,
     verifier_result: VerifierResult | None,
     legacy_success: bool,
     skill_name: str = "continue_dialogue",
     verifier_event_ids: tuple[str, ...] = (),
+    manager_stop_result: ManagerStopResult | None = None,
+    manager_stop_event_id: str | None = None,
 ) -> SkillRunResult:
     return SkillRunResult(
         skill_result=SkillResult(
@@ -81,6 +91,12 @@ def skill_run_result(
         ),
         verifier_result=verifier_result,
         verifier_event_records=[VerifierEventRecord(event_id) for event_id in verifier_event_ids],
+        manager_stop_result=manager_stop_result,
+        manager_stop_event_record=(
+            ManagerStopEventRecord(manager_stop_event_id)
+            if manager_stop_event_id is not None
+            else None
+        ),
     )
 
 
@@ -363,6 +379,8 @@ def test_complete_from_skill_run_closes_from_canonical_success_not_legacy_result
     assert event.completion_evidence_ids == ["verifier-evidence-1", "verifier-evidence-2"]
     assert event.verifier_result == verifier_result
     assert event.verifier_event_id == "verifier-event-2"
+    assert event.manager_stop_result is None
+    assert event.manager_stop_event_id is None
     assert orchestrator.scheduler.current_task is None
 
 
@@ -390,6 +408,8 @@ def test_complete_from_skill_run_closes_from_canonical_failure_not_legacy_result
     assert event.condition != "death_screen"
     assert event.verifier_result == verifier_result
     assert event.verifier_event_id is None
+    assert event.manager_stop_result is None
+    assert event.manager_stop_event_id is None
     assert orchestrator.scheduler.current_task is None
 
 
@@ -508,3 +528,80 @@ def test_orchestrator_module_has_no_forbidden_imports() -> None:
     assert ".verify(" not in source
     assert "sqlite" not in source.lower()
     assert "jsonl" not in source.lower()
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_status"),
+    [
+        (FailureKind.FOCUS_LOST, TaskStatus.FAILED),
+        (FailureKind.SAFETY_INTERVENTION, TaskStatus.FAILED),
+        (FailureKind.CAPABILITY_REJECTED, TaskStatus.FAILED),
+        (FailureKind.TIMEOUT, TaskStatus.TIMED_OUT),
+    ],
+)
+def test_manager_stop_closes_task_with_separate_provenance(
+    failure_kind: FailureKind,
+    expected_status: TaskStatus,
+) -> None:
+    sink = InMemoryManagerEventSink()
+    orchestrator = started_orchestrator(sink=sink)
+    manager_stop = ManagerStopResult(
+        failure_kind=failure_kind,
+        reason="deterministic manager stop",
+        evidence_ids=["manager-stop-evidence"],
+        trigger_event_id="action-result-event-1",
+    )
+
+    event = orchestrator.complete_from_skill_run(
+        skill_run_result(
+            verifier_result=None,
+            legacy_success=False,
+            manager_stop_result=manager_stop,
+            manager_stop_event_id="manager-stop-event-1",
+        ),
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-1",
+    )
+
+    assert event is not None
+    assert event.status == expected_status
+    assert event.condition == failure_kind.value
+    assert event.manager_stop_result is manager_stop
+    assert event.manager_stop_event_id == "manager-stop-event-1"
+    assert event.manager_stop_result.trigger_event_id == "action-result-event-1"
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
+    assert orchestrator.scheduler.current_task is None
+    assert sink.list_task_completions() == [event]
+
+
+def test_later_manager_stop_closes_after_earlier_progress_without_fabricating_verifier() -> None:
+    orchestrator = started_orchestrator()
+    progress = VerifierResult(status=VerifierStatus.PROGRESS, evidence_ids=["progress-evidence"])
+    manager_stop = ManagerStopResult(
+        failure_kind=FailureKind.SAFETY_INTERVENTION,
+        reason="emergency_stop",
+        evidence_ids=["stop-evidence"],
+        trigger_event_id="action-result-event-2",
+    )
+
+    event = orchestrator.complete_from_skill_run(
+        skill_run_result(
+            verifier_result=progress,
+            legacy_success=False,
+            verifier_event_ids=("progress-verifier-event-1",),
+            manager_stop_result=manager_stop,
+            manager_stop_event_id="manager-stop-event-2",
+        ),
+        task_id="task-1",
+        run_id="run-1",
+        event_id="completion-event-2",
+    )
+
+    assert event is not None
+    assert event.status == TaskStatus.FAILED
+    assert event.manager_stop_result == manager_stop
+    assert event.manager_stop_event_id == "manager-stop-event-2"
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None

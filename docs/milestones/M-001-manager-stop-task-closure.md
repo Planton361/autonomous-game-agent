@@ -1,6 +1,6 @@
 ---
 id: M-001
-status: ready
+status: done
 risk: medium
 model_profile: standard
 autonomy: A2
