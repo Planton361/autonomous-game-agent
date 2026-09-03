@@ -10,6 +10,7 @@ from fh_agent.manager.reward_profiles import (
     RewardTerm,
     default_reward_profile_for_skill,
 )
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep
 from fh_agent.manager.skill_runner import RunnableSkill, SkillRunner
 from fh_agent.manager.task_spec import TaskSpec
@@ -136,6 +137,15 @@ class SequenceVerifier:
     def verify(self, before: Observation, after: Observation) -> VerifierResult:
         self.calls.append((before, after))
         return self.results[len(self.calls) - 1]
+
+
+class UnknownBlockedInputExecutor:
+    def execute(self, action: PrimitiveAction) -> ActionResult:
+        return ActionResult(
+            action=action.value,
+            executed=False,
+            blocked_reason="unknown_block",
+        )
 
 
 class NoEvaluateSkill:
@@ -428,6 +438,12 @@ def test_runner_stops_at_max_steps_without_extra_observation_pull() -> None:
     assert backend.actions == [PrimitiveAction.WAIT, PrimitiveAction.WAIT]
     assert len(run.action_execution_results) == 2
     assert all(isinstance(result, ActionResult) for result in run.action_execution_results)
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.TIMEOUT,
+        reason="timeout",
+        evidence_ids=["second"],
+    )
+    assert run.manager_stop_event_record is None
 
 
 def test_runner_has_no_precomputed_observation_sequence_dependency() -> None:
@@ -471,6 +487,12 @@ def test_runner_rejects_disallowed_action_without_execution_or_verification() ->
     assert source.observe_calls == 1
     assert verifier.calls == []
     assert run.verified_reward_breakdowns == []
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.CAPABILITY_REJECTED,
+        reason="action_not_allowed",
+        evidence_ids=["start"],
+    )
+    assert run.manager_stop_event_record is None
 
 
 def test_runner_logs_no_action_event_for_contract_rejection(tmp_path) -> None:
@@ -485,7 +507,14 @@ def test_runner_logs_no_action_event_for_contract_rejection(tmp_path) -> None:
     assert run.action_execution_results == []
     assert run.action_event_records == []
     records = EventLogger(event_log_path, run_id="run-1").read_all()
-    assert [record.event_type for record in records] == ["skill_result"]
+    assert [record.event_type for record in records] == ["manager_stop", "skill_result"]
+    assert run.manager_stop_event_record == records[0]
+    assert ManagerStopResult.model_validate(records[0].payload["manager_stop"]) == (
+        run.manager_stop_result
+    )
+    assert run.manager_stop_result is not None
+    assert run.manager_stop_result.failure_kind is FailureKind.CAPABILITY_REJECTED
+    assert run.manager_stop_result.trigger_event_id is None
 
 
 def test_runner_stops_when_input_executor_blocks_wrong_window() -> None:
@@ -508,6 +537,13 @@ def test_runner_stops_when_input_executor_blocks_wrong_window() -> None:
     assert run.action_execution_results[0].blocked_reason == BlockedReason.NOT_FOCUSED
     assert run.action_execution_results[0].evidence_ids == ["start"]
     assert run.action_event_records == []
+    assert run.verifier_result is None
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.FOCUS_LOST,
+        reason=BlockedReason.NOT_FOCUSED,
+        evidence_ids=["start"],
+    )
+    assert run.manager_stop_event_record is None
 
 
 def test_runner_stops_when_emergency_stop_blocks_action() -> None:
@@ -531,6 +567,13 @@ def test_runner_stops_when_emergency_stop_blocks_action() -> None:
     assert run.action_execution_results[0].blocked_reason == BlockedReason.EMERGENCY_STOP
     assert run.action_execution_results[0].evidence_ids == ["start"]
     assert run.action_event_records == []
+    assert run.verifier_result is None
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.SAFETY_INTERVENTION,
+        reason=BlockedReason.EMERGENCY_STOP,
+        evidence_ids=["start"],
+    )
+    assert run.manager_stop_event_record is None
 
 
 def test_runner_logs_blocked_action_attempts_without_verification(tmp_path) -> None:
@@ -561,7 +604,11 @@ def test_runner_logs_blocked_action_attempts_without_verification(tmp_path) -> N
         assert verifier.calls == []
         assert run.verified_reward_breakdowns == []
         assert run.action_event_records == [records[0]]
-        assert [record.event_type for record in records] == ["action_result", "skill_result"]
+        assert [record.event_type for record in records] == [
+            "action_result",
+            "manager_stop",
+            "skill_result",
+        ]
         assert records[0].payload["before_observation_id"] == "before-observation"
         assert records[0].payload["after_observation_id"] is None
         assert records[0].payload["before_evidence_ids"] == ["before"]
@@ -571,6 +618,13 @@ def test_runner_logs_blocked_action_attempts_without_verification(tmp_path) -> N
             == (run.action_execution_results[0])
         )
         assert run.action_execution_results[0].blocked_reason == blocked_reason
+        assert run.manager_stop_event_record == records[1]
+        assert run.manager_stop_result is not None
+        assert run.manager_stop_result.trigger_event_id == records[0].event_id
+        assert run.manager_stop_result.evidence_ids == run.action_execution_results[0].evidence_ids
+        assert ManagerStopResult.model_validate(records[1].payload["manager_stop"]) == (
+            run.manager_stop_result
+        )
 
 
 def test_runner_logs_rate_limited_second_action_after_verified_progress(tmp_path) -> None:
@@ -597,6 +651,7 @@ def test_runner_logs_rate_limited_second_action_after_verified_progress(tmp_path
         "verifier_result",
         "verified_reward",
         "action_result",
+        "manager_stop",
         "skill_result",
     ]
     assert run.action_event_records == [records[0], records[3]]
@@ -607,6 +662,13 @@ def test_runner_logs_rate_limited_second_action_after_verified_progress(tmp_path
     assert records[3].payload["before_observation_id"] == "after-observation"
     assert records[3].payload["after_observation_id"] is None
     assert records[3].payload["after_evidence_ids"] == []
+    assert run.manager_stop_event_record == records[4]
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.SAFETY_INTERVENTION,
+        reason=BlockedReason.RATE_LIMITED,
+        evidence_ids=["after"],
+        trigger_event_id=records[3].event_id,
+    )
     assert run.skill_result.reward is None
 
 
@@ -639,6 +701,31 @@ def test_runner_preserves_first_transition_when_second_action_is_rate_limited() 
     assert run.action_execution_results[0].evidence_ids == ["start", "after-first"]
     assert run.action_execution_results[-1].blocked_reason == BlockedReason.RATE_LIMITED
     assert run.action_execution_results[-1].evidence_ids == ["after-first"]
+    assert run.verifier_result == verifier.results[0]
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.SAFETY_INTERVENTION,
+        reason=BlockedReason.RATE_LIMITED,
+        evidence_ids=["after-first"],
+    )
+
+
+def test_runner_does_not_guess_a_manager_stop_for_unknown_blocked_reason() -> None:
+    source = RecordingObservationSource(field_observation("before"), field_observation("unused"))
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS))
+
+    run = SkillRunner().run(
+        NoEvaluateSkill(),
+        source,
+        verifier=verifier,
+        input_executor=UnknownBlockedInputExecutor(),  # type: ignore[arg-type]
+    )
+
+    assert run.skill_result.failure_reason == "unknown_block"
+    assert run.manager_stop_result is None
+    assert run.manager_stop_event_record is None
+    assert run.verifier_result is None
+    assert run.verified_reward_breakdowns == []
+    assert source.observe_calls == 1
 
 
 def test_runner_returns_success_when_dialogue_text_changes() -> None:
@@ -818,19 +905,23 @@ def test_runner_logs_non_terminal_abstain_and_progress(tmp_path) -> None:
         "action_result",
         "verifier_result",
         "verified_reward",
+        "manager_stop",
         "skill_result",
         "action_result",
         "verifier_result",
         "verified_reward",
+        "manager_stop",
         "skill_result",
     ]
     assert [
-        VerifierResult.model_validate(records[index].payload["verifier_result"]) for index in (1, 5)
+        VerifierResult.model_validate(records[index].payload["verifier_result"]) for index in (1, 6)
     ] == results
     assert all(len(run.action_event_records) == 1 for run in runs)
     assert all(len(run.verifier_event_records) == 1 for run in runs)
     assert all(len(run.verified_reward_breakdowns) == 1 for run in runs)
     assert all(len(run.reward_event_records) == 1 for run in runs)
+    assert all(run.manager_stop_result is not None for run in runs)
+    assert all(run.manager_stop_result.failure_kind is FailureKind.TIMEOUT for run in runs)
     assert all(run.skill_result.reward is None for run in runs)
 
 
@@ -862,6 +953,7 @@ def test_runner_logs_each_timeout_verification_in_order(tmp_path) -> None:
         "action_result",
         "verifier_result",
         "verified_reward",
+        "manager_stop",
         "skill_result",
     ]
     assert [records[index].payload["steps_taken"] for index in (1, 4)] == [1, 2]
@@ -872,7 +964,13 @@ def test_runner_logs_each_timeout_verification_in_order(tmp_path) -> None:
     assert run.verifier_event_records == [records[1], records[4]]
     assert run.reward_event_records == [records[2], records[5]]
     assert run.verifier_result == verifier.results[-1]
-    assert run.event_record == records[-1]
+    assert run.manager_stop_event_record == records[6]
+    assert run.manager_stop_result == ManagerStopResult(
+        failure_kind=FailureKind.TIMEOUT,
+        reason="timeout",
+        evidence_ids=["after"],
+    )
+    assert run.event_record == records[7]
     assert run.skill_result.failure_reason == "timeout"
     assert run.skill_result.reward is None
 
@@ -904,6 +1002,32 @@ def test_runner_logs_no_verifier_result_when_executed_action_lacks_observation(t
     assert run.verifier_result is None
     assert run.skill_result.failure_reason == "observation_sequence_exhausted"
     assert run.skill_result.reward is None
+    assert run.manager_stop_result is None
+    assert run.manager_stop_event_record is None
+
+
+def test_terminal_verifier_result_on_final_permitted_step_has_no_manager_stop() -> None:
+    results = [
+        VerifierResult(status=VerifierStatus.SUCCESS),
+        VerifierResult(
+            status=VerifierStatus.FAILURE,
+            failure_kind=FailureKind.SKILL_FAILED,
+        ),
+    ]
+
+    runs = [
+        SkillRunner().run(
+            NoEvaluateSkill(max_steps=1),
+            observation_source(field_observation("before"), field_observation("after")),
+            verifier=FixedVerifier(result),
+            input_executor=focused_input_executor(),
+        )
+        for result in results
+    ]
+
+    assert [run.verifier_result for run in runs] == results
+    assert all(run.manager_stop_result is None for run in runs)
+    assert all(run.manager_stop_event_record is None for run in runs)
 
 
 def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp_path) -> None:
@@ -931,6 +1055,8 @@ def test_runner_logs_no_verifier_result_before_empty_or_precondition_failure(tmp
     assert precondition_run.reward_event_records == []
     assert empty_run.action_event_records == []
     assert precondition_run.action_event_records == []
+    assert empty_run.manager_stop_result is None
+    assert precondition_run.manager_stop_result is None
     assert [record.event_type for record in EventLogger(empty_path, run_id="run-1").read_all()] == [
         "skill_result"
     ]
@@ -1369,5 +1495,4 @@ def test_runner_delegates_all_reward_mapping_to_verified_reward_module() -> None
     assert "avoid_death" not in source
     assert "avoid_timeout" not in source
     assert "avoid_repeated_no_progress" not in source
-    assert "FailureKind.TIMEOUT" not in source
     assert "FailureKind.NO_PROGRESS" not in source

@@ -2,8 +2,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from fh_agent.game.input_executor import InputExecutor
+from fh_agent.game.input_executor import BlockedReason, InputExecutor
 from fh_agent.manager.reward_profiles import RewardProfile
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.manager.verified_reward import (
     VerifiedRewardBreakdown,
@@ -46,6 +47,8 @@ class SkillRunResult:
     reward_event_records: list[SkillEventRecord] = field(default_factory=list)
     action_execution_results: list[ActionResult] = field(default_factory=list)
     action_event_records: list[SkillEventRecord] = field(default_factory=list)
+    manager_stop_result: ManagerStopResult | None = None
+    manager_stop_event_record: SkillEventRecord | None = None
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -128,6 +131,16 @@ class SkillRunner:
             steps.append(step)
 
             if step.action not in skill.contract.allowed_actions:
+                manager_stop_result = ManagerStopResult(
+                    failure_kind=FailureKind.CAPABILITY_REJECTED,
+                    reason="action_not_allowed",
+                    evidence_ids=list(before.evidence_ids),
+                )
+                manager_stop_event_record = self._append_manager_stop_event(
+                    manager_stop_result,
+                    skill_name=skill.contract.skill_name,
+                    steps_taken=len(steps),
+                )
                 return self._finish(
                     self._legacy_result(
                         skill,
@@ -143,6 +156,8 @@ class SkillRunner:
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
                     action_event_records=action_event_records,
+                    manager_stop_result=manager_stop_result,
+                    manager_stop_event_record=manager_stop_event_record,
                 )
 
             execution_result = input_executor.execute(step.action)
@@ -159,6 +174,17 @@ class SkillRunner:
                     before=before,
                     after=None,
                 )
+                manager_stop_result = self._manager_stop_for_blocked_action(
+                    linked_action_result,
+                    trigger_event_id=(
+                        action_event_records[-1].event_id if action_event_records else None
+                    ),
+                )
+                manager_stop_event_record = self._append_manager_stop_event(
+                    manager_stop_result,
+                    skill_name=skill.contract.skill_name,
+                    steps_taken=len(steps),
+                )
                 return self._finish(
                     self._legacy_result(
                         skill,
@@ -174,6 +200,8 @@ class SkillRunner:
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
                     action_event_records=action_event_records,
+                    manager_stop_result=manager_stop_result,
+                    manager_stop_event_record=manager_stop_event_record,
                 )
 
             try:
@@ -258,6 +286,16 @@ class SkillRunner:
                     action_event_records=action_event_records,
                 )
 
+        manager_stop_result = ManagerStopResult(
+            failure_kind=FailureKind.TIMEOUT,
+            reason="timeout",
+            evidence_ids=list(latest.evidence_ids),
+        )
+        manager_stop_event_record = self._append_manager_stop_event(
+            manager_stop_result,
+            skill_name=skill.contract.skill_name,
+            steps_taken=len(steps),
+        )
         return self._finish(
             self._legacy_result(
                 skill,
@@ -273,6 +311,45 @@ class SkillRunner:
             reward_event_records=reward_event_records,
             action_execution_results=action_execution_results,
             action_event_records=action_event_records,
+            manager_stop_result=manager_stop_result,
+            manager_stop_event_record=manager_stop_event_record,
+        )
+
+    @staticmethod
+    def _manager_stop_for_blocked_action(
+        action_result: ActionResult,
+        *,
+        trigger_event_id: str | None,
+    ) -> ManagerStopResult | None:
+        failure_kind_by_reason = {
+            BlockedReason.NOT_FOCUSED: FailureKind.FOCUS_LOST,
+            BlockedReason.EMERGENCY_STOP: FailureKind.SAFETY_INTERVENTION,
+            BlockedReason.RATE_LIMITED: FailureKind.SAFETY_INTERVENTION,
+        }
+        blocked_reason = action_result.blocked_reason
+        failure_kind = failure_kind_by_reason.get(blocked_reason)
+        if failure_kind is None or blocked_reason is None:
+            return None
+        return ManagerStopResult(
+            failure_kind=failure_kind,
+            reason=blocked_reason,
+            evidence_ids=list(action_result.evidence_ids),
+            trigger_event_id=trigger_event_id,
+        )
+
+    def _append_manager_stop_event(
+        self,
+        result: ManagerStopResult | None,
+        *,
+        skill_name: str,
+        steps_taken: int,
+    ) -> SkillEventRecord | None:
+        if self.event_logger is None or result is None:
+            return None
+        return self.event_logger.append_manager_stop(
+            result,
+            skill_name=skill_name,
+            steps_taken=steps_taken,
         )
 
     def _append_action_event(
@@ -417,6 +494,8 @@ class SkillRunner:
         reward_event_records: list[SkillEventRecord],
         action_execution_results: list[ActionResult] | None = None,
         action_event_records: list[SkillEventRecord] | None = None,
+        manager_stop_result: ManagerStopResult | None = None,
+        manager_stop_event_record: SkillEventRecord | None = None,
     ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:
@@ -431,6 +510,8 @@ class SkillRunner:
                 [] if action_execution_results is None else action_execution_results
             ),
             action_event_records=[] if action_event_records is None else action_event_records,
+            manager_stop_result=manager_stop_result,
+            manager_stop_event_record=manager_stop_event_record,
             steps=steps,
             event_record=event_record,
         )

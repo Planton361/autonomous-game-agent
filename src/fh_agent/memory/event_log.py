@@ -8,6 +8,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from fh_agent.manager.runtime_stop import ManagerStopResult
     from fh_agent.manager.verified_reward import VerifiedRewardBreakdown
     from fh_agent.observation.schemas import ActionResult, SkillResult
     from fh_agent.verifier.schemas import VerifierResult
@@ -97,6 +98,28 @@ class EventLogger:
                 "before_evidence_ids": list(before_evidence_ids),
                 "after_evidence_ids": list(after_evidence_ids),
                 "action_result": result.model_dump(mode="json"),
+            },
+            evidence_ids=result.evidence_ids,
+        )
+
+    def append_manager_stop(
+        self,
+        result: "ManagerStopResult",
+        *,
+        skill_name: str,
+        steps_taken: int,
+    ) -> EventRecord:
+        """Append one terminal Manager/runtime control condition."""
+        if steps_taken < 0:
+            msg = "steps_taken must be non-negative"
+            raise ValueError(msg)
+
+        return self.append(
+            "manager_stop",
+            payload={
+                "skill_name": skill_name,
+                "steps_taken": steps_taken,
+                "manager_stop": result.model_dump(mode="json"),
             },
             evidence_ids=result.evidence_ids,
         )

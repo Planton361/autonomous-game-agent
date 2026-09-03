@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.verified_reward import (
     VerifiedRewardBreakdown,
     VerifiedRewardContribution,
@@ -173,6 +174,50 @@ def test_append_action_result_supports_blocked_attempts_and_rejects_negative_ste
         )
 
 
+def test_append_manager_stop_persists_canonical_result_and_context(tmp_path: Path) -> None:
+    logger = EventLogger(
+        tmp_path / "run.jsonl",
+        run_id="run-1",
+        clock=ManualClock(),
+        id_factory=SequenceFactory("event"),
+    )
+    result = ManagerStopResult(
+        failure_kind=FailureKind.FOCUS_LOST,
+        reason="not_focused",
+        evidence_ids=["before", "shared"],
+        trigger_event_id="action-event-1",
+    )
+
+    record = logger.append_manager_stop(
+        result,
+        skill_name="continue_dialogue",
+        steps_taken=1,
+    )
+
+    assert record.event_type == "manager_stop"
+    assert record.payload["skill_name"] == "continue_dialogue"
+    assert record.payload["steps_taken"] == 1
+    assert ManagerStopResult.model_validate(record.payload["manager_stop"]) == result
+    assert record.evidence_ids == result.evidence_ids
+    assert set(record.payload) == {"skill_name", "steps_taken", "manager_stop"}
+    assert logger.read_all() == [record]
+
+
+def test_append_manager_stop_allows_no_trigger_and_rejects_negative_steps(tmp_path: Path) -> None:
+    logger = EventLogger(tmp_path / "run.jsonl", run_id="run-1")
+    result = ManagerStopResult(
+        failure_kind=FailureKind.TIMEOUT,
+        reason="timeout",
+        evidence_ids=["latest"],
+    )
+
+    record = logger.append_manager_stop(result, skill_name="fake_skill", steps_taken=0)
+
+    assert ManagerStopResult.model_validate(record.payload["manager_stop"]).trigger_event_id is None
+    with pytest.raises(ValueError, match="steps_taken must be non-negative"):
+        logger.append_manager_stop(result, skill_name="fake_skill", steps_taken=-1)
+
+
 def test_append_verifier_result_round_trips_every_non_failure_status(tmp_path: Path) -> None:
     logger = EventLogger(
         tmp_path / "run.jsonl",
@@ -245,15 +290,16 @@ def test_action_result_append_order_remains_append_only_with_existing_event_type
         before_observation_id=None,
         after_observation_id=None,
     )
-    verifier = logger.append_verifier_result(
-        VerifierResult(status=VerifierStatus.ABSTAIN),
+    manager_stop = logger.append_manager_stop(
+        ManagerStopResult(
+            failure_kind=FailureKind.SAFETY_INTERVENTION,
+            reason="rate_limited",
+        ),
         skill_name="fake_skill",
         steps_taken=1,
-        before_observation_id=None,
-        after_observation_id=None,
     )
 
-    assert logger.read_all() == [observation, action, verifier]
+    assert logger.read_all() == [observation, action, manager_stop]
 
 
 def test_append_verified_reward_persists_exact_breakdown_and_provenance(tmp_path: Path) -> None:
