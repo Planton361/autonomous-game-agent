@@ -32,5 +32,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-007 | D | — | Evidence-bounded Cortex output submitted through Manager contract validation | medium | done |
 | M-008 | D | — | Planner intent converted into current-evidence GroundingRequest | medium | done |
 | M-009 | D | — | Cortex target intent grounded from current evidence before Manager submission | medium | done |
+| M-010 | D | — | Planning observation preserved as first execution observation | medium | done |
 
-Further M-IDs will be cut after M-009 based on remaining Phase-D exit-gate debt.
+Further M-IDs will be cut after M-010 based on remaining Phase-D exit-gate debt.
