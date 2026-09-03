@@ -45,6 +45,7 @@ class SkillRunResult:
     verified_reward_breakdowns: list[VerifiedRewardBreakdown] = field(default_factory=list)
     reward_event_records: list[SkillEventRecord] = field(default_factory=list)
     action_execution_results: list[ActionResult] = field(default_factory=list)
+    action_event_records: list[SkillEventRecord] = field(default_factory=list)
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -118,10 +119,12 @@ class SkillRunner:
         verified_reward_breakdowns: list[VerifiedRewardBreakdown] = []
         reward_event_records: list[SkillEventRecord] = []
         action_execution_results: list[ActionResult] = []
+        action_event_records: list[SkillEventRecord] = []
         max_steps = skill.contract.max_steps
 
         for step_index in range(max_steps):
-            step = skill.next_action(latest, step_index=step_index)
+            before = latest
+            step = skill.next_action(before, step_index=step_index)
             steps.append(step)
 
             if step.action not in skill.contract.allowed_actions:
@@ -139,12 +142,22 @@ class SkillRunner:
                     verified_reward_breakdowns=verified_reward_breakdowns,
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
+                    action_event_records=action_event_records,
                 )
 
             execution_result = input_executor.execute(step.action)
             if not execution_result.executed:
-                action_execution_results.append(
-                    execution_result.model_copy(update={"evidence_ids": list(latest.evidence_ids)})
+                linked_action_result = execution_result.model_copy(
+                    update={"evidence_ids": list(before.evidence_ids)}
+                )
+                action_execution_results.append(linked_action_result)
+                self._append_action_event(
+                    action_event_records,
+                    linked_action_result,
+                    skill_name=skill.contract.skill_name,
+                    step_index=step_index,
+                    before=before,
+                    after=None,
                 )
                 return self._finish(
                     self._legacy_result(
@@ -160,13 +173,23 @@ class SkillRunner:
                     verified_reward_breakdowns=verified_reward_breakdowns,
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
+                    action_event_records=action_event_records,
                 )
 
             try:
                 source_after = observation_source.observe()
             except ObservationSourceExhausted:
-                action_execution_results.append(
-                    execution_result.model_copy(update={"evidence_ids": list(latest.evidence_ids)})
+                linked_action_result = execution_result.model_copy(
+                    update={"evidence_ids": list(before.evidence_ids)}
+                )
+                action_execution_results.append(linked_action_result)
+                self._append_action_event(
+                    action_event_records,
+                    linked_action_result,
+                    skill_name=skill.contract.skill_name,
+                    step_index=step_index,
+                    before=before,
+                    after=None,
                 )
                 return self._finish(
                     self._legacy_result(
@@ -182,13 +205,22 @@ class SkillRunner:
                     verified_reward_breakdowns=verified_reward_breakdowns,
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
+                    action_event_records=action_event_records,
                 )
 
             linked_action_result = execution_result.model_copy(
-                update={"evidence_ids": merged_evidence_ids(latest, source_after)}
+                update={"evidence_ids": merged_evidence_ids(before, source_after)}
             )
             action_execution_results.append(linked_action_result)
             latest = source_after.model_copy(update={"last_action_result": linked_action_result})
+            self._append_action_event(
+                action_event_records,
+                linked_action_result,
+                skill_name=skill.contract.skill_name,
+                step_index=step_index,
+                before=before,
+                after=source_after,
+            )
 
             (
                 latest_verifier_result,
@@ -223,6 +255,7 @@ class SkillRunner:
                     verified_reward_breakdowns=verified_reward_breakdowns,
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
+                    action_event_records=action_event_records,
                 )
 
         return self._finish(
@@ -239,6 +272,32 @@ class SkillRunner:
             verified_reward_breakdowns=verified_reward_breakdowns,
             reward_event_records=reward_event_records,
             action_execution_results=action_execution_results,
+            action_event_records=action_event_records,
+        )
+
+    def _append_action_event(
+        self,
+        action_event_records: list[SkillEventRecord],
+        result: ActionResult,
+        *,
+        skill_name: str,
+        step_index: int,
+        before: Observation,
+        after: Observation | None,
+    ) -> None:
+        if self.event_logger is None:
+            return
+
+        action_event_records.append(
+            self.event_logger.append_action_result(
+                result,
+                skill_name=skill_name,
+                step_index=step_index,
+                before_observation_id=before.observation_id,
+                after_observation_id=None if after is None else after.observation_id,
+                before_evidence_ids=before.evidence_ids,
+                after_evidence_ids=() if after is None else after.evidence_ids,
+            )
         )
 
     def _verify(
@@ -357,6 +416,7 @@ class SkillRunner:
         verified_reward_breakdowns: list[VerifiedRewardBreakdown],
         reward_event_records: list[SkillEventRecord],
         action_execution_results: list[ActionResult] | None = None,
+        action_event_records: list[SkillEventRecord] | None = None,
     ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:
@@ -370,6 +430,7 @@ class SkillRunner:
             action_execution_results=(
                 [] if action_execution_results is None else action_execution_results
             ),
+            action_event_records=[] if action_event_records is None else action_event_records,
             steps=steps,
             event_record=event_record,
         )

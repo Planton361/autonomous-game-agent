@@ -8,6 +8,7 @@ from fh_agent.manager.verified_reward import (
     VerifiedRewardContribution,
 )
 from fh_agent.memory.event_log import EventLogger
+from fh_agent.observation.schemas import ActionResult
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
@@ -102,6 +103,76 @@ def test_append_verifier_result_persists_canonical_outcome_and_context(tmp_path:
     assert VerifierResult.model_validate(record.payload["verifier_result"]) == result
 
 
+def test_append_action_result_persists_canonical_transition_context(tmp_path: Path) -> None:
+    logger = EventLogger(
+        tmp_path / "run.jsonl",
+        run_id="run-1",
+        clock=ManualClock(),
+        id_factory=SequenceFactory("event"),
+    )
+    result = ActionResult(
+        action="confirm",
+        executed=True,
+        created_at=datetime(2026, 5, 16, 13, 0, tzinfo=UTC),
+        evidence_ids=["before", "shared", "after"],
+    )
+
+    record = logger.append_action_result(
+        result,
+        skill_name="continue_dialogue",
+        step_index=2,
+        before_observation_id="before-observation",
+        after_observation_id="after-observation",
+        before_evidence_ids=["before", "shared"],
+        after_evidence_ids=["shared", "after"],
+    )
+
+    assert record.event_type == "action_result"
+    assert record.payload["skill_name"] == "continue_dialogue"
+    assert record.payload["step_index"] == 2
+    assert record.payload["before_observation_id"] == "before-observation"
+    assert record.payload["after_observation_id"] == "after-observation"
+    assert record.payload["before_evidence_ids"] == ["before", "shared"]
+    assert record.payload["after_evidence_ids"] == ["shared", "after"]
+    assert ActionResult.model_validate(record.payload["action_result"]) == result
+    assert record.evidence_ids == result.evidence_ids
+    assert logger.read_all() == [record]
+
+
+def test_append_action_result_supports_blocked_attempts_and_rejects_negative_steps(
+    tmp_path: Path,
+) -> None:
+    logger = EventLogger(tmp_path / "run.jsonl", run_id="run-1")
+    blocked = ActionResult(
+        action="wait",
+        executed=False,
+        blocked_reason="rate_limited",
+        evidence_ids=["before"],
+    )
+
+    record = logger.append_action_result(
+        blocked,
+        skill_name="fake_skill",
+        step_index=0,
+        before_observation_id="before-observation",
+        after_observation_id=None,
+        before_evidence_ids=["before"],
+    )
+
+    assert record.payload["after_observation_id"] is None
+    assert record.payload["after_evidence_ids"] == []
+    assert ActionResult.model_validate(record.payload["action_result"]) == blocked
+    assert record.evidence_ids == ["before"]
+    with pytest.raises(ValueError, match="step_index must be non-negative"):
+        logger.append_action_result(
+            blocked,
+            skill_name="fake_skill",
+            step_index=-1,
+            before_observation_id=None,
+            after_observation_id=None,
+        )
+
+
 def test_append_verifier_result_round_trips_every_non_failure_status(tmp_path: Path) -> None:
     logger = EventLogger(
         tmp_path / "run.jsonl",
@@ -160,6 +231,29 @@ def test_verifier_result_append_order_remains_append_only_with_ordinary_events(
     skill = logger.append("skill_result", payload={"success": True})
 
     assert logger.read_all() == [observation, verifier, skill]
+
+
+def test_action_result_append_order_remains_append_only_with_existing_event_types(
+    tmp_path: Path,
+) -> None:
+    logger = EventLogger(tmp_path / "run.jsonl", run_id="run-1")
+    observation = logger.append("observation")
+    action = logger.append_action_result(
+        ActionResult(action="wait", executed=True),
+        skill_name="fake_skill",
+        step_index=0,
+        before_observation_id=None,
+        after_observation_id=None,
+    )
+    verifier = logger.append_verifier_result(
+        VerifierResult(status=VerifierStatus.ABSTAIN),
+        skill_name="fake_skill",
+        steps_taken=1,
+        before_observation_id=None,
+        after_observation_id=None,
+    )
+
+    assert logger.read_all() == [observation, action, verifier]
 
 
 def test_append_verified_reward_persists_exact_breakdown_and_provenance(tmp_path: Path) -> None:

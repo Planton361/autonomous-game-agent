@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from fh_agent.manager.verified_reward import VerifiedRewardBreakdown
-    from fh_agent.observation.schemas import SkillResult
+    from fh_agent.observation.schemas import ActionResult, SkillResult
     from fh_agent.verifier.schemas import VerifierResult
 
 
@@ -68,6 +68,36 @@ class EventLogger:
         return self.append(
             "skill_result",
             payload=json.loads(result.model_dump_json()),
+            evidence_ids=result.evidence_ids,
+        )
+
+    def append_action_result(
+        self,
+        result: "ActionResult",
+        *,
+        skill_name: str,
+        step_index: int,
+        before_observation_id: str | None,
+        after_observation_id: str | None,
+        before_evidence_ids: Iterable[str] = (),
+        after_evidence_ids: Iterable[str] = (),
+    ) -> EventRecord:
+        """Append one canonical action attempt with local transition references."""
+        if step_index < 0:
+            msg = "step_index must be non-negative"
+            raise ValueError(msg)
+
+        return self.append(
+            "action_result",
+            payload={
+                "skill_name": skill_name,
+                "step_index": step_index,
+                "before_observation_id": before_observation_id,
+                "after_observation_id": after_observation_id,
+                "before_evidence_ids": list(before_evidence_ids),
+                "after_evidence_ids": list(after_evidence_ids),
+                "action_result": result.model_dump(mode="json"),
+            },
             evidence_ids=result.evidence_ids,
         )
 
