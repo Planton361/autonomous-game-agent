@@ -6,7 +6,7 @@ The project used GitHub HEAD, frozen canonical sources, and the current chat; Co
 
 ## Current technical state
 
-The retrofit baseline is `c9a3793777b5c0fc224c8bfa5cc8a9a7506c671c`. The project uses Python >=3.12, uv + `uv.lock`, Pydantic, pytest, Ruff, and a Typer/Rich CLI, with SQLite/JSONL/evidence artifacts. No typechecker, repository CI workflow, or container baseline is configured. It is a scientific/no-spoiler project; Phase C is active, and the baseline includes `ManagerStopResult`. `configs/experiments/pilot_fh.yaml` makes no current implementation claims.
+The retrofit baseline is `c9a3793777b5c0fc224c8bfa5cc8a9a7506c671c`. The project uses Python >=3.12, uv + `uv.lock`, Pydantic, pytest, Ruff, and a Typer/Rich CLI, with SQLite/JSONL/evidence artifacts. No typechecker, repository CI workflow, or container baseline is configured. It is a scientific/no-spoiler project; Phase C is active, and the baseline includes `ManagerStopResult`. `configs/experiments/pilot_fh.yaml` is a historical preregistration snapshot and must not be used as authority for current implementation state.
 
 ## Existing agent / AI setup
 

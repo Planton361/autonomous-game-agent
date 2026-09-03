@@ -1,6 +1,8 @@
 # AGENTS.md — Stable coding-agent entry point
 
-Start with [the canonical source index](docs/canonical/00_CANONICAL_SOURCE_INDEX.md).
+The frozen canonical research-source set is indexed at
+[`docs/canonical/00_CANONICAL_SOURCE_INDEX.md`](docs/canonical/00_CANONICAL_SOURCE_INDEX.md).
+Use the claim-specific authority rules below to decide which source governs a particular question.
 
 ## Claim-specific authority
 

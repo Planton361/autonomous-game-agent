@@ -1,3 +1,8 @@
+---
+name: verify-change
+description: Use when selecting, running, and recording focused and standard validation for a repository milestone.
+---
+
 # Verify change
 
 Use focused tests during development where useful. Before normal milestone publication, run fresh:

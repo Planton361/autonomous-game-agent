@@ -1,3 +1,8 @@
+---
+name: publish-milestone
+description: Use when handing off a validated milestone through the required A2 branch, commit, push, and Draft PR workflow.
+---
+
 # Publish milestone
 
 Never publish a normal milestone directly to `main`.

@@ -1,3 +1,8 @@
+---
+name: debug-root-cause
+description: Use when investigating a failure through narrow, evidence-backed hypotheses without masking its root cause.
+---
+
 # Debug root cause
 
 Reproduce the failure, read the relevant path, and form a narrow, falsifiable hypothesis. Change one relevant thing at a time and validate it with the smallest useful test before broader validation. Separate observed facts from assumptions and avoid compensating changes that hide the cause.

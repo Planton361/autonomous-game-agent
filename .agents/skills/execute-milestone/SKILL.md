@@ -1,3 +1,8 @@
+---
+name: execute-milestone
+description: Use when executing one active repository milestone under its defined scope, authority, validation, and A2 handoff rules.
+---
+
 # Execute milestone
 
 Read `AGENTS.md` and the active milestone before acting. Use claim-specific authority: active milestone for scope, canonical sources for stable research/architecture, GitHub HEAD plus executable verification for implementation truth, operational roadmap for progress, and the latest Session Report for executed checks.
