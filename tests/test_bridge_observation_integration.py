@@ -9,7 +9,7 @@ from fh_agent.observation.schemas import Observation
 def test_raw_bridge_payload_converts_to_observation() -> None:
     observation = observation_from_bridge_payload(
         {
-            "run_mode": "official",
+            "run_mode": "bridge-assisted",
             "ui_state": "menu",
             "visible_message_text": "A visible line.",
             "visible_menu_items": ["Items", "Skills"],
@@ -42,12 +42,13 @@ def test_raw_bridge_payload_converts_to_observation() -> None:
     assert observation.visible_sprites[0].visual_hash == "dhash:0123456789abcdef"
     assert observation.visible_sprites[0].evidence_id == "shot-001"
     assert observation.visible_sprites[0].confidence == 1.0
+    assert "run_mode" not in observation.model_dump()
 
 
 def test_legacy_bridge_sprite_payload_normalizes_and_grounds_without_grounder_changes() -> None:
     observation = observation_from_bridge_payload(
         {
-            "run_mode": "official",
+            "run_mode": "bridge-assisted",
             "visible_sprite_screen_positions": [[30, 40]],
             "visible_sprite_visual_hashes": ["dhash:0123456789abcdef"],
             "screenshot_id": "shot-001",
@@ -86,7 +87,7 @@ def test_invalid_ui_state_is_rejected_before_observation_creation() -> None:
     with pytest.raises(InvalidBridgePayloadError):
         observation_from_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "ui_state": "inventory",
                 "screenshot_id": "shot-003",
             },
@@ -98,7 +99,7 @@ def test_nested_forbidden_fields_are_rejected_before_observation_creation() -> N
     with pytest.raises(ForbiddenBridgeFieldError) as exc_info:
         observation_from_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "ui_state": "field",
                 "visible_menu_items": [{"event_id": 9}],
                 "screenshot_id": "shot-004",
@@ -113,7 +114,7 @@ def test_sprite_positions_must_be_screen_coordinates() -> None:
     with pytest.raises(InvalidBridgePayloadError):
         observation_from_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "visible_sprite_screen_positions": [[-3, 8]],
             },
             run_id="run-1",
@@ -124,7 +125,7 @@ def test_sprite_visual_hashes_must_not_be_entity_names() -> None:
     with pytest.raises(InvalidBridgePayloadError):
         observation_from_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "visible_sprite_visual_hashes": ["guard"],
             },
             run_id="run-1",
@@ -135,7 +136,7 @@ def test_bridge_rejects_more_sprite_hashes_than_positions() -> None:
     with pytest.raises(InvalidBridgePayloadError, match="cannot outnumber"):
         observation_from_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "visible_sprite_screen_positions": [[30, 40]],
                 "visible_sprite_visual_hashes": [
                     "dhash:0123456789abcdef",

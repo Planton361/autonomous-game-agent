@@ -1,15 +1,17 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, cast
 
-from fh_agent.bridge.sanitizer import InvalidBridgePayloadError, sanitize_bridge_payload
+from fh_agent.bridge.sanitizer import (
+    BridgeRunMode,
+    InvalidBridgePayloadError,
+    sanitize_bridge_payload,
+)
 from fh_agent.observation.schemas import Observation, VisibleTextSpan
 from fh_agent.observation.visible_sprite_normalization import (
     VisibleSpriteNormalizationError,
     normalize_visible_sprites,
 )
-
-BridgeRunMode = Literal["official", "debug"]
 
 
 @dataclass(frozen=True, slots=True)
