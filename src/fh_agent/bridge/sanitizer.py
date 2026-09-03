@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
-RunMode = Literal["official", "debug"]
+BridgeRunMode = Literal["bridge-assisted", "debug"]
 
 VISIBLE_BRIDGE_FIELDS = frozenset(
     {
@@ -76,7 +76,7 @@ class SanitizedBridgePayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    run_mode: RunMode
+    run_mode: BridgeRunMode
     visible_message_text: str | None = None
     visible_menu_items: list[str] | None = None
     ui_state: Literal["field", "dialogue", "menu", "combat", "death", "unknown"] | None = None

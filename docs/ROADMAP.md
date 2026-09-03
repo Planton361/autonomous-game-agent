@@ -14,7 +14,8 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 
 - Phase A — completed before retrofit
 - Phase B — completed before retrofit
-- Phase C — active
+- Phase C — completed
+- Phase D — active
 - Legacy C1–C6 completed before/at retrofit baseline
 
 ## Milestones
@@ -23,5 +24,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | --- | --- | --- | --- | --- | --- |
 | M-000R | workflow | — | Repository workflow adoption | medium | done |
 | M-001 | C | C7 | ManagerStopResult propagated to TaskCompletion | medium | done |
+| M-002 | D | — | Canonical bridge-assisted run-mode contract | medium | done |
 
-Further M-IDs will be cut after M-001 based on remaining Phase-C exit-gate debt.
+Further M-IDs will be cut after M-002 based on remaining Phase-D exit-gate debt.

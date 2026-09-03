@@ -13,7 +13,7 @@ from fh_agent.bridge.sanitizer import (
 def test_sanitizer_outputs_only_visible_fields_and_keeps_screenshot_id() -> None:
     sanitized = sanitize_bridge_payload(
         {
-            "run_mode": "official",
+            "run_mode": "bridge-assisted",
             "visible_message_text": "A visible line.",
             "visible_menu_items": ["Items", "Skills"],
             "ui_state": "dialogue",
@@ -34,7 +34,7 @@ def test_sanitizer_requires_run_mode() -> None:
         sanitize_bridge_payload({"visible_message_text": "Visible."})
 
 
-@pytest.mark.parametrize("run_mode", ["official", "debug"])
+@pytest.mark.parametrize("run_mode", ["bridge-assisted", "debug"])
 def test_forbidden_top_level_fields_are_rejected_in_all_modes(run_mode: str) -> None:
     with pytest.raises(ForbiddenBridgeFieldError) as exc_info:
         sanitize_bridge_payload(
@@ -51,7 +51,7 @@ def test_forbidden_top_level_fields_are_rejected_in_all_modes(run_mode: str) -> 
 @pytest.mark.parametrize("field", sorted(FORBIDDEN_BRIDGE_FIELDS))
 def test_all_forbidden_fields_are_rejected(field: str) -> None:
     with pytest.raises(ForbiddenBridgeFieldError):
-        sanitize_bridge_payload({"run_mode": "official", field: "hidden"})
+        sanitize_bridge_payload({"run_mode": "bridge-assisted", field: "hidden"})
 
 
 def test_forbidden_fields_are_detected_when_nested() -> None:
@@ -77,7 +77,7 @@ def test_unknown_top_level_fields_are_rejected_not_ignored() -> None:
     with pytest.raises(UnknownBridgeFieldError) as exc_info:
         sanitize_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "visible_message_text": "Visible.",
                 "unknown_debug_noise": "must fail",
             }
@@ -98,16 +98,20 @@ def test_debug_mode_still_excludes_mode_metadata_from_sanitized_output() -> None
     assert sanitized == {"ui_state": "field", "screenshot_id": "shot-debug"}
 
 
-def test_invalid_run_mode_is_rejected() -> None:
+@pytest.mark.parametrize(
+    "run_mode",
+    ["official", "screen-only", "networked-api-exploratory", "contaminated", "training"],
+)
+def test_non_bridge_run_modes_are_rejected(run_mode: str) -> None:
     with pytest.raises(InvalidBridgePayloadError):
-        sanitize_bridge_payload({"run_mode": "training", "screenshot_id": "shot-001"})
+        sanitize_bridge_payload({"run_mode": run_mode, "screenshot_id": "shot-001"})
 
 
 def test_negative_screen_coordinates_are_rejected() -> None:
     with pytest.raises(InvalidBridgePayloadError):
         sanitize_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "player_screen_position": [-1, 20],
             }
         )
@@ -117,7 +121,7 @@ def test_sprite_visual_hashes_reject_entity_names() -> None:
     with pytest.raises(InvalidBridgePayloadError):
         sanitize_bridge_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "visible_sprite_visual_hashes": ["guard"],
             }
         )

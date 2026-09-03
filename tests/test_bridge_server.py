@@ -5,20 +5,24 @@ from fh_agent.bridge.bridge_server import (
     accept_bridge_observation_payload,
     accept_bridge_payload,
 )
-from fh_agent.bridge.sanitizer import ForbiddenBridgeFieldError, UnknownBridgeFieldError
+from fh_agent.bridge.sanitizer import (
+    ForbiddenBridgeFieldError,
+    InvalidBridgePayloadError,
+    UnknownBridgeFieldError,
+)
 
 
 def test_adapter_accepts_payload_without_network_or_game() -> None:
     receipt = accept_bridge_payload(
         {
-            "run_mode": "official",
+            "run_mode": "bridge-assisted",
             "ui_state": "menu",
             "visible_menu_items": ["Items"],
             "screenshot_id": "shot-101",
         }
     )
 
-    assert receipt.run_mode == "official"
+    assert receipt.run_mode == "bridge-assisted"
     assert receipt.sanitized_payload == {
         "visible_menu_items": ["Items"],
         "ui_state": "menu",
@@ -45,7 +49,7 @@ def test_adapter_rejects_unknown_transport_noise() -> None:
     with pytest.raises(UnknownBridgeFieldError):
         adapter.accept_payload(
             {
-                "run_mode": "official",
+                "run_mode": "bridge-assisted",
                 "ui_state": "field",
                 "request_id": "transport metadata belongs outside the payload",
             }
@@ -68,3 +72,8 @@ def test_adapter_can_return_observation_with_run_mode_audit_metadata() -> None:
     assert receipt.observation.run_id == "run-1"
     assert receipt.observation.visible_message_text == "Visible."
     assert "run_mode" not in receipt.observation.model_dump()
+
+
+def test_adapter_rejects_legacy_official_mode_through_sanitizer() -> None:
+    with pytest.raises(InvalidBridgePayloadError):
+        accept_bridge_payload({"run_mode": "official", "ui_state": "field"})
