@@ -5,6 +5,9 @@ import pytest
 from fh_agent.body.skills.basic_reach_target import BasicReachTargetSkill
 from fh_agent.body.skills.continue_dialogue import ContinueDialogueSkill
 from fh_agent.body.skills.interact_visible import InteractVisibleObjectSkill
+from fh_agent.game.focus_guard import FakeFocusGuard
+from fh_agent.game.input_executor import DryRunInputBackend, InputExecutor
+from fh_agent.game.window import WindowTarget
 from fh_agent.manager.skill_catalog import SkillCatalog, SkillCatalogError
 from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
@@ -29,6 +32,20 @@ def field_observation(*, player_pos: tuple[int, int] | None = None) -> Observati
         ui_state="field",
         player_screen_position=player_pos,
         evidence_ids=["e1"],
+    )
+
+
+def make_input_executor() -> tuple[InputExecutor, DryRunInputBackend]:
+    backend = DryRunInputBackend()
+    return (
+        InputExecutor(
+            target=WindowTarget(title="C3 catalog test window"),
+            focus_guard=FakeFocusGuard(focused=True),
+            backend=backend,
+            min_interval_seconds=0,
+            clock=lambda: 0.0,
+        ),
+        backend,
     )
 
 
@@ -127,6 +144,7 @@ def test_selected_skill_runs_through_skill_runner() -> None:
         task=task,
     )
 
+    input_executor, backend = make_input_executor()
     run = SkillRunner().run(
         skill,
         SequenceObservationSource(
@@ -136,10 +154,12 @@ def test_selected_skill_runs_through_skill_runner() -> None:
             )
         ),
         verifier=ReachTargetVerifier(task),
+        input_executor=input_executor,
     )
 
     assert run.skill_result.success
     assert run.skill_result.skill_name == "basic_reach_target"
+    assert backend.actions == [run.steps[0].action]
 
 
 def test_visible_object_target_is_not_routed_to_basic_reach_target() -> None:
