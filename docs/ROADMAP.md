@@ -29,5 +29,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-004 | D | — | Bridge-assisted observations synchronized to durable screenshot evidence | medium | done |
 | M-005 | D | — | Running Manager tasks execute through Body and independent Verifier | medium | done |
 | M-006 | D | — | Cortex outputs constrained to evidence present in CortexContext | medium | done |
+| M-007 | D | — | Evidence-bounded Cortex output submitted through Manager contract validation | medium | done |
 
-Further M-IDs will be cut after M-006 based on remaining Phase-D exit-gate debt.
+Further M-IDs will be cut after M-007 based on remaining Phase-D exit-gate debt.
