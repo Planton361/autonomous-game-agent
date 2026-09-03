@@ -2,6 +2,7 @@ from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.game.focus_guard import FakeFocusGuard
 from fh_agent.game.input_executor import BlockedReason, DryRunInputBackend, InputExecutor
 from fh_agent.game.window import WindowTarget
+from fh_agent.observation.schemas import ActionResult
 
 
 class ManualClock:
@@ -51,8 +52,11 @@ def test_blocks_action_when_target_is_not_focused() -> None:
 
     result = executor.execute(PrimitiveAction.CONFIRM)
 
+    assert isinstance(result, ActionResult)
     assert not result.executed
     assert result.blocked_reason == BlockedReason.NOT_FOCUSED
+    assert result.action == PrimitiveAction.CONFIRM.value
+    assert result.evidence_ids == []
     assert backend.actions == []
 
 
@@ -61,9 +65,11 @@ def test_executes_action_when_target_is_focused() -> None:
 
     result = executor.execute(PrimitiveAction.CONFIRM)
 
+    assert isinstance(result, ActionResult)
     assert result.executed
     assert result.blocked_reason is None
-    assert result.action is PrimitiveAction.CONFIRM
+    assert result.action == PrimitiveAction.CONFIRM.value
+    assert result.evidence_ids == []
     assert backend.actions == [PrimitiveAction.CONFIRM]
 
 
@@ -75,6 +81,7 @@ def test_emergency_stop_blocks_action_even_when_focused() -> None:
 
     assert not result.executed
     assert result.blocked_reason == BlockedReason.EMERGENCY_STOP
+    assert result.evidence_ids == []
     assert backend.actions == []
 
 
@@ -90,6 +97,7 @@ def test_rate_limit_blocks_actions_until_interval_passes() -> None:
     assert first.executed
     assert not second.executed
     assert second.blocked_reason == BlockedReason.RATE_LIMITED
+    assert second.evidence_ids == []
     assert third.executed
     assert backend.actions == [
         PrimitiveAction.MOVE_UP_SHORT,

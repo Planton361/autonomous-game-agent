@@ -2,14 +2,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
-from fh_agent.game.input_executor import ActionExecutionResult, InputExecutor
+from fh_agent.game.input_executor import InputExecutor
 from fh_agent.manager.reward_profiles import RewardProfile
 from fh_agent.manager.skill_contracts import SkillContract, SkillStep, merged_evidence_ids
 from fh_agent.manager.verified_reward import (
     VerifiedRewardBreakdown,
     derive_verified_reward,
 )
-from fh_agent.observation.schemas import Observation, SkillResult
+from fh_agent.observation.schemas import ActionResult, Observation, SkillResult
 from fh_agent.observation.source import ObservationSource, ObservationSourceExhausted
 from fh_agent.verifier.ports import OutcomeVerifier
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
@@ -44,7 +44,7 @@ class SkillRunResult:
     verifier_event_records: list[SkillEventRecord] = field(default_factory=list)
     verified_reward_breakdowns: list[VerifiedRewardBreakdown] = field(default_factory=list)
     reward_event_records: list[SkillEventRecord] = field(default_factory=list)
-    action_execution_results: list[ActionExecutionResult] = field(default_factory=list)
+    action_execution_results: list[ActionResult] = field(default_factory=list)
     steps: list[SkillStep] = field(default_factory=list)
     event_record: SkillEventRecord | None = None
 
@@ -117,7 +117,7 @@ class SkillRunner:
         verifier_event_records: list[SkillEventRecord] = []
         verified_reward_breakdowns: list[VerifiedRewardBreakdown] = []
         reward_event_records: list[SkillEventRecord] = []
-        action_execution_results: list[ActionExecutionResult] = []
+        action_execution_results: list[ActionResult] = []
         max_steps = skill.contract.max_steps
 
         for step_index in range(max_steps):
@@ -142,8 +142,10 @@ class SkillRunner:
                 )
 
             execution_result = input_executor.execute(step.action)
-            action_execution_results.append(execution_result)
             if not execution_result.executed:
+                action_execution_results.append(
+                    execution_result.model_copy(update={"evidence_ids": list(latest.evidence_ids)})
+                )
                 return self._finish(
                     self._legacy_result(
                         skill,
@@ -161,8 +163,11 @@ class SkillRunner:
                 )
 
             try:
-                latest = observation_source.observe()
+                source_after = observation_source.observe()
             except ObservationSourceExhausted:
+                action_execution_results.append(
+                    execution_result.model_copy(update={"evidence_ids": list(latest.evidence_ids)})
+                )
                 return self._finish(
                     self._legacy_result(
                         skill,
@@ -178,6 +183,12 @@ class SkillRunner:
                     reward_event_records=reward_event_records,
                     action_execution_results=action_execution_results,
                 )
+
+            linked_action_result = execution_result.model_copy(
+                update={"evidence_ids": merged_evidence_ids(latest, source_after)}
+            )
+            action_execution_results.append(linked_action_result)
+            latest = source_after.model_copy(update={"last_action_result": linked_action_result})
 
             (
                 latest_verifier_result,
@@ -345,7 +356,7 @@ class SkillRunner:
         verifier_event_records: list[SkillEventRecord],
         verified_reward_breakdowns: list[VerifiedRewardBreakdown],
         reward_event_records: list[SkillEventRecord],
-        action_execution_results: list[ActionExecutionResult] | None = None,
+        action_execution_results: list[ActionResult] | None = None,
     ) -> SkillRunResult:
         event_record = None
         if self.event_logger is not None:

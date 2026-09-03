@@ -1,10 +1,10 @@
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Protocol
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.game.focus_guard import FocusGuard
 from fh_agent.game.window import WindowTarget
+from fh_agent.observation.schemas import ActionResult
 
 
 class BlockedReason:
@@ -13,14 +13,6 @@ class BlockedReason:
     NOT_FOCUSED = "not_focused"
     EMERGENCY_STOP = "emergency_stop"
     RATE_LIMITED = "rate_limited"
-
-
-@dataclass(frozen=True, slots=True)
-class ActionExecutionResult:
-    action: PrimitiveAction
-    executed: bool
-    blocked_reason: str | None
-    timestamp: float
 
 
 class InputBackend(Protocol):
@@ -70,25 +62,24 @@ class InputExecutor:
     def clear_emergency_stop(self) -> None:
         self.emergency_stop_enabled = False
 
-    def execute(self, action: PrimitiveAction) -> ActionExecutionResult:
+    def execute(self, action: PrimitiveAction) -> ActionResult:
         timestamp = self._now()
 
         if self.emergency_stop_enabled:
-            return self._blocked(action, BlockedReason.EMERGENCY_STOP, timestamp)
+            return self._blocked(action, BlockedReason.EMERGENCY_STOP)
 
         if not self.focus_guard.is_focused(self.target):
-            return self._blocked(action, BlockedReason.NOT_FOCUSED, timestamp)
+            return self._blocked(action, BlockedReason.NOT_FOCUSED)
 
         if self._is_rate_limited(timestamp):
-            return self._blocked(action, BlockedReason.RATE_LIMITED, timestamp)
+            return self._blocked(action, BlockedReason.RATE_LIMITED)
 
         self.backend.send(action)
         self._last_execution_timestamp = timestamp
-        return ActionExecutionResult(
-            action=action,
+        return ActionResult(
+            action=action.value,
             executed=True,
             blocked_reason=None,
-            timestamp=timestamp,
         )
 
     def _now(self) -> float:
@@ -110,11 +101,9 @@ class InputExecutor:
         self,
         action: PrimitiveAction,
         blocked_reason: str,
-        timestamp: float,
-    ) -> ActionExecutionResult:
-        return ActionExecutionResult(
-            action=action,
+    ) -> ActionResult:
+        return ActionResult(
+            action=action.value,
             executed=False,
             blocked_reason=blocked_reason,
-            timestamp=timestamp,
         )

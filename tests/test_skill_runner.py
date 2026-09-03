@@ -16,7 +16,7 @@ from fh_agent.manager.task_spec import TaskSpec
 from fh_agent.manager.verified_reward import VerifiedRewardBreakdown, VerifiedRewardContribution
 from fh_agent.manager.verifier_catalog import VerifierCatalog
 from fh_agent.memory.event_log import EventLogger
-from fh_agent.observation.schemas import Observation
+from fh_agent.observation.schemas import ActionResult, Observation
 from fh_agent.observation.source import (
     ObservationSourceExhausted,
     SequenceObservationSource,
@@ -266,9 +266,45 @@ def test_runner_executes_before_post_action_observation_without_prefetching() ->
     assert skill.can_start_observations[0] is start
     assert skill.next_action_observations[0] is start
     assert verifier.calls[0][0] is start
-    assert verifier.calls[0][1] is after
+    verifier_after = verifier.calls[0][1]
+    action_result = run.action_execution_results[0]
+    assert isinstance(action_result, ActionResult)
+    assert verifier_after is not after
+    assert verifier_after.last_action_result == action_result
+    assert action_result.action == PrimitiveAction.WAIT.value
+    assert action_result.executed
+    assert action_result.blocked_reason is None
+    assert action_result.evidence_ids == ["start", "after"]
+    assert after.last_action_result is None
     assert backend.actions == [PrimitiveAction.WAIT]
     assert [result.executed for result in run.action_execution_results] == [True]
+
+
+def test_runner_uses_executor_result_over_source_supplied_action_result() -> None:
+    start = field_observation("before")
+    stale_action_result = ActionResult(
+        action=PrimitiveAction.CONFIRM.value,
+        executed=True,
+        evidence_ids=["stale"],
+    )
+    source_after = field_observation("after").model_copy(
+        update={"last_action_result": stale_action_result}
+    )
+    source = RecordingObservationSource(start, source_after)
+    verifier = FixedVerifier(VerifierResult(status=VerifierStatus.SUCCESS))
+
+    run = SkillRunner().run(
+        NoEvaluateSkill(),
+        source,
+        verifier=verifier,
+        input_executor=focused_input_executor(),
+    )
+
+    linked_action_result = run.action_execution_results[0]
+    assert source_after.last_action_result is stale_action_result
+    assert verifier.calls[0][1].last_action_result == linked_action_result
+    assert linked_action_result.action == PrimitiveAction.WAIT.value
+    assert linked_action_result.evidence_ids == ["before", "after"]
 
 
 def test_runner_stops_pulling_after_terminal_failure() -> None:
@@ -288,7 +324,9 @@ def test_runner_stops_pulling_after_terminal_failure() -> None:
 
     assert run.skill_result.failure_reason == "skill_failed"
     assert source.observe_calls == 2
-    assert verifier.calls == [(start, after)]
+    assert verifier.calls[0][0] is start
+    assert verifier.calls[0][1] is not after
+    assert verifier.calls[0][1].last_action_result is not None
     assert len(run.action_execution_results) == 1
 
 
@@ -310,6 +348,7 @@ def test_runner_does_not_verify_executed_action_without_post_action_observation(
     assert run.verifier_result is None
     assert run.verified_reward_breakdowns == []
     assert run.action_execution_results[0].executed
+    assert run.action_execution_results[0].evidence_ids == ["start"]
 
 
 def test_runner_preserves_earlier_verification_when_later_action_lacks_observation() -> None:
@@ -362,9 +401,14 @@ def test_runner_stops_at_max_steps_without_extra_observation_pull() -> None:
     assert source.observe_calls == 3
     assert len(verifier.calls) == 2
     assert skill.next_action_observations[0] is start
-    assert skill.next_action_observations[1] is first
+    second_step_observation = skill.next_action_observations[1]
+    assert second_step_observation is not first
+    assert second_step_observation.last_action_result == run.action_execution_results[0]
+    assert second_step_observation.last_action_result.evidence_ids == ["start", "first"]
+    assert first.last_action_result is None
     assert backend.actions == [PrimitiveAction.WAIT, PrimitiveAction.WAIT]
     assert len(run.action_execution_results) == 2
+    assert all(isinstance(result, ActionResult) for result in run.action_execution_results)
 
 
 def test_runner_has_no_precomputed_observation_sequence_dependency() -> None:
@@ -427,6 +471,7 @@ def test_runner_stops_when_input_executor_blocks_wrong_window() -> None:
     assert verifier.calls == []
     assert run.verified_reward_breakdowns == []
     assert run.action_execution_results[0].blocked_reason == BlockedReason.NOT_FOCUSED
+    assert run.action_execution_results[0].evidence_ids == ["start"]
 
 
 def test_runner_stops_when_emergency_stop_blocks_action() -> None:
@@ -448,6 +493,7 @@ def test_runner_stops_when_emergency_stop_blocks_action() -> None:
     assert verifier.calls == []
     assert run.verified_reward_breakdowns == []
     assert run.action_execution_results[0].blocked_reason == BlockedReason.EMERGENCY_STOP
+    assert run.action_execution_results[0].evidence_ids == ["start"]
 
 
 def test_runner_preserves_first_transition_when_second_action_is_rate_limited() -> None:
@@ -476,7 +522,9 @@ def test_runner_preserves_first_transition_when_second_action_is_rate_limited() 
     assert len(verifier.calls) == 1
     assert len(run.verified_reward_breakdowns) == 1
     assert [result.executed for result in run.action_execution_results] == [True, False]
+    assert run.action_execution_results[0].evidence_ids == ["start", "after-first"]
     assert run.action_execution_results[-1].blocked_reason == BlockedReason.RATE_LIMITED
+    assert run.action_execution_results[-1].evidence_ids == ["after-first"]
 
 
 def test_runner_returns_success_when_dialogue_text_changes() -> None:
@@ -764,7 +812,9 @@ def test_runner_collects_executed_primitive_actions_without_key_sequences() -> N
         PrimitiveAction.CONFIRM,
     ]
     assert backend.actions == [PrimitiveAction.CONFIRM, PrimitiveAction.CONFIRM]
-    assert [result.action for result in run.action_execution_results] == backend.actions
+    assert [result.action for result in run.action_execution_results] == [
+        action.value for action in backend.actions
+    ]
     assert all("key_sequence" not in step.model_dump() for step in run.steps)
 
 
