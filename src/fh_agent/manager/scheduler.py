@@ -2,8 +2,9 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.task_spec import TaskSpec
-from fh_agent.verifier.schemas import VerifierResult, VerifierStatus
+from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
 
 
 class TaskStatus(StrEnum):
@@ -41,6 +42,8 @@ class TaskCompletion(BaseModel):
     elapsed_steps: int = Field(ge=0)
     verifier_result: VerifierResult | None = None
     verifier_event_id: str | None = None
+    manager_stop_result: ManagerStopResult | None = None
+    manager_stop_event_id: str | None = None
 
     @field_validator("status")
     @classmethod
@@ -57,6 +60,16 @@ class TaskCompletion(BaseModel):
             msg = "verifier_event_id must not be empty"
             raise ValueError(msg)
         return verifier_event_id
+
+    @field_validator("manager_stop_event_id")
+    @classmethod
+    def manager_stop_event_id_must_not_be_empty(
+        cls, manager_stop_event_id: str | None
+    ) -> str | None:
+        if manager_stop_event_id == "":
+            msg = "manager_stop_event_id must not be empty"
+            raise ValueError(msg)
+        return manager_stop_event_id
 
 
 class ScheduledTask(BaseModel):
@@ -232,6 +245,28 @@ class TaskScheduler:
             verifier_event_id=verifier_event_id,
         )
 
+    def complete_from_manager_stop(
+        self,
+        manager_stop_result: ManagerStopResult,
+        *,
+        manager_stop_event_id: str | None = None,
+    ) -> TaskCompletion:
+        """Close the running task from a separate Manager/runtime terminal stop."""
+        self._require_current_task()
+        status = (
+            TaskStatus.TIMED_OUT
+            if manager_stop_result.failure_kind is FailureKind.TIMEOUT
+            else TaskStatus.FAILED
+        )
+        return self._complete_current(
+            status=status,
+            condition=manager_stop_result.failure_kind.value,
+            evidence_ids=list(manager_stop_result.evidence_ids),
+            reason=manager_stop_result.reason,
+            manager_stop_result=manager_stop_result,
+            manager_stop_event_id=manager_stop_event_id,
+        )
+
     def _require_current_task(self) -> ScheduledTask:
         if self._current_task is None:
             msg = "no running task"
@@ -261,6 +296,8 @@ class TaskScheduler:
         reason: str | None,
         verifier_result: VerifierResult | None = None,
         verifier_event_id: str | None = None,
+        manager_stop_result: ManagerStopResult | None = None,
+        manager_stop_event_id: str | None = None,
     ) -> TaskCompletion:
         current = self._require_current_task()
         completion = TaskCompletion(
@@ -273,6 +310,8 @@ class TaskScheduler:
             elapsed_steps=current.elapsed_steps,
             verifier_result=verifier_result,
             verifier_event_id=verifier_event_id,
+            manager_stop_result=manager_stop_result,
+            manager_stop_event_id=manager_stop_event_id,
         )
         completed_task = current.model_copy(
             update={

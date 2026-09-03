@@ -22,6 +22,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | ID | Canonical phase | Legacy label | Outcome | Risk | Status |
 | --- | --- | --- | --- | --- | --- |
 | M-000R | workflow | — | Repository workflow adoption | medium | done |
-| M-001 | C | C7 | ManagerStopResult propagated to TaskCompletion | medium | ready |
+| M-001 | C | C7 | ManagerStopResult propagated to TaskCompletion | medium | done |
 
 Further M-IDs will be cut after M-001 based on remaining Phase-C exit-gate debt.

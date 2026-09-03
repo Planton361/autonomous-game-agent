@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from fh_agent.manager import task_events as task_events_module
 from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.scheduler import TaskCompletion, TaskScheduler, TaskStatus
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
 from fh_agent.manager.task_spec import TaskSpec
@@ -144,6 +145,8 @@ def test_canonical_success_event_preserves_verifier_provenance() -> None:
     assert event.completion_evidence_ids == ["verifier-evidence-1", "verifier-evidence-2"]
     assert event.verifier_result == verifier_result
     assert event.verifier_event_id == "verifier-event-1"
+    assert event.manager_stop_result is None
+    assert event.manager_stop_event_id is None
 
 
 def test_canonical_failure_event_preserves_failure_kind_and_json_payload() -> None:
@@ -159,6 +162,8 @@ def test_canonical_failure_event_preserves_failure_kind_and_json_payload() -> No
     assert event.condition == "death"
     assert event.verifier_result == verifier_result
     assert event.verifier_event_id is None
+    assert event.manager_stop_result is None
+    assert event.manager_stop_event_id is None
     assert VerifierResult.model_validate(payload["verifier_result"]) == verifier_result
 
 
@@ -252,3 +257,69 @@ def test_task_events_module_has_no_forbidden_module_dependencies() -> None:
     assert "fh_agent.planner.llm_client" not in source
     assert "sqlite" not in source.lower()
     assert "jsonl" not in source.lower()
+
+
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_status"),
+    [
+        (FailureKind.TIMEOUT, TaskStatus.TIMED_OUT),
+        (FailureKind.CAPABILITY_REJECTED, TaskStatus.FAILED),
+        (FailureKind.FOCUS_LOST, TaskStatus.FAILED),
+        (FailureKind.SAFETY_INTERVENTION, TaskStatus.FAILED),
+    ],
+)
+def test_manager_stop_completion_event_preserves_separate_provenance(
+    failure_kind: FailureKind,
+    expected_status: TaskStatus,
+) -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+    manager_stop = ManagerStopResult(
+        failure_kind=failure_kind,
+        reason="manager runtime stop",
+        evidence_ids=["stop-evidence-1", "stop-evidence-2"],
+        trigger_event_id="action-result-event-1",
+    )
+    completion = scheduler.complete_from_manager_stop(
+        manager_stop,
+        manager_stop_event_id="manager-stop-event-1",
+    )
+
+    event = task_completion_to_event(
+        completion,
+        run_id="run-1",
+        event_id="completion-event-1",
+        created_at="2026-05-16T12:00:00+00:00",
+    )
+    round_tripped = TaskCompletionEvent.model_validate_json(event.model_dump_json())
+
+    assert event.event_type == "task_completion"
+    assert event.status == expected_status
+    assert event.condition == failure_kind.value
+    assert event.reason == "manager runtime stop"
+    assert event.completion_evidence_ids == ["stop-evidence-1", "stop-evidence-2"]
+    assert event.manager_stop_result == manager_stop
+    assert event.manager_stop_event_id == "manager-stop-event-1"
+    assert event.manager_stop_result.trigger_event_id == "action-result-event-1"
+    assert event.verifier_result is None
+    assert event.verifier_event_id is None
+    assert round_tripped == event
+
+
+def test_task_completion_event_rejects_empty_manager_stop_event_id() -> None:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(make_task_spec())
+    scheduler.start_next()
+    completion = scheduler.complete_from_manager_stop(
+        ManagerStopResult(failure_kind=FailureKind.FOCUS_LOST, reason="not_focused")
+    )
+    event = task_completion_to_event(
+        completion,
+        run_id="run-1",
+        event_id="completion-event-1",
+        created_at="2026-05-16T12:00:00+00:00",
+    )
+
+    with pytest.raises(ValidationError, match="manager_stop_event_id must not be empty"):
+        TaskCompletionEvent.model_validate({**event.model_dump(), "manager_stop_event_id": ""})

@@ -142,7 +142,7 @@ class ManagerOrchestrator:
         event_id: str,
         created_at: str | None = None,
     ) -> TaskCompletionEvent | None:
-        """Close the matching task only from its independent verifier outcome."""
+        """Close the matching task from its current terminal authority."""
         current_task = self.scheduler.current_task
         if current_task is None:
             msg = "no running task"
@@ -154,19 +154,30 @@ class ManagerOrchestrator:
             msg = "skill name does not match the running task"
             raise TaskSchedulerError(msg)
 
-        verifier_result = skill_run_result.verifier_result
-        if verifier_result is None:
-            return None
+        if skill_run_result.manager_stop_result is not None:
+            manager_stop_event_id = (
+                skill_run_result.manager_stop_event_record.event_id
+                if skill_run_result.manager_stop_event_record is not None
+                else None
+            )
+            completion = self.scheduler.complete_from_manager_stop(
+                skill_run_result.manager_stop_result,
+                manager_stop_event_id=manager_stop_event_id,
+            )
+        else:
+            verifier_result = skill_run_result.verifier_result
+            if verifier_result is None:
+                return None
 
-        verifier_event_id = (
-            skill_run_result.verifier_event_records[-1].event_id
-            if skill_run_result.verifier_event_records
-            else None
-        )
-        completion = self.scheduler.complete_from_verifier(
-            verifier_result,
-            verifier_event_id=verifier_event_id,
-        )
+            verifier_event_id = (
+                skill_run_result.verifier_event_records[-1].event_id
+                if skill_run_result.verifier_event_records
+                else None
+            )
+            completion = self.scheduler.complete_from_verifier(
+                verifier_result,
+                verifier_event_id=verifier_event_id,
+            )
         if completion is None:
             return None
 

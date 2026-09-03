@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.scheduler import TaskCompletion, TaskStatus
 from fh_agent.manager.task_spec import JsonObject
 from fh_agent.verifier.schemas import VerifierResult
@@ -32,6 +33,8 @@ class TaskCompletionEvent(BaseModel):
     reward_terms: list[str] = Field(default_factory=list)
     verifier_result: VerifierResult | None = None
     verifier_event_id: str | None = None
+    manager_stop_result: ManagerStopResult | None = None
+    manager_stop_event_id: str | None = None
     created_at: str
 
     @field_validator("event_id", "run_id", "task_id", "selected_skill", "goal", "condition")
@@ -49,6 +52,16 @@ class TaskCompletionEvent(BaseModel):
             msg = "verifier_event_id must not be empty"
             raise ValueError(msg)
         return verifier_event_id
+
+    @field_validator("manager_stop_event_id")
+    @classmethod
+    def manager_stop_event_id_must_not_be_empty(
+        cls, manager_stop_event_id: str | None
+    ) -> str | None:
+        if manager_stop_event_id == "":
+            msg = "manager_stop_event_id must not be empty"
+            raise ValueError(msg)
+        return manager_stop_event_id
 
 
 def task_completion_to_event(
@@ -80,5 +93,7 @@ def task_completion_to_event(
         reward_terms=[str(term.name) for term in task_spec.reward_profile.terms],
         verifier_result=completion.verifier_result,
         verifier_event_id=completion.verifier_event_id,
+        manager_stop_result=completion.manager_stop_result,
+        manager_stop_event_id=completion.manager_stop_event_id,
         created_at=created_at or datetime.now(UTC).isoformat(),
     )
