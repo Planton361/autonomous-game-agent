@@ -26,5 +26,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-001 | C | C7 | ManagerStopResult propagated to TaskCompletion | medium | done |
 | M-002 | D | — | Canonical bridge-assisted run-mode contract | medium | done |
 | M-003 | D | — | Bridge-assisted payloads exposed as ObservationSource | medium | done |
+| M-004 | D | — | Bridge-assisted observations synchronized to durable screenshot evidence | medium | done |
 
-Further M-IDs will be cut after M-003 based on remaining Phase-D exit-gate debt.
+Further M-IDs will be cut after M-004 based on remaining Phase-D exit-gate debt.
