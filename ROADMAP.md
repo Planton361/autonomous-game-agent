@@ -1,5 +1,12 @@
-# Roadmap compatibility entry point
+# Roadmap entry point
 
-The stable research roadmap is [docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md](docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md).
+Current operational milestone state is maintained in
+[`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-It defines the required capability order and research gates; it does not report current implementation progress. Infer current implementation status from GitHub HEAD and the current working chat.
+The stable long-term research capability sequence remains
+[`docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md`](docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md).
+
+The canonical roadmap is not an implementation-status tracker.
+Current implementation claims require GitHub HEAD and executable verification.
+
+M-000R introduced the repository-based milestone/session-report workflow.

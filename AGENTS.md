@@ -2,13 +2,20 @@
 
 Start with [the canonical source index](docs/canonical/00_CANONICAL_SOURCE_INDEX.md).
 
-## Authority and status
+## Claim-specific authority
 
-1. **GitHub HEAD** is authoritative for implementation status: what exists, is tested, was removed, or was renamed.
-2. **`docs/canonical/`** is authoritative for the stable research vision, target architecture, research protocol, and capability sequence.
-3. **The current working chat** carries temporary milestone, validation, blocker, and handoff state.
+Use the authority that matches the claim; there is no universal linear source hierarchy.
 
-A roadmap statement is never evidence that a capability is implemented. Do not add current milestone, test-count, session-handoff, or commit-specific progress claims to stable repository documentation unless the user explicitly requests them.
+| Claim | Authority |
+| --- | --- |
+| Implementation truth | GitHub HEAD + executable verification |
+| Current task | Active milestone |
+| Long-term research / architecture | `docs/canonical/**` |
+| Operational progress | `docs/ROADMAP.md` |
+| Last actually executed checks | Latest session report |
+| Product / research intent | Explicit user decision captured in milestone, ADR, or project sources |
+
+A roadmap statement is never evidence that a capability is implemented. Current user intent is authoritative for intent; durable decisions must be written back to repository artifacts.
 
 ## Non-negotiable architecture and research rules
 
@@ -30,6 +37,26 @@ A roadmap statement is never evidence that a capability is implemented. Do not a
 ## Input safety
 
 Never automate the wrong window. Primitive input requires an active valid contract, verified target-window focus, an allowed action, rate-limit capacity, a functional emergency stop, and durable logging with before/after evidence linkage. Do not launch the game or send input unless the user explicitly authorizes it.
+
+## Milestone, Git, and session workflow
+
+One Codex session normally completes one milestone. Read this file and the active milestone before changing files; use the claim-specific authority matrix above.
+
+For a normal milestone:
+
+```text
+codex/<milestone>-<slug>
+→ validate
+→ stage intended files only
+→ commit
+→ push
+→ Draft PR
+→ User merge
+```
+
+Direct normal-milestone writes to `main` are forbidden after M-000R. Do not continue another milestone in the same Codex task. End with the current session-report format; old chats must not be required to resume the project.
+
+`docs/canonical/**` may change only after an explicit user-authorized architecture/research review.
 
 ## Coding workflow
 

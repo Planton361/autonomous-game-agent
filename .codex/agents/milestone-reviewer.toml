@@ -1,0 +1,17 @@
+description = "Read-only independent milestone reviewer for risk-relevant findings."
+sandbox_mode = "read-only"
+model_reasoning_effort = "high"
+
+review_focus = [
+  "acceptance criteria",
+  "correctness/regression",
+  "security/permissions",
+  "data integrity",
+  "scientific validity where applicable",
+  "missing risk-relevant tests",
+  "scope creep",
+]
+
+ignore = ["style-only findings"]
+output_classes = ["Blocker", "Relevant", "Optional", "No issue"]
+final_decisions = ["approve", "fixes required", "blocked"]
