@@ -101,6 +101,158 @@ def test_cortex_validates_fake_llm_output() -> None:
     assert len(client.requests) == 1
 
 
+def test_cortex_accepts_retrieved_known_fact_evidence() -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": "fact",
+            "claim": "A previously observed visible fact remains relevant.",
+            "evidence_ids": ["shot-prior"],
+        }
+    ]
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    output = Cortex(client).plan_next_goal(
+        visible_observation().model_copy(
+            update={"screenshot_id": "shot-current", "evidence_ids": ["shot-current"]}
+        ),
+        {
+            "known_facts": [
+                {
+                    "claim": "Previously observed visible fact.",
+                    "evidence_ids": ["shot-prior"],
+                }
+            ]
+        },
+    )
+
+    assert output.current_belief_state[0].evidence_ids == ["shot-prior"]
+    assert len(client.requests) == 1
+
+
+def test_cortex_accepts_evidence_bearing_retrieved_hypothesis_support() -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": "hypothesis",
+            "claim": "The visible state may support a cautious next observation.",
+            "evidence_ids": ["shot-hypothesis-support"],
+        }
+    ]
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    output = Cortex(client).plan_next_goal(
+        visible_observation(),
+        {
+            "hypotheses": [
+                {
+                    "claim": "A prior visible observation may be relevant.",
+                    "evidence_ids": ["shot-hypothesis-support"],
+                }
+            ]
+        },
+    )
+
+    assert output.current_belief_state[0].kind == "hypothesis"
+    assert len(client.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("field", "payload_evidence"),
+    [
+        ("fact", "shot-never-seen"),
+        ("hypothesis", "fabricated-hypothesis-evidence"),
+    ],
+)
+def test_cortex_rejects_fabricated_claim_evidence(field: str, payload_evidence: str) -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": field,
+            "claim": "A proposed visible-state claim.",
+            "evidence_ids": [payload_evidence],
+        }
+    ]
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    with pytest.raises(PlannerOutputError, match=payload_evidence):
+        Cortex(client).plan_next_goal(visible_observation(), {})
+
+    assert len(client.requests) == 1
+
+
+def test_cortex_rejects_fabricated_memory_update_evidence() -> None:
+    payload = valid_planner_payload()
+    payload["memory_updates_requested"] = [
+        {"claim": "Remember this visible claim.", "evidence_ids": ["fabricated-memory-evidence"]}
+    ]
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    with pytest.raises(PlannerOutputError, match="fabricated-memory-evidence"):
+        Cortex(client).plan_next_goal(visible_observation(), {})
+
+    assert len(client.requests) == 1
+
+
+def test_cortex_rejects_mixed_valid_and_invalid_evidence_without_filtering() -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": "fact",
+            "claim": "A visible message is currently on screen.",
+            "evidence_ids": ["shot-1", "shot-invalid"],
+        }
+    ]
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    with pytest.raises(
+        PlannerOutputError,
+        match="outside CortexContext: shot-invalid",
+    ):
+        Cortex(client).plan_next_goal(visible_observation(), {})
+
+    assert len(client.requests) == 1
+
+
+def test_cortex_accepts_evidence_free_hypothesis() -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": "hypothesis",
+            "claim": "A visible state may change after a safe interaction.",
+            "evidence_ids": [],
+        }
+    ]
+    payload["memory_updates_requested"] = []
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+
+    output = Cortex(client).plan_next_goal(visible_observation(), {})
+
+    assert output.current_belief_state[0].evidence_ids == []
+    assert len(client.requests) == 1
+
+
+def test_cortex_does_not_treat_screenshot_id_as_evidence_authority() -> None:
+    payload = valid_planner_payload()
+    payload["current_belief_state"] = [
+        {
+            "kind": "hypothesis",
+            "claim": "A descriptive screenshot identifier may support a claim.",
+            "evidence_ids": ["shot-descriptive-only"],
+        }
+    ]
+    payload["memory_updates_requested"] = []
+    client = FakeLLMClient(responses=[json.dumps(payload)])
+    observation = visible_observation().model_copy(
+        update={"screenshot_id": "shot-descriptive-only", "evidence_ids": []}
+    )
+
+    with pytest.raises(PlannerOutputError, match="shot-descriptive-only"):
+        Cortex(client).plan_next_goal(observation, {})
+
+    assert len(client.requests) == 1
+
+
 def test_cortex_rejects_invalid_llm_output() -> None:
     payload = valid_planner_payload()
     payload["selected_skill"] = "solve_specific_quest"

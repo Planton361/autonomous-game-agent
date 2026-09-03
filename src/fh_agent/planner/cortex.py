@@ -51,6 +51,7 @@ class Cortex:
         messages = build_plan_next_goal_messages(context)
         raw_output = self.llm_client.complete(messages)
         output = parse_planner_output_json(raw_output)
+        _validate_planner_output_evidence_scope(output, context)
         if output.selected_skill not in context.allowed_skills:
             msg = (
                 f"planner selected skill unavailable in this CortexContext: {output.selected_skill}"
@@ -127,3 +128,58 @@ def build_post_mortem_messages(
 
 def load_prompt(filename: str) -> str:
     return resources.files(PROMPT_PACKAGE).joinpath(filename).read_text(encoding="utf-8")
+
+
+def _context_evidence_ids(context: CortexContext) -> frozenset[str]:
+    """Return non-empty evidence IDs explicitly present in one CortexContext."""
+
+    evidence_ids: set[str] = set()
+    observation_evidence = context.observation_summary.get("evidence_ids", [])
+    if isinstance(observation_evidence, Sequence) and not isinstance(
+        observation_evidence, str | bytes | bytearray
+    ):
+        evidence_ids.update(
+            evidence_id
+            for evidence_id in observation_evidence
+            if isinstance(evidence_id, str) and evidence_id
+        )
+
+    for note in (
+        *context.evidence_backed_facts,
+        *context.hypotheses,
+        *context.recent_skill_outcomes,
+    ):
+        evidence_ids.update(evidence_id for evidence_id in note.evidence_ids if evidence_id)
+    return frozenset(evidence_ids)
+
+
+def _planner_output_evidence_ids(output: PlannerOutput) -> frozenset[str]:
+    """Return non-empty evidence IDs cited by a proposed planning output."""
+
+    evidence_ids = {
+        evidence_id
+        for claim in output.current_belief_state
+        for evidence_id in claim.evidence_ids
+        if evidence_id
+    }
+    evidence_ids.update(
+        evidence_id
+        for update in output.memory_updates_requested
+        for evidence_id in update.evidence_ids
+        if evidence_id
+    )
+    return frozenset(evidence_ids)
+
+
+def _validate_planner_output_evidence_scope(
+    output: PlannerOutput,
+    context: CortexContext,
+) -> None:
+    """Reject output that cites evidence absent from the supplied context."""
+
+    outside_context = sorted(_planner_output_evidence_ids(output) - _context_evidence_ids(context))
+    if outside_context:
+        msg = "planner output references evidence outside CortexContext: " + ", ".join(
+            outside_context
+        )
+        raise PlannerOutputError(msg)
