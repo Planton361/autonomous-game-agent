@@ -30,5 +30,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-005 | D | — | Running Manager tasks execute through Body and independent Verifier | medium | done |
 | M-006 | D | — | Cortex outputs constrained to evidence present in CortexContext | medium | done |
 | M-007 | D | — | Evidence-bounded Cortex output submitted through Manager contract validation | medium | done |
+| M-008 | D | — | Planner intent converted into current-evidence GroundingRequest | medium | done |
 
-Further M-IDs will be cut after M-007 based on remaining Phase-D exit-gate debt.
+Further M-IDs will be cut after M-008 based on remaining Phase-D exit-gate debt.
