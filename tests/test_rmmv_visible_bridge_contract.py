@@ -59,11 +59,16 @@ def test_request_and_visible_surface_contract_reject_metadata_override_and_unkno
 
 
 def test_builder_output_is_limited_to_existing_raw_bridge_fields(bridge_source: str) -> None:
-    assert "run_mode: request.run_mode" in bridge_source
-    assert "screenshot_id: request.screenshot_id" in bridge_source
-    assert "payload[field] = visibleSurface[field]" in bridge_source
-    assert "request_id:" not in bridge_source
-    assert "run_id:" not in bridge_source
+    payload_builder_source = bridge_source.split(
+        "function buildSnapshotPayload(request, visibleSurface)",
+        maxsplit=1,
+    )[1].split("function visibleMessageWindowType", maxsplit=1)[0]
+
+    assert "run_mode: request.run_mode" in payload_builder_source
+    assert "screenshot_id: request.screenshot_id" in payload_builder_source
+    assert "payload[field] = visibleSurface[field]" in payload_builder_source
+    assert "request_id:" not in payload_builder_source
+    assert "run_id:" not in payload_builder_source
 
 
 def test_builder_source_has_no_hidden_state_or_io_access(bridge_source: str) -> None:

@@ -44,5 +44,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-018 | D | — | Bridge snapshot requests bind future visible-state payloads to already durable screenshot evidence | medium | done |
 | M-019 | D | — | RPG Maker bridge builds request-bound raw payloads only from explicitly supplied visible-surface values | medium | done |
 | M-020 | D | — | RPG Maker bridge derives dialogue UI state only from the visibly rendered scene graph | medium | done |
+| M-021 | D | — | Bridge responses preserve request/run provenance while carrying an unchanged visible raw payload | medium | done |
 
-Further Phase-D milestones will be cut after M-020 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-021 based on remaining exit-gate debt.
