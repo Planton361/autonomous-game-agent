@@ -48,5 +48,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-022 | D | — | Correlated snapshot response files relay unchanged raw payloads into the append-only bridge feed | medium | done |
 | M-023 | D | — | RPG Maker one-shot file transport turns a published snapshot request into an atomic correlated response | medium | done |
 | M-024 | D | — | One visible host capture is durably recorded before publishing its screenshot-bound bridge request | medium | done |
+| M-025 | D | — | A finite RPG Maker watcher processes newly published snapshot requests through the existing one-shot visible transport | medium | done |
 
-Further Phase-D milestones will be cut after M-024 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-025 based on remaining exit-gate debt.
