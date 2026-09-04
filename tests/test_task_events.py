@@ -8,6 +8,7 @@ from fh_agent.manager import task_events as task_events_module
 from fh_agent.manager.reward_profiles import default_reward_profile_for_skill
 from fh_agent.manager.runtime_stop import ManagerStopResult
 from fh_agent.manager.scheduler import TaskCompletion, TaskScheduler, TaskStatus
+from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.manager.task_events import TaskCompletionEvent, task_completion_to_event
 from fh_agent.manager.task_spec import TaskSpec
 from fh_agent.verifier.schemas import FailureKind, VerifierResult, VerifierStatus
@@ -28,6 +29,42 @@ def make_task_spec(task_id: str = "task-1", *, timeout_steps: int = 3) -> TaskSp
         planner_output_id="planner-output-1",
         planner_trace_id="planner-trace-1",
     )
+
+
+def targeted_task_spec(target: VisibleObjectTarget | VisibleScreenPointTarget) -> TaskSpec:
+    return TaskSpec(
+        task_id="targeted-task",
+        selected_skill=(
+            "interact_visible_object"
+            if isinstance(target, VisibleObjectTarget)
+            else "basic_reach_target"
+        ),
+        goal="Use the grounded visible target.",
+        target=target,
+        constraints={"avoid_known_dangers": True},
+        success_conditions=["visible_interaction"],
+        failure_conditions=[],
+        timeout_steps=3,
+        reward_profile=default_reward_profile_for_skill(
+            "interact_visible_object"
+            if isinstance(target, VisibleObjectTarget)
+            else "basic_reach_target"
+        ),
+        source_evidence_ids=["source-shot-1"],
+    )
+
+
+def verifier_completion_for_target(
+    target: VisibleObjectTarget | VisibleScreenPointTarget,
+) -> TaskCompletion:
+    scheduler = TaskScheduler()
+    scheduler.enqueue(targeted_task_spec(target))
+    scheduler.start_next()
+    completion = scheduler.complete_from_verifier(
+        VerifierResult(status=VerifierStatus.SUCCESS, evidence_ids=["completion-shot-1"])
+    )
+    assert completion is not None
+    return completion
 
 
 def completion_for_status(status: TaskStatus) -> TaskCompletion:
@@ -213,6 +250,56 @@ def test_event_json_serialization_works() -> None:
     assert payload["event_type"] == "task_completion"
     assert payload["status"] == "succeeded"
     assert payload["reward_terms"] == event.reward_terms
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        VisibleObjectTarget(
+            target_id="object-1",
+            confidence=0.9,
+            evidence_ids=("target-shot-1",),
+            screen_position=(120, 80),
+            visual_hash="dhash:0123456789abcdef",
+        ),
+        VisibleScreenPointTarget(
+            target_id="point-1",
+            confidence=0.8,
+            evidence_ids=("target-shot-2",),
+            screen_position=(240, 160),
+        ),
+    ],
+)
+def test_verifier_terminal_targeted_completion_preserves_typed_target_and_roundtrips_json(
+    target: VisibleObjectTarget | VisibleScreenPointTarget,
+) -> None:
+    completion = verifier_completion_for_target(target)
+
+    event = task_completion_to_event(
+        completion,
+        run_id="run-1",
+        event_id=f"event-{target.target_id}",
+        created_at="2026-05-16T12:00:00+00:00",
+    )
+    payload = json.loads(event.model_dump_json())
+    round_tripped = TaskCompletionEvent.model_validate_json(event.model_dump_json())
+
+    assert event.status == TaskStatus.SUCCEEDED
+    assert event.verifier_result == completion.verifier_result
+    assert event.target is target
+    assert type(round_tripped.target) is type(target)
+    assert round_tripped == event
+    assert payload["target"]["evidence_ids"] == list(target.evidence_ids)
+    assert payload["target"]["screen_position"] == list(target.screen_position)
+
+
+def test_targetless_event_json_roundtrip_preserves_none() -> None:
+    event = event_for_status(TaskStatus.SUCCEEDED)
+
+    round_tripped = TaskCompletionEvent.model_validate_json(event.model_dump_json())
+
+    assert event.target is None
+    assert round_tripped.target is None
 
 
 def test_empty_run_id_is_rejected() -> None:

@@ -2,8 +2,13 @@ import json
 import sqlite3
 from typing import Any
 
+from pydantic import TypeAdapter
+
+from fh_agent.manager.target_ref import GroundedTarget
 from fh_agent.manager.task_events import TaskCompletionEvent
 from fh_agent.memory.db import MemoryDB
+
+_GROUNDED_TARGET_ADAPTER = TypeAdapter(GroundedTarget)
 
 
 class SQLiteManagerEventSink:
@@ -13,6 +18,7 @@ class SQLiteManagerEventSink:
         self.db = db
 
     def record_task_completion(self, event: TaskCompletionEvent) -> None:
+        target_payload = event.target.model_dump(mode="json") if event.target is not None else None
         try:
             self.db.conn.execute(
                 """
@@ -45,7 +51,7 @@ class SQLiteManagerEventSink:
                     event.task_id,
                     event.selected_skill,
                     event.goal,
-                    _json_dump(event.target),
+                    _json_dump(target_payload),
                     event.status,
                     event.condition,
                     event.reason,
@@ -108,6 +114,8 @@ def _json_load(value: str) -> Any:
 
 
 def _event_from_row(row: dict[str, object]) -> TaskCompletionEvent:
+    target_json = str(row["target_json"])
+    target_payload = _json_load(target_json)
     return TaskCompletionEvent(
         event_id=str(row["event_id"]),
         run_id=str(row["run_id"]),
@@ -115,7 +123,11 @@ def _event_from_row(row: dict[str, object]) -> TaskCompletionEvent:
         task_id=str(row["task_id"]),
         selected_skill=str(row["selected_skill"]),
         goal=str(row["goal"]),
-        target=_json_load(str(row["target_json"])),
+        target=(
+            _GROUNDED_TARGET_ADAPTER.validate_json(target_json)
+            if target_payload is not None
+            else None
+        ),
         status=str(row["status"]),
         condition=str(row["condition"]),
         reason=str(row["reason"]) if row["reason"] is not None else None,
