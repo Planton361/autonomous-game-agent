@@ -38,5 +38,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-012 | D | — | Verifier-backed task outcomes become evidence-backed context for the next Cortex decision | medium | done |
 | M-013 | D | — | Bounded hierarchical loop replans only from verifier-backed task outcomes | medium | done |
 | M-014 | D | — | Append-only local JSONL feed supplies raw bridge payloads through existing no-spoiler boundaries | medium | done |
+| M-015 | D | — | Concrete JSONL bridge ingress is composed with the bounded hierarchical replan runtime | medium | done |
 
-Further Phase-D milestones will be cut after M-014 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-015 based on remaining exit-gate debt.
