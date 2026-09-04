@@ -10,12 +10,14 @@ Use the authority that matches the claim; there is no universal linear source hi
 
 | Claim | Authority |
 | --- | --- |
-| Implementation truth | GitHub HEAD + executable verification |
-| Current task | Active milestone |
+| Implementation truth | `main` HEAD + executable/CI verification |
+| Current task | Active GitHub Issue |
 | Long-term research / architecture | `docs/canonical/**` |
-| Operational progress | `docs/ROADMAP.md` |
-| Last actually executed checks | Latest session report |
-| Product / research intent | Explicit user decision captured in milestone, ADR, or project sources |
+| Capability order / phase exit gates | `docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md` |
+| Operational program | GitHub Project |
+| Phase progress | GitHub Milestone + Issues |
+| Last actually executed checks | Pull Request and GitHub Actions records |
+| Product / research intent | Explicit user decision captured in an Issue, ADR, or project source |
 
 A roadmap statement is never evidence that a capability is implemented. Current user intent is authoritative for intent; durable decisions must be written back to repository artifacts.
 
@@ -40,23 +42,28 @@ A roadmap statement is never evidence that a capability is implemented. Current 
 
 Never automate the wrong window. Primitive input requires an active valid contract, verified target-window focus, an allowed action, rate-limit capacity, a functional emergency stop, and durable logging with before/after evidence linkage. Do not launch the game or send input unless the user explicitly authorizes it.
 
-## Milestone, Git, and session workflow
+## GitHub-native delivery workflow
 
-One Codex session normally completes one milestone. Read this file and the active milestone before changing files; use the claim-specific authority matrix above.
+Read this file and the active GitHub Issue before changing files; use the claim-specific authority matrix above. One leaf Issue normally maps to one Pull Request, and the default work-in-progress limit is one Issue.
 
-For a normal milestone:
+For normal future work:
 
 ```text
-codex/<milestone>-<slug>
-→ validate
+GitHub Ready Issue
+→ codex/<issue-number>-<slug>
+→ focused local tests + static checks
 → stage intended files only
 → commit
 → push
-→ Draft PR
+→ Draft PR with `Closes #<issue-number>`
+→ GitHub full CI
+→ review
 → User merge
 ```
 
-Direct normal-milestone writes to `main` are forbidden after M-000R. Do not continue another milestone in the same Codex task. End with the current session-report format; old chats must not be required to resume the project.
+Do not write normal work directly to `main`, merge a Pull Request, or declare an Issue `done` merely because a Draft PR exists. Before merge, report only `ready for review`, `partial`, or `blocked`. Issue closure drives Project Done; phase closure requires the canonical exit gate, not closed implementation Issues.
+
+M-025 is the final historical global M-XXX micro-milestone. Do not create routine `docs/milestones/M-XXX-*.md` files, per-PR session reports, or manual `docs/ROADMAP.md` milestone rows. Historical M-000R–M-025 artifacts remain unchanged.
 
 `docs/canonical/**` may change only after an explicit user-authorized architecture/research review.
 
@@ -64,7 +71,9 @@ Direct normal-milestone writes to `main` are forbidden after M-000R. Do not cont
 
 Inspect relevant files before changing them. Keep changes small, typed, and testable; isolate side effects from pure logic. Do not silently alter architecture boundaries—request an architectural review when a requested change needs one. Do not add large dependencies without documenting the rationale.
 
-For standard validation, run:
+Use focused local validation during ordinary Issue work. GitHub Actions owns the full standard suite. Run the full local suite only for a high-risk boundary, CI unavailability, global repair, CI-workflow change, phase exit, or explicit user request.
+
+For those full-local cases, run:
 
 ```bash
 uv run pytest

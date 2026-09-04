@@ -1,0 +1,42 @@
+name: Bug or integrity report
+description: Report incorrect implementation behavior or an integrity concern.
+title: "[Bug] "
+labels: ["kind:bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence / logs
+    validations:
+      required: true
+  - type: textarea
+    id: integrity-impact
+    attributes:
+      label: Safety / no-spoiler / contamination impact
+      description: State `none known` only after checking all three concerns.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true

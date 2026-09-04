@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Research architecture and phase gates
+    url: https://github.com/Planton361/autonomous-game-agent/tree/main/docs/canonical
+    about: Consult the frozen canonical sources before proposing an architecture or phase-gate change.

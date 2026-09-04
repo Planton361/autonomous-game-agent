@@ -1,0 +1,47 @@
+name: Research or evaluation
+description: Plan a research, evaluation, protocol, or evidence activity.
+title: "[Research] "
+labels: ["kind:research"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Research question
+    validations:
+      required: true
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis / decision
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Protocol / data
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Metrics / decision rule
+    validations:
+      required: true
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Required artifacts
+    validations:
+      required: true
+  - type: textarea
+    id: validity-threats
+    attributes:
+      label: Validity threats
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+    validations:
+      required: true

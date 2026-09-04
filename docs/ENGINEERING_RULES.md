@@ -2,7 +2,7 @@
 
 ## 1. Minimal correct change
 
-Make the smallest typed, testable change that satisfies the active milestone. Isolate side effects from pure logic.
+Make the smallest typed, testable change that satisfies the active GitHub Issue. Isolate side effects from pure logic.
 
 ## 2. Architecture authority
 
@@ -18,20 +18,20 @@ No direct LLM key control, no game-specific Body shortcut, and no verifier self-
 
 ## 5. Testing and verification
 
-Use focused tests first where useful. Before publication, run full standard validation. Do not claim success from stale output.
+Use focused tests and static checks locally for ordinary Issue work. GitHub Actions runs the full standard suite on Pull Requests and pushes to `main`. Run the full local suite only for a high-risk boundary, CI unavailability, global repair, CI-workflow change, phase exit, or explicit user request. Do not claim success from stale output.
 
 ## 6. Dependencies
 
-Do not add large dependencies without rationale. Keep existing dependency and build choices unless a milestone authorizes a change.
+Do not add large dependencies without rationale. Keep existing dependency and build choices unless the active GitHub Issue authorizes a change.
 
 ## 7. Scientific reproducibility
 
 No reward bypass of verified outcomes, no RL before reliable detectors, and no in-run Body-weight changes. Preserve provenance and run-mode separation.
 
-## 8. Git / session discipline
+## 8. Git / Issue discipline
 
-Use the A2 branch → validate → explicit stage → commit → push → Draft PR → user merge workflow. One session normally serves one milestone.
+Use the Ready GitHub Issue → `codex/<issue-number>-<slug>` → focused local validation → explicit stage → commit → push → Draft PR (`Closes #<issue-number>`) → GitHub CI → review → user merge workflow. Do not merge or write normal work directly to `main`. A Draft PR is `ready for review`, `partial`, or `blocked`, never automatically `done`.
 
 ## 9. Documentation discipline
 
-Keep dynamic status in roadmap, milestones, and session reports. Canonical correctness, evidence, no-spoiler, and safety are never removable as “simplification.”
+Keep dynamic status in the GitHub Project, Milestones, Issues, Pull Requests, and CI. M-025 is the historical cutoff for routine milestone/session-report records; do not add manual roadmap rows for new work. Canonical correctness, evidence, no-spoiler, and safety are never removable as “simplification.”

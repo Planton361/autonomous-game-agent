@@ -1,18 +1,18 @@
-# Independent review prompt
+# Independent Issue review prompt
 
-Review the named milestone read-only. Do not edit, commit, push, or merge.
+Review the named GitHub Issue and Draft Pull Request read-only. Do not edit, commit, push, or merge.
 
 ## Outcome
 
-[Milestone outcome.]
+[Issue outcome.]
 
 ## Why
 
 [Risk or user value.]
 
-## Active milestone
+## Active GitHub Issue
 
-`[docs/milestones/M-XXX-slug.md]`
+`[#<issue-number> — <title>]`
 
 ## Scope
 
@@ -24,7 +24,7 @@ Review the named milestone read-only. Do not edit, commit, push, or merge.
 
 ## Relevant starting paths
 
-[Milestone, diff, relevant sources/tests, Session Report.]
+[Issue, Project/Milestone context, Draft PR diff, relevant sources/tests, and CI evidence.]
 
 ## Acceptance criteria
 
@@ -38,16 +38,16 @@ Use claim-specific authority rather than a universal hierarchy. Inspect GitHub H
 
 [Read-only review commands and evidence.]
 
-## A2 Git handoff
+## GitHub handoff
 
-Review only; return findings for the executing branch/Draft PR. Do not merge.
+Review only; return findings for the executing branch/Draft PR. Do not merge or close the Issue.
 
 ## Stop conditions
 
 Stop and mark blocked if the evidence is insufficient for a risk-relevant decision.
 
-## Session Report
+## Pull Request evidence
 
-State whether the Session Report faithfully records actual evidence.
+State whether the Pull Request faithfully records actual local and CI evidence.
 
 Classify findings as `Blocker`, `Relevant`, `Optional`, or `No issue`; conclude `approve`, `fixes required`, or `blocked`.

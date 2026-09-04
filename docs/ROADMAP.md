@@ -1,14 +1,16 @@
-# Operational roadmap
+# Operational roadmap — historical M-XXX record through M-025
 
-The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL.md`](canonical/03_RESEARCH_ROADMAP_CANONICAL.md). It is not rewritten here.
+The stable capability sequence and phase exit gates remain
+[`canonical/03_RESEARCH_ROADMAP_CANONICAL.md`](canonical/03_RESEARCH_ROADMAP_CANONICAL.md).
+The GitHub Project is the operational program view, and GitHub Milestones and Issues
+are the authoritative phase-progress and current-work records.
 
-## Planning rules
+## Historical cutover
 
-- M-IDs begin operationally at M-000R; completed pre-retrofit work is not renumbered.
-- Preserve canonical phase and legacy working label as metadata.
-- One milestone should fit one focused Codex session; technical microtasks are not permanent roadmap entries.
-- Statuses are `proposed`, `ready`, `active`, `blocked`, and `done`.
-- Only Blocking adoption debt may automatically create milestone work.
+- M-000R through M-025 are preserved historical workflow artifacts.
+- M-025 is the final global M-XXX micro-milestone; do not append routine rows below.
+- New work is rolling-wave GitHub Issues under Phase A–N Milestones and the Project.
+- This document does not establish implementation status beyond its historical record.
 
 ## Pre-retrofit history
 
@@ -18,7 +20,7 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 - Phase D — active
 - Legacy C1–C6 completed before/at retrofit baseline
 
-## Milestones
+## Historical milestones
 
 | ID | Canonical phase | Legacy label | Outcome | Risk | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -50,4 +52,5 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-024 | D | — | One visible host capture is durably recorded before publishing its screenshot-bound bridge request | medium | done |
 | M-025 | D | — | A finite RPG Maker watcher processes newly published snapshot requests through the existing one-shot visible transport | medium | done |
 
-Further Phase-D milestones will be cut after M-025 based on remaining exit-gate debt.
+No routine M-XXX entries follow M-025. Remaining Phase-D exit-gate work is planned through
+the Phase D GitHub Milestone and its outcome Issues.
