@@ -35,5 +35,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-010 | D | — | Planning observation preserved as first execution observation | medium | done |
 | M-011R | D | M-011 blocker | Grounded targets round-trip through completion events and persistence | medium | done |
 | M-011 | D | — | One hierarchical task runs Cortex → grounding → Manager → Body → Verifier → completion | medium | done |
+| M-012 | D | — | Verifier-backed task outcomes become evidence-backed context for the next Cortex decision | medium | done |
 
-Further Phase-D milestones will be cut after M-011 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-012 based on remaining exit-gate debt.
