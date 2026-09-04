@@ -6,6 +6,7 @@ import pytest
 
 from fh_agent.manager.orchestrator import ManagerOrchestrator
 from fh_agent.manager.scheduler import TaskStatus
+from fh_agent.manager.target_ref import VisibleObjectTarget, VisibleScreenPointTarget
 from fh_agent.manager.task_events import TaskCompletionEvent
 from fh_agent.memory.db import MemoryDB
 from fh_agent.memory.manager_event_log import SQLiteManagerEventSink
@@ -29,14 +30,24 @@ def task_completion_event(
     *,
     run_id: str = "run-1",
     created_at: str = "2026-05-16T12:00:00+00:00",
+    target: VisibleObjectTarget | VisibleScreenPointTarget | None = None,
+    targetless: bool = False,
 ) -> TaskCompletionEvent:
+    if target is None and not targetless:
+        target = VisibleObjectTarget(
+            target_id="object-1",
+            confidence=0.9,
+            evidence_ids=("target-shot-1",),
+            screen_position=(120, 80),
+            visual_hash="dhash:0123456789abcdef",
+        )
     return TaskCompletionEvent(
         event_id=event_id,
         run_id=run_id,
         task_id="task-1",
-        selected_skill="continue_dialogue",
-        goal="Continue visible dialogue.",
-        target={"description": "visible dialogue target"},
+        selected_skill="interact_visible_object",
+        goal="Interact with the visible object.",
+        target=target,
         status=TaskStatus.SUCCEEDED,
         condition="new_visible_text",
         reason=None,
@@ -132,7 +143,43 @@ def test_target_roundtrips_over_json(sink: SQLiteManagerEventSink) -> None:
 
     stored = sink.get_task_completion(event.event_id)
     assert stored is not None
-    assert stored.target == {"description": "visible dialogue target"}
+    assert stored == event
+    assert isinstance(stored.target, VisibleObjectTarget)
+    assert stored.target.target_id == "object-1"
+    assert stored.target.evidence_ids == ("target-shot-1",)
+    assert stored.target.screen_position == (120, 80)
+    assert stored.target.visual_hash == "dhash:0123456789abcdef"
+
+
+def test_visible_screen_point_target_roundtrips_over_json(
+    sink: SQLiteManagerEventSink,
+) -> None:
+    event = task_completion_event(
+        target=VisibleScreenPointTarget(
+            target_id="point-1",
+            confidence=0.8,
+            evidence_ids=("target-shot-2",),
+            screen_position=(240, 160),
+        )
+    )
+
+    sink.record_task_completion(event)
+
+    stored = sink.get_task_completion(event.event_id)
+    assert stored == event
+    assert isinstance(stored.target, VisibleScreenPointTarget)
+    assert stored.target.evidence_ids == ("target-shot-2",)
+    assert stored.target.screen_position == (240, 160)
+
+
+def test_targetless_event_roundtrips_over_json(sink: SQLiteManagerEventSink) -> None:
+    event = task_completion_event(targetless=True)
+
+    sink.record_task_completion(event)
+
+    stored = sink.get_task_completion(event.event_id)
+    assert stored == event
+    assert stored.target is None
 
 
 def test_run_id_filter_returns_only_matching_events(sink: SQLiteManagerEventSink) -> None:

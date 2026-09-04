@@ -33,5 +33,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-008 | D | — | Planner intent converted into current-evidence GroundingRequest | medium | done |
 | M-009 | D | — | Cortex target intent grounded from current evidence before Manager submission | medium | done |
 | M-010 | D | — | Planning observation preserved as first execution observation | medium | done |
+| M-011R | D | M-011 blocker | Grounded targets round-trip through completion events and persistence | medium | done |
 
 Further M-IDs will be cut after M-010 based on remaining Phase-D exit-gate debt.
