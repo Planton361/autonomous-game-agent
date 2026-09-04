@@ -43,5 +43,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-017 | D | — | InputExecutor checks a dynamic fail-closed emergency-stop source before every primitive input | medium | done |
 | M-018 | D | — | Bridge snapshot requests bind future visible-state payloads to already durable screenshot evidence | medium | done |
 | M-019 | D | — | RPG Maker bridge builds request-bound raw payloads only from explicitly supplied visible-surface values | medium | done |
+| M-020 | D | — | RPG Maker bridge derives dialogue UI state only from the visibly rendered scene graph | medium | done |
 
-Further Phase-D milestones will be cut after M-019 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-020 based on remaining exit-gate debt.
