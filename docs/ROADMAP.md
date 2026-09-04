@@ -39,5 +39,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-013 | D | — | Bounded hierarchical loop replans only from verifier-backed task outcomes | medium | done |
 | M-014 | D | — | Append-only local JSONL feed supplies raw bridge payloads through existing no-spoiler boundaries | medium | done |
 | M-015 | D | — | Concrete JSONL bridge ingress is composed with the bounded hierarchical replan runtime | medium | done |
+| M-016 | D | — | Real xdotool input and active-window focus adapters implement existing guarded runtime ports | medium | done |
 
-Further Phase-D milestones will be cut after M-015 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-016 based on remaining exit-gate debt.
