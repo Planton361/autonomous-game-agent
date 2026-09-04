@@ -41,5 +41,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-015 | D | — | Concrete JSONL bridge ingress is composed with the bounded hierarchical replan runtime | medium | done |
 | M-016 | D | — | Real xdotool input and active-window focus adapters implement existing guarded runtime ports | medium | done |
 | M-017 | D | — | InputExecutor checks a dynamic fail-closed emergency-stop source before every primitive input | medium | done |
+| M-018 | D | — | Bridge snapshot requests bind future visible-state payloads to already durable screenshot evidence | medium | done |
 
-Further Phase-D milestones will be cut after M-017 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-018 based on remaining exit-gate debt.
