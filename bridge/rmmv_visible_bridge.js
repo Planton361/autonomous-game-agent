@@ -27,6 +27,76 @@
     "savegame_variables",
   ]);
 
+  const SNAPSHOT_REQUEST_FIELDS = Object.freeze([
+    "request_id",
+    "run_id",
+    "run_mode",
+    "screenshot_id",
+  ]);
+
+  function isNonEmptyString(value) {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+
+  function isPlainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function validateSnapshotRequest(request) {
+    if (!isPlainObject(request)) {
+      throw new Error("snapshot request must be an object");
+    }
+
+    Object.keys(request).forEach(function (field) {
+      if (SNAPSHOT_REQUEST_FIELDS.indexOf(field) === -1) {
+        throw new Error("snapshot request contains an unknown field: " + field);
+      }
+    });
+
+    ["request_id", "run_id", "screenshot_id"].forEach(function (field) {
+      if (!isNonEmptyString(request[field])) {
+        throw new Error("snapshot request requires non-empty " + field);
+      }
+    });
+
+    if (request.run_mode !== "bridge-assisted") {
+      throw new Error("snapshot request run_mode must be bridge-assisted");
+    }
+  }
+
+  function validateVisibleSurface(visibleSurface) {
+    if (!isPlainObject(visibleSurface)) {
+      throw new Error("visible surface must be an object");
+    }
+
+    Object.keys(visibleSurface).forEach(function (field) {
+      if (field === "screenshot_id") {
+        throw new Error("visible surface must not provide screenshot_id");
+      }
+      if (FORBIDDEN_FIELDS.indexOf(field) !== -1) {
+        throw new Error("visible surface contains a forbidden field: " + field);
+      }
+      if (ALLOWED_FIELDS.indexOf(field) === -1) {
+        throw new Error("visible surface contains an unknown field: " + field);
+      }
+    });
+  }
+
+  function buildSnapshotPayload(request, visibleSurface) {
+    validateSnapshotRequest(request);
+    validateVisibleSurface(visibleSurface);
+
+    const payload = {
+      run_mode: request.run_mode,
+      screenshot_id: request.screenshot_id,
+    };
+    Object.keys(visibleSurface).forEach(function (field) {
+      payload[field] = visibleSurface[field];
+    });
+
+    return payload;
+  }
+
   function emptyVisiblePayload(runMode, screenshotId) {
     return {
       run_mode: runMode,
@@ -53,5 +123,6 @@
     forbiddenFields: FORBIDDEN_FIELDS,
     emptyVisiblePayload: emptyVisiblePayload,
     metadata: visibleBridgeMetadata,
+    buildSnapshotPayload: buildSnapshotPayload,
   });
 })();
