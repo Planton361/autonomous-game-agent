@@ -166,6 +166,15 @@
     return buildSnapshotPayload(request, collectVisibleSurface(sceneRoot));
   }
 
+  function buildSnapshotResponse(request, sceneRoot) {
+    const payload = buildSnapshotFromScene(request, sceneRoot);
+    return {
+      request_id: request.request_id,
+      run_id: request.run_id,
+      payload: payload,
+    };
+  }
+
   function emptyVisiblePayload(runMode, screenshotId) {
     return {
       run_mode: runMode,
@@ -195,5 +204,6 @@
     buildSnapshotPayload: buildSnapshotPayload,
     collectVisibleSurface: collectVisibleSurface,
     buildSnapshotFromScene: buildSnapshotFromScene,
+    buildSnapshotResponse: buildSnapshotResponse,
   });
 })();
