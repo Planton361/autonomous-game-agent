@@ -31,9 +31,21 @@ The implementation is organized around `src/fh_agent/perception`, `observation`,
 
 | Claim | Authority |
 | --- | --- |
-| What is actually implemented? | GitHub HEAD + executable verification |
-| What should be implemented now? | Active milestone contract |
+| What is actually implemented? | `main` HEAD + executable/CI verification |
+| What should be implemented now? | Active GitHub Issue |
 | What are long-term research / architecture rules? | `docs/canonical/**` |
-| What is operational project progress? | `docs/ROADMAP.md` |
-| What was last actually checked? | Latest Session Report |
+| What defines capability order / phase exit gates? | `docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md` |
+| What is the operational program? | GitHub Project |
+| What is phase progress? | GitHub Milestone + Issues |
+| What was last actually checked? | Pull Request and GitHub Actions records |
 | What is product / research intent? | Explicit user decision |
+
+## Delivery workflow
+
+Routine work is planned as rolling-wave GitHub Issues under the Project and Phase A–N
+Milestones. A Ready leaf Issue normally maps to one branch and one Draft Pull Request;
+the user merges only after full GitHub CI and review. Issue closure drives Project Done.
+
+M-025 is the final historical M-XXX micro-milestone. New work does not create routine
+milestone files, session reports, or manual roadmap rows; the existing M-000R–M-025
+records remain historical artifacts.

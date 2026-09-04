@@ -1,0 +1,48 @@
+name: Work item
+description: Plan a bounded product or research-system capability outcome.
+title: "[Work] "
+labels: ["kind:capability"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the observable result, not an implementation task list.
+    validations:
+      required: true
+  - type: textarea
+    id: why-now
+    attributes:
+      label: Why now
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Identify intended paths, boundaries, and interfaces.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals / stop conditions
+    validations:
+      required: true
+  - type: textarea
+    id: contracts-evidence
+    attributes:
+      label: Relevant contracts / evidence
+      description: Link canonical constraints, evidence, related Issues, or prior run artifacts.

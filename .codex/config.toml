@@ -1,5 +1,5 @@
 # Repo-local, intentionally small Codex configuration.
-# Model selection and permissions are milestone/session decisions.
+# Model selection and permissions are Issue/PR decisions.
 
 [agents]
 max_concurrent_threads_per_session = 3

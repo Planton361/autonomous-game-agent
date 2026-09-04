@@ -1,6 +1,7 @@
 # Environment
 
-`last_verified`: 2026-09-03 — fresh M-000R validation passed: 1210 pytest tests, Ruff check, Ruff format check, `git diff --check`, and `uv run fh-agent --help`.
+`last_verified`: Historical pre-cutover M-000R evidence is retained below. Current validation
+evidence is recorded in Pull Requests and GitHub Actions.
 
 | Item | Repository state |
 | --- | --- |
@@ -11,13 +12,13 @@
 | Tests | pytest |
 | Lint / format | Ruff |
 | Typechecker | not currently configured |
-| CI | not currently configured in repository |
+| CI | `validate` on Pull Requests and pushes to `main` |
 | Containerization | not currently configured |
 
 ## Setup
 
 ```bash
-uv sync --frozen
+uv sync --locked
 ```
 
 ## CLI smoke
@@ -26,7 +27,7 @@ uv sync --frozen
 uv run fh-agent --help
 ```
 
-## Standard publish verification
+## Full local validation exceptions
 
 ```bash
 uv run pytest
@@ -35,6 +36,10 @@ uv run ruff format --check .
 git diff --check
 ```
 
-Focused tests may run during implementation. The standard project validation above is still required before milestone publication unless a future explicit project decision changes it. `.env` is ignored; generated `runs/`, `screenshots/`, database, and log artifacts follow the existing `.gitignore`.
+Use focused tests and static checks locally for ordinary GitHub Issue work. GitHub Actions owns
+the full standard suite. Run the full local validation above only for a high-risk boundary, CI
+unavailability, global repair, CI-workflow change, phase exit, or explicit user request.
+`.env` is ignored; generated `runs/`, `screenshots/`, database, and log artifacts follow the
+existing `.gitignore`.
 
 Do not launch a game or send input without explicit user authorization. Live runtime has platform-specific components; do not claim broad platform portability that has not been tested.
