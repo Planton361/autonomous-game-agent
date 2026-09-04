@@ -97,6 +97,75 @@
     return payload;
   }
 
+  function visibleMessageWindowType() {
+    if (typeof window === "undefined" || typeof window.Window_Message !== "function") {
+      return null;
+    }
+    return window.Window_Message;
+  }
+
+  function ancestorsAreVisible(node) {
+    const visited = [];
+    let ancestor = node.parent;
+
+    while (ancestor !== null && ancestor !== undefined) {
+      if (!isPlainObject(ancestor) || visited.indexOf(ancestor) !== -1) {
+        return false;
+      }
+      if (ancestor.visible !== true || ancestor.renderable !== true) {
+        return false;
+      }
+      visited.push(ancestor);
+      ancestor = ancestor.parent;
+    }
+
+    return true;
+  }
+
+  function isVisibleMessageWindow(node, messageWindowType) {
+    return (
+      node instanceof messageWindowType &&
+      node.visible === true &&
+      node.renderable === true &&
+      typeof node.openness === "number" &&
+      node.openness > 0 &&
+      ancestorsAreVisible(node)
+    );
+  }
+
+  function collectVisibleSurface(sceneRoot) {
+    const messageWindowType = visibleMessageWindowType();
+    if (messageWindowType === null || !isPlainObject(sceneRoot)) {
+      return { ui_state: "unknown" };
+    }
+
+    const pending = [sceneRoot];
+    const visited = [];
+    while (pending.length > 0) {
+      const node = pending.pop();
+      if (!isPlainObject(node) || visited.indexOf(node) !== -1) {
+        continue;
+      }
+      visited.push(node);
+
+      if (isVisibleMessageWindow(node, messageWindowType)) {
+        return { ui_state: "dialogue" };
+      }
+
+      if (Array.isArray(node.children)) {
+        node.children.forEach(function (child) {
+          pending.push(child);
+        });
+      }
+    }
+
+    return { ui_state: "unknown" };
+  }
+
+  function buildSnapshotFromScene(request, sceneRoot) {
+    return buildSnapshotPayload(request, collectVisibleSurface(sceneRoot));
+  }
+
   function emptyVisiblePayload(runMode, screenshotId) {
     return {
       run_mode: runMode,
@@ -124,5 +193,7 @@
     emptyVisiblePayload: emptyVisiblePayload,
     metadata: visibleBridgeMetadata,
     buildSnapshotPayload: buildSnapshotPayload,
+    collectVisibleSurface: collectVisibleSurface,
+    buildSnapshotFromScene: buildSnapshotFromScene,
   });
 })();
