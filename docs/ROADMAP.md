@@ -40,5 +40,6 @@ The stable capability sequence remains [`canonical/03_RESEARCH_ROADMAP_CANONICAL
 | M-014 | D | — | Append-only local JSONL feed supplies raw bridge payloads through existing no-spoiler boundaries | medium | done |
 | M-015 | D | — | Concrete JSONL bridge ingress is composed with the bounded hierarchical replan runtime | medium | done |
 | M-016 | D | — | Real xdotool input and active-window focus adapters implement existing guarded runtime ports | medium | done |
+| M-017 | D | — | InputExecutor checks a dynamic fail-closed emergency-stop source before every primitive input | medium | done |
 
-Further Phase-D milestones will be cut after M-016 based on remaining exit-gate debt.
+Further Phase-D milestones will be cut after M-017 based on remaining exit-gate debt.

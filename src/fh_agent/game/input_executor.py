@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from fh_agent.body.primitive_actions import PrimitiveAction
+from fh_agent.game.emergency_stop import EmergencyStopCheck
 from fh_agent.game.focus_guard import FocusGuard
 from fh_agent.game.window import WindowTarget
 from fh_agent.observation.schemas import ActionResult
@@ -43,6 +44,7 @@ class InputExecutor:
         *,
         min_interval_seconds: float = 0.05,
         clock: Callable[[], float] | None = None,
+        emergency_stop_check: EmergencyStopCheck | None = None,
     ) -> None:
         if min_interval_seconds < 0:
             msg = "min_interval_seconds must be non-negative"
@@ -53,6 +55,7 @@ class InputExecutor:
         self.backend = backend
         self.min_interval_seconds = min_interval_seconds
         self.clock = clock
+        self.emergency_stop_check = emergency_stop_check
         self.emergency_stop_enabled = False
         self._last_execution_timestamp: float | None = None
 
@@ -65,7 +68,7 @@ class InputExecutor:
     def execute(self, action: PrimitiveAction) -> ActionResult:
         timestamp = self._now()
 
-        if self.emergency_stop_enabled:
+        if self._emergency_stop_is_triggered():
             return self._blocked(action, BlockedReason.EMERGENCY_STOP)
 
         if not self.focus_guard.is_focused(self.target):
@@ -89,6 +92,16 @@ class InputExecutor:
         import time
 
         return time.monotonic()
+
+    def _emergency_stop_is_triggered(self) -> bool:
+        dynamic_stop_triggered = False
+        if self.emergency_stop_check is not None:
+            try:
+                dynamic_stop_triggered = self.emergency_stop_check.is_triggered()
+            except Exception:
+                dynamic_stop_triggered = True
+
+        return self.emergency_stop_enabled or dynamic_stop_triggered
 
     def _is_rate_limited(self, timestamp: float) -> bool:
         if self._last_execution_timestamp is None:
