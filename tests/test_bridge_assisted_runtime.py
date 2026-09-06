@@ -7,6 +7,7 @@ import pytest
 
 from fh_agent.body.primitive_actions import PrimitiveAction
 from fh_agent.bridge.sanitizer import ForbiddenBridgeFieldError
+from fh_agent.bridge.snapshot_relay import BridgeSnapshotRelayError
 from fh_agent.bridge.snapshot_response import BridgeSnapshotResponseError
 from fh_agent.bridge_assisted_runtime import (
     BRIDGE_ASSISTED_RUN_MODE,
@@ -366,5 +367,8 @@ def test_bridge_mode_mismatch_is_rejected_by_existing_correlation_boundary(tmp_p
         evidence_store=deterministic_evidence_store(tmp_path, "shot-1"),
     )
 
-    with pytest.raises(BridgeSnapshotResponseError, match="run_mode"):
+    with pytest.raises(BridgeSnapshotRelayError, match="does not match request") as raised:
         runtime.observation_source.observe()
+
+    assert isinstance(raised.value.__cause__, BridgeSnapshotResponseError)
+    assert "run_mode" in str(raised.value.__cause__)
