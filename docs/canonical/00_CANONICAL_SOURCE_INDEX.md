@@ -4,6 +4,8 @@
 **Baseline date:** 2026-09-01  
 **Project:** `Planton361/autonomous-game-agent`
 
+> **Active supplement (2026-09-06):** The user-approved `ALIGN-2026-09-06-v1.0` research-program and orchestration supplement is indexed at [`00_ACTIVE_SOURCE_INDEX.md`](00_ACTIVE_SOURCE_INDEX.md). This dated pointer does not replace or rewrite the frozen 2026-09-01 baseline below.
+
 These files are the stable, cross-chat knowledge base for the project. They are intentionally **not** a live progress tracker.
 
 ## Authority hierarchy
