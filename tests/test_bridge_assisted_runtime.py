@@ -362,9 +362,7 @@ def test_bridge_mode_mismatch_is_rejected_by_existing_correlation_boundary(tmp_p
         config,
         capture=DummyScreenCapture(),
         llm_client=FakeLLMClient(responses=[]),
-        response_waiter=SyntheticBridgeResponseWaiter(
-            {"run_mode": "debug", "ui_state": "field"}
-        ),
+        response_waiter=SyntheticBridgeResponseWaiter({"run_mode": "debug", "ui_state": "field"}),
         evidence_store=deterministic_evidence_store(tmp_path, "shot-1"),
     )
 
