@@ -67,7 +67,7 @@ SCI-ORCH muss selbst kritisch urteilen: Welche Gap ist wirklich offen? Welcher V
 Der Review umfasst:
 
 1. **Kohärenz:** SOT, neuester Plan, Kurzexposé, Baseline und Working Paper lesen. A/B nicht erneut zur Disposition stellen; konkrete ungelöste Auswahlpunkte und historische Widersprüche markieren.
-2. **Gap-Triage:** je Strang die engsten Vorarbeiten anhand aktueller Primärquellen nachprüfen. Konkrete eigene Ableitung von Autoren-Limitationen trennen. Der erste Review muss keine vollständige neue Systematic Review sein; er definiert eine gezielte GAP-001-Aufgabe.
+2. **Gap-Triage:** je Strang die engsten Vorarbeiten anhand aktueller Primärquellen nachprüfen. Konkrete eigene Ableitung von Autoren-Limitations trennen. Der erste Review muss keine vollständige neue Systematic Review sein; er definiert eine gezielte GAP-001-Aufgabe.
 3. **Claim-/Designstatus:** Interesse, Gap-Kandidat, Fragestellung, Treatment, Endpunkt, Datenbedarf und erlaubter Schluss auseinanderhalten. Ergebnisse und Implementierung nicht aus dem vorgeschlagenen Plan ableiten.
 4. **Erster Messbedarf:** minimale Anforderungen an T0 formulieren. Nicht jedes denkbare Provenienzfeld wird zur sofortigen Voraussetzung; Pflicht jetzt von späterer Studie trennen.
 5. **Artefaktplan:** pro Artefakt Zweck, Abnehmer, Readset, Masterformat, Beleganforderung, Non-goals, Review und Freigabegate. Ein fokussierter Fachchat erstellt genau ein Artefakt.
