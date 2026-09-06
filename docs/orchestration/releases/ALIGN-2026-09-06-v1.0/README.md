@@ -1,12 +1,12 @@
 # ALIGN-2026-09-06-v1.0 repository registration
 
-**Release:** `ALIGN-2026-09-06-v1.0`  
-**Repository:** `Planton361/autonomous-game-agent`  
-**Registration issue:** `#41` (`ALIGNMENT-DOCS-001`)  
-**Registration branch:** `codex/41-alignment-docs`  
-**Base commit:** `7a3ec10df82b3f42ef45bac8b412e1b8423f17c2`  
-**Integration date:** 2026-09-07 (Europe/Berlin)  
-**Scope:** docs-only authority/reference registration; no runtime, config, protocol, phase-gate, study-instrumentation, or gameplay change.
+- **Release:** `ALIGN-2026-09-06-v1.0`
+- **Repository:** `Planton361/autonomous-game-agent`
+- **Registration issue:** `#41` (`ALIGNMENT-DOCS-001`)
+- **Registration branch:** `codex/41-alignment-docs`
+- **Base commit:** `7a3ec10df82b3f42ef45bac8b412e1b8423f17c2`
+- **Integration date:** 2026-09-07 (Europe/Berlin)
+- **Scope:** docs-only authority/reference registration; no runtime, config, protocol, phase-gate, study-instrumentation, or gameplay change.
 
 ## Registered sources
 
