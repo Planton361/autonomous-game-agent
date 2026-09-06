@@ -280,7 +280,9 @@ def assemble_bridge_assisted_runtime(
     cortex = Cortex(resolved_llm_client)
     sink = manager_event_sink or InMemoryManagerEventSink()
     orchestrator = ManagerOrchestrator(event_sink=sink)
-    task_executor = ManagerTaskExecutor(skill_runner=SkillRunner(event_logger=resolved_event_logger))
+    task_executor = ManagerTaskExecutor(
+        skill_runner=SkillRunner(event_logger=resolved_event_logger)
+    )
     loop_runner = HierarchicalReplanLoopRunner(
         HierarchicalTaskStepRunner(
             GroundedCortexTaskSubmitter(cortex),
