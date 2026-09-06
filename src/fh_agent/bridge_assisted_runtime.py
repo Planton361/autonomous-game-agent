@@ -117,6 +117,8 @@ class BridgeAssistedRuntimeConfig:
             or self.input_min_interval_seconds < 0
         ):
             raise ValueError("input_min_interval_seconds must be finite and non-negative")
+        if self.allow_real_input and self.input_min_interval_seconds <= 0:
+            raise ValueError("real input requires positive input_min_interval_seconds")
         if self.allow_real_input:
             invalid_bindings = [
                 action.value
@@ -200,8 +202,8 @@ class BridgeAssistedRuntime:
     ) -> BridgeAssistedRuntimeExecutionResult:
         """Run only within the caller-supplied finite task-attempt contract."""
 
-        task_attempts = len(step_ids)
-        if task_attempts > self.config.limits.max_task_attempts:
+        requested_task_attempts = len(step_ids)
+        if requested_task_attempts > self.config.limits.max_task_attempts:
             raise BridgeAssistedRuntimeBudgetExceeded("task-attempt budget exhausted")
         if not step_ids:
             raise ValueError("step_ids must contain at least one bounded task attempt")
@@ -219,7 +221,7 @@ class BridgeAssistedRuntime:
             run_id=self.config.run_id,
             run_mode=self.run_mode,
             loop_result=loop_result,
-            task_attempts=task_attempts,
+            task_attempts=len(loop_result.step_results),
             action_attempts=self.input_executor.attempt_count,
             snapshot_attempts=self.observation_source.attempt_count,
         )
