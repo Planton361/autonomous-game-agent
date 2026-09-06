@@ -1,7 +1,13 @@
 # AGENTS.md — Stable coding-agent entry point
 
-The frozen canonical research-source set is indexed at
+The frozen 2026-09-01 canonical research-source baseline is indexed at
 [`docs/canonical/00_CANONICAL_SOURCE_INDEX.md`](docs/canonical/00_CANONICAL_SOURCE_INDEX.md).
+The active user-approved research-program/orchestration supplement is indexed at
+[`docs/canonical/00_ACTIVE_SOURCE_INDEX.md`](docs/canonical/00_ACTIVE_SOURCE_INDEX.md)
+for release `ALIGN-2026-09-06-v1.0`. TECH-ORCH / SCI-ORCH responsibilities and their
+shared startgate are defined in
+[`docs/canonical/10_ORCHESTRATOR_MANDATES.md`](docs/canonical/10_ORCHESTRATOR_MANDATES.md)
+and [`docs/canonical/08_ORCHESTRATION_PROTOCOL.md`](docs/canonical/08_ORCHESTRATION_PROTOCOL.md).
 Use the claim-specific authority rules below to decide which source governs a particular question.
 
 ## Claim-specific authority
