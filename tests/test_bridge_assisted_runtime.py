@@ -1,7 +1,7 @@
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -22,7 +22,11 @@ from fh_agent.game.input_executor import DryRunInputBackend
 from fh_agent.game.window import WindowTarget
 from fh_agent.game.xdotool_adapters import XdotoolFocusGuard, XdotoolInputBackend
 from fh_agent.manager.event_sink import InMemoryManagerEventSink
-from fh_agent.manager.replan_loop import ReplanLoopStepIds
+from fh_agent.manager.hierarchical_step import HierarchicalTaskStepResult
+from fh_agent.manager.replan_loop import (
+    HierarchicalReplanLoopResult,
+    ReplanLoopStepIds,
+)
 from fh_agent.memory.event_log import EventLogger
 from fh_agent.memory.evidence import EvidenceStore
 from fh_agent.observation.schemas import Observation
@@ -70,12 +74,22 @@ class StaticObservationSource:
         return Observation(run_id="run-1", evidence_ids=[f"shot-{self.calls}"])
 
 
+class EarlyStopLoopRunner:
+    def run_bounded(self, *args: object, **kwargs: object) -> HierarchicalReplanLoopResult:
+        return HierarchicalReplanLoopResult(
+            step_results=(cast(HierarchicalTaskStepResult, object()),),
+            final_memory_summary={},
+            stop_reason="manager_stop",
+        )
+
+
 def config_for_test(
     tmp_path: Path,
     *,
     limits: BridgeAssistedRuntimeLimits | None = None,
     allow_real_input: bool = False,
     local_llm_base_url: str = "http://127.0.0.1:8080/v1",
+    input_min_interval_seconds: float = 0.0,
 ) -> BridgeAssistedRuntimeConfig:
     return BridgeAssistedRuntimeConfig(
         run_id="run-1",
@@ -90,7 +104,7 @@ def config_for_test(
         limits=limits or BridgeAssistedRuntimeLimits(),
         key_bindings={PrimitiveAction.CONFIRM: "Return"},
         allow_real_input=allow_real_input,
-        input_min_interval_seconds=0.0,
+        input_min_interval_seconds=input_min_interval_seconds,
     )
 
 
@@ -147,7 +161,11 @@ def test_assembly_has_no_runtime_side_effects_and_defaults_to_dry_input(tmp_path
 def test_real_input_construction_requires_explicit_flag_and_uses_guarded_xdotool(
     tmp_path: Path,
 ) -> None:
-    config = config_for_test(tmp_path, allow_real_input=True)
+    config = config_for_test(
+        tmp_path,
+        allow_real_input=True,
+        input_min_interval_seconds=0.05,
+    )
     runtime = assemble_bridge_assisted_runtime(
         config,
         capture=DummyScreenCapture(),
@@ -160,8 +178,24 @@ def test_real_input_construction_requires_explicit_flag_and_uses_guarded_xdotool
         runtime.input_executor.executor.emergency_stop_check,
         StopFileEmergencyStopCheck,
     )
-    assert runtime.input_executor.executor.min_interval_seconds == 0.0
+    assert runtime.input_executor.executor.min_interval_seconds == 0.05
     assert runtime.input_executor.attempt_count == 0
+
+
+def test_real_input_rejects_zero_rate_limit_but_dry_run_allows_it(tmp_path: Path) -> None:
+    dry_run_config = config_for_test(
+        tmp_path,
+        allow_real_input=False,
+        input_min_interval_seconds=0.0,
+    )
+    assert dry_run_config.input_min_interval_seconds == 0.0
+
+    with pytest.raises(ValueError, match="positive input_min_interval_seconds"):
+        config_for_test(
+            tmp_path,
+            allow_real_input=True,
+            input_min_interval_seconds=0.0,
+        )
 
 
 def test_non_loopback_cortex_endpoint_is_rejected_before_runtime_activity(tmp_path: Path) -> None:
@@ -207,6 +241,28 @@ def test_task_budget_rejects_oversized_plan_before_first_observation(tmp_path: P
     assert capture.capture_count == 0
     assert runtime.input_executor.attempt_count == 0
     assert runtime.observation_source.attempt_count == 0
+
+
+def test_task_attempt_accounting_reports_executed_early_stop_attempts(tmp_path: Path) -> None:
+    config = config_for_test(tmp_path)
+    runtime = assemble_bridge_assisted_runtime(
+        config,
+        capture=DummyScreenCapture(),
+        llm_client=FakeLLMClient(responses=[]),
+    )
+    runtime.loop_runner = EarlyStopLoopRunner()  # type: ignore[assignment]
+    step_ids = (
+        ReplanLoopStepIds("task-1", "completion-1"),
+        ReplanLoopStepIds("task-2", "completion-2"),
+        ReplanLoopStepIds("task-3", "completion-3"),
+    )
+
+    result = runtime.run_bounded({}, step_ids=step_ids)
+
+    assert len(step_ids) == config.limits.max_task_attempts == 3
+    assert result.loop_result.stop_reason == "manager_stop"
+    assert len(result.loop_result.step_results) == 1
+    assert result.task_attempts == 1
 
 
 def test_action_budget_fails_closed_before_second_delegate(tmp_path: Path) -> None:
