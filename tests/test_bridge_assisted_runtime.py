@@ -155,7 +155,10 @@ def test_real_input_construction_requires_explicit_flag_and_uses_guarded_xdotool
 
     assert isinstance(runtime.focus_guard, XdotoolFocusGuard)
     assert isinstance(runtime.input_backend, XdotoolInputBackend)
-    assert isinstance(runtime.input_executor.executor.emergency_stop_check, StopFileEmergencyStopCheck)
+    assert isinstance(
+        runtime.input_executor.executor.emergency_stop_check,
+        StopFileEmergencyStopCheck,
+    )
     assert runtime.input_executor.executor.min_interval_seconds == 0.0
     assert runtime.input_executor.attempt_count == 0
 
@@ -245,7 +248,11 @@ def test_snapshot_budget_fails_closed_before_second_source_call() -> None:
 @pytest.mark.parametrize(
     "limits",
     [
-        BridgeAssistedRuntimeLimits(max_task_attempts=1, max_action_attempts=1, max_snapshot_attempts=1),
+        BridgeAssistedRuntimeLimits(
+            max_task_attempts=1,
+            max_action_attempts=1,
+            max_snapshot_attempts=1,
+        ),
     ],
 )
 def test_positive_runtime_limits_are_accepted(limits: BridgeAssistedRuntimeLimits) -> None:
