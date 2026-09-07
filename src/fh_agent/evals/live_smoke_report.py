@@ -75,9 +75,11 @@ def read_live_smoke_plan(path: Path) -> LiveSmokeRunPlan:
         if not isinstance(payload, dict):
             raise ValueError("live-smoke plan payload must be an object")
         if payload.get("plan_version") != "2":
-            raise ValueError(
-                "legacy or unsupported live-smoke plans are not migrated; regenerate from a v2 manifest"
+            msg = (
+                "legacy or unsupported live-smoke plans are not migrated; "
+                "regenerate from a v2 manifest"
             )
+            raise ValueError(msg)
         return LiveSmokeRunPlan.model_validate(payload)
     except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
         msg = f"invalid live-smoke plan: {path}: {exc}"
