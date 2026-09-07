@@ -293,11 +293,7 @@ def _official_run_allowed(
     execution_mode: ExecutionMode,
     preflight_summary: PreflightSummary,
 ) -> bool:
-    return (
-        execution_mode == "live"
-        and mode in OFFICIAL_RESEARCH_MODES
-        and preflight_summary.ok
-    )
+    return execution_mode == "live" and mode in OFFICIAL_RESEARCH_MODES and preflight_summary.ok
 
 
 def _git_value(repo_dir: Path, *args: str) -> str | None:
