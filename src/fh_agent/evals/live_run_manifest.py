@@ -8,9 +8,20 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from fh_agent.evals.live_run_preflight import LiveRunPreflightResult
 
-ManifestMode = Literal["official_screen_only", "debug_visible_bridge", "dry_run"]
+ManifestMode = Literal[
+    "screen-only",
+    "bridge-assisted",
+    "debug",
+    "networked-api-exploratory",
+    "contaminated",
+]
+ExecutionMode = Literal["live", "dry-run"]
+LegacyManifestMode = Literal["official_screen_only", "debug_visible_bridge", "dry_run"]
 
-MANIFEST_VERSION = "1"
+MANIFEST_VERSION = "2"
+LEGACY_MANIFEST_VERSION = "1"
+LEGACY_MANIFEST_STATUS = "legacy-v1-unmigrated"
+OFFICIAL_RESEARCH_MODES: tuple[ManifestMode, ...] = ("screen-only", "bridge-assisted")
 
 ALLOWED_BRIDGE_FIELDS: tuple[str, ...] = (
     "message_window_visible",
@@ -106,14 +117,15 @@ class NoSpoilerPolicySnapshot(BaseModel):
 
 
 class LiveRunManifest(BaseModel):
-    """Audit manifest for a future controlled run, not a live runner."""
+    """Current v2 audit manifest with research and execution modes kept separate."""
 
     model_config = ConfigDict(extra="forbid")
 
-    manifest_version: str = MANIFEST_VERSION
+    manifest_version: Literal["2"] = MANIFEST_VERSION
     run_id: str
     created_at: datetime
     mode: ManifestMode
+    execution_mode: ExecutionMode = "live"
     preflight_summary: PreflightSummary
     official_run_allowed: bool
     safety_limits: LiveRunSafetyLimits
@@ -127,8 +139,13 @@ class LiveRunManifest(BaseModel):
 
     @model_validator(mode="after")
     def enforce_mode_policy(self) -> "LiveRunManifest":
-        if self.mode != "official_screen_only" and self.official_run_allowed:
-            msg = "only official_screen_only manifests may be marked official_run_allowed"
+        if self.official_run_allowed and (
+            self.execution_mode != "live" or self.mode not in OFFICIAL_RESEARCH_MODES
+        ):
+            msg = (
+                "official_run_allowed requires live execution mode and an existing canonical "
+                "official research cohort"
+            )
             raise ValueError(msg)
         return self
 
@@ -137,11 +154,37 @@ class LiveRunManifest(BaseModel):
         return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
+class LegacyLiveRunManifest(BaseModel):
+    """Readable v1 manifest retained without silently converting its legacy run mode."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_version: Literal["1"] = LEGACY_MANIFEST_VERSION
+    legacy_status: Literal["legacy-v1-unmigrated"] = LEGACY_MANIFEST_STATUS
+    run_id: str
+    created_at: datetime
+    mode: LegacyManifestMode
+    preflight_summary: PreflightSummary
+    official_run_allowed: bool
+    safety_limits: LiveRunSafetyLimits
+    expected_window_title: str | None = None
+    expected_resolution: FixedResolutionSnapshot | None = None
+    allowed_bridge_fields: tuple[str, ...] = ALLOWED_BRIDGE_FIELDS
+    forbidden_bridge_fields: tuple[str, ...] = FORBIDDEN_BRIDGE_FIELDS
+    paths: LiveRunPaths
+    repo_metadata: RepoMetadata | None = None
+    no_spoiler_policy: NoSpoilerPolicySnapshot = Field(default_factory=NoSpoilerPolicySnapshot)
+
+
+LiveRunManifestArtifact = LiveRunManifest | LegacyLiveRunManifest
+
+
 def create_live_run_manifest(
     *,
     run_id: str,
     mode: ManifestMode,
     preflight_result: LiveRunPreflightResult,
+    execution_mode: ExecutionMode = "live",
     runs_dir: Path = Path("runs"),
     screenshots_dir: Path = Path("screenshots"),
     reports_dir: Path | None = None,
@@ -152,7 +195,7 @@ def create_live_run_manifest(
     created_at: datetime | None = None,
     repo_metadata: RepoMetadata | None = None,
 ) -> LiveRunManifest:
-    """Create a serializable manifest without starting any live runtime."""
+    """Create a current manifest without starting any live runtime."""
 
     if not run_id:
         msg = "run_id must not be empty"
@@ -169,12 +212,17 @@ def create_live_run_manifest(
         manifest_path=resolved_manifest_path,
     )
     summary = _preflight_summary(preflight_result)
-    official_run_allowed = _official_run_allowed(mode=mode, preflight_summary=summary)
+    official_run_allowed = _official_run_allowed(
+        mode=mode,
+        execution_mode=execution_mode,
+        preflight_summary=summary,
+    )
 
     return LiveRunManifest(
         run_id=run_id,
         created_at=created_at or datetime.now(UTC),
         mode=mode,
+        execution_mode=execution_mode,
         preflight_summary=summary,
         official_run_allowed=official_run_allowed,
         safety_limits=safety_limits or LiveRunSafetyLimits(),
@@ -186,7 +234,7 @@ def create_live_run_manifest(
 
 
 def write_live_run_manifest(manifest: LiveRunManifest, *, overwrite: bool = False) -> Path:
-    """Persist the manifest JSON, refusing to clobber existing files by default."""
+    """Persist a current manifest JSON, refusing to clobber existing files by default."""
 
     manifest_path = manifest.paths.manifest_path
     if manifest_path.exists() and not overwrite:
@@ -239,8 +287,17 @@ def _preflight_summary(preflight_result: LiveRunPreflightResult) -> PreflightSum
     )
 
 
-def _official_run_allowed(*, mode: ManifestMode, preflight_summary: PreflightSummary) -> bool:
-    return mode == "official_screen_only" and preflight_summary.ok
+def _official_run_allowed(
+    *,
+    mode: ManifestMode,
+    execution_mode: ExecutionMode,
+    preflight_summary: PreflightSummary,
+) -> bool:
+    return (
+        execution_mode == "live"
+        and mode in OFFICIAL_RESEARCH_MODES
+        and preflight_summary.ok
+    )
 
 
 def _git_value(repo_dir: Path, *args: str) -> str | None:
