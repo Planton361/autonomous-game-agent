@@ -205,7 +205,8 @@ def _report_payload(*, run_id: str, pre_path: Path, post_path: Path) -> dict[str
     action = _action(ACTION)
     return {
         "run_id": run_id,
-        "mode": "official_screen_only",
+        "mode": "screen-only",
+        "execution_mode": "live",
         "runtime_mode": "observation_only",
         "official_screen_only": True,
         "real_input_mode": "single_directional_tap",
@@ -256,10 +257,11 @@ def _mechanical_review_payload(
     report: dict[str, Any],
 ) -> dict[str, Any]:
     return {
-        "review_summary_version": "1",
+        "review_summary_version": "2",
         "created_at": "2026-05-24T12:00:00Z",
         "run_id": run_id,
-        "mode": "official_screen_only",
+        "mode": "screen-only",
+        "execution_mode": "live",
         "runtime_mode": "observation_only",
         "preflight_ok": True,
         "validator_passed": True,

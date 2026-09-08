@@ -75,7 +75,8 @@ def plan_for_test(
 ) -> LiveSmokeRunPlan:
     manifest = create_live_run_manifest(
         run_id="run_0001",
-        mode="official_screen_only",
+        mode="screen-only",
+        execution_mode="live",
         preflight_result=preflight or safe_preflight(tmp_path),
         runs_dir=tmp_path / "runs",
         screenshots_dir=tmp_path / "screenshots",
@@ -115,7 +116,7 @@ def test_creates_noop_report_from_valid_plan(tmp_path: Path) -> None:
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert path == tmp_path / "runs" / "run_0001" / "reports" / "live_smoke_report.json"
-    assert payload["report_version"] == "1"
+    assert payload["report_version"] == "2"
     assert payload["run_id"] == "run_0001"
     assert payload["execution_status"] == "not_executed"
     assert payload["official_run_allowed"] is True

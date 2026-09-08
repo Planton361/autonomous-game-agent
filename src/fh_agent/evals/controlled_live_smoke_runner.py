@@ -8,11 +8,11 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from fh_agent.evals.live_audit_pipeline import LiveAuditPipelineResult
-from fh_agent.evals.live_run_manifest import ManifestMode
+from fh_agent.evals.live_run_manifest import ExecutionMode, ManifestMode
 from fh_agent.evals.live_smoke_plan import LiveSmokeRunPlan
 from fh_agent.evals.live_smoke_report import read_live_smoke_plan
 
-RUNNER_REPORT_VERSION = "1"
+RUNNER_REPORT_VERSION = "2"
 CONTROLLED_LIVE_SMOKE_MAX_FRAMES = 30
 
 RuntimeEventType = Literal[
@@ -187,6 +187,7 @@ class ControlledLiveSmokeResult(BaseModel):
     official_run_allowed: bool
     execution_enabled: bool = False
     mode: ManifestMode
+    execution_mode: ExecutionMode
     status: ControlledLiveSmokeStatus
     events: tuple[ControlledLiveSmokeEvent, ...]
     report_path: Path
@@ -204,7 +205,7 @@ class ControlledLiveSmokeReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    report_version: str = RUNNER_REPORT_VERSION
+    report_version: Literal["2"] = RUNNER_REPORT_VERSION
     run_id: str
     created_at: datetime
     user_started: bool
@@ -212,6 +213,7 @@ class ControlledLiveSmokeReport(BaseModel):
     execution_enabled: bool = False
     official_run_allowed: bool
     mode: ManifestMode
+    execution_mode: ExecutionMode
     status: ControlledLiveSmokeStatus
     event_count: int
     runtime_mode: Literal["observation_only"] = "observation_only"
@@ -261,6 +263,11 @@ class ControlledLiveSmokeReport(BaseModel):
 
     @model_validator(mode="after")
     def report_must_not_claim_autonomy(self) -> "ControlledLiveSmokeReport":
+        if self.mode != "screen-only" or self.execution_mode != "live":
+            msg = (
+                "controlled smoke report requires screen-only research mode and live execution mode"
+            )
+            raise ValueError(msg)
         if self.execution_enabled:
             msg = "controlled smoke report must not enable autonomous execution"
             raise ValueError(msg)
@@ -284,7 +291,7 @@ class ControlledLiveSmokeReport(BaseModel):
             if not self.real_wait_only_active:
                 msg = "wait-only real input mode must be active"
                 raise ValueError(msg)
-            if self.mode != "official_screen_only" or not self.official_screen_only:
+            if self.mode != "screen-only" or not self.official_screen_only:
                 msg = "wait-only real input mode requires official_screen_only"
                 raise ValueError(msg)
             if (
@@ -332,7 +339,7 @@ class ControlledLiveSmokeReport(BaseModel):
             if not self.allow_real_input:
                 msg = "single directional tap mode requires allow_real_input"
                 raise ValueError(msg)
-            if self.mode != "official_screen_only" or not self.official_screen_only:
+            if self.mode != "screen-only" or not self.official_screen_only:
                 msg = "single directional tap mode requires official_screen_only"
                 raise ValueError(msg)
             if self.allowed_real_primitives != (SINGLE_DIRECTIONAL_TAP_ACTION,):
@@ -894,6 +901,7 @@ def run_controlled_live_smoke(
         allow_real_input=allow_real_input,
         official_run_allowed=plan.official_run_allowed,
         mode=plan.mode,
+        execution_mode=plan.execution_mode,
         status=status,
         events=tuple(events),
         report_path=resolved_report_path,
@@ -905,6 +913,7 @@ def run_controlled_live_smoke(
         allow_real_input=result.allow_real_input,
         official_run_allowed=result.official_run_allowed,
         mode=result.mode,
+        execution_mode=result.execution_mode,
         status=result.status,
         event_count=len(result.events),
         no_input_sent=inputs_sent == 0,
@@ -928,7 +937,7 @@ def run_controlled_live_smoke(
         max_input_count=max_input_count,
         max_input_count_exceeded=max_input_count_exceeded,
         capture_script=capture_script,
-        official_screen_only=result.mode == "official_screen_only",
+        official_screen_only=result.mode == "screen-only",
         dryrun_task_count=len(dryrun_tasks),
         dryrun_skill_count=len(dryrun_tasks),
         dryrun_tasks=tuple(dryrun_tasks),
@@ -1016,6 +1025,14 @@ def _load_allowed_plan(
     plan = read_live_smoke_plan(plan_path)
     if not plan.official_run_allowed:
         msg = "smoke plan does not allow an official run"
+        raise ValueError(msg)
+    if plan.mode != "screen-only" or plan.execution_mode != "live":
+        msg = "controlled live smoke requires screen-only research mode and live execution mode"
+        raise ValueError(msg)
+    if pipeline_summary_path is not None and (
+        summary.mode != plan.mode or summary.execution_mode != plan.execution_mode
+    ):
+        msg = "pipeline summary and smoke plan mode classifications must match"
         raise ValueError(msg)
     return plan
 

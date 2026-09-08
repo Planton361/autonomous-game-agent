@@ -3,17 +3,17 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from fh_agent.evals.controlled_live_smoke_validator import (
     PRE_POST_DIMENSION_MISMATCH_MESSAGE,
     ControlledLiveSmokeValidationReport,
 )
 from fh_agent.evals.live_audit_pipeline import LiveAuditPipelineResult
-from fh_agent.evals.live_run_manifest import ManifestMode
+from fh_agent.evals.live_run_manifest import ExecutionMode, ManifestMode
 from fh_agent.evals.live_run_preflight import LiveRunPreflightResult
 
-REVIEW_SUMMARY_VERSION = "1"
+REVIEW_SUMMARY_VERSION = "2"
 SINGLE_DIRECTIONAL_TAP_ACTION = "move_right_short"
 PASSED_NEXT_STEP = (
     "Review architecture before enabling any input; next technical step may be "
@@ -46,10 +46,11 @@ class ControlledLiveSmokeReviewSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    review_summary_version: str = REVIEW_SUMMARY_VERSION
+    review_summary_version: Literal["2"] = REVIEW_SUMMARY_VERSION
     created_at: datetime
     run_id: str
     mode: ManifestMode
+    execution_mode: ExecutionMode
     runtime_mode: str
     preflight_ok: bool
     validator_passed: bool
@@ -152,10 +153,10 @@ def create_controlled_live_smoke_review_summary(
     screenshot_count = len(_list_value(smoke_report, "screenshot_paths"))
     evidence_count = len(_list_value(smoke_report, "evidence_ids"))
     runtime_mode = str(smoke_report.get("runtime_mode", ""))
-    mode = _mode_value(
-        smoke_report,
-        pipeline.mode if pipeline is not None else "official_screen_only",
-    )
+    if smoke_report.get("report_version") != "2":
+        raise ValueError("legacy or unsupported controlled smoke report; no mode migration")
+    mode = TypeAdapter(ManifestMode).validate_python(smoke_report.get("mode"))
+    execution_mode = TypeAdapter(ExecutionMode).validate_python(smoke_report.get("execution_mode"))
     captured_frame_count = _int_value(smoke_report, "captured_frame_count")
     actions_requested = _int_value(status, "actions_requested")
     inputs_sent = _int_value(smoke_report, "inputs_sent")
@@ -223,6 +224,12 @@ def create_controlled_live_smoke_review_summary(
         body_dryrun_active=body_dryrun_active,
         smoke_report=smoke_report,
     )
+    if execution_mode != "live":
+        failure_reasons.append("execution_mode is not live")
+    if pipeline is not None and (
+        pipeline.mode != mode or pipeline.execution_mode != execution_mode
+    ):
+        failure_reasons.append("pipeline and report mode classifications do not match")
     conclusion: ReviewConclusion = "passed" if not failure_reasons else "failed"
 
     return ControlledLiveSmokeReviewSummary(
@@ -232,6 +239,7 @@ def create_controlled_live_smoke_review_summary(
             or (pipeline.run_id if pipeline is not None else run_dir.name)
         ),
         mode=mode,
+        execution_mode=execution_mode,
         runtime_mode=runtime_mode,
         preflight_ok=preflight_ok,
         validator_passed=validation.status.passed,
@@ -437,7 +445,8 @@ def _single_directional_tap_current_run_safety_metadata_ok(
             smoke_report.get("execution_enabled") is False,
             smoke_report.get("official_run_allowed") is True,
             smoke_report.get("user_started") is True,
-            smoke_report.get("mode") == "official_screen_only",
+            smoke_report.get("mode") == "screen-only",
+            smoke_report.get("execution_mode") == "live",
             smoke_report.get("runtime_mode") == "observation_only",
             smoke_report.get("allow_real_input") is True,
             smoke_report.get("official_screen_only") is True,
@@ -587,13 +596,6 @@ def _str_tuple_value(payload: dict[str, object], key: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
     return tuple(item for item in value if isinstance(item, str))
-
-
-def _mode_value(payload: dict[str, object], fallback: ManifestMode) -> ManifestMode:
-    value = payload.get("mode")
-    if value in ("official_screen_only", "debug_visible_bridge", "dry_run"):
-        return value
-    return fallback
 
 
 def _capture_timing(payload: dict[str, object]) -> tuple[float | None, float | None]:
@@ -754,8 +756,8 @@ def _failure_reasons(
     smoke_report: dict[str, object],
 ) -> list[str]:
     reasons: list[str] = []
-    if mode != "official_screen_only":
-        reasons.append("mode is not official_screen_only")
+    if mode != "screen-only":
+        reasons.append("mode is not screen-only")
     if not preflight_ok:
         reasons.append("preflight did not pass")
     if not validator_passed:

@@ -6,13 +6,16 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from fh_agent.evals.live_run_manifest import (
+    ExecutionMode,
+    LegacyLiveRunManifest,
     LiveRunManifest,
+    LiveRunManifestArtifact,
     LiveRunSafetyLimits,
     ManifestMode,
     NoSpoilerPolicySnapshot,
 )
 
-PLAN_VERSION = "1"
+PLAN_VERSION = "2"
 
 StopConditionName = Literal[
     "max_duration",
@@ -54,7 +57,7 @@ class LiveSmokeRunPlan(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    plan_version: str = PLAN_VERSION
+    plan_version: Literal["2"] = PLAN_VERSION
     run_id: str
     created_at: datetime
     source_manifest_path: Path
@@ -62,6 +65,7 @@ class LiveSmokeRunPlan(BaseModel):
     execution_enabled: bool = False
     official_run_allowed: bool
     mode: ManifestMode
+    execution_mode: ExecutionMode
     safety_limits: LiveRunSafetyLimits
     stop_conditions: tuple[LiveSmokeStopCondition, ...]
     expected_outputs: LiveSmokeExpectedOutputs
@@ -82,14 +86,21 @@ class LiveSmokeRunPlan(BaseModel):
 
 def create_live_smoke_plan(
     *,
-    manifest: LiveRunManifest,
+    manifest: LiveRunManifestArtifact,
     source_manifest_path: Path,
     source_preflight_path: Path | None = None,
     smoke_plan_path: Path | None = None,
     final_report_path: Path | None = None,
     created_at: datetime | None = None,
 ) -> LiveSmokeRunPlan:
-    """Create a dry smoke-run plan from an already-written live-run manifest."""
+    """Create a current smoke-run plan from an already-written current manifest."""
+
+    if isinstance(manifest, LegacyLiveRunManifest):
+        msg = (
+            "legacy v1 live-run manifests are readable for audit only and cannot drive a current "
+            "smoke plan; regenerate a v2 manifest with explicit research and execution modes"
+        )
+        raise ValueError(msg)
 
     plan_path = smoke_plan_path or manifest.paths.reports_dir / "live_smoke_plan.json"
     report_path = final_report_path or manifest.paths.reports_dir / "live_smoke_report.json"
@@ -103,6 +114,7 @@ def create_live_smoke_plan(
         source_preflight_path=source_preflight_path,
         official_run_allowed=official_run_allowed,
         mode=manifest.mode,
+        execution_mode=manifest.execution_mode,
         safety_limits=manifest.safety_limits,
         stop_conditions=_stop_conditions_from_limits(manifest.safety_limits),
         expected_outputs=LiveSmokeExpectedOutputs(
@@ -129,13 +141,20 @@ def write_live_smoke_plan(plan: LiveSmokeRunPlan, *, overwrite: bool = False) ->
     return plan_path
 
 
-def read_live_run_manifest(path: Path) -> LiveRunManifest:
-    """Load and validate a LiveRunManifest JSON file."""
+def read_live_run_manifest(path: Path) -> LiveRunManifestArtifact:
+    """Load a current or explicitly legacy LiveRunManifest JSON file."""
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        return LiveRunManifest.model_validate(payload)
-    except (OSError, json.JSONDecodeError, ValidationError) as exc:
+        if not isinstance(payload, dict):
+            raise ValueError("manifest payload must be an object")
+        version = payload.get("manifest_version")
+        if version == "2":
+            return LiveRunManifest.model_validate(payload)
+        if version == "1":
+            return LegacyLiveRunManifest.model_validate(payload)
+        raise ValueError(f"unsupported live-run manifest version: {version!r}")
+    except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
         msg = f"invalid live-run manifest: {path}: {exc}"
         raise ValueError(msg) from exc
 
@@ -198,6 +217,8 @@ def _validation_errors_for_manifest(manifest: LiveRunManifest) -> list[str]:
         errors.append("preflight_not_allowed")
     if manifest.official_run_allowed is False:
         errors.append("manifest_not_allowed")
+    if manifest.execution_mode == "dry-run":
+        errors.append("execution_mode_dry_run")
     if manifest.safety_limits.allow_real_input:
         errors.append("allow_real_input_must_be_false_for_dry_plan")
     return errors

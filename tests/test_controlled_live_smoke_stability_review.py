@@ -219,6 +219,8 @@ def test_stability_review_rejects_duplicate_run_id(tmp_path: Path) -> None:
             "hidden_state_violation_count_zero",
         ),
         ({"official_screen_only": False}, {"official_screen_only": False}, "official_screen_only"),
+        ({"execution_mode": "dry-run"}, {}, "execution_mode_live"),
+        ({}, {"execution_mode": "dry-run"}, "execution_mode_live"),
         (
             {"autonomous_planner_active": True},
             {"planner_active": True},
@@ -421,7 +423,8 @@ def _valid_report(*, run_id: str, pre_path: Path, post_path: Path) -> dict[str, 
     action = _action(ACTION)
     return {
         "run_id": run_id,
-        "mode": "official_screen_only",
+        "mode": "screen-only",
+        "execution_mode": "live",
         "runtime_mode": "observation_only",
         "official_screen_only": True,
         "real_input_mode": "single_directional_tap",
@@ -474,10 +477,11 @@ def _valid_review(
     validation_error_count: int,
 ) -> dict[str, Any]:
     return {
-        "review_summary_version": "1",
+        "review_summary_version": "2",
         "created_at": "2026-05-24T12:00:00Z",
         "run_id": run_id,
         "mode": report["mode"],
+        "execution_mode": report["execution_mode"],
         "runtime_mode": "observation_only",
         "preflight_ok": True,
         "validator_passed": validator_passed,

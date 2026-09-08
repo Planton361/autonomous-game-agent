@@ -157,12 +157,13 @@ def write_review_fixture(
         (reports_dir / "live_audit_pipeline.json").write_text(
             json.dumps(
                 {
-                    "pipeline_version": "1",
+                    "pipeline_version": "2",
                     "run_id": "run_12_10b_three_frame_manual",
                     "created_at": "2026-05-17T12:00:00Z",
                     "execution_enabled": False,
                     "official_run_allowed": True,
-                    "mode": "official_screen_only",
+                    "mode": "screen-only",
+                    "execution_mode": "live",
                     "preflight_report_path": str(reports_dir / "preflight_report.json"),
                     "manifest_path": str(reports_dir / "live_run_manifest.json"),
                     "smoke_plan_path": str(reports_dir / "live_smoke_plan.json"),
@@ -178,14 +179,15 @@ def write_review_fixture(
     (reports_dir / "live_smoke_report.json").write_text(
         json.dumps(
             {
-                "report_version": "1",
+                "report_version": "2",
                 "run_id": "run_12_10b_three_frame_manual",
                 "created_at": "2026-05-17T12:00:00Z",
                 "user_started": True,
                 "allow_real_input": real_wait_only or real_single_tap,
                 "execution_enabled": False,
                 "official_run_allowed": True,
-                "mode": "official_screen_only",
+                "mode": "screen-only",
+                "execution_mode": "live",
                 "status": {
                     "started": True,
                     "finished": True,
@@ -330,7 +332,9 @@ def test_review_summary_passes_for_valid_three_frame_run_fixture(tmp_path: Path)
 
     assert summary.conclusion == "passed"
     assert summary.run_id == "run_12_10b_three_frame_manual"
-    assert summary.mode == "official_screen_only"
+    assert summary.mode == "screen-only"
+    assert summary.execution_mode == "live"
+    assert summary.review_summary_version == "2"
     assert summary.runtime_mode == "observation_only"
     assert summary.preflight_ok is True
     assert summary.validator_passed is True
@@ -1233,3 +1237,46 @@ def write_single_tap_review_json(
         payload.update(updates)
         path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
     return path
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("mode", "official_screen_only"),
+        ("mode", "debug_visible_bridge"),
+        ("mode", "dry_run"),
+        ("mode", None),
+        ("execution_mode", None),
+        ("report_version", "1"),
+    ),
+)
+def test_review_does_not_fall_back_to_pipeline_for_legacy_or_missing_classification(
+    tmp_path: Path, field: str, value: str | None
+) -> None:
+    run_dir = write_review_fixture(tmp_path)
+    path = run_dir / "reports" / "live_smoke_report.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if value is None:
+        payload.pop(field)
+    else:
+        payload[field] = value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError):
+        create_controlled_live_smoke_review_summary(run_dir=run_dir)
+
+
+@pytest.mark.parametrize(
+    "field,value", (("mode", "bridge-assisted"), ("execution_mode", "dry-run"))
+)
+def test_review_reports_current_classification_mismatch_without_reclassification(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    run_dir = write_review_fixture(tmp_path)
+    path = run_dir / "reports" / "live_smoke_report.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload[field] = value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    summary = create_controlled_live_smoke_review_summary(run_dir=run_dir)
+    assert summary.conclusion == "failed"
+    assert getattr(summary, field) == value
+    assert "pipeline and report mode classifications do not match" in summary.failure_reasons

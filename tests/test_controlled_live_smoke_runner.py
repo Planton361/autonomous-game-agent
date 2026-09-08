@@ -22,8 +22,10 @@ from fh_agent.evals.live_audit_pipeline import (
     write_live_audit_pipeline_result,
 )
 from fh_agent.evals.live_run_manifest import (
+    ExecutionMode,
     FixedResolutionSnapshot,
     LiveRunSafetyLimits,
+    ManifestMode,
     RepoMetadata,
 )
 from fh_agent.evals.live_run_preflight import (
@@ -152,12 +154,15 @@ def write_pipeline_summary(
     *,
     no_spoiler_mode: bool = True,
     safety_limits: LiveRunSafetyLimits | None = None,
+    mode: ManifestMode = "screen-only",
+    execution_mode: ExecutionMode = "live",
 ) -> Path:
     preflight_report = write_preflight_report(tmp_path, no_spoiler_mode=no_spoiler_mode)
     result = run_live_audit_pipeline(
         run_id="run_0001",
         preflight_report_path=preflight_report,
-        mode="official_screen_only",
+        mode=mode,
+        execution_mode=execution_mode,
         runs_dir=tmp_path / "runs",
         screenshots_dir=tmp_path / "screenshots",
         expected_resolution=FixedResolutionSnapshot(width=1280, height=720),
@@ -646,7 +651,9 @@ def test_runner_writes_final_controlled_smoke_report(tmp_path: Path) -> None:
 
     assert result.report_path.is_file()
     payload = json.loads(result.report_path.read_text(encoding="utf-8"))
-    assert payload["report_version"] == "1"
+    assert payload["report_version"] == "2"
+    assert result.mode == payload["mode"] == "screen-only"
+    assert result.execution_mode == payload["execution_mode"] == "live"
     assert payload["run_id"] == "run_0001"
 
 
@@ -875,3 +882,62 @@ def test_source_scan_blocks_planner_manager_body_rl_training_torch_sb3_hidden_im
     )
     for term in forbidden_terms:
         assert term not in source
+
+
+@pytest.mark.parametrize("source", ("pipeline", "plan"))
+@pytest.mark.parametrize(
+    ("mode", "execution_mode"),
+    (
+        ("bridge-assisted", "live"),
+        ("debug", "live"),
+        ("networked-api-exploratory", "live"),
+        ("contaminated", "live"),
+        ("screen-only", "dry-run"),
+    ),
+)
+def test_incompatible_classification_rejected_before_capture_or_input(
+    tmp_path: Path, source: str, mode: ManifestMode, execution_mode: ExecutionMode
+) -> None:
+    summary_path = write_pipeline_summary(tmp_path, mode=mode, execution_mode=execution_mode)
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    capture = FakeCapture()
+    sender = FakeRealPrimitiveSender()
+    events, logger = event_log()
+    with pytest.raises(ValueError, match="requires screen-only|does not allow an official run"):
+        run_controlled_live_smoke(
+            user_started=True,
+            pipeline_summary_path=summary_path if source == "pipeline" else None,
+            smoke_plan_path=Path(summary["smoke_plan_path"]) if source == "plan" else None,
+            focus_check=lambda: True,
+            emergency_stop_available=lambda: True,
+            emergency_stop_triggered=lambda: False,
+            capture_frame=capture,
+            log_event=logger,
+            allow_real_input=True,
+            real_input_mode="single_directional_tap",
+            send_real_primitive=sender,
+            allowed_real_primitives=("move_right_short",),
+            max_input_count=1,
+            max_frames=2,
+        )
+    assert capture.count == 0
+    assert sender.actions == []
+    assert events == []
+    report = json.loads(Path(summary["smoke_report_path"]).read_text(encoding="utf-8"))
+    assert report["execution_status"] == "not_executed"
+
+
+@pytest.mark.parametrize(
+    "field,value", (("mode", "bridge-assisted"), ("execution_mode", "dry-run"))
+)
+def test_runner_rejects_pipeline_plan_classification_mismatch(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    summary_path = write_pipeline_summary(tmp_path)
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    payload[field] = value
+    summary_path.write_text(json.dumps(payload), encoding="utf-8")
+    capture = FakeCapture()
+    with pytest.raises(ValueError, match="classifications must match"):
+        run_with_fakes(tmp_path, summary_path=summary_path, capture=capture)
+    assert capture.count == 0

@@ -5,14 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
-from fh_agent.evals.live_run_manifest import ManifestMode, NoSpoilerPolicySnapshot
+from fh_agent.evals.live_run_manifest import ExecutionMode, ManifestMode, NoSpoilerPolicySnapshot
 from fh_agent.evals.live_smoke_plan import (
     LiveSmokeExpectedOutputs,
     LiveSmokeRunPlan,
     LiveSmokeStopCondition,
 )
 
-REPORT_VERSION = "1"
+REPORT_VERSION = "2"
 
 ReadinessSeverity = Literal["info", "warning", "blocker"]
 ExecutionStatus = Literal["not_executed"]
@@ -33,7 +33,7 @@ class LiveSmokeRunReport(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    report_version: str = REPORT_VERSION
+    report_version: Literal["2"] = REPORT_VERSION
     run_id: str
     created_at: datetime
     execution_status: ExecutionStatus = "not_executed"
@@ -41,6 +41,7 @@ class LiveSmokeRunReport(BaseModel):
     official_run_allowed: bool
     source_plan_path: Path
     mode: ManifestMode
+    execution_mode: ExecutionMode
     readiness_gaps: tuple[LiveSmokeReadinessGap, ...]
     blocked_reasons: tuple[str, ...]
     stop_conditions: tuple[LiveSmokeStopCondition, ...]
@@ -67,12 +68,20 @@ class LiveSmokeRunReport(BaseModel):
 
 
 def read_live_smoke_plan(path: Path) -> LiveSmokeRunPlan:
-    """Load and validate a dry LiveSmokeRunPlan JSON file."""
+    """Load and validate a current v2 LiveSmokeRunPlan JSON file."""
 
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("live-smoke plan payload must be an object")
+        if payload.get("plan_version") != "2":
+            msg = (
+                "legacy or unsupported live-smoke plans are not migrated; "
+                "regenerate from a v2 manifest"
+            )
+            raise ValueError(msg)
         return LiveSmokeRunPlan.model_validate(payload)
-    except (OSError, json.JSONDecodeError, ValidationError) as exc:
+    except (OSError, json.JSONDecodeError, ValidationError, ValueError) as exc:
         msg = f"invalid live-smoke plan: {path}: {exc}"
         raise ValueError(msg) from exc
 
@@ -95,6 +104,7 @@ def create_noop_live_smoke_report(
         official_run_allowed=plan.official_run_allowed,
         source_plan_path=source_plan_path,
         mode=plan.mode,
+        execution_mode=plan.execution_mode,
         readiness_gaps=tuple(readiness_gaps),
         blocked_reasons=blocked_reasons,
         stop_conditions=plan.stop_conditions,

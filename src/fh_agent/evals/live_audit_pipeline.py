@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from fh_agent.evals.live_run_manifest import (
+    ExecutionMode,
     FixedResolutionSnapshot,
     ManifestMode,
     RepoMetadata,
@@ -24,7 +25,7 @@ from fh_agent.evals.live_smoke_report import (
     write_live_smoke_report,
 )
 
-PIPELINE_VERSION = "1"
+PIPELINE_VERSION = "2"
 
 StageName = Literal["preflight", "manifest", "smoke_plan", "smoke_report", "summary"]
 StageStatus = Literal["succeeded", "failed", "skipped"]
@@ -46,12 +47,13 @@ class LiveAuditPipelineResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    pipeline_version: str = PIPELINE_VERSION
+    pipeline_version: Literal["2"] = PIPELINE_VERSION
     run_id: str
     created_at: datetime
     execution_enabled: bool = False
     official_run_allowed: bool
     mode: ManifestMode
+    execution_mode: ExecutionMode
     preflight_report_path: Path
     manifest_path: Path
     smoke_plan_path: Path
@@ -77,6 +79,7 @@ def run_live_audit_pipeline(
     run_id: str,
     preflight_report_path: Path,
     mode: ManifestMode,
+    execution_mode: ExecutionMode = "live",
     runs_dir: Path = Path("runs"),
     screenshots_dir: Path = Path("screenshots"),
     reports_dir: Path | None = None,
@@ -123,6 +126,7 @@ def run_live_audit_pipeline(
             run_id=run_id,
             created_at=timestamp,
             mode=mode,
+            execution_mode=execution_mode,
             preflight_report_path=preflight_report_path,
             paths=paths,
             stages=stages,
@@ -134,6 +138,7 @@ def run_live_audit_pipeline(
         manifest = create_live_run_manifest(
             run_id=run_id,
             mode=mode,
+            execution_mode=execution_mode,
             preflight_result=preflight,
             runs_dir=runs_dir,
             screenshots_dir=screenshots_dir,
@@ -169,6 +174,7 @@ def run_live_audit_pipeline(
             run_id=run_id,
             created_at=timestamp,
             mode=mode,
+            execution_mode=execution_mode,
             preflight_report_path=preflight_report_path,
             paths=paths,
             stages=stages,
@@ -210,6 +216,7 @@ def run_live_audit_pipeline(
             run_id=run_id,
             created_at=timestamp,
             mode=mode,
+            execution_mode=execution_mode,
             preflight_report_path=preflight_report_path,
             paths=paths,
             stages=stages,
@@ -255,6 +262,7 @@ def run_live_audit_pipeline(
         run_id=run_id,
         created_at=timestamp,
         mode=mode,
+        execution_mode=execution_mode,
         preflight_report_path=preflight_report_path,
         paths=paths,
         stages=stages,
@@ -332,6 +340,7 @@ def _result(
     run_id: str,
     created_at: datetime,
     mode: ManifestMode,
+    execution_mode: ExecutionMode,
     preflight_report_path: Path,
     paths: dict[str, Path],
     stages: list[LiveAuditPipelineStage],
@@ -343,6 +352,7 @@ def _result(
         created_at=created_at,
         official_run_allowed=official_run_allowed,
         mode=mode,
+        execution_mode=execution_mode,
         preflight_report_path=preflight_report_path,
         manifest_path=paths["manifest"],
         smoke_plan_path=paths["smoke_plan"],
