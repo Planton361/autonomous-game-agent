@@ -35,14 +35,15 @@ def make_report_payload(tmp_path: Path, *, frame_count: int = 1) -> dict[str, ob
             }
         )
     return {
-        "report_version": "1",
+        "report_version": "2",
         "run_id": "run_0001",
         "created_at": "2026-05-16T12:00:00Z",
         "user_started": True,
         "allow_real_input": False,
         "execution_enabled": False,
         "official_run_allowed": True,
-        "mode": "official_screen_only",
+        "mode": "screen-only",
+        "execution_mode": "live",
         "status": {
             "started": True,
             "finished": True,
@@ -1013,7 +1014,8 @@ def test_single_directional_tap_rejects_missing_pre_input_gate_checks(
 
 def test_single_directional_tap_rejects_non_official_screen_only(tmp_path: Path) -> None:
     payload = add_single_directional_tap_action(make_report_payload(tmp_path, frame_count=2))
-    payload["mode"] = "debug_visible_bridge"
+    payload["mode"] = "debug"
+    payload["official_run_allowed"] = False
 
     validation = validate_controlled_live_smoke_artifacts(
         report_path=write_report(tmp_path, payload),
@@ -1255,3 +1257,31 @@ def test_source_scan_blocks_live_runtime_imports() -> None:
     )
     for term in forbidden_terms:
         assert term not in source
+
+
+@pytest.mark.parametrize("legacy_mode", ("official_screen_only", "debug_visible_bridge", "dry_run"))
+def test_validator_rejects_legacy_report_without_reclassification(
+    tmp_path: Path, legacy_mode: str
+) -> None:
+    payload = make_report_payload(tmp_path)
+    payload.update(report_version="1", mode=legacy_mode)
+    payload.pop("execution_mode")
+    report_path = write_report(tmp_path, payload)
+    validation = validate_controlled_live_smoke_artifacts(report_path=report_path)
+    assert not validation.status.passed
+    assert any(
+        check.name == "report_model_valid" and not check.passed for check in validation.checks
+    )
+    assert json.loads(report_path.read_text(encoding="utf-8")) == payload
+
+
+def test_validator_rejects_dry_execution_for_controlled_live_report(tmp_path: Path) -> None:
+    payload = make_report_payload(tmp_path)
+    payload.update(execution_mode="dry-run", official_run_allowed=False)
+    validation = validate_controlled_live_smoke_artifacts(
+        report_path=write_report(tmp_path, payload)
+    )
+    assert not validation.status.passed
+    assert any(
+        check.name == "execution_mode_live" and not check.passed for check in validation.checks
+    )

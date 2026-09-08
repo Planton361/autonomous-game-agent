@@ -73,7 +73,8 @@ def manifest_for_test(
 ):
     return create_live_run_manifest(
         run_id="run_0001",
-        mode="official_screen_only",
+        mode="screen-only",
+        execution_mode="live",
         preflight_result=preflight or safe_preflight(tmp_path),
         runs_dir=tmp_path / "runs",
         screenshots_dir=tmp_path / "screenshots",
@@ -122,8 +123,8 @@ def test_creates_plan_from_valid_manifest(tmp_path: Path) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert path == tmp_path / "runs" / "run_0001" / "reports" / "live_smoke_plan.json"
     assert payload["run_id"] == "run_0001"
-    assert payload["plan_version"] == "1"
-    assert payload["mode"] == "official_screen_only"
+    assert payload["plan_version"] == "2"
+    assert payload["mode"] == "screen-only"
     assert payload["official_run_allowed"] is True
 
 

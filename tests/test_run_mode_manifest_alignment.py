@@ -4,7 +4,9 @@ from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
+from fh_agent.cli import app
 from fh_agent.evals.live_audit_pipeline import run_live_audit_pipeline
 from fh_agent.evals.live_run_manifest import (
     LEGACY_MANIFEST_STATUS,
@@ -255,3 +257,86 @@ def test_dry_run_audit_chain_preserves_research_mode_but_blocks_official_executi
     assert result.execution_mode == "dry-run"
     assert result.official_run_allowed is False
     assert "execution_mode_dry_run" in result.validation_errors
+
+
+@pytest.mark.parametrize("command", ("live-manifest", "live-audit-pipeline"))
+@pytest.mark.parametrize("mode", CANONICAL_MODES)
+@pytest.mark.parametrize("execution_mode", ("live", "dry-run"))
+def test_cli_propagates_separate_current_classifications(
+    tmp_path: Path, command: str, mode: str, execution_mode: str
+) -> None:
+    preflight = tmp_path / "preflight.json"
+    write_preflight(preflight)
+    result = CliRunner().invoke(
+        app,
+        [
+            command,
+            "--run-id",
+            "run-1",
+            "--preflight-report",
+            str(preflight),
+            "--research-mode",
+            mode,
+            "--execution-mode",
+            execution_mode,
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--screenshots-dir",
+            str(tmp_path / "screenshots"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(Path(result.output.strip()).read_text(encoding="utf-8"))
+    assert payload["mode"] == mode
+    assert payload["execution_mode"] == execution_mode
+    assert payload["official_run_allowed"] is (
+        execution_mode == "live" and mode in {"screen-only", "bridge-assisted"}
+    )
+
+
+@pytest.mark.parametrize("command", ("live-manifest", "live-audit-pipeline"))
+@pytest.mark.parametrize("option", ("--research-mode", "--mode"))
+@pytest.mark.parametrize("legacy_mode", ("official_screen_only", "debug_visible_bridge", "dry_run"))
+def test_cli_rejects_legacy_research_values_before_writing_artifacts(
+    tmp_path: Path, command: str, option: str, legacy_mode: str
+) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            command,
+            "--run-id",
+            "run-1",
+            "--preflight-report",
+            str(tmp_path / "missing.json"),
+            option,
+            legacy_mode,
+            "--runs-dir",
+            str(tmp_path / "runs"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize("command", ("live-manifest", "live-audit-pipeline"))
+def test_cli_rejects_invalid_execution_classification(tmp_path: Path, command: str) -> None:
+    result = CliRunner().invoke(
+        app,
+        [
+            command,
+            "--run-id",
+            "run-1",
+            "--preflight-report",
+            str(tmp_path / "missing.json"),
+            "--research-mode",
+            "screen-only",
+            "--execution-mode",
+            "dry_run",
+            "--runs-dir",
+            str(tmp_path / "runs"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "Invalid value" in result.output
+    assert not (tmp_path / "runs").exists()

@@ -117,7 +117,8 @@ def write_pipeline_summary(
     result = run_live_audit_pipeline(
         run_id="run_0001",
         preflight_report_path=preflight_path,
-        mode="official_screen_only",
+        mode="screen-only",
+        execution_mode="live",
         runs_dir=tmp_path / "runs",
         screenshots_dir=tmp_path / "screenshots",
         expected_resolution=FixedResolutionSnapshot(width=1280, height=720),

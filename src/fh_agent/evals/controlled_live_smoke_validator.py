@@ -150,9 +150,15 @@ def validate_controlled_live_smoke_artifacts(
         ),
         _check(
             "mode_official_screen_only",
-            payload.get("mode") == "official_screen_only",
-            "mode is official_screen_only",
-            "mode must be official_screen_only",
+            payload.get("mode") == "screen-only",
+            "mode is screen-only",
+            "mode must be screen-only",
+        ),
+        _check(
+            "execution_mode_live",
+            payload.get("execution_mode") == "live",
+            "execution_mode is live",
+            "execution_mode must be live",
         ),
         _check(
             "no_input_sent",
@@ -818,7 +824,7 @@ def _check_single_directional_tap_input_safety(
     pre_input_evidence = _list_value(payload, "pre_input_evidence_ids")
     post_input_evidence = _list_value(payload, "post_input_evidence_ids")
     checks = {
-        "mode_official_screen_only": payload.get("mode") == "official_screen_only",
+        "mode_official_screen_only": payload.get("mode") == "screen-only",
         "official_screen_only": payload.get("official_screen_only") is True,
         "allow_real_input_true": payload.get("allow_real_input") is True,
         "allowed_real_primitives_exact": payload.get("allowed_real_primitives")

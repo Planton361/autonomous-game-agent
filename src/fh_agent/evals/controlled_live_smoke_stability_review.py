@@ -269,10 +269,13 @@ def _run_summary_from_artifacts(
     checks = {
         "run_id_matches_review": run_id == review.run_id,
         "official_screen_only": (
-            report.get("mode") == "official_screen_only"
+            report.get("mode") == "screen-only"
             and report.get("official_screen_only") is True
-            and review.mode == "official_screen_only"
+            and review.mode == "screen-only"
             and review.official_screen_only is True
+        ),
+        "execution_mode_live": (
+            report.get("execution_mode") == "live" and review.execution_mode == "live"
         ),
         "real_input_mode_single_directional_tap": (
             _str_value(report, "real_input_mode", default="") == REQUIRED_REAL_INPUT_MODE

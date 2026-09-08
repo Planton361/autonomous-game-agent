@@ -48,11 +48,12 @@ def manifest_for_test(
     tmp_path: Path,
     *,
     preflight: LiveRunPreflightResult | None = None,
-    mode: str = "official_screen_only",
+    mode: str = "screen-only",
 ):
     return create_live_run_manifest(
         run_id="run_0001",
         mode=mode,  # type: ignore[arg-type]
+        execution_mode="live",
         preflight_result=preflight or safe_preflight(tmp_path),
         runs_dir=tmp_path / "runs",
         screenshots_dir=tmp_path / "screenshots",
@@ -70,7 +71,7 @@ def test_creates_manifest_from_passing_preflight(tmp_path: Path) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert path == tmp_path / "runs" / "run_0001" / "reports" / "live_run_manifest.json"
     assert payload["run_id"] == "run_0001"
-    assert payload["mode"] == "official_screen_only"
+    assert payload["mode"] == "screen-only"
     assert payload["preflight_summary"]["ok"] is True
     assert payload["official_run_allowed"] is True
     assert payload["paths"]["events_jsonl"].endswith("runs/run_0001/events.jsonl")
@@ -99,20 +100,20 @@ def test_failed_preflight_sets_official_run_allowed_false(tmp_path: Path) -> Non
     assert manifest.preflight_summary.error_checks == ("no_spoiler_mode",)
 
 
-def test_official_screen_only_manifest_disallows_debug_bridge(tmp_path: Path) -> None:
+def test_screen_only_manifest_preserves_visible_only_bridge_allowlist(tmp_path: Path) -> None:
     manifest = manifest_for_test(tmp_path)
 
-    assert manifest.mode == "official_screen_only"
+    assert manifest.mode == "screen-only"
     assert manifest.official_run_allowed is True
     assert manifest.allowed_bridge_fields == ALLOWED_BRIDGE_FIELDS
     assert "map_id" not in manifest.allowed_bridge_fields
     assert "debug_oracle" not in manifest.model_dump_json()
 
 
-def test_debug_visible_bridge_manifest_is_marked_non_official_or_debug(tmp_path: Path) -> None:
-    manifest = manifest_for_test(tmp_path, mode="debug_visible_bridge")
+def test_debug_manifest_is_non_official(tmp_path: Path) -> None:
+    manifest = manifest_for_test(tmp_path, mode="debug")
 
-    assert manifest.mode == "debug_visible_bridge"
+    assert manifest.mode == "debug"
     assert manifest.official_run_allowed is False
 
 
@@ -226,7 +227,7 @@ def test_cli_live_manifest_writes_manifest_from_preflight_report(tmp_path: Path)
             "--run-id",
             "run_0001",
             "--mode",
-            "official_screen_only",
+            "screen-only",
             "--preflight-report",
             str(preflight_path),
             "--runs-dir",
@@ -253,7 +254,7 @@ def test_cli_live_manifest_fails_for_invalid_preflight_report(tmp_path: Path) ->
             "--run-id",
             "run_0001",
             "--mode",
-            "official_screen_only",
+            "screen-only",
             "--preflight-report",
             str(preflight_path),
         ],

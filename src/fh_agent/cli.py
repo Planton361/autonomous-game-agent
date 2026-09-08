@@ -34,7 +34,9 @@ from fh_agent.evals.live_audit_pipeline import (
     write_live_audit_pipeline_result,
 )
 from fh_agent.evals.live_run_manifest import (
+    ExecutionMode,
     FixedResolutionSnapshot,
+    ManifestMode,
     create_live_run_manifest,
     read_preflight_report,
     write_live_run_manifest,
@@ -531,16 +533,23 @@ def live_preflight(
 def live_manifest(
     run_id: Annotated[str, typer.Option("--run-id", help="Run identifier for the manifest.")],
     mode: Annotated[
-        str,
+        ManifestMode,
         typer.Option(
+            "--research-mode",
             "--mode",
-            help="Manifest mode: official_screen_only, debug_visible_bridge, or dry_run.",
+            help="Canonical research classification for the manifest.",
         ),
     ],
     preflight_report: Annotated[
         Path,
         typer.Option("--preflight-report", help="JSON report from live-preflight."),
     ],
+    execution_mode: Annotated[
+        ExecutionMode,
+        typer.Option(
+            "--execution-mode", help="Execution classification, separate from research mode."
+        ),
+    ] = "live",
     runs_dir: Annotated[
         Path,
         typer.Option("--runs-dir", help="Directory where future run logs will be stored."),
@@ -578,10 +587,6 @@ def live_manifest(
     ] = False,
 ) -> None:
     """Write a live-run audit manifest without starting live automation."""
-    allowed_modes = {"official_screen_only", "debug_visible_bridge", "dry_run"}
-    if mode not in allowed_modes:
-        msg = f"mode must be one of: {', '.join(sorted(allowed_modes))}"
-        raise typer.BadParameter(msg)
     if (width is None) != (height is None):
         raise typer.BadParameter("width and height must be provided together")
 
@@ -594,7 +599,8 @@ def live_manifest(
         )
         manifest = create_live_run_manifest(
             run_id=run_id,
-            mode=mode,  # type: ignore[arg-type]
+            mode=mode,
+            execution_mode=execution_mode,
             preflight_result=preflight_result,
             runs_dir=runs_dir,
             screenshots_dir=screenshots_dir,
@@ -683,12 +689,19 @@ def live_audit_pipeline(
         typer.Option("--preflight-report", help="JSON report from live-preflight."),
     ],
     mode: Annotated[
-        str,
+        ManifestMode,
         typer.Option(
+            "--research-mode",
             "--mode",
-            help="Pipeline mode: official_screen_only, debug_visible_bridge, or dry_run.",
+            help="Canonical research classification for the pipeline.",
         ),
     ],
+    execution_mode: Annotated[
+        ExecutionMode,
+        typer.Option(
+            "--execution-mode", help="Execution classification, separate from research mode."
+        ),
+    ] = "live",
     runs_dir: Annotated[
         Path,
         typer.Option("--runs-dir", help="Directory where future run logs will be stored."),
@@ -710,15 +723,11 @@ def live_audit_pipeline(
     ] = False,
 ) -> None:
     """Run the JSON-only live audit artifact pipeline."""
-    allowed_modes = {"official_screen_only", "debug_visible_bridge", "dry_run"}
-    if mode not in allowed_modes:
-        msg = f"mode must be one of: {', '.join(sorted(allowed_modes))}"
-        raise typer.BadParameter(msg)
-
     result = run_live_audit_pipeline(
         run_id=run_id,
         preflight_report_path=preflight_report,
-        mode=mode,  # type: ignore[arg-type]
+        mode=mode,
+        execution_mode=execution_mode,
         runs_dir=runs_dir,
         screenshots_dir=screenshots_dir,
         reports_dir=reports_dir,
