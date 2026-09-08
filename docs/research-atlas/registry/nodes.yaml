@@ -1,0 +1,183 @@
+atlas_schema_version: '0.1'
+nodes:
+- id: SYS-AGA
+  type: System
+  name: Autonomous Game Agent
+  description: Evidence-grounded hierarchical agent; Atlas describes architecture
+    and implementation separately.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+- id: DOM-ENV-ACQUISITION
+  type: Domain
+  name: Environment & Acquisition
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-OBS-INTEGRITY-STATE
+  type: Domain
+  name: Observation Integrity & State
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-EVIDENCE-MEMORY
+  type: Domain
+  name: Evidence, Memory & Retrieval
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-COGNITION
+  type: Domain
+  name: Cognition
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-EXECUTIVE
+  type: Domain
+  name: Executive Control & Contracts
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-ACTION-SAFETY
+  type: Domain
+  name: Action & Safety
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: DOM-VERIFY-LEARN
+  type: Domain
+  name: Verification & Learning
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical
+    ancestry.
+  grouping_semantics: presentation / navigation grouping
+- id: CMP-MEM-RETRIEVAL
+  type: Component
+  name: Memory Retrieval
+  description: Cortex should receive a bounded snapshot of admissible memory. Persistence
+    and evidence-backed facts exist; caller-supplied memory_summary reaches context
+    assembly. A dedicated retriever, versioned RetrievalSnapshot, and ranking/eligibility
+    retrieval are not established.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+- id: CMP-CORTEX
+  type: Component
+  name: Cortex
+  description: 'Slow evidence-grounded planner: consumes bounded context and proposes
+    typed goals and constraints to Manager. Primitive control is outside its authority.'
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: integration-tested
+- id: CMP-MANAGER
+  type: Component
+  name: Manager
+  description: Authority boundary for validating proposals, grounding visible targets,
+    constructing bounded task contracts, scheduling and closing them using verified
+    outcomes. TaskSpec is a Contract.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: integration-tested
+- id: RQ-PROGRAM-AB-001
+  type: ResearchQuestion
+  name: Program A–B working question
+  description: Wie prägen Modellkonfiguration und Verhaltensinstruktion die eigene
+    Erfahrungsgewinnung eines zielgerichteten LLM-Agenten, und wie wird diese Erfahrung
+    über Episoden hinweg zu Wissen, das spätere Entscheidungen unterstützt?
+- id: THREAD-EXPERIENCE-TO-ACTION-001
+  type: ResearchThread
+  name: Experience to Action
+  description: Experience -> Memory Retrieval -> Cortex -> Manager -> Action -> Outcome.
+    Cross-cutting working path, not a proven causal chain or technical hierarchy;
+    no experiment authorization.
+- id: DEC-ATLAS-PILOT-001
+  type: Decision
+  name: Approved Atlas pilot scope
+  description: 'Issue #46 approves metadata/tooling only, including existing measurement
+    mappings; no architecture decomposition or new research decision.'
+- id: IF-MEM-CORTEX
+  type: Interface
+  name: Memory to Cortex
+  description: Memory to Cortex
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+- id: IF-CORTEX-MANAGER
+  type: Interface
+  name: Cortex to Manager
+  description: Cortex to Manager
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+- id: CON-CORTEX-CONTEXT
+  type: Contract
+  name: CortexContext
+  description: CortexContext
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+- id: CON-PLANNER-OUTPUT
+  type: Contract
+  name: PlannerOutput
+  description: PlannerOutput
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+- id: CON-SKILL-CONTRACT
+  type: Contract
+  name: TaskSpec / bounded Skill Contract
+  description: TaskSpec / bounded Skill Contract
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+- id: DAT-RETRIEVAL-SNAPSHOT
+  type: DataArtifact
+  name: Bounded retrieval snapshot (target only)
+  description: Bounded retrieval snapshot (target only)
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+- id: MEAS-RETRIEVAL-DELIVERY-001
+  type: MeasurementPoint
+  name: Actual memory/evidence delivered to Cortex
+  description: Planned measurement of the memory/evidence set actually delivered to
+    Cortex; no implemented delivery snapshot.
+  technical:
+    architecture_authority: project-decision
+    implementation_status: target-only
+    verification_status: unverified
+- id: MEAS-CORTEX-PROPOSAL-001
+  type: MeasurementPoint
+  name: Produced PlannerOutput
+  description: Runtime object exists; durable study trace is only partial.
+  technical:
+    architecture_authority: project-decision
+    implementation_status: partial
+    verification_status: unverified
+- id: MEAS-MANAGER-DISPOSITION-001
+  type: MeasurementPoint
+  name: Manager disposition and TaskSpec
+  description: 'Accepted/rejected/grounded disposition and resulting TaskSpec: runtime
+    path exists; durable study trace is only partial.'
+  technical:
+    architecture_authority: project-decision
+    implementation_status: partial
+    verification_status: unverified
+- id: MEAS-VERIFIED-OUTCOME-001
+  type: MeasurementPoint
+  name: Independent verified outcome
+  description: Downstream independent outcome anchor outside the three pilot components;
+    existing measurement requirement, no new experiment authorization.
+  technical:
+    architecture_authority: project-decision
+    implementation_status: target-only
+    verification_status: unverified
