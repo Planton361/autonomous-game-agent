@@ -85,6 +85,11 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
     evidence_file = EvidenceRegistry.model_validate(evidence)
     entities: dict[str, Entity] = {}
     for node in (*node_file.nodes, *evidence_file.evidence):
+        if node.research_direction is not None and node.type not in {
+            "ResearchQuestion",
+            "ExperimentLead",
+        }:
+            raise ValueError("research_direction requires ResearchQuestion or ExperimentLead")
         if node.id in entities:
             raise ValueError(f"Duplicate ID: {node.id}")
         if not re.fullmatch(re.escape(PREFIXES[node.type]) + r"-[A-Z0-9]+(?:-[A-Z0-9]+)*", node.id):

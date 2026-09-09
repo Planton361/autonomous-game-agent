@@ -185,23 +185,65 @@ def test_document_evidence_rejects_bare_link(payloads, kind):
 
 
 @pytest.mark.parametrize(
-    "implementation,mapping,direction",
+    "implementation,mapping",
     itertools.product(
         ["target-only", "implemented"],
         ["unmapped", "leads-collected", "primary-partially-checked", "focused-review-complete"],
-        ["open-lead", "needs-closure", "deprioritized", "killed", "active-candidate"],
     ),
 )
-def test_status_axes_are_independent(payloads, implementation, mapping, direction):
+def test_status_axes_are_independent(payloads, implementation, mapping):
     item = payloads[0]["nodes"][0]
     item["technical"]["implementation_status"] = implementation
     item["research_mapping"] = mapping
-    item["research_direction"] = direction
     result = validate_registry(*payloads).entities[item["id"]]
     assert result.technical.verification_status == "unverified"
     assert result.technical.implementation_status == implementation
     assert result.research_mapping == mapping
-    assert result.research_direction == direction
+    assert result.research_direction is None
+
+
+@pytest.mark.parametrize("kind", ["ResearchQuestion", "ExperimentLead"])
+@pytest.mark.parametrize(
+    "mapping,direction",
+    itertools.product(
+        ["unmapped", "leads-collected", "primary-partially-checked", "focused-review-complete"],
+        ["open-lead", "needs-closure", "deprioritized", "killed", "active-candidate"],
+    ),
+)
+def test_candidate_status_axes_do_not_change_technical_ancestry(payloads, kind, mapping, direction):
+    before = validate_registry(*payloads)
+    identity = PREFIXES[kind] + "-STATUS-FIXTURE"
+    payloads[0]["nodes"].append(
+        dict(
+            id=identity,
+            type=kind,
+            name="Synthetic candidate",
+            description="Fixture only",
+            research_mapping=mapping,
+            research_direction=direction,
+        )
+    )
+    after = validate_registry(*payloads)
+    assert after.entities[identity].research_mapping == mapping
+    assert after.entities[identity].research_direction == direction
+    assert after.relationships == before.relationships
+    for node_id, node in before.entities.items():
+        assert after.entities[node_id] == node
+        assert after.ancestors(node_id) == before.ancestors(node_id)
+
+
+@pytest.mark.parametrize("kind", sorted(set(PREFIXES) - {"ResearchQuestion", "ExperimentLead"}))
+def test_non_candidate_direction_rejected(payloads, kind):
+    items = payloads[2]["evidence"] if kind == "Evidence" else payloads[0]["nodes"]
+    item = next((n for n in items if n["type"] == kind), None)
+    if item is None:
+        item = dict(id=PREFIXES[kind] + "-STATUS", type=kind, name=kind, description="Fixture")
+        items.append(item)
+    # Establish a valid control so rejection cannot hide a malformed fixture.
+    validate_registry(*payloads)
+    item["research_direction"] = "killed"
+    with pytest.raises(ValueError, match="research_direction"):
+        validate_registry(*payloads)
 
 
 def test_deterministic_render_independent_of_registry_order(payloads):
