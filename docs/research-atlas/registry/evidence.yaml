@@ -1,0 +1,219 @@
+atlas_schema_version: '0.1'
+evidence:
+- id: EVID-PROGRAM-001
+  type: Evidence
+  name: EVID-PROGRAM-001
+  description: Existing program question and working path.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/07_RESEARCH_PROGRAM_SOT.md
+  version: '1.0'
+  section: 3. Gemeinsame wissenschaftliche Klammer
+  checked_date: '2026-09-08'
+- id: EVID-ATLAS-APPROVAL-001
+  type: Evidence
+  name: EVID-ATLAS-APPROVAL-001
+  description: Approved pilot scope and supplied rebaseline; not a new architecture
+    approval.
+  provenance_kind: project_decision
+  document: https://github.com/Planton361/autonomous-game-agent/issues/46
+  version: 'Issue #46 checked 2026-09-08'
+  section: Decision; Current-main rebaseline; Pilot research thread; Three pilot dossiers
+  checked_date: '2026-09-08'
+- id: EVID-CANON-MEM
+  type: Evidence
+  name: EVID-CANON-MEM
+  description: Canonical target role; does not establish implementation.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  section: 5. Memory architecture / Retrieval
+  checked_date: '2026-09-08'
+- id: EVID-CANON-CORTEX
+  type: Evidence
+  name: EVID-CANON-CORTEX
+  description: Canonical target role; does not establish implementation.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  section: 6. Cortex contract
+  checked_date: '2026-09-08'
+- id: EVID-CANON-MANAGER
+  type: Evidence
+  name: EVID-CANON-MANAGER
+  description: Canonical target role; does not establish implementation.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  section: 7. Manager / Executive contract
+  checked_date: '2026-09-08'
+- id: EVID-GH-MEM-DB
+  type: Evidence
+  name: EVID-GH-MEM-DB
+  description: Memory persistence only.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/memory/db.py
+  symbol: MemoryDB
+  checked_date: '2026-09-08'
+- id: EVID-GH-MEM-FACTS
+  type: Evidence
+  name: EVID-GH-MEM-FACTS
+  description: Evidence-backed fact storage only.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/memory/facts.py
+  symbol: FactStore
+  checked_date: '2026-09-08'
+- id: EVID-GH-MEM-TEST
+  type: Evidence
+  name: EVID-GH-MEM-TEST
+  description: Fact persistence checks; not full retrieval verification.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_memory_facts.py
+  symbol: test_create_get_list_and_update_fact
+  checked_date: '2026-09-08'
+- id: EVID-GH-MEM-CONTEXT
+  type: Evidence
+  name: EVID-GH-MEM-CONTEXT
+  description: Consumes caller-supplied memory_summary; does not retrieve it.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/planner/context.py
+  symbol: build_plan_context
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-CONTEXT
+  type: Evidence
+  name: EVID-GH-CORTEX-CONTEXT
+  description: Context assembly.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/planner/context.py
+  symbol: build_plan_context
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-OUTPUT
+  type: Evidence
+  name: EVID-GH-CORTEX-OUTPUT
+  description: Typed planner output.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/planner/planner_output.py
+  symbol: PlannerOutput
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-PLAN
+  type: Evidence
+  name: EVID-GH-CORTEX-PLAN
+  description: Planning and validation boundary.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/planner/cortex.py
+  symbol: Cortex.plan_next_goal
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-PROVIDER
+  type: Evidence
+  name: EVID-GH-CORTEX-PROVIDER
+  description: Provider boundary.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/planner/llm_client.py
+  symbol: LLMClient
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-TEST
+  type: Evidence
+  name: EVID-GH-CORTEX-TEST
+  description: Planner validation tests.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_cortex.py
+  symbol: test_cortex_rejects_invalid_llm_output
+  checked_date: '2026-09-08'
+- id: EVID-GH-CORTEX-INTEGRATION
+  type: Evidence
+  name: EVID-GH-CORTEX-INTEGRATION
+  description: Grounded submission integration checks.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_grounded_cortex_submission.py
+  symbol: test_target_required_submission_uses_current_evidence_and_preserves_provenance
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-TASK
+  type: Evidence
+  name: EVID-GH-MANAGER-TASK
+  description: Task contract construction.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/manager/task_manager.py
+  symbol: TaskManager.create_task_from_planner_output
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-SPEC
+  type: Evidence
+  name: EVID-GH-MANAGER-SPEC
+  description: Contract schema, not a Component.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/manager/task_spec.py
+  symbol: TaskSpec
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-GROUND
+  type: Evidence
+  name: EVID-GH-MANAGER-GROUND
+  description: Grounded submission.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/manager/grounded_cortex_submission.py
+  symbol: GroundedCortexTaskSubmitter.plan_ground_and_submit
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-ORCHESTRATOR
+  type: Evidence
+  name: EVID-GH-MANAGER-ORCHESTRATOR
+  description: Scheduling and completion coordination.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: src/fh_agent/manager/orchestrator.py
+  symbol: ManagerOrchestrator
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-TEST
+  type: Evidence
+  name: EVID-GH-MANAGER-TEST
+  description: Task contract tests.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_task_manager.py
+  symbol: test_valid_planner_output_creates_valid_task_spec
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-INTEGRATION
+  type: Evidence
+  name: EVID-GH-MANAGER-INTEGRATION
+  description: Manager submission integration checks.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_grounded_cortex_submission.py
+  symbol: test_target_required_submission_uses_current_evidence_and_preserves_provenance
+  checked_date: '2026-09-08'
+- id: EVID-GH-MANAGER-SCHEDULING-TEST
+  type: Evidence
+  name: Manager scheduling checks
+  description: Existing Manager scheduling tests; no claim of complete durable study
+    traces.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: c7f642f784ab033e20ba280349d37de7c4a8cd19
+  path: tests/test_manager_orchestrator.py
+  symbol: test_submit_planner_output_creates_queued_scheduled_task
+  checked_date: '2026-09-08'
