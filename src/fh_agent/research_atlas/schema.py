@@ -31,6 +31,10 @@ class Identity(Record):
     id: Text
     name: Text
     description: Text
+    # Presentation only: technical ancestry and domain views remain relationships.
+    atlas_level: Literal["L0", "L1", "L2", "L3"] | None = None
+    overview_visibility: Literal["main", "expansion"] | None = None
+    overview_order: int | None = Field(default=None, gt=0, strict=True)
     research_mapping: Literal[
         "unmapped", "leads-collected", "primary-partially-checked", "focused-review-complete"
     ] = "unmapped"
@@ -221,15 +225,15 @@ class Relationship(Record):
 
 
 class NodeRegistry(Record):
-    atlas_schema_version: Literal["0.1"]
+    atlas_schema_version: Literal["0.2"]
     nodes: tuple[Node, ...]
 
 
 class EvidenceRegistry(Record):
-    atlas_schema_version: Literal["0.1"]
+    atlas_schema_version: Literal["0.2"]
     evidence: tuple[Evidence, ...]
 
 
 class RelationshipRegistry(Record):
-    atlas_schema_version: Literal["0.1"]
+    atlas_schema_version: Literal["0.2"]
     relationships: tuple[Relationship, ...]

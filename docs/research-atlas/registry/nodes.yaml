@@ -1,92 +1,119 @@
-atlas_schema_version: '0.1'
+atlas_schema_version: '0.2'
 nodes:
 - id: SYS-AGA
   type: System
-  name: Autonomous Game Agent
-  description: Evidence-grounded hierarchical agent; Atlas describes architecture
-    and implementation separately.
+  name: Autonomous Game Agent Experiment System
+  description: Evidence-grounded hierarchical agent; Atlas describes architecture and implementation
+    separately.
   technical:
     architecture_authority: canonical-target
     implementation_status: target-only
     verification_status: unverified
+  atlas_level: L0
+  overview_visibility: main
+  overview_order: 1
 - id: DOM-ENV-ACQUISITION
   type: Domain
   name: Environment & Acquisition
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 2
 - id: DOM-OBS-INTEGRITY-STATE
   type: Domain
   name: Observation Integrity & State
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 3
 - id: DOM-EVIDENCE-MEMORY
   type: Domain
   name: Evidence, Memory & Retrieval
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 4
 - id: DOM-COGNITION
   type: Domain
   name: Cognition
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 5
 - id: DOM-EXECUTIVE
   type: Domain
   name: Executive Control & Contracts
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 6
 - id: DOM-ACTION-SAFETY
   type: Domain
   name: Action & Safety
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 7
 - id: DOM-VERIFY-LEARN
   type: Domain
   name: Verification & Learning
-  description: Presentation/navigation grouping only; no canonical taxonomy or technical
-    ancestry.
+  description: Presentation/navigation grouping only; no canonical taxonomy or technical ancestry.
   grouping_semantics: presentation / navigation grouping
+  atlas_level: L1
+  overview_visibility: main
+  overview_order: 8
 - id: CMP-MEM-RETRIEVAL
   type: Component
   name: Memory Retrieval
-  description: Cortex should receive a bounded snapshot of admissible memory. Persistence
-    and evidence-backed facts exist; caller-supplied memory_summary reaches context
-    assembly. A dedicated retriever, versioned RetrievalSnapshot, and ranking/eligibility
-    retrieval are not established.
+  description: Cortex should receive a bounded snapshot of admissible memory. Persistence and evidence-backed
+    facts exist; caller-supplied memory_summary reaches context assembly. A dedicated retriever, versioned
+    RetrievalSnapshot, and ranking/eligibility retrieval are not established.
   technical:
     architecture_authority: canonical-target
     implementation_status: partial
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 9
 - id: CMP-CORTEX
   type: Component
   name: Cortex
-  description: 'Slow evidence-grounded planner: consumes bounded context and proposes
-    typed goals and constraints to Manager. Primitive control is outside its authority.'
+  description: 'Slow evidence-grounded planner: consumes bounded context and proposes typed goals
+    and constraints to Manager. Primitive control is outside its authority.'
   technical:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: integration-tested
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 10
 - id: CMP-MANAGER
   type: Component
   name: Manager
-  description: Authority boundary for validating proposals, grounding visible targets,
-    constructing bounded task contracts, scheduling and closing them using verified
-    outcomes. TaskSpec is a Contract.
+  description: Authority boundary for validating proposals, grounding visible targets, constructing
+    bounded task contracts, scheduling and closing them using verified outcomes. TaskSpec is a Contract.
   technical:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: integration-tested
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 11
 - id: RQ-PROGRAM-AB-001
   type: ResearchQuestion
   name: Program A–B working question
-  description: Wie prägen Modellkonfiguration und Verhaltensinstruktion die eigene
-    Erfahrungsgewinnung eines zielgerichteten LLM-Agenten, und wie wird diese Erfahrung
-    über Episoden hinweg zu Wissen, das spätere Entscheidungen unterstützt?
+  description: Wie prägen Modellkonfiguration und Verhaltensinstruktion die eigene Erfahrungsgewinnung
+    eines zielgerichteten LLM-Agenten, und wie wird diese Erfahrung über Episoden hinweg zu Wissen,
+    das spätere Entscheidungen unterstützt?
+  atlas_level: null
+  overview_visibility: null
+  overview_order: 12
 - id: THREAD-EXPERIENCE-TO-ACTION-001
   type: ResearchThread
   ordered_refs:
@@ -103,15 +130,20 @@ nodes:
   - CON-SKILL-CONTRACT
   - MEAS-VERIFIED-OUTCOME-001
   name: Experience to Action
-  description: Experience -> Memory Retrieval -> Cortex -> Manager -> Action -> Outcome.
-    Cross-cutting working path, not a proven causal chain or technical hierarchy;
-    no experiment authorization.
+  description: Experience -> Memory Retrieval -> Cortex -> Manager -> Action -> Outcome. Cross-cutting
+    working path, not a proven causal chain or technical hierarchy; no experiment authorization.
+  atlas_level: null
+  overview_visibility: null
+  overview_order: 13
 - id: DEC-ATLAS-PILOT-001
   type: Decision
   decision_scope: tooling
   name: Approved Atlas pilot scope
-  description: 'Issue #46 approves metadata/tooling only, including existing measurement
-    mappings; no architecture decomposition or new research decision.'
+  description: 'Issue #46 approves metadata/tooling only, including existing measurement mappings;
+    no architecture decomposition or new research decision.'
+  atlas_level: null
+  overview_visibility: null
+  overview_order: 14
 - id: IF-MEM-CORTEX
   type: Interface
   name: Memory to Cortex
@@ -120,6 +152,9 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: partial
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 15
 - id: IF-CORTEX-MANAGER
   type: Interface
   name: Cortex to Manager
@@ -128,6 +163,9 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 16
 - id: CON-CORTEX-CONTEXT
   type: Contract
   name: CortexContext
@@ -136,6 +174,9 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 17
 - id: CON-PLANNER-OUTPUT
   type: Contract
   name: PlannerOutput
@@ -144,6 +185,9 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 18
 - id: CON-SKILL-CONTRACT
   type: Contract
   name: TaskSpec / bounded Skill Contract
@@ -152,6 +196,9 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: implemented
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 19
 - id: DAT-RETRIEVAL-SNAPSHOT
   type: DataArtifact
   name: Bounded retrieval snapshot (target only)
@@ -160,15 +207,21 @@ nodes:
     architecture_authority: canonical-target
     implementation_status: target-only
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 20
 - id: MEAS-RETRIEVAL-DELIVERY-001
   type: MeasurementPoint
   name: Actual memory/evidence delivered to Cortex
-  description: Planned measurement of the memory/evidence set actually delivered to
-    Cortex; no implemented delivery snapshot.
+  description: Planned measurement of the memory/evidence set actually delivered to Cortex; no implemented
+    delivery snapshot.
   technical:
     architecture_authority: project-decision
     implementation_status: target-only
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 21
 - id: MEAS-CORTEX-PROPOSAL-001
   type: MeasurementPoint
   name: Produced PlannerOutput
@@ -177,21 +230,476 @@ nodes:
     architecture_authority: project-decision
     implementation_status: partial
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 22
 - id: MEAS-MANAGER-DISPOSITION-001
   type: MeasurementPoint
   name: Manager disposition and TaskSpec
-  description: 'Accepted/rejected/grounded disposition and resulting TaskSpec: runtime
-    path exists; durable study trace is only partial.'
+  description: 'Accepted/rejected/grounded disposition and resulting TaskSpec: runtime path exists;
+    durable study trace is only partial.'
   technical:
     architecture_authority: project-decision
     implementation_status: partial
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 23
 - id: MEAS-VERIFIED-OUTCOME-001
   type: MeasurementPoint
   name: Independent verified outcome
-  description: Downstream independent outcome anchor outside the three pilot components;
-    existing measurement requirement, no new experiment authorization.
+  description: Downstream independent outcome anchor outside the three pilot components; existing
+    measurement requirement, no new experiment authorization.
   technical:
     architecture_authority: project-decision
     implementation_status: target-only
     verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 24
+- id: ENV-GAME-INSTANCE
+  type: Environment
+  name: Game / Environment
+  description: External game instance in experiment scope, outside the Agent boundary. The existence
+    of a game is not a repository implementation claim.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 25
+- id: CMP-SCREEN-CAPTURE
+  type: Component
+  name: Screen Capture
+  description: Visible RGB capture through an explicit subprocess PPM adapter with timeout and payload
+    validation; does not interpret pixels.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 26
+- id: DAT-SCREEN-FRAME
+  type: DataArtifact
+  name: ScreenFrame
+  description: Immutable RGB frame dimensions, pixels and capture time; validates raster size. A data
+    artifact, not an actor.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 27
+- id: CMP-VISIBLE-STATE-BRIDGE
+  type: Component
+  name: Optional Visible-State Bridge
+  description: Optional bridge-assisted adapter checks declared mode and latest durable screenshot
+    binding. Payloads pass the deny-by-default sanitizer/firewall; this is not a bypass or primary
+    screen-only perception.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 28
+- id: CMP-NO-SPOILER-FIREWALL
+  type: Component
+  name: No-Spoiler Firewall
+  description: Rejects forbidden bridge keys and drops non-allowlisted fields. ObservationBuilder
+    and bridge sanitization enforce the visible-data boundary.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 29
+- id: CMP-PERCEPTION
+  type: Component
+  name: Perception
+  description: ObservationBuilder assembles frame signatures, OCR output and UI signals. OCR backends
+    are NoOp/Static fixtures; SpatialPerceptionProducer declares an interface, not a demonstrated
+    pixel detector.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 30
+- id: DAT-OBSERVATION
+  type: DataArtifact
+  name: Observation
+  description: Typed visible observation payload with screenshot/evidence references, UI, text, spatial
+    signals and last action result.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 31
+- id: CMP-TEMPORAL-STATE
+  type: Component
+  name: Temporal State
+  description: Canonical short-horizon temporal stabilization. Current source inspection found local
+    step/history handling but no central temporal-state implementation; frame hashes alone do not
+    establish this responsibility.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 32
+- id: CMP-PERCEPTION-UI-STATE
+  type: Component
+  name: UI State Classification
+  description: classify_ui_state implements deterministic classification from sanitized visible UI
+    fields and OCR spans; unknown when insufficient. This is a code-derived responsibility used by
+    ObservationBuilder, not a validated pixel classifier.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 33
+- id: CMP-OBSERVATION-BUILDER
+  type: Component
+  name: Observation Builder
+  description: Coordinates firewall sanitization, frame signature, OCR, UI classification and evidence-linked
+    Observation assembly. This orchestration responsibility is implementation-derived.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 34
+- id: CMP-EVIDENCE-LEDGER
+  type: Component
+  name: Evidence Ledger
+  description: Screenshot evidence records retain hashes and dimensions; append-only event logging
+    links actions and verifier outcomes. Complete immutable lifecycle/provenance enforcement is not
+    established by these stores alone.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 35
+- id: CMP-MEMORY
+  type: Component
+  name: Memory
+  description: SQLite observations, actions, skill results, facts, topology and strategies exist.
+    Full canonical retrieval, consolidation and activation lifecycle remain incomplete. Memory is
+    outside Cortex.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 36
+- id: CMP-MEM-EPISODIC
+  type: Component
+  name: Episodic Memory
+  description: Observation/action/skill-result persistence and append-only events provide trajectory
+    material. No dedicated consolidated episode entity or complete episodic retrieval lifecycle is
+    established.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 37
+- id: CMP-MEM-FACTS
+  type: Component
+  name: Semantic Facts
+  description: FactStore persists evidence-backed propositions, explicit status/confidence and appendable
+    provenance. This is storage capability, not proof that stored claims are true.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 38
+- id: CMP-MEM-HYPOTHESES
+  type: Component
+  name: Hypotheses
+  description: FactStore supports hypothesis/contradicted status and confidence. Separate supporting
+    versus contradicting evidence, test-action lifecycle and automatic adjudication are not implemented
+    by this API.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 39
+- id: CMP-MEM-TOPOLOGY
+  type: Component
+  name: Topological Memory
+  description: RoomGraphStore persists visible signatures and evidence-linked observed transitions
+    with forbidden metadata checks. It does not expose an internal game map.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 40
+- id: CMP-MEM-STRATEGY
+  type: Component
+  name: Strategy / Experiment Memory
+  description: StrategyGraphStore persists evidence-backed strategies, status changes and outcomes;
+    entries are supplied by callers, not autonomous synthesis or verified strategy truth.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 41
+- id: CMP-SKILL-COMPETENCE
+  type: Component
+  name: Skill Competence Registry
+  description: SkillRegistry aggregates persisted skill result history. Versioned controllers, certification
+    metrics and activation state are not supplied by this history API.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 42
+- id: CMP-MANAGER-GROUNDING
+  type: Component
+  name: Grounding
+  description: Canonical Manager grounding responsibility implemented by bounded visible-candidate
+    selection and grounded Cortex submission; ambiguous or unsupported targets fail closed.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 43
+- id: CMP-MANAGER-SCHED-COMP
+  type: Component
+  name: Scheduling and Completion
+  description: ManagerOrchestrator queues task contracts and closes matching tasks from Manager stop
+    or canonical Verifier outcomes. Code-derived subdivision, not new canonical architecture.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 44
+- id: CMP-BODY
+  type: Component
+  name: Body
+  description: Reusable heuristic skills propose one primitive at a time from visible grounded targets;
+    ManagerTaskExecutor binds execution to an active task and SkillRunner enforces the skill action
+    mask. Learned Body and full canonical skill breadth are not claimed.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 45
+- id: CMP-BOUNDED-REFLEX
+  type: Component
+  name: Bounded Reflex
+  description: Canonical fast Body path restricted to Manager-declared triggers and contract permissions.
+    No separate current executable reflex path was found; ordinary heuristic action selection is not
+    relabeled Reflex.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L3
+  overview_visibility: expansion
+  overview_order: 46
+- id: CON-PRIMITIVE-ACTION
+  type: Contract
+  name: Primitive Action Vocabulary
+  description: 'Closed PrimitiveAction enum: short directional movement, confirm, cancel, open_menu
+    and wait. Vocabulary contract; not permission to execute.'
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 47
+- id: CMP-SAFETY-FILTER
+  type: Component
+  name: SafetyFilter
+  description: Pure SafetyFilter assesses synthetic movement candidates against supplied hazard signals.
+    Full visible hazard acquisition and a universal runtime risk boundary are not established by this
+    navigation filter.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 48
+- id: CMP-INPUT-EXECUTOR
+  type: Component
+  name: InputExecutor
+  description: Separate primitive-input boundary enforcing target focus, rate limit and emergency
+    stop. Active-task checks and action masks belong to Manager execution composition; transition
+    logging is supplied when configured. This class alone does not establish all canonical input preconditions.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 49
+- id: DAT-ACTION-RESULT
+  type: DataArtifact
+  name: ActionResult
+  description: Typed executed/blocked action result with optional evidence links, separate from visible
+    task success.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 50
+- id: DAT-VISIBLE-OUTCOME
+  type: DataArtifact
+  name: Visible Outcome
+  description: Canonical visible after-effect before independent verification. Current runtime uses
+    after-Observation plus VerifierResult; no distinct first-class VisibleOutcome artifact is established.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 51
+- id: CMP-INDEPENDENT-VERIFIER
+  type: Component
+  name: Independent Verifier
+  description: Deterministic reach-target, dialogue and interaction outcome evaluators return canonical
+    VerifierResult. Independent of Cortex reflection; screenshot change alone is not success.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 52
+- id: CON-VERIFIER-RESULT
+  type: Contract
+  name: VerifierResult
+  description: Closed success/progress/failure/abstain outcome contract, failure taxonomy and evidence
+    references.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 53
+- id: CON-MEMORY-UPDATE-REQUEST
+  type: Contract
+  name: MemoryUpdateRequest
+  description: Typed evidence-linked request in planning/reflection outputs. A proposal contract,
+    not an automatic memory write or acceptance.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 54
+- id: CON-POST-MORTEM-OUTPUT
+  type: Contract
+  name: PostMortemOutput
+  description: 'Cortex reflection/post-verification contract: observed outcome, typed notes, hypotheses
+    and proposed memory updates. Not part of independent Verifier authority or an automatic memory
+    writer.'
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 55
+- id: CMP-REPLAY-BUFFER
+  type: Component
+  name: Replay Buffer
+  description: Fixed-capacity FIFO and seeded sampling exist for synthetic ReplayTransition objects.
+    Complete admissible run/contract/verifier provenance and official training eligibility are not
+    enforced by this buffer.
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: partial
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 56
+- id: DAT-REPLAY-TRANSITION
+  type: DataArtifact
+  name: ReplayTransition
+  description: Synthetic obs/action/reward/next_obs/done/task/metadata payload with recursive forbidden-key
+    checks. Does not imply full official-run provenance or training eligibility.
+  technical:
+    architecture_authority: implementation-derived
+    implementation_status: implemented
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: expansion
+  overview_order: 57
+- id: CMP-SKILL-TRAINER
+  type: Component
+  name: SkillTrainer
+  description: 'Between runs only: canonical trainer. Current behavior_cloning helpers build datasets;
+    no candidate-training or deployment implementation is established.'
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 58
+- id: DAT-CANDIDATE-BODY-VERSION
+  type: DataArtifact
+  name: Candidate Body Version
+  description: 'Between runs only: canonical versioned candidate artifact; no first-class current
+    candidate version or activation path is established.'
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 59
+- id: CMP-BODY-CERTIFICATION
+  type: Component
+  name: Body Validation / Certification
+  description: 'Between runs only: held-out validation, safety checks, certification/rejection and
+    activation of an eligible version. No current certification implementation is established.'
+  technical:
+    architecture_authority: canonical-target
+    implementation_status: target-only
+    verification_status: unverified
+  atlas_level: L2
+  overview_visibility: main
+  overview_order: 60

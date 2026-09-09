@@ -1,4 +1,4 @@
-atlas_schema_version: '0.1'
+atlas_schema_version: '0.2'
 evidence:
 - id: EVID-PROGRAM-001
   type: Evidence
@@ -217,3 +217,643 @@ evidence:
   path: tests/test_manager_orchestrator.py
   symbol: test_submit_planner_output_creates_queued_scheduled_task
   checked_date: '2026-09-08'
+- id: EVID-48-CAPTURE
+  type: Evidence
+  name: Capture — baseline inspection
+  description: Source inspection at the accepted baseline. Visible RGB capture through an explicit
+    subprocess PPM adapter with timeout and payload validation; does not interpret pixels.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/perception/subprocess_capture.py
+  symbol: SubprocessPpmScreenCapture.capture
+  checked_date: '2026-09-09'
+  line: 44
+- id: EVID-48-FRAME
+  type: Evidence
+  name: Frame — baseline inspection
+  description: Source inspection at the accepted baseline. Immutable RGB frame dimensions, pixels
+    and capture time; validates raster size. A data artifact, not an actor.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/perception/screen_capture.py
+  symbol: ScreenFrame
+  checked_date: '2026-09-09'
+  line: 8
+- id: EVID-48-BRIDGE
+  type: Evidence
+  name: Bridge — baseline inspection
+  description: Source inspection at the accepted baseline. Optional bridge-assisted adapter checks
+    declared mode and latest durable screenshot binding. Payloads pass the deny-by-default sanitizer/firewall;
+    this is not a bypass or primary screen-only perception.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/bridge/observation_source.py
+  symbol: BridgeObservationSource.observe
+  checked_date: '2026-09-09'
+  line: 52
+- id: EVID-48-FIREWALL
+  type: Evidence
+  name: Firewall — baseline inspection
+  description: Source inspection at the accepted baseline. Rejects forbidden bridge keys and drops
+    non-allowlisted fields. ObservationBuilder and bridge sanitization enforce the visible-data boundary.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/bridge/firewall.py
+  symbol: NoSpoilerFirewall.sanitize
+  checked_date: '2026-09-09'
+  line: 62
+- id: EVID-48-BUILDER
+  type: Evidence
+  name: Builder — baseline inspection
+  description: ObservationBuilder.build sanitizes bridge fields, computes a frame signature, calls
+    OCR and UI classification, normalizes visible sprites and constructs an evidence-linked Observation.
+    It is an assembly responsibility, not a learned perception backend.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/observation/observation_builder.py
+  symbol: ObservationBuilder.build
+  checked_date: '2026-09-09'
+  line: 22
+- id: EVID-48-OCR-LIMIT
+  type: Evidence
+  name: Ocr Limit — baseline inspection
+  description: NoOpOcrEngine.read_text returns an empty OcrResult; the same module supplies a StaticOcrEngine
+    fixture and an OcrEngine protocol. These do not implement pixel-to-text recognition.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/perception/ocr.py
+  symbol: NoOpOcrEngine
+  checked_date: '2026-09-09'
+  line: 24
+- id: EVID-48-SPATIAL-LIMIT
+  type: Evidence
+  name: Spatial Limit — baseline inspection
+  description: SpatialPerceptionProducer is a predict protocol over ScreenFrame and evidence_id. SpatialPerceptionOutput
+    validates confidence and evidence consistency; this file does not implement a spatial predictor.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/perception/spatial_producer.py
+  symbol: SpatialPerceptionProducer
+  checked_date: '2026-09-09'
+  line: 56
+- id: EVID-48-UI
+  type: Evidence
+  name: Ui — baseline inspection
+  description: Source inspection at the accepted baseline. classify_ui_state implements deterministic
+    classification from sanitized visible UI fields and OCR spans; unknown when insufficient. This
+    is a code-derived responsibility used by ObservationBuilder, not a validated pixel classifier.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/perception/ui_state.py
+  symbol: classify_ui_state
+  checked_date: '2026-09-09'
+  line: 15
+- id: EVID-48-OBSERVATION
+  type: Evidence
+  name: Observation — baseline inspection
+  description: Observation stores visible frame/UI/text/spatial evidence and last_action_result. It
+    is a payload, not a temporal stabilizer or independent outcome evaluator. Baseline source inspection
+    found no separate central TemporalState or first-class VisibleOutcome artifact; those target nodes
+    remain unverified.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/observation/schemas.py
+  symbol: Observation
+  checked_date: '2026-09-09'
+  line: 46
+- id: EVID-48-EVIDENCE
+  type: Evidence
+  name: Evidence — baseline inspection
+  description: EvidenceStore saves or records screenshot files with hashes, dimensions and provenance.
+    It does not by itself enforce a complete immutable run ledger; action/verifier events are a separate
+    EventLogger responsibility.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/evidence.py
+  symbol: EvidenceStore
+  checked_date: '2026-09-09'
+  line: 31
+- id: EVID-48-EVENTS
+  type: Evidence
+  name: Events — baseline inspection
+  description: EventLogger appends JSONL event records and links action, skill, Manager-stop and verifier
+    outcomes to evidence. It supplies trajectory material, not a consolidated episodic-memory or retrieval
+    lifecycle.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/event_log.py
+  symbol: EventLogger
+  checked_date: '2026-09-09'
+  line: 30
+- id: EVID-48-MEMORY
+  type: Evidence
+  name: Memory — baseline inspection
+  description: MemoryDB persists and reads observations, actions, skill results and evidence-linked
+    facts in SQLite. This supports partial memory/episodic infrastructure; it contains no bounded
+    ranking or retrieval-snapshot construction.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/db.py
+  symbol: MemoryDB
+  checked_date: '2026-09-09'
+  line: 37
+- id: EVID-48-FACTS
+  type: Evidence
+  name: Facts — baseline inspection
+  description: Source inspection at the accepted baseline. FactStore persists evidence-backed propositions,
+    explicit status/confidence and appendable provenance. This is storage capability, not proof that
+    stored claims are true. FactStore supports hypothesis/contradicted status and confidence. Separate
+    supporting versus contradicting evidence, test-action lifecycle and automatic adjudication are
+    not implemented by this API.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/facts.py
+  symbol: FactStore
+  checked_date: '2026-09-09'
+  line: 33
+- id: EVID-48-TOPOLOGY
+  type: Evidence
+  name: Topology — baseline inspection
+  description: Source inspection at the accepted baseline. RoomGraphStore persists visible signatures
+    and evidence-linked observed transitions with forbidden metadata checks. It does not expose an
+    internal game map.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/room_graph.py
+  symbol: RoomGraphStore.record_transition
+  checked_date: '2026-09-09'
+  line: 158
+- id: EVID-48-STRATEGY
+  type: Evidence
+  name: Strategy — baseline inspection
+  description: Source inspection at the accepted baseline. StrategyGraphStore persists evidence-backed
+    strategies, status changes and outcomes; entries are supplied by callers, not autonomous synthesis
+    or verified strategy truth.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/strategy_graph.py
+  symbol: StrategyGraphStore.record_outcome
+  checked_date: '2026-09-09'
+  line: 226
+- id: EVID-48-COMPETENCE
+  type: Evidence
+  name: Competence — baseline inspection
+  description: Source inspection at the accepted baseline. SkillRegistry aggregates persisted skill
+    result history. Versioned controllers, certification metrics and activation state are not supplied
+    by this history API.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/memory/skill_registry.py
+  symbol: SkillRegistry
+  checked_date: '2026-09-09'
+  line: 40
+- id: EVID-48-CONTEXT
+  type: Evidence
+  name: Context — baseline inspection
+  description: build_plan_context consumes a caller-supplied memory_summary and constructs CortexContext
+    from visible observation, facts, hypotheses, prior skill outcomes and constraints. It does not
+    retrieve memory or create a versioned RetrievalSnapshot. The memory-to-Cortex path therefore remains
+    partial.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/context.py
+  symbol: build_plan_context
+  checked_date: '2026-09-09'
+  line: 71
+- id: EVID-48-CORTEX
+  type: Evidence
+  name: Cortex — baseline inspection
+  description: Cortex.plan_next_goal builds context, invokes the supplied LLM client, parses PlannerOutput,
+    checks evidence scope and rejects unavailable skills. It returns a proposal without primitive
+    execution; the Manager submission boundary is separate.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/cortex.py
+  symbol: Cortex.plan_next_goal
+  checked_date: '2026-09-09'
+  line: 30
+- id: EVID-48-PLANNER-OUTPUT
+  type: Evidence
+  name: Planner Output — baseline inspection
+  description: PlannerOutput declares typed belief claims, questions, next goal, selected universal
+    skill, success conditions, risk limit and memory-update requests. Its validator rejects primitive
+    control fields. This establishes an output Contract, not a Component.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/planner_output.py
+  symbol: PlannerOutput
+  checked_date: '2026-09-09'
+  line: 100
+- id: EVID-48-MANAGER
+  type: Evidence
+  name: Manager — baseline inspection
+  description: TaskManager.create_task_from_planner_output checks skill availability, maps goals/conditions/budgets
+    and validates grounding into TaskSpec. Scheduling and verified completion are separate ManagerOrchestrator
+    responsibilities.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/task_manager.py
+  symbol: TaskManager.create_task_from_planner_output
+  checked_date: '2026-09-09'
+  line: 86
+- id: EVID-48-TASK
+  type: Evidence
+  name: Task — baseline inspection
+  description: TaskSpec declares the bounded task goal, selected skill, target, conditions, constraints,
+    timeout and source/planner provenance. This is the implemented Manager Contract schema, not an
+    architecture Component.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/task_spec.py
+  symbol: TaskSpec
+  checked_date: '2026-09-09'
+  line: 19
+- id: EVID-48-GROUNDING
+  type: Evidence
+  name: Grounding — baseline inspection
+  description: Source inspection at the accepted baseline. Canonical Manager grounding responsibility
+    implemented by bounded visible-candidate selection and grounded Cortex submission; ambiguous or
+    unsupported targets fail closed.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/grounding.py
+  symbol: BoundedObservationGroundingService.ground
+  checked_date: '2026-09-09'
+  line: 64
+- id: EVID-48-SUBMISSION
+  type: Evidence
+  name: Submission — baseline inspection
+  description: GroundedCortexTaskSubmitter.plan_ground_and_submit requests Cortex output, builds the
+    grounding request from current visible evidence, obtains grounding and submits to ManagerOrchestrator.
+    It does not run Body or send input.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/grounded_cortex_submission.py
+  symbol: GroundedCortexTaskSubmitter.plan_ground_and_submit
+  checked_date: '2026-09-09'
+  line: 43
+- id: EVID-48-SCHEDULING
+  type: Evidence
+  name: Scheduling — baseline inspection
+  description: ManagerOrchestrator.complete_from_skill_run requires matching current task/skill identity
+    and closes from Manager-stop or canonical VerifierResult; nonterminal or missing outcomes stay
+    open. The same class enqueues and starts tasks via TaskScheduler.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/orchestrator.py
+  symbol: ManagerOrchestrator.complete_from_skill_run
+  checked_date: '2026-09-09'
+  line: 136
+- id: EVID-48-BODY
+  type: Evidence
+  name: Body — baseline inspection
+  description: BasicReachTargetSkill.next_action proposes a single primitive from a visible grounded
+    target, otherwise wait. It is a reusable heuristic Body path, not a separate Manager-declared
+    Reflex implementation. No executable Reflex path was found in baseline source inspection.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/body/skills/basic_reach_target.py
+  symbol: BasicReachTargetSkill.next_action
+  checked_date: '2026-09-09'
+  line: 48
+- id: EVID-48-PRIMITIVE
+  type: Evidence
+  name: Primitive — baseline inspection
+  description: 'Source inspection at the accepted baseline. Closed PrimitiveAction enum: short directional
+    movement, confirm, cancel, open_menu and wait. Vocabulary contract; not permission to execute.'
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/body/primitive_actions.py
+  symbol: PrimitiveAction
+  checked_date: '2026-09-09'
+  line: 4
+- id: EVID-48-SAFETY
+  type: Evidence
+  name: Safety — baseline inspection
+  description: Source inspection at the accepted baseline. Pure SafetyFilter assesses synthetic movement
+    candidates against supplied hazard signals. Full visible hazard acquisition and a universal runtime
+    risk boundary are not established by this navigation filter.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/body/safety_filter.py
+  symbol: SafetyFilter.assess_action
+  checked_date: '2026-09-09'
+  line: 58
+- id: EVID-48-INPUT
+  type: Evidence
+  name: Input — baseline inspection
+  description: InputExecutor.execute checks emergency stop, target focus and rate capacity before
+    backend.send and returns ActionResult. Active-task/action-mask checks and configured event logging
+    belong to separate Manager composition; this method alone does not enforce every canonical input
+    precondition.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/game/input_executor.py
+  symbol: InputExecutor.execute
+  checked_date: '2026-09-09'
+  line: 68
+- id: EVID-48-ACTION-RESULT
+  type: Evidence
+  name: Action Result — baseline inspection
+  description: Source inspection at the accepted baseline. Typed executed/blocked action result with
+    optional evidence links, separate from visible task success.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/observation/schemas.py
+  symbol: ActionResult
+  checked_date: '2026-09-09'
+  line: 34
+- id: EVID-48-VERIFIER
+  type: Evidence
+  name: Verifier — baseline inspection
+  description: ReachTargetVerifier.verify independently checks visible death or arrival at an evidence-linked
+    grounded screen point and otherwise abstains. It returns VerifierResult without invoking Cortex;
+    changed screenshots alone are not success.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/verifier/reach_target.py
+  symbol: ReachTargetVerifier.verify
+  checked_date: '2026-09-09'
+  line: 23
+- id: EVID-48-VERIFIER-RESULT
+  type: Evidence
+  name: Verifier Result — baseline inspection
+  description: VerifierResult is a frozen outcome payload with success/progress/failure/abstain, failure
+    kind and evidence IDs; validation requires failure_kind exactly for failure. It labels outcomes
+    after evaluation and is not a first-class pre-verification VisibleOutcome artifact.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/verifier/schemas.py
+  symbol: VerifierResult
+  checked_date: '2026-09-09'
+  line: 35
+- id: EVID-48-MEMORY-REQUEST
+  type: Evidence
+  name: Memory Request — baseline inspection
+  description: Source inspection at the accepted baseline. Typed evidence-linked request in planning/reflection
+    outputs. A proposal contract, not an automatic memory write or acceptance.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/planner_output.py
+  symbol: MemoryUpdateRequest
+  checked_date: '2026-09-09'
+  line: 64
+- id: EVID-48-POST-MORTEM
+  type: Evidence
+  name: Post Mortem — baseline inspection
+  description: 'Source inspection at the accepted baseline. Cortex reflection/post-verification contract:
+    observed outcome, typed notes, hypotheses and proposed memory updates. Not part of independent
+    Verifier authority or an automatic memory writer.'
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/planner_output.py
+  symbol: PostMortemOutput
+  checked_date: '2026-09-09'
+  line: 124
+- id: EVID-48-REFLECTION
+  type: Evidence
+  name: Reflection — baseline inspection
+  description: 'Source inspection at the accepted baseline. Cortex reflection/post-verification contract:
+    observed outcome, typed notes, hypotheses and proposed memory updates. Not part of independent
+    Verifier authority or an automatic memory writer.'
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/planner/cortex.py
+  symbol: Cortex.post_mortem
+  checked_date: '2026-09-09'
+  line: 62
+- id: EVID-48-REPLAY
+  type: Evidence
+  name: Replay — baseline inspection
+  description: Source inspection at the accepted baseline. Fixed-capacity FIFO and seeded sampling
+    exist for synthetic ReplayTransition objects. Complete admissible run/contract/verifier provenance
+    and official training eligibility are not enforced by this buffer.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/rl/replay_buffer.py
+  symbol: ReplayBuffer
+  checked_date: '2026-09-09'
+  line: 44
+- id: EVID-48-TRANSITION
+  type: Evidence
+  name: Transition — baseline inspection
+  description: Source inspection at the accepted baseline. Synthetic obs/action/reward/next_obs/done/task/metadata
+    payload with recursive forbidden-key checks. Does not imply full official-run provenance or training
+    eligibility.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/rl/replay_buffer.py
+  symbol: ReplayTransition
+  checked_date: '2026-09-09'
+  line: 22
+- id: EVID-48-TRAINING-LIMIT
+  type: Evidence
+  name: Training Limit — baseline inspection
+  description: build_behavior_cloning_dataset converts synthetic replay transitions to supervised
+    examples, optionally filtering positive rewards. It does not train weights, create versioned Body
+    candidates, certify or activate controllers. Inspection of baseline rl/body source found no such
+    lifecycle; the three between-run nodes remain target-only.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/rl/behavior_cloning.py
+  symbol: build_behavior_cloning_dataset
+  checked_date: '2026-09-09'
+  line: 71
+- id: EVID-48-TEST-GROUNDING
+  type: Evidence
+  name: Test Grounding — baseline inspection
+  description: Test source inspected, not executed in this Atlas leaf. Fixture scope only; no live
+    demonstration or measurement validation inferred.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: tests/test_grounded_cortex_submission.py
+  symbol: test_target_required_submission_uses_current_evidence_and_preserves_provenance
+  checked_date: '2026-09-09'
+  line: 172
+- id: EVID-48-TEST-COMPLETION
+  type: Evidence
+  name: Test Completion — baseline inspection
+  description: Test source inspected, not executed in this Atlas leaf. Fixture scope only; no live
+    demonstration or measurement validation inferred.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: tests/test_manager_orchestrator.py
+  symbol: test_complete_from_skill_run_closes_from_canonical_success_not_legacy_result
+  checked_date: '2026-09-09'
+  line: 354
+- id: EVID-48-TEST-OBSERVATION
+  type: Evidence
+  name: Test Observation — baseline inspection
+  description: Test source inspected, not executed in this Atlas leaf. Fixture scope only; no live
+    demonstration or measurement validation inferred.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: tests/test_observation_builder.py
+  symbol: test_observation_builder_produces_valid_json_from_frame_bridge_and_ocr
+  checked_date: '2026-09-09'
+  line: 32
+- id: EVID-48-TEST-FACTS
+  type: Evidence
+  name: Test Facts — baseline inspection
+  description: Test source inspected, not executed in this Atlas leaf. Fixture scope only; no live
+    demonstration or measurement validation inferred.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: tests/test_memory_facts.py
+  symbol: test_create_get_list_and_update_fact
+  checked_date: '2026-09-09'
+  line: 27
+- id: EVID-48-TEST-REPLAY
+  type: Evidence
+  name: Test Replay — baseline inspection
+  description: Test source inspected, not executed in this Atlas leaf. Fixture scope only; no live
+    demonstration or measurement validation inferred.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: tests/test_replay_buffer.py
+  symbol: test_replay_buffer_capacity_is_fifo
+  checked_date: '2026-09-09'
+  line: 34
+- id: EVID-48-CANON-INGRESS
+  type: Evidence
+  name: Canonical Ingress
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 1. Normative architecture; 3. Perception and Observation
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-TEMPORAL
+  type: Evidence
+  name: Canonical Temporal
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 4. Temporal State
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-MEMORY
+  type: Evidence
+  name: Canonical Memory
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 5. Memory architecture
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-EXECUTIVE
+  type: Evidence
+  name: Canonical Executive
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 7. Manager / Executive contract
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-BODY
+  type: Evidence
+  name: Canonical Body
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 9. Body design; 10. Reflex; 14. Safety/Input
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-VERIFY
+  type: Evidence
+  name: Canonical Verify
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 1. Normative architecture; 11. Independent verification and reward
+  checked_date: '2026-09-09'
+- id: EVID-48-CANON-LEARNING
+  type: Evidence
+  name: Canonical Learning
+  description: Normative responsibility only; no implementation or empirical validation claim.
+  provenance_kind: canonical_project_source
+  document: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  version: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  section: 12. Learning lifecycle
+  checked_date: '2026-09-09'
+- id: EVID-48-TASK-EXECUTOR
+  type: Evidence
+  name: Task Executor — baseline inspection
+  description: Requires a current Manager task and resolves its Body/Verifier binding before the runner;
+    does not establish live validation.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/task_executor.py
+  symbol: ManagerTaskExecutor.execute_current_task
+  checked_date: '2026-09-09'
+  line: 42
+- id: EVID-48-SKILL-RUNNER
+  type: Evidence
+  name: Skill Runner — baseline inspection
+  description: Bounds skill steps, rejects actions outside the skill action mask, calls guarded input
+    and independent verification; event logging is optional in this reusable runner.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/manager/skill_runner.py
+  symbol: SkillRunner.run
+  checked_date: '2026-09-09'
+  line: 76
+- id: EVID-48-BRIDGE-SANITIZER
+  type: Evidence
+  name: Bridge sanitizer — baseline inspection
+  description: sanitize_bridge_payload recursively rejects forbidden fields, rejects unknown top-level
+    keys, validates SanitizedBridgePayload and emits visible fields. VisibleBridgeAdapter.accept_observation_payload
+    calls it before constructing Observation. This is the optional bridge integrity path, not a pixel-frame
+    consumer.
+  provenance_kind: github_implementation
+  repository: Planton361/autonomous-game-agent
+  ref: 7b4ec2e1497dec50c94b921b61dab42245bf5c90
+  path: src/fh_agent/bridge/sanitizer.py
+  symbol: sanitize_bridge_payload
+  checked_date: '2026-09-09'
+  line: 173

@@ -56,24 +56,6 @@ RELATION_PAIRS = {
     "related_to_research_question": (ALL_TYPES - {"Domain"}, {"ResearchQuestion"}),
     "presented_in_domain": (TECHNICAL | {"ResearchQuestion", "ResearchThread"}, {"Domain"}),
 }
-ID_PATTERN = re.compile(r"\b(?:" + "|".join(PREFIXES.values()) + r")-[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
-DOSSIER_SECTIONS = (
-    "Technical purpose",
-    "Technical parent/children",
-    "Presentation domain",
-    "Inputs/Outputs",
-    "Interfaces/Contracts",
-    "Canonical evidence",
-    "GitHub implementation evidence",
-    "Current technical status",
-    "Research questions",
-    "Research threads",
-    "Measurement points",
-    "Decisions",
-    "Papers",
-    "Findings",
-    "Contradictions",
-)
 
 
 @dataclass(frozen=True)
@@ -163,7 +145,44 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
     for node_id in entities:
         if node_id in atlas.ancestors(node_id):
             raise ValueError(f"Technical part_of cycle: {node_id}")
+    validate_presentation(atlas)
     return atlas
+
+
+def validate_presentation(atlas: Atlas) -> None:
+    """Depth is a view constraint, never a source of technical parent edges."""
+    for node in atlas.entities.values():
+        level = node.atlas_level
+        if level == "L0" and node.type != "System":
+            raise ValueError("L0 is reserved for System presentation")
+        if level == "L1" and node.type != "Domain":
+            raise ValueError("L1 is reserved for presentation Domains")
+        if level in {"L2", "L3"} and node.type not in TECHNICAL - {"System"}:
+            raise ValueError("L2/L3 require technical records")
+        if node.overview_visibility == "main" and level not in {"L0", "L1", "L2"}:
+            raise ValueError("Main presentation requires L0/L1/L2")
+        if node.overview_visibility == "expansion" and level not in {"L2", "L3"}:
+            raise ValueError("Expansion presentation requires L2/L3")
+        if level in {"L2", "L3"}:
+            if not any(
+                e.relation == "presented_in_domain" and e.source == node.id
+                for e in atlas.relationships
+            ):
+                raise ValueError("L2/L3 technical record requires at least one presentation Domain")
+        if node.type != "Component":
+            continue
+        if node.technical.architecture_authority == "implementation-derived" and level != "L3":
+            raise ValueError("implementation-derived Component must be marked L3")
+        if level == "L3":
+            if node.overview_visibility != "expansion":
+                raise ValueError("L3 Component requires expansion presentation")
+            parents = [
+                atlas.entities[e.target]
+                for e in atlas.relationships
+                if e.relation == "part_of" and e.source == node.id
+            ]
+            if not parents or any(p.type != "Component" or p.atlas_level != "L2" for p in parents):
+                raise ValueError("L3 Component requires part_of L2 Component")
 
 
 class UniqueKeyLoader(yaml.SafeLoader):
@@ -184,7 +203,7 @@ UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, 
 
 
 def load_registry(root: Path) -> Atlas:
-    """Read all three SOT files and validate dossier references as one unit."""
+    """Read and validate the three SOT files independently of generated views."""
     payloads = []
     for filename in ("nodes.yaml", "relationships.yaml", "evidence.yaml"):
         payloads.append(
@@ -192,49 +211,4 @@ def load_registry(root: Path) -> Atlas:
                 (root / "registry" / filename).read_text(encoding="utf-8"), Loader=UniqueKeyLoader
             )
         )
-    atlas = validate_registry(*payloads)
-    validate_dossiers(atlas, root / "dossiers")
-    return atlas
-
-
-def validate_dossiers(atlas: Atlas, directory: Path) -> None:
-    """Dossiers use reference-only sections, so cannot author a second mapping/status table.
-
-    Purpose is explanatory prose copied from the node description. Every other section
-    is a registry-view pointer, not a relation assertion or independently stored status.
-    """
-    expected = {"CMP-MEM-RETRIEVAL", "CMP-CORTEX", "CMP-MANAGER"}
-    if {p.stem for p in directory.glob("*.md")} != expected:
-        raise ValueError("Exactly three pilot dossiers required")
-    if not expected <= atlas.entities.keys():
-        raise ValueError("Pilot dossier IDs must resolve")
-    for node_id in sorted(expected):
-        text = (directory / f"{node_id}.md").read_text(encoding="utf-8")
-        if not text.startswith(f"# {node_id}\n\n"):
-            raise ValueError("Dossier title must identify its stable ID")
-        sections = text.split("\n## ")
-        if sections[0] != f"# {node_id}\n":
-            raise ValueError("Dossier preamble cannot define additional SOT")
-        if len(sections) != len(DOSSIER_SECTIONS) + 1:
-            raise ValueError("Invalid dossier sections")
-        for expected_heading, section in zip(DOSSIER_SECTIONS, sections[1:], strict=True):
-            heading, _, body = section.partition("\n\n")
-            body = body.strip()
-            if heading != expected_heading:
-                raise ValueError("Invalid dossier heading")
-            if heading == "Technical purpose":
-                if body != atlas.entities[node_id].description:
-                    raise ValueError("Dossier purpose differs from registry explanation")
-            else:
-                for reference in re.findall(r"`([^`]+)`", body):
-                    if reference not in atlas.entities:
-                        raise ValueError(f"Unresolved dossier ID: {reference}")
-                if heading in {"Papers", "Findings", "Contradictions"}:
-                    body = body.removesuffix(" None mapped in v0.1 pilot.")
-                if not re.fullmatch(r"Registry view: `[A-Z0-9-]+`(?:, `[A-Z0-9-]+`)*\.", body):
-                    raise ValueError(
-                        "Dossier sections must reference registry IDs, not redefine SOT"
-                    )
-        for reference in ID_PATTERN.findall(text):
-            if reference not in atlas.entities:
-                raise ValueError(f"Unresolved dossier ID: {reference}")
+    return validate_registry(*payloads)
