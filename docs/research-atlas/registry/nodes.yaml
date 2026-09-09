@@ -89,12 +89,26 @@ nodes:
     über Episoden hinweg zu Wissen, das spätere Entscheidungen unterstützt?
 - id: THREAD-EXPERIENCE-TO-ACTION-001
   type: ResearchThread
+  ordered_refs:
+  - CMP-MEM-RETRIEVAL
+  - MEAS-RETRIEVAL-DELIVERY-001
+  - IF-MEM-CORTEX
+  - CON-CORTEX-CONTEXT
+  - CMP-CORTEX
+  - MEAS-CORTEX-PROPOSAL-001
+  - CON-PLANNER-OUTPUT
+  - IF-CORTEX-MANAGER
+  - CMP-MANAGER
+  - MEAS-MANAGER-DISPOSITION-001
+  - CON-SKILL-CONTRACT
+  - MEAS-VERIFIED-OUTCOME-001
   name: Experience to Action
   description: Experience -> Memory Retrieval -> Cortex -> Manager -> Action -> Outcome.
     Cross-cutting working path, not a proven causal chain or technical hierarchy;
     no experiment authorization.
 - id: DEC-ATLAS-PILOT-001
   type: Decision
+  decision_scope: tooling
   name: Approved Atlas pilot scope
   description: 'Issue #46 approves metadata/tooling only, including existing measurement
     mappings; no architecture decomposition or new research decision.'

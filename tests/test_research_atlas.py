@@ -127,7 +127,7 @@ def test_superseded_old_node_remains_addressable(payloads):
     assert atlas.entities["CMP-MANAGER"].id == "CMP-MANAGER"
 
 
-@pytest.mark.parametrize("decision", [None, "CMP-CORTEX", "DEC-MISSING"])
+@pytest.mark.parametrize("decision", [None, "CMP-CORTEX", "DEC-MISSING", "DEC-ATLAS-PILOT-001"])
 def test_decomposition_without_valid_decision_rejected(payloads, decision):
     edge(payloads, "decomposed_into", decision_id=decision)
     with pytest.raises(ValueError, match="Decision"):
@@ -135,7 +135,8 @@ def test_decomposition_without_valid_decision_rejected(payloads, decision):
 
 
 def test_decomposition_with_decision_accepted_and_history_preserved(payloads):
-    edge(payloads, "decomposed_into", decision_id="DEC-ATLAS-PILOT-001")
+    architecture_approval(payloads)
+    edge(payloads, "decomposed_into", decision_id="DEC-ARCH-DECOMP-TEST")
     atlas = validate_registry(*payloads)
     assert "CMP-CORTEX" in atlas.entities and "CMP-MANAGER" in atlas.entities
     assert atlas.ancestors("CMP-MANAGER") == {"SYS-AGA"}
@@ -318,6 +319,10 @@ def test_each_relation_has_an_executable_valid_pair(payloads, relation):
             item["technical"] = technical.copy()
         if kind == "Domain":
             item["grouping_semantics"] = "presentation / navigation grouping"
+        if kind == "Decision":
+            item["decision_scope"] = "tooling"
+        if kind == "ResearchThread":
+            item["ordered_refs"] = []
         payloads[0]["nodes"].append(item)
     sources, targets = RELATION_PAIRS[relation]
     if relation in {"supersedes", "decomposed_into", "part_of"}:
@@ -330,6 +335,195 @@ def test_each_relation_has_an_executable_valid_pair(payloads, relation):
         target = (
             "EVID-PROGRAM-001" if target_kind == "Evidence" else PREFIXES[target_kind] + "-PAIR"
         )
-    kwargs = {"decision_id": "DEC-PAIR"} if relation == "decomposed_into" else {}
+    if relation == "decomposed_into":
+        architecture_approval(payloads)
+    kwargs = {"decision_id": "DEC-ARCH-DECOMP-TEST"} if relation == "decomposed_into" else {}
     edge(payloads, relation, source, target, **kwargs)
     validate_registry(*payloads)
+
+
+def architecture_approval(payloads):
+    payloads[0]["nodes"].append(
+        dict(
+            id="DEC-ARCH-DECOMP-TEST",
+            type="Decision",
+            name="Synthetic approval",
+            description="Test-only architecture approval",
+            decision_scope="architecture",
+        )
+    )
+    payloads[2]["evidence"].append(
+        dict(
+            id="EVID-ARCH-DECOMP-TEST",
+            type="Evidence",
+            name="Synthetic approval evidence",
+            description="Test-only decision record",
+            provenance_kind="project_decision",
+            document="test-fixture",
+            version="1",
+            section="Architecture approval",
+            checked_date="2026-09-09",
+        )
+    )
+    edge(payloads, "supports", "EVID-ARCH-DECOMP-TEST", "DEC-ARCH-DECOMP-TEST")
+
+
+@pytest.mark.parametrize("missing", ["support", "project_provenance", "architecture_scope"])
+def test_decomposition_approval_is_fail_closed(payloads, missing):
+    architecture_approval(payloads)
+    if missing == "support":
+        payloads[1]["relationships"].pop()
+    elif missing == "project_provenance":
+        payloads[2]["evidence"][-1]["provenance_kind"] = "synthesis_inference"
+    else:
+        payloads[0]["nodes"][-1]["decision_scope"] = "research"
+    edge(payloads, "decomposed_into", decision_id="DEC-ARCH-DECOMP-TEST")
+    with pytest.raises(ValueError, match="Decision"):
+        validate_registry(*payloads)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "DAT-RETRIEVAL-SNAPSHOT",
+        "MEAS-CORTEX-PROPOSAL-001",
+        "DOM-COGNITION",
+        "SYS-AGA",
+    ],
+)
+def test_non_component_part_of_source_rejected(payloads, source):
+    edge(payloads, "part_of", source, "CMP-CORTEX")
+    with pytest.raises(ValueError, match="Illegal part_of"):
+        validate_registry(*payloads)
+
+
+@pytest.mark.parametrize("target", ["CMP-MANAGER", "SYS-AGA"])
+def test_component_part_of_component_or_system_accepted(payloads, target):
+    payloads[1]["relationships"] = [
+        e
+        for e in payloads[1]["relationships"]
+        if not (e["relation"] == "part_of" and e["source"] == "CMP-CORTEX")
+    ]
+    edge(payloads, "part_of", "CMP-CORTEX", target)
+    assert target in validate_registry(*payloads).ancestors("CMP-CORTEX")
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "CMP-CORTEX",
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "DAT-RETRIEVAL-SNAPSHOT",
+    ],
+)
+def test_measured_at_direction(payloads, target):
+    edge(payloads, "measured_at", "MEAS-VERIFIED-OUTCOME-001", target)
+    validate_registry(*payloads)
+    edge(payloads, "measured_at", target, "MEAS-VERIFIED-OUTCOME-001")
+    with pytest.raises(ValueError, match="Illegal measured_at"):
+        validate_registry(*payloads)
+
+
+def test_studied_by_is_literature_coverage_only(payloads):
+    payloads[0]["nodes"].append(
+        dict(id="PAPER-TEST", type="Paper", name="Synthetic paper", description="Test fixture only")
+    )
+    edge(payloads, "studied_by", "THREAD-EXPERIENCE-TO-ACTION-001", "PAPER-TEST")
+    edge(payloads, "studied_by", "CMP-CORTEX", "PAPER-TEST")
+    validate_registry(*payloads)
+    edge(payloads, "studied_by", "CMP-CORTEX", "THREAD-EXPERIENCE-TO-ACTION-001")
+    with pytest.raises(ValueError, match="Illegal studied_by"):
+        validate_registry(*payloads)
+
+
+def test_thread_order_and_references_preserved_without_architecture_mutation(payloads):
+    before = validate_registry(*payloads)
+    thread = next(n for n in payloads[0]["nodes"] if n["type"] == "ResearchThread")
+    assert thread["ordered_refs"] == [
+        "CMP-MEM-RETRIEVAL",
+        "MEAS-RETRIEVAL-DELIVERY-001",
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "CMP-CORTEX",
+        "MEAS-CORTEX-PROPOSAL-001",
+        "CON-PLANNER-OUTPUT",
+        "IF-CORTEX-MANAGER",
+        "CMP-MANAGER",
+        "MEAS-MANAGER-DISPOSITION-001",
+        "CON-SKILL-CONTRACT",
+        "MEAS-VERIFIED-OUTCOME-001",
+    ]
+    assert all(ref in before.entities for ref in thread["ordered_refs"])
+    thread["ordered_refs"].reverse()
+    after = validate_registry(*payloads)
+    assert after.entities[thread["id"]].ordered_refs == tuple(thread["ordered_refs"])
+    assert before.relationships == after.relationships
+    for node_id, node in before.entities.items():
+        assert before.ancestors(node_id) == after.ancestors(node_id)
+        if node_id != thread["id"]:
+            assert after.entities[node_id] == node
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "CMP-MISSING",
+        "DOM-COGNITION",
+        "SYS-AGA",
+        "RQ-PROGRAM-AB-001",
+        "EVID-PROGRAM-001",
+        "DEC-ATLAS-PILOT-001",
+    ],
+)
+def test_invalid_thread_reference_rejected(payloads, reference):
+    thread = next(n for n in payloads[0]["nodes"] if n["type"] == "ResearchThread")
+    thread["ordered_refs"].append(reference)
+    with pytest.raises(ValueError, match="ResearchThread reference"):
+        validate_registry(*payloads)
+
+
+@pytest.mark.parametrize("status", ["live-demonstrated", "measurement-validated"])
+def test_specific_verification_statuses_accepted(payloads, status):
+    payloads[0]["nodes"][0]["technical"]["verification_status"] = status
+    result = validate_registry(*payloads).entities["SYS-AGA"]
+    assert result.technical.verification_status == status
+    assert result.research_mapping == "unmapped"
+    assert result.research_direction is None
+
+
+def test_generic_validated_rejected(payloads):
+    payloads[0]["nodes"][0]["technical"]["verification_status"] = "validated"
+    with pytest.raises(ValueError):
+        validate_registry(*payloads)
+
+
+@pytest.mark.parametrize("relation", ["decomposed_into", "research_suggests_decomposition"])
+@pytest.mark.parametrize(
+    "target",
+    [
+        "SYS-AGA",
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "DAT-RETRIEVAL-SNAPSHOT",
+        "MEAS-CORTEX-PROPOSAL-001",
+    ],
+)
+def test_decomposition_targets_are_components_only(payloads, relation, target):
+    architecture_approval(payloads)
+    payloads[0]["nodes"].append(
+        dict(id="LEAD-TEST", type="ExperimentLead", name="Synthetic lead", description="Test only")
+    )
+    source = "CMP-CORTEX" if relation == "decomposed_into" else "LEAD-TEST"
+    kwargs = {"decision_id": "DEC-ARCH-DECOMP-TEST"} if relation == "decomposed_into" else {}
+    edge(payloads, relation, source, target, **kwargs)
+    with pytest.raises(ValueError, match="Illegal"):
+        validate_registry(*payloads)
+
+
+def test_pilot_contains_no_architecture_decomposition_or_literature_edges():
+    atlas = load_registry(ATLAS)
+    assert atlas.entities["DEC-ATLAS-PILOT-001"].decision_scope == "tooling"
+    assert not any(e.relation in {"decomposed_into", "studied_by"} for e in atlas.relationships)

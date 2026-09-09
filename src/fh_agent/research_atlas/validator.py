@@ -33,7 +33,7 @@ PAYLOADS = frozenset({"Interface", "Contract", "DataArtifact"})
 ALL_TYPES = frozenset(PREFIXES)
 # Explicit admissible pairs; lifecycle relations additionally require equal endpoint types.
 RELATION_PAIRS = {
-    "part_of": (TECHNICAL - {"System", "Environment"}, ACTORS),
+    "part_of": ({"Component"}, ACTORS),
     "supplies": (ACTORS, PAYLOADS),
     "consumes": (ACTORS, PAYLOADS),
     "controls": (ACTORS, ACTORS | {"Environment"}),
@@ -45,14 +45,14 @@ RELATION_PAIRS = {
     "verifies": (ACTORS, {"Contract", "DataArtifact"}),
     "updates": (ACTORS, {"DataArtifact"}),
     "retrieves_from": (ACTORS, {"DataArtifact"}),
-    "measured_at": (TECHNICAL - {"MeasurementPoint"}, {"MeasurementPoint"}),
-    "studied_by": (TECHNICAL, {"ResearchThread", "Paper"}),
+    "measured_at": ({"MeasurementPoint"}, {"Component", "Interface", "Contract", "DataArtifact"}),
+    "studied_by": (TECHNICAL | {"ResearchThread"}, {"Paper"}),
     "supports": ({"Evidence", "Finding", "Paper", "Decision"}, ALL_TYPES - {"Domain"}),
     "contradicts": ({"Evidence", "Finding", "Paper"}, ALL_TYPES - {"Domain"}),
     "derived_from": (ALL_TYPES - {"Domain"}, {"Evidence", "Finding", "Paper", "DataArtifact"}),
     "supersedes": (ALL_TYPES - {"Domain"}, ALL_TYPES - {"Domain"}),
-    "decomposed_into": (ACTORS, ACTORS),
-    "research_suggests_decomposition": ({"ExperimentLead"}, TECHNICAL),
+    "decomposed_into": ({"Component"}, {"Component"}),
+    "research_suggests_decomposition": ({"ExperimentLead"}, {"Component"}),
     "related_to_research_question": (ALL_TYPES - {"Domain"}, {"ResearchQuestion"}),
     "presented_in_domain": (TECHNICAL | {"ResearchQuestion", "ResearchThread"}, {"Domain"}),
 }
@@ -108,6 +108,20 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
         if not re.fullmatch(re.escape(PREFIXES[node.type]) + r"-[A-Z0-9]+(?:-[A-Z0-9]+)*", node.id):
             raise ValueError(f"ID prefix/type mismatch: {node.id}")
         entities[node.id] = node
+    for node in node_file.nodes:
+        if node.type == "ResearchThread":
+            for reference in node.ordered_refs:
+                target = entities.get(reference)
+                if target is None:
+                    raise ValueError(f"Dangling ResearchThread reference: {reference}")
+                if target.type not in {
+                    "Component",
+                    "Interface",
+                    "Contract",
+                    "DataArtifact",
+                    "MeasurementPoint",
+                }:
+                    raise ValueError(f"Illegal ResearchThread reference type: {target.type}")
     seen: set[tuple[str, str, str]] = set()
     for edge in edge_file.relationships:
         if edge.source not in entities or edge.target not in entities:
@@ -129,8 +143,22 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
                 raise ValueError("Approval reference must resolve to Decision")
             if edge.relation != "decomposed_into":
                 raise ValueError("decision_id is reserved for accepted decomposition")
+            if decision.decision_scope != "architecture":
+                raise ValueError("Decomposition requires architecture-scoped Decision")
         if edge.relation == "decomposed_into" and edge.decision_id is None:
             raise ValueError("decomposed_into requires explicit Decision approval")
+    # Check approval support only after every relationship has passed structural validation.
+    approved_decisions = {
+        edge.target
+        for edge in edge_file.relationships
+        if edge.relation == "supports"
+        and entities[edge.source].type == "Evidence"
+        and entities[edge.source].provenance_kind == "project_decision"
+        and entities[edge.target].type == "Decision"
+    }
+    for edge in edge_file.relationships:
+        if edge.relation == "decomposed_into" and edge.decision_id not in approved_decisions:
+            raise ValueError("Decomposition Decision requires supporting project_decision Evidence")
     atlas = Atlas(MappingProxyType(entities), edge_file.relationships)
     for node_id in entities:
         if node_id in atlas.ancestors(node_id):

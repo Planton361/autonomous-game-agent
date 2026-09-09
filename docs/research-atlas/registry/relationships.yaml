@@ -21,27 +21,18 @@ relationships:
 - relation: related_to_research_question
   source: CMP-MEM-RETRIEVAL
   target: RQ-PROGRAM-AB-001
-- relation: studied_by
-  source: CMP-MEM-RETRIEVAL
-  target: THREAD-EXPERIENCE-TO-ACTION-001
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: CMP-MEM-RETRIEVAL
 - relation: related_to_research_question
   source: CMP-CORTEX
   target: RQ-PROGRAM-AB-001
-- relation: studied_by
-  source: CMP-CORTEX
-  target: THREAD-EXPERIENCE-TO-ACTION-001
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: CMP-CORTEX
 - relation: related_to_research_question
   source: CMP-MANAGER
   target: RQ-PROGRAM-AB-001
-- relation: studied_by
-  source: CMP-MANAGER
-  target: THREAD-EXPERIENCE-TO-ACTION-001
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: CMP-MANAGER
@@ -82,35 +73,23 @@ relationships:
   source: CMP-CORTEX
   target: CMP-MANAGER
 - relation: measured_at
-  source: CMP-MEM-RETRIEVAL
-  target: MEAS-RETRIEVAL-DELIVERY-001
-- relation: studied_by
   source: MEAS-RETRIEVAL-DELIVERY-001
-  target: THREAD-EXPERIENCE-TO-ACTION-001
+  target: CMP-MEM-RETRIEVAL
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: MEAS-RETRIEVAL-DELIVERY-001
 - relation: measured_at
-  source: CMP-CORTEX
-  target: MEAS-CORTEX-PROPOSAL-001
-- relation: studied_by
   source: MEAS-CORTEX-PROPOSAL-001
-  target: THREAD-EXPERIENCE-TO-ACTION-001
+  target: CMP-CORTEX
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: MEAS-CORTEX-PROPOSAL-001
 - relation: measured_at
-  source: CMP-MANAGER
-  target: MEAS-MANAGER-DISPOSITION-001
-- relation: studied_by
   source: MEAS-MANAGER-DISPOSITION-001
-  target: THREAD-EXPERIENCE-TO-ACTION-001
+  target: CMP-MANAGER
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: MEAS-MANAGER-DISPOSITION-001
-- relation: studied_by
-  source: MEAS-VERIFIED-OUTCOME-001
-  target: THREAD-EXPERIENCE-TO-ACTION-001
 - relation: supports
   source: DEC-ATLAS-PILOT-001
   target: MEAS-VERIFIED-OUTCOME-001

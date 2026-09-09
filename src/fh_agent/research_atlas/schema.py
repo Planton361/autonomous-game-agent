@@ -18,7 +18,12 @@ class TechnicalStatus(Record):
     ]
     implementation_status: Literal["target-only", "partial", "implemented", "deprecated", "unknown"]
     verification_status: Literal[
-        "unverified", "unit-tested", "integration-tested", "validated", "unknown"
+        "unverified",
+        "unit-tested",
+        "integration-tested",
+        "live-demonstrated",
+        "measurement-validated",
+        "unknown",
     ]
 
 
@@ -77,6 +82,7 @@ class ResearchQuestion(Identity):
 
 class ResearchThread(Identity):
     type: Literal["ResearchThread"]
+    ordered_refs: tuple[Text, ...]
 
 
 class Paper(Identity):
@@ -89,6 +95,7 @@ class Finding(Identity):
 
 class Decision(Identity):
     type: Literal["Decision"]
+    decision_scope: Literal["architecture", "research", "project", "tooling"]
 
 
 class ExperimentLead(Identity):
