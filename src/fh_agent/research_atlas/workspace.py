@@ -462,7 +462,7 @@ def render_base() -> str:
             "!note.contradicted_by.isEmpty() || !note.contradicts.isEmpty()",
         ],
     )
-    view("Unmapped research areas", [component, 'note.research_mapping == "unmapped"'])
+    view("Atlas Mapping Incomplete", [component, 'note.research_mapping == "unmapped"'])
     return yaml.safe_dump(
         {
             "filters": {"and": ["note.atlas_generated == true", "!note.atlas_id.isEmpty()"]},
@@ -902,6 +902,8 @@ def validate_workspace(atlas: Atlas, root: Path) -> None:
         if not full.is_file() or full.read_text(encoding="utf-8") != content:
             raise ValueError(f"Generated workspace drift: {path}")
     bases = {PurePosixPath(p.relative_to(root).as_posix()) for p in root.rglob("*.base")}
+    # This public-safe copy source is not another generated public workspace Base.
+    bases.discard(PurePosixPath("Wiki Views/Research Wiki Direct Views.base"))
     maps = {PurePosixPath(p.relative_to(root).as_posix()) for p in root.rglob("*.excalidraw.md")}
     if bases != {BASE_PATH} or maps != {MAP_PATH}:
         raise ValueError("Exactly one central Base and map required")

@@ -1,0 +1,376 @@
+# Public-safe Base definition; no private records or inferred scientific results.
+filters:
+  and:
+    - 'file.ext == "md"'
+    - 'note.wiki_schema_version == "0.1"'
+    - 'note.epistemic_schema_version == "0.1"'
+    - '!note.wiki_id.isEmpty()'
+    - 'note.privacy == "private"'
+    - 'note.export_policy == "deny"'
+    - '!file.inFolder("_generated")'
+views:
+  - type: table
+    name: "Processes"
+    filters:
+      and:
+        - 'note.doc_type == "process"'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.input_refs
+      - note.output_refs
+      - note.measurement_refs
+      - note.preceding_process_refs
+      - note.rq_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Topics / Methods"
+    filters:
+      and:
+        - 'note.doc_type == "topic"'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.synonyms
+      - note.paper_refs
+      - note.finding_refs
+      - note.rq_refs
+      - note.process_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Paper identities"
+    filters:
+      and:
+        - 'note.doc_type == "paper"'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.source_refs
+      - note.doi
+      - note.authors
+      - note.publication_year
+      - note.reading_note_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Reading Notes by reading depth"
+    filters:
+      and:
+        - 'note.doc_type == "reading_note"'
+    groupBy:
+      property: note.reading_depth
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.reading_depth
+      - note.version_read
+      - note.read_date
+      - note.checked_sections
+      - note.paper_refs
+      - note.source_refs
+      - note.rq_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Reading Notes by document maturity"
+    filters:
+      and:
+        - 'note.doc_type == "reading_note"'
+    groupBy:
+      property: note.document_maturity
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.reading_depth
+      - note.version_read
+      - note.read_date
+      - note.checked_sections
+      - note.paper_refs
+      - note.source_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Findings by review state"
+    filters:
+      and:
+        - 'note.doc_type == "finding"'
+    groupBy:
+      property: note.review_state
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.review_state
+      - note.claim_origin
+      - note.source_refs
+      - note.reading_note_refs
+      - note.rq_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Findings by claim origin"
+    filters:
+      and:
+        - 'note.doc_type == "finding"'
+    groupBy:
+      property: note.claim_origin
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.review_state
+      - note.claim_origin
+      - note.source_refs
+      - note.reading_note_refs
+      - note.rq_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Research Questions by stage / decision state"
+    filters:
+      and:
+        - 'note.doc_type == "research_question"'
+    groupBy:
+      property: note.question_stage
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.question_stage
+      - note.decision_state
+      - note.decision_refs
+      - note.search_refs
+      - note.synthesis_refs
+    sort:
+      - property: note.decision_state
+        direction: ASC
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Experiment Leads by stage / decision state"
+    filters:
+      and:
+        - 'note.doc_type == "experiment_lead"'
+    groupBy:
+      property: note.question_stage
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.question_stage
+      - note.decision_state
+      - note.decision_refs
+      - note.rq_refs
+      - note.measurement_refs
+    sort:
+      - property: note.decision_state
+        direction: ASC
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Search Records inventory"
+    filters:
+      and:
+        - 'note.doc_type == "search_record"'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.target_refs
+      - note.search_date
+      - note.result_refs
+      - note.supersedes_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Decisions by state / scope"
+    filters:
+      and:
+        - 'note.doc_type == "decision_draft"'
+    groupBy:
+      property: note.decision_record_state
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.decision_record_state
+      - note.decision_scope
+      - note.decision_type
+      - note.subject_refs
+      - note.authority_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "Syntheses by document maturity"
+    filters:
+      and:
+        - 'note.doc_type == "synthesis"'
+    groupBy:
+      property: note.document_maturity
+      direction: ASC
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.finding_refs
+      - note.search_refs
+      - note.rq_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "research_direct_subject_refs present"
+    filters:
+      and:
+        - '!note.research_direct_subject_refs.isEmpty()'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.research_direct_subject_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "research_method_or_baseline_refs present"
+    filters:
+      and:
+        - '!note.research_method_or_baseline_refs.isEmpty()'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.research_method_or_baseline_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "research_measurement_relevance_refs present"
+    filters:
+      and:
+        - '!note.research_measurement_relevance_refs.isEmpty()'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.research_measurement_relevance_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "research_project_transfer_refs present"
+    filters:
+      and:
+        - '!note.research_project_transfer_refs.isEmpty()'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.research_project_transfer_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC
+  - type: table
+    name: "research_adjacent_context_refs present"
+    filters:
+      and:
+        - '!note.research_adjacent_context_refs.isEmpty()'
+    order:
+      - file.name
+      - note.wiki_id
+      - note.doc_type
+      - note.title
+      - note.record_version
+      - note.document_maturity
+      - note.atlas_refs
+      - note.research_adjacent_context_refs
+    sort:
+      - property: note.wiki_id
+        direction: ASC

@@ -170,5 +170,76 @@ filesystem mutation. An interrupted multi-file generation can leave drift;
 atomic replacement protects individual files, not the whole tree. A first run
 interrupted before its manifest may require operator recovery of unowned outputs.
 Structural map tests do not claim an interactive Obsidian/Excalidraw plugin test.
-RA-3/Bases/derived indexes, corpus migration, Zotero, Work automation, gameplay,
-and real input remain outside this leaf.
+Multi-hop derived indexes, corpus migration, Zotero, Work automation, gameplay,
+and real input remain outside these projection tools.
+
+## RA-3A direct views and Process navigation
+
+The public Base now calls its unchanged Component/unmapped filter **Atlas Mapping
+Incomplete**. This means missing Atlas mapping, not missing literature or a gap.
+
+First generate/check the RA-1 technical projection at the current committed HEAD.
+Then, with the same local PRIVATE_VAULT variable and source-ref:
+
+```bash
+uv run --no-sync python -m fh_agent.research_atlas.private_views \
+  --repo-root . --vault-root "$PRIVATE_VAULT" --source-ref HEAD
+
+uv run --no-sync python -m fh_agent.research_atlas.private_views \
+  --repo-root . --vault-root "$PRIVATE_VAULT" --source-ref HEAD --check
+```
+
+The separate owner `research-wiki-derived` owns exactly
+`_generated/derived/`, with these RA-3A outputs:
+
+```text
+manifest/direct-views.yaml
+bases/Technical Atlas Views.base
+bases/Research Wiki Direct Views.base
+indexes/Direct Views Index.md
+```
+
+Every invocation first checks the existing RA-1 technical projection without
+writing it, including declared RA-2 structural contracts. If it is missing or
+stale, regenerate it explicitly first. Marker, non-nested physical roots, source
+HEAD and RA-1 clean-source requirements are unchanged. Additionally the committed
+public Base, Wiki Views and Process Seeds sources must be clean (staged/untracked
+included). Both Base inputs must be tracked regular files without symlink boundaries.
+Unrelated dirt is allowed and never modified. No network is needed.
+
+The technical Base preserves the public views and restricts the dataset to
+`_generated/technical-atlas`. The direct Wiki Base uses only declared flat RA-2
+Properties outside `_generated`: 12 class/status inventories and five independent
+role-presence views. Public-safe templates/seeds contain example blocks, not
+active frontmatter. Ordinary Markdown, RA-1 legacy records and generated technical
+records are excluded. Views display declarations, not verified scientific facts.
+
+The deterministic manifest pins source commit, Atlas schema 0.2 and exact-byte
+SHA-256 hashes of both source Bases and all three owned payloads. Generated Bases
+carry an owner comment; the navigation note carries owner frontmatter. No private
+absolute paths, timestamps, scientific data rows or new research objects are emitted.
+
+Before any write, the complete prior manifest, all targets and owner markers are
+checked. Symlink boundaries/descendants, traversal and absolute manifest paths
+fail closed. Unknown/unowned files block generation rather than being overwritten
+or deleted. Cleanup considers only obsolete Base/navigation files in the prior
+manifest with matching owner and digest. Empty directories are not pruned.
+All writes reuse RA-1's same-directory temporary file plus atomic replace;
+the direct-view manifest is last. Authored bytes and the technical projection
+remain unchanged. Run only one projector at a time: this is not a multi-file
+transaction or protection against concurrent hostile filesystem mutation.
+
+`--check` performs no mkdir, temporary file, replace, unlink or manifest update.
+Exit 0 means exact state, 2 means expected configuration/validation/drift failure;
+unexpected faults remain non-zero. Following an interrupted first write, preserve
+unowned outputs outside the root before retrying; do not erase authored work.
+
+See the [15-view capability matrix](Wiki%20Views/Direct%20View%20Capability%20Matrix.md)
+for direct/partial/deferred boundaries and the seven [Process Seeds](Process%20Seeds/)
+for optional manual authoring sources extending the RA-2 Process template.
+Seeds are drafts, not reviewed, and create no Public part_of or implementation
+claim. No automatic seed copying, migration, scientific Body parsing, candidate
+promotion, private-to-public sync or Wiki-to-Agent-Memory connection is provided.
+Candidate History, Decision Lineage and type-resolved multi-hop literature rollups
+remain deferred; Evidence Profiles are RA-6. Direct inventory counts cannot
+establish absence, coverage, exhaustion, novelty or evidence independence.
