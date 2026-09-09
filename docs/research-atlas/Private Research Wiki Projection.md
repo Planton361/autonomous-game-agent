@@ -98,17 +98,71 @@ followed by uppercase alphanumeric segments separated by hyphens. A private
 record cannot declare `atlas_id`; `atlas_refs` resolve only against current public
 Atlas IDs. Privacy must be `private` and export policy `deny`.
 
-Notes without a declared Wiki envelope remain unmodeled. Other authored
-properties remain opaque; RA-1 defines no ReadingNote/Finding/Synthesis scientific
-fields, templates, or acceptance workflow. Private frontmatter never selects an
-output filename. Symbolic links in the authored tree are not followed or modeled.
+Notes without a declared Wiki envelope remain unmodeled. Without
+`epistemic_schema_version`, an envelope remains **RA-1 legacy only**: other
+authored properties stay opaque, with no new scientific requirements, implied
+review or automatic migration. Private frontmatter never selects an output
+filename. Symbolic links in the authored tree are not followed or modeled.
+
+## RA-2 explicit epistemic profile
+
+To opt in, add these fields to the RA-1 envelope, plus the class-specific
+properties from the corresponding [Wiki Templates](Wiki%20Templates/) source:
+
+```yaml
+epistemic_schema_version: "0.1"
+title: Example
+record_version: 1
+document_maturity: draft
+```
+
+The 13 templates are public-safe copy sources, not operative records. Replace
+placeholders in a separately authored private note. Their example YAML is in
+code blocks, not active frontmatter. Template properties are flat; scientific
+arguments, exact source versions/locators and B0/B1–B13 review sections stay in
+the body. No private corpus is imported or populated by these sources.
+
+Both write mode and `--check` validate the closed flat RA-2 contracts through the
+existing `validate_wiki_records` call. `record_version` is a strict positive
+integer; unknown profile properties, including pseudo-confidence, maturity and
+exhaustion scores, fail closed. Legacy notes retain their tolerant behavior.
+An opt-in record must still declare its RA-1 envelope: the vault scanner discovers
+authored notes through `wiki_schema_version` or `wiki_id`, not a standalone
+epistemic property. No-envelope notes remain outside projection validation.
+
+ReadingNotes distinguish source identity, read version/date and actual checked
+sections; there is no monotonic reading ladder. Findings separate claim origin
+and review state. Only private ResearchQuestion/ExperimentLead carry candidate
+stage/state; a non-`none` decision needs Decision refs and `accepted` requires
+`candidate`. A recorded Decision needs authority refs. These are structural
+checks, not proof that a source was read, a Finding accepted or a Decision made.
+Scientific body adequacy, sound inference, actual authority and lifecycle
+transitions remain human SCI/Program Owner review responsibilities. `--check`
+does not become a scientific acceptance gate and still performs no writes.
+
+Document maturity, reading verification, candidate decisions and public technical
+verification remain independent. The five research-role lists imply no other
+role, `supports`, `part_of`, causal or implementation evidence. Public Atlas
+schema remains `0.2`; its validator allows non-null `research_direction` only on
+`ResearchQuestion` and `ExperimentLead`, never Thread or technical records.
+There is no automatic private-to-public status mapping or promotion.
+
+Material changes require an explicit new revision and human review; material
+Finding changes require human reset of the new revision's review state to draft.
+Superseded document maturity needs non-empty `supersedes_refs` lineage, with
+predecessor/replacement direction and exact versions explained in the body.
+This tooling does not judge that lineage or create an archive. Completed
+SearchRecords and recorded Decisions must not be silently rewritten; historical
+Public Evidence remains unchanged. A scoped candidate kill never marks a
+Component, Topic, Method, Paper area or whole research direction exhausted.
 
 ## One-way boundary and limitations
 
 There is no reverse sync, private-to-public export, Canonical/SOT update, or
 Wiki-to-Agent-Memory/Retrieval/Cortex/runtime path. Private notes are only read to
-validate the minimal envelope. They never feed public rendering or alter technical
-ancestry. The public workspace generator accepts no private-vault input.
+validate the envelope and explicitly opted-in flat profile. They never feed public
+rendering or alter technical ancestry. The public workspace generator accepts no
+private-vault input.
 
 Run one projector at a time with a stable source checkout and vault. This is a
 local filesystem workflow, not a transaction across concurrent editors or hostile
@@ -116,5 +170,5 @@ filesystem mutation. An interrupted multi-file generation can leave drift;
 atomic replacement protects individual files, not the whole tree. A first run
 interrupted before its manifest may require operator recovery of unowned outputs.
 Structural map tests do not claim an interactive Obsidian/Excalidraw plugin test.
-RA-2, corpus migration, Zotero, Work automation, gameplay, and real input remain
-outside this leaf.
+RA-3/Bases/derived indexes, corpus migration, Zotero, Work automation, gameplay,
+and real input remain outside this leaf.
