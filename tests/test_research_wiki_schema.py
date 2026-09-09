@@ -676,7 +676,8 @@ def test_template_contracts_and_public_safe_placeholders(filename):
     text = (TEMPLATES / filename).read_text(encoding="utf-8")
     assert text.startswith("# ") and not text.startswith("---")
     assert "not an active private record" in text
-    assert "<TO BE AUTHORED; NOT REVIEWED>" in text
+    assert "`<TO BE AUTHORED; NOT REVIEWED>`" in text
+    assert "| Responsible author/editor | `<EDITOR>` |" in text
     assert "## B0 — Provenance and revision/review record\n" in text
     for field in (
         "Responsible author/editor",

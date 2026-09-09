@@ -49,14 +49,14 @@ decision_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -76,64 +76,64 @@ and no Wiki-to-Agent-Memory connection exist.
 
 Pin the addressed question revision.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Proposed treatment/reference comparison
 
 Describe proposed contrast, not an executed study.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Outcome and experimental unit
 
 Declare the intended outcome/unit and remaining uncertainty.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Proposed fixed/variable factors
 
 Separate what changes and what is held fixed.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Required data/measurement and technical evidence state
 
 Link actual public technical evidence/source state; missing measurement stays planned.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Falsifiability/knowledge criterion
 
 Name a discriminating test criterion.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Resources/integrity/validity risks
 
 No change to admissible evidence or safety boundaries.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Search/review state
 
 Pin actual reviewed sources and coverage limits.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Stage history
 
 Record stage changes and gate evidence per revision; no automatic lifecycle transitions.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Decision history
 
 Non-none state needs Decision refs; accepted requires candidate. Kill/deprioritization applies only to exact candidate scope/version/search-review state. Preserve historical decisions; program/study/resource binding requires Anton.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Not execution authorization
 
 This is not execution authorization, not PROTOCOL-001, not data evidence and not permission for gameplay/input or protocol freeze.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`

@@ -47,14 +47,14 @@ decision_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -74,34 +74,34 @@ and no Wiki-to-Agent-Memory connection exist.
 
 Identify the precise subject; at least one atlas_refs or subject_refs entry is required.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Scope / non-responsibilities
 
 State what is and is not covered.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Technical projection references and source state
 
 Link public technical records and their source commit. Do not author implementation_status, verification_status or architecture_authority copies.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Interfaces/data/process context
 
 Distinguish public facts from proposed interpretation.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Research roles
 
 Justify each link's exact role. A Component link does not establish evaluation of our exact implementation.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Open questions / limits
 
 Record unresolved questions without a maturity/exhaustion score.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`

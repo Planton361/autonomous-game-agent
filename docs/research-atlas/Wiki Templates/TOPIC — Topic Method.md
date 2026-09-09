@@ -46,14 +46,14 @@ process_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -73,28 +73,28 @@ and no Wiki-to-Agent-Memory connection exist.
 
 Define the topic or method.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Boundaries/synonyms
 
 Distinguish related concepts.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Method principle/assumptions/conditions/limits
 
 For methods document each dimension; otherwise explain not_applicable.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Literature roles
 
 Specify subject, method/baseline, measurement, transfer or adjacent context separately.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Open questions
 
 No question_stage, decision_state, research_direction or exhaustion status belongs on Topic.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`

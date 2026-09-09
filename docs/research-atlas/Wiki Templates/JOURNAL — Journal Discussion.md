@@ -45,14 +45,14 @@ resulting_object_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -72,28 +72,28 @@ and no Wiki-to-Agent-Memory connection exist.
 
 Identify context and actual participants.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Origin/chat/discussion locator
 
 Pin origin/version/locator; label reconstruction if original is unavailable.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Actual ideas/dissent
 
 Document ideas and disagreement without treating them as literature evidence.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Open points
 
 Keep uncertainty visible.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Later promoted/derived object links
 
 A reused thought must be formulated and reviewed in its appropriate epistemic object. Journal alone produces no accepted Finding, Decision, primary-literature status or Research Direction. These links do not perform promotion.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`

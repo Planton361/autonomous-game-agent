@@ -46,14 +46,14 @@ rq_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -73,46 +73,46 @@ and no Wiki-to-Agent-Memory connection exist.
 
 State whether the process is observed, documented or proposed; do not imply runtime implementation.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Trigger/preconditions
 
 Describe explicit conditions and unknowns.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Participants
 
 Name roles, not assumed permissions.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Inputs
 
 Identify inputs and their versions.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Steps/branches
 
 Order is neither causal proof nor a technical hierarchy or runtime control path.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Outputs/closure
 
 Describe expected outputs and bounded closure criteria.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Measurements/evidence
 
 Link actual evidence; missing instrumentation stays planned.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Open research questions / uncertainty
 
 Separate evidence from proposed investigation.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`

@@ -49,14 +49,14 @@ rq_refs: []
 
 | Field | Value |
 | --- | --- |
-| Responsible author/editor | <EDITOR> |
-| Creation date | <ACTUAL-CREATION-DATE> |
-| Revision date | <ACTUAL-REVISION-DATE> |
-| Origin including LLM/chat assistance | <ORIGIN/ASSISTANCE-OR-NONE> |
-| Record revision | <RECORD-VERSION> |
-| Change reason | <REASON> |
-| Exact source/object versions | <VERSIONED-REFS> |
-| Concrete source/object locators | <LOCATORS> |
+| Responsible author/editor | `<EDITOR>` |
+| Creation date | `<ACTUAL-CREATION-DATE>` |
+| Revision date | `<ACTUAL-REVISION-DATE>` |
+| Origin including LLM/chat assistance | `<ORIGIN/ASSISTANCE-OR-NONE>` |
+| Record revision | `<RECORD-VERSION>` |
+| Change reason | `<REASON>` |
+| Exact source/object versions | `<VERSIONED-REFS>` |
+| Concrete source/object locators | `<LOCATORS>` |
 | Review actor | not reviewed |
 | Review role | not reviewed |
 | Review date | not reviewed |
@@ -74,64 +74,64 @@ and no Wiki-to-Agent-Memory connection exist.
 
 ## Atomic proposition
 
-<ONE SCOPED PROPOSITION, NOT AN ESTABLISHED RESULT>. Split independently supportable/refutable claims.
+`<ONE SCOPED PROPOSITION, NOT AN ESTABLISHED RESULT>`. Split independently supportable/refutable claims.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Population/task/environment
 
 State the relevant subject and environment; not_applicable requires justification.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Compared/reference conditions
 
 Specify the actual comparison/reference.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Outcome/measurement
 
 Name outcome and operational measurement; do not invent an experiment for theoretical claims.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Scope/conditions
 
 Include necessary qualifications in the proposition itself.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Source evidence table with version and concrete locator
 
 | Source ref | Source type | Exact version | Concrete locator | Proposition part supported |
 | --- | --- | --- | --- | --- |
-| <SOURCE-REF> | <PROVENANCE-TYPE> | <VERSION> | <PAGE/SECTION/TABLE/DATA-LOCATOR> | <CLAIM-PART> |
+| `<SOURCE-REF>` | `<PROVENANCE-TYPE>` | `<VERSION>` | `<PAGE/SECTION/TABLE/DATA-LOCATOR>` | `<CLAIM-PART>` |
 
 A source link alone is insufficient. Source type is provenance, not a truth score.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Limitations/applicability/counterevidence
 
 Include contrary evidence and limits. No subjective numeric confidence.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## supports/contradicts/qualifies assessment
 
 Pin target claim revisions and justify the relation, or explain not_applicable. A difference alone is not contradiction.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Origin-specific reasoning
 
 authors_result: checked primary result and relevant method via ReadingNote. authors_limitation: explicit primary passage via ReadingNote, not our suspicion. our_inference: premises, inference, alternatives. own_empirical_result: actual versioned data/run/analysis/protocol, measurement unit, integrity and admissibility evidence; no planned test as result.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
 
 ## Review record
 
 not reviewed. checked requires a documented source/claim check; domain_accepted requires scoped SCI review, not universal truth. Record actor/role/date/revision/scope/result and reservations. Material changes require a new revision and human reset to draft; prior acceptance remains historical.
 
-<TO BE AUTHORED; NOT REVIEWED>
+`<TO BE AUTHORED; NOT REVIEWED>`
