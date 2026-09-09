@@ -251,7 +251,14 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
             elif isinstance(node, ast.ImportFrom):
                 if node.level:
                     assert node.level == 1
-                    assert node.module in {"schema", "validator", "render", "workspace"}
+                    assert node.module in {
+                        "schema",
+                        "validator",
+                        "render",
+                        "workspace",
+                        "wiki_schema",
+                        "private_projection",
+                    }
                     continue
                 modules = [node.module or ""]
             else:
