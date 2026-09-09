@@ -14,7 +14,6 @@ from fh_agent.research_atlas.schema import PREFIXES, RelationName
 from fh_agent.research_atlas.validator import (
     RELATION_PAIRS,
     load_registry,
-    validate_dossiers,
     validate_registry,
 )
 
@@ -56,7 +55,7 @@ def test_valid_pilot_registry_loads():
 
 @pytest.mark.parametrize("index", [0, 1, 2])
 def test_schema_version_rejected(payloads, index):
-    payloads[index]["atlas_schema_version"] = "0.2"
+    payloads[index]["atlas_schema_version"] = "0.1"
     with pytest.raises(ValueError):
         validate_registry(*payloads)
 
@@ -216,21 +215,6 @@ def test_committed_overview_equals_renderer():
     assert render_overview(load_registry(ATLAS)) == (ATLAS / "overview.md").read_text()
 
 
-def test_all_dossier_referenced_ids_resolve():
-    validate_dossiers(load_registry(ATLAS), ATLAS / "dossiers")
-
-
-@pytest.mark.parametrize(
-    "replacement", ["Registry view: `CMP-MISSING`.", "implementation_status: implemented"]
-)
-def test_dossier_rejects_dangling_ids_and_second_sot(tmp_path, replacement):
-    shutil.copytree(ATLAS, tmp_path / "atlas")
-    dossier = tmp_path / "atlas/dossiers/CMP-CORTEX.md"
-    dossier.write_text(dossier.read_text().replace("Registry view: `CMP-CORTEX`.", replacement))
-    with pytest.raises(ValueError):
-        load_registry(tmp_path / "atlas")
-
-
 def test_duplicate_yaml_key_rejected(tmp_path):
     shutil.copytree(ATLAS, tmp_path / "atlas")
     path = tmp_path / "atlas/registry/nodes.yaml"
@@ -267,7 +251,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
             elif isinstance(node, ast.ImportFrom):
                 if node.level:
                     assert node.level == 1
-                    assert node.module in {"schema", "validator", "render"}
+                    assert node.module in {"schema", "validator", "render", "workspace"}
                     continue
                 modules = [node.module or ""]
             else:

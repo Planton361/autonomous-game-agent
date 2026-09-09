@@ -1,0 +1,52 @@
+---
+atlas_id: CMP-PERCEPTION-UI-STATE
+atlas_type: Component
+atlas_name: UI State Classification
+atlas_level: L3
+atlas_generated: true
+registry_schema_version: '0.2'
+overview_visibility: expansion
+overview_order: 33
+research_mapping: unmapped
+research_direction: null
+architecture_authority: implementation-derived
+implementation_status: implemented
+verification_status: unverified
+part_of:
+- '[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]'
+supports_from: &id001
+- '[[Evidence/EVID-48-UI — Ui — baseline inspection|EVID-48-UI · Ui — baseline inspection]]'
+presented_in_domain: []
+measured_at: []
+studied_by: []
+supersedes: []
+supersedes_from: []
+decomposed_into: []
+decomposed_into_from: []
+contradicts: []
+supported_by: *id001
+contradicted_by: []
+research_questions: []
+research_components: []
+research_interfaces: []
+research_threads: []
+---
+
+# CMP-PERCEPTION-UI-STATE — UI State Classification
+
+Generated from Registry YAML; fully overwriteable. Do not edit structured claims here.
+
+classify_ui_state implements deterministic classification from sanitized visible UI fields and OCR spans; unknown when insufficient. This is a code-derived responsibility used by ObservationBuilder, not a validated pixel classifier.
+
+## Classification
+
+Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
+
+Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
+
+## Registry relationships
+
+- [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE · UI State Classification]] — `part_of` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+- [[Evidence/EVID-48-UI — Ui — baseline inspection|EVID-48-UI · Ui — baseline inspection]] — `supports` → [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE · UI State Classification]]
+
+[[Home/Research Atlas|Research Atlas Home]]

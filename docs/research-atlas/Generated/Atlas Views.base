@@ -1,0 +1,397 @@
+filters:
+  and:
+  - note.atlas_generated == true
+  - '!note.atlas_id.isEmpty()'
+properties:
+  note.atlas_id:
+    displayName: atlas id
+  note.atlas_type:
+    displayName: atlas type
+  note.atlas_level:
+    displayName: atlas level
+  note.implementation_status:
+    displayName: implementation status
+  note.verification_status:
+    displayName: verification status
+  note.research_mapping:
+    displayName: research mapping
+  note.research_direction:
+    displayName: research direction
+  note.research_components:
+    displayName: research components
+  note.research_interfaces:
+    displayName: research interfaces
+  note.measured_at:
+    displayName: measured at
+  note.contradicted_by:
+    displayName: contradicted by
+  note.supported_by:
+    displayName: supported by
+  note.part_of:
+    displayName: part of
+  note.presented_in_domain:
+    displayName: presented in domain
+views:
+- type: table
+  name: Components by implementation status
+  filters:
+    and:
+    - note.atlas_type == "Component"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.implementation_status
+    direction: ASC
+- type: table
+  name: Target-only
+  filters:
+    and:
+    - note.implementation_status == "target-only"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Partial
+  filters:
+    and:
+    - note.implementation_status == "partial"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Implemented
+  filters:
+    and:
+    - note.implementation_status == "implemented"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Verification status
+  filters:
+    and:
+    - '!note.verification_status.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.verification_status
+    direction: ASC
+- type: table
+  name: Research Mapping Status
+  filters:
+    and:
+    - '!note.research_mapping.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.research_mapping
+    direction: ASC
+- type: table
+  name: Research Direction Status
+  filters:
+    and:
+    - '!note.research_direction.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.research_direction
+    direction: ASC
+- type: table
+  name: Research Questions by Component
+  filters:
+    and:
+    - note.atlas_type == "ResearchQuestion"
+    - '!note.research_components.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.research_components
+    direction: ASC
+- type: table
+  name: Research Questions by Interface
+  filters:
+    and:
+    - note.atlas_type == "ResearchQuestion"
+    - '!note.research_interfaces.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.research_interfaces
+    direction: ASC
+- type: table
+  name: Measurement Points
+  filters:
+    and:
+    - note.atlas_type == "MeasurementPoint"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+  groupBy:
+    property: note.measured_at
+    direction: ASC
+- type: table
+  name: Open Leads
+  filters:
+    and:
+    - note.atlas_type == "ExperimentLead"
+    - note.research_direction == "open-lead"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Decisions / History
+  filters:
+    and:
+    - note.atlas_type == "Decision" || !note.supersedes.isEmpty() || !note.supersedes_from.isEmpty()
+      || !note.decomposed_into.isEmpty() || !note.decomposed_into_from.isEmpty()
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Findings with contradictions
+  filters:
+    and:
+    - note.atlas_type == "Finding"
+    - '!note.contradicted_by.isEmpty() || !note.contradicts.isEmpty()'
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC
+- type: table
+  name: Unmapped research areas
+  filters:
+    and:
+    - note.atlas_type == "Component"
+    - note.research_mapping == "unmapped"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
+    direction: ASC

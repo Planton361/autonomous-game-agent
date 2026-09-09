@@ -1,53 +1,59 @@
-# Research Atlas v0.1
+# Research Atlas v0.2
 
-SYS-AGA — Autonomous Game Agent
+Generated from Registry YAML; fully overwriteable. Do not edit structured claims here.
 
-Generated from registry/{nodes,relationships,evidence}.yaml; do not edit.
-Domains group navigation only; they are neither technical parents nor canonical taxonomy.
-Connections describe targets as well as implementation; consult each node's status.
-Dossier sections point into the registry; their ID lists do not author relationships.
+[[Home/Research Atlas|Research Atlas Home]] · [[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]]
 
-## DOM-ACTION-SAFETY — Action & Safety
+Domains are presentation views. Technical ancestry derives only from `part_of`. Statuses and relationships are in generated record notes, backed by Registry.
 
-No pilot component mapped.
+## Environment & Acquisition
 
-## DOM-COGNITION — Cognition
+[[Architecture/Domains/DOM-ENV-ACQUISITION — Environment & Acquisition|DOM-ENV-ACQUISITION · Environment & Acquisition]]
 
-- [CMP-CORTEX](dossiers/CMP-CORTEX.md) — Cortex: canonical-target; implemented; integration-tested; research mapping: unmapped.
+- [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
+- [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
 
-## DOM-ENV-ACQUISITION — Environment & Acquisition
+## Observation Integrity & State
 
-No pilot component mapped.
+[[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
 
-## DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval
+- [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]]
+- [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+- [[Components/CMP-TEMPORAL-STATE — Temporal State|CMP-TEMPORAL-STATE · Temporal State]]
 
-- [CMP-MEM-RETRIEVAL](dossiers/CMP-MEM-RETRIEVAL.md) — Memory Retrieval: canonical-target; partial; unverified; research mapping: unmapped.
+## Evidence, Memory & Retrieval
 
-## DOM-EXECUTIVE — Executive Control & Contracts
+[[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
 
-- [CMP-MANAGER](dossiers/CMP-MANAGER.md) — Manager: canonical-target; implemented; integration-tested; research mapping: unmapped.
+- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
+- [[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]
+- [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
 
-## DOM-OBS-INTEGRITY-STATE — Observation Integrity & State
+## Cognition
 
-No pilot component mapped.
+[[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
 
-## DOM-VERIFY-LEARN — Verification & Learning
+- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
 
-No pilot component mapped.
+## Executive Control & Contracts
 
-## Interface and contract connections
+[[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
 
-- `CMP-CORTEX` — consumes → `CON-CORTEX-CONTEXT`
-- `CMP-CORTEX` — consumes → `IF-MEM-CORTEX`
-- `CMP-CORTEX` — supplies → `CON-PLANNER-OUTPUT`
-- `CMP-CORTEX` — supplies → `IF-CORTEX-MANAGER`
-- `CMP-MANAGER` — consumes → `CON-PLANNER-OUTPUT`
-- `CMP-MANAGER` — consumes → `IF-CORTEX-MANAGER`
-- `CMP-MANAGER` — supplies → `CON-SKILL-CONTRACT`
-- `CMP-MEM-RETRIEVAL` — supplies → `IF-MEM-CORTEX`
+- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
 
-## Indicators
+## Action & Safety
 
-3 pilot components; 7 presentation domains; 4 measurement mappings; 22 evidence records.
-Papers: 0; findings: 0; contradictions: 0.
-No literature review, gap analysis, or automatic research-status promotion in this pilot.
+[[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
+
+- [[Components/CMP-BODY — Body|CMP-BODY · Body]]
+- [[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]
+- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+
+## Verification & Learning
+
+[[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
+
+- [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]
+- [[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]
+- [[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]
+- [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]

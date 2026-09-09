@@ -1,1 +1,1 @@
-"""Offline Research Atlas v0.1 tooling; no agent runtime integration."""
+"""Offline Research Atlas v0.2 tooling; no agent runtime integration."""
