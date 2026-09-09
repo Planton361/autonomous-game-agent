@@ -14,12 +14,14 @@ implementation_status: implemented
 verification_status: unverified
 part_of:
 - '[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]'
+presented_in_domain:
+- '[[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE
+  · Observation Integrity & State]]'
 supports_from: &id001
 - '[[Evidence/EVID-48-BUILDER — Builder — baseline inspection|EVID-48-BUILDER · Builder
   — baseline inspection]]'
 - '[[Evidence/EVID-48-TEST-OBSERVATION — Test Observation — baseline inspection|EVID-48-TEST-OBSERVATION
   · Test Observation — baseline inspection]]'
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -45,12 +47,75 @@ Coordinates firewall sanitization, frame signature, OCR, UI classification and e
 
 Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]] — `part_of` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Evidence/EVID-48-BUILDER — Builder — baseline inspection|EVID-48-BUILDER · Builder — baseline inspection]] — `supports` → [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]]
-- [[Evidence/EVID-48-TEST-OBSERVATION — Test Observation — baseline inspection|EVID-48-TEST-OBSERVATION · Test Observation — baseline inspection]] — `supports` → [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]]
+- Technical parent: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
+
+L-level: L3. Overview visibility: expansion.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-BUILDER — Builder — baseline inspection|EVID-48-BUILDER · Builder — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-OBSERVATION — Test Observation — baseline inspection|EVID-48-TEST-OBSERVATION · Test Observation — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

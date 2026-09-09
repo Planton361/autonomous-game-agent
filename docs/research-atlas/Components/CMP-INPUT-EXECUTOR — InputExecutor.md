@@ -59,18 +59,78 @@ Separate primitive-input boundary enforcing target focus, rate limit and emergen
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `consumes` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `controls` → [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `presented_in_domain` → [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `supplies` → [[Data Artifacts/DAT-ACTION-RESULT — ActionResult|DAT-ACTION-RESULT · ActionResult]]
-- [[Evidence/EVID-48-CANON-BODY — Canonical Body|EVID-48-CANON-BODY · Canonical Body]] — `supports` → [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
-- [[Evidence/EVID-48-INPUT — Input — baseline inspection|EVID-48-INPUT · Input — baseline inspection]] — `supports` → [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
-- [[Evidence/EVID-48-SKILL-RUNNER — Skill Runner — baseline inspection|EVID-48-SKILL-RUNNER · Skill Runner — baseline inspection]] — `supports` → [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
-- [[Evidence/EVID-48-TASK-EXECUTOR — Task Executor — baseline inspection|EVID-48-TASK-EXECUTOR · Task Executor — baseline inspection]] — `supports` → [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Input: [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
+- Output: [[Data Artifacts/DAT-ACTION-RESULT — ActionResult|DAT-ACTION-RESULT · ActionResult]]
+
+## Interfaces and contracts
+
+- Input: [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
+
+## Data artifacts
+
+- Output: [[Data Artifacts/DAT-ACTION-RESULT — ActionResult|DAT-ACTION-RESULT · ActionResult]]
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CANON-BODY — Canonical Body|EVID-48-CANON-BODY · Canonical Body]]
+- Supporting: [[Evidence/EVID-48-INPUT — Input — baseline inspection|EVID-48-INPUT · Input — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-SKILL-RUNNER — Skill Runner — baseline inspection|EVID-48-SKILL-RUNNER · Skill Runner — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TASK-EXECUTOR — Task Executor — baseline inspection|EVID-48-TASK-EXECUTOR · Task Executor — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

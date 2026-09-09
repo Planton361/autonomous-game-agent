@@ -92,38 +92,97 @@ Slow evidence-grounded planner: consumes bounded context and proposes typed goal
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: integration-tested.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]] — `constrains` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `consumes` → [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `consumes` → [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `consumes` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `consumes` → [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
-- [[Measurements/MEAS-CORTEX-PROPOSAL-001 — Produced PlannerOutput|MEAS-CORTEX-PROPOSAL-001 · Produced PlannerOutput]] — `measured_at` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `presented_in_domain` → [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `proposes_to` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `related_to_research_question` → [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/CON-POST-MORTEM-OUTPUT — PostMortemOutput|CON-POST-MORTEM-OUTPUT · PostMortemOutput]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
-- [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-48-CORTEX — Cortex — baseline inspection|EVID-48-CORTEX · Cortex — baseline inspection]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-CANON-CORTEX — EVID-CANON-CORTEX|EVID-CANON-CORTEX · EVID-CANON-CORTEX]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-CONTEXT — EVID-GH-CORTEX-CONTEXT|EVID-GH-CORTEX-CONTEXT · EVID-GH-CORTEX-CONTEXT]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-INTEGRATION — EVID-GH-CORTEX-INTEGRATION|EVID-GH-CORTEX-INTEGRATION · EVID-GH-CORTEX-INTEGRATION]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-OUTPUT — EVID-GH-CORTEX-OUTPUT|EVID-GH-CORTEX-OUTPUT · EVID-GH-CORTEX-OUTPUT]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-PLAN — EVID-GH-CORTEX-PLAN|EVID-GH-CORTEX-PLAN · EVID-GH-CORTEX-PLAN]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-PROVIDER — EVID-GH-CORTEX-PROVIDER|EVID-GH-CORTEX-PROVIDER · EVID-GH-CORTEX-PROVIDER]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
-- [[Evidence/EVID-GH-CORTEX-TEST — EVID-GH-CORTEX-TEST|EVID-GH-CORTEX-TEST · EVID-GH-CORTEX-TEST]] — `supports` → [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Input: [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]]
+- Input: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+- Input: [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
+- Input: [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
+- Output: [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+- Output: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+- Output: [[Interfaces & Contracts/CON-POST-MORTEM-OUTPUT — PostMortemOutput|CON-POST-MORTEM-OUTPUT · PostMortemOutput]]
+- Output: [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
+
+## Interfaces and contracts
+
+- Constrained by: [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]]
+- Input: [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]]
+- Input: [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
+- Output: [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+- Output: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+- Output: [[Interfaces & Contracts/CON-POST-MORTEM-OUTPUT — PostMortemOutput|CON-POST-MORTEM-OUTPUT · PostMortemOutput]]
+- Output: [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
+
+## Data artifacts
+
+- Input: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+- Input: [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
+
+## Measurement points
+
+- Measurement point: [[Measurements/MEAS-CORTEX-PROPOSAL-001 — Produced PlannerOutput|MEAS-CORTEX-PROPOSAL-001 · Produced PlannerOutput]]
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-CORTEX — Cortex — baseline inspection|EVID-48-CORTEX · Cortex — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]]
+- Supporting: [[Evidence/EVID-CANON-CORTEX — EVID-CANON-CORTEX|EVID-CANON-CORTEX · EVID-CANON-CORTEX]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-CONTEXT — EVID-GH-CORTEX-CONTEXT|EVID-GH-CORTEX-CONTEXT · EVID-GH-CORTEX-CONTEXT]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-INTEGRATION — EVID-GH-CORTEX-INTEGRATION|EVID-GH-CORTEX-INTEGRATION · EVID-GH-CORTEX-INTEGRATION]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-OUTPUT — EVID-GH-CORTEX-OUTPUT|EVID-GH-CORTEX-OUTPUT · EVID-GH-CORTEX-OUTPUT]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-PLAN — EVID-GH-CORTEX-PLAN|EVID-GH-CORTEX-PLAN · EVID-GH-CORTEX-PLAN]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-PROVIDER — EVID-GH-CORTEX-PROVIDER|EVID-GH-CORTEX-PROVIDER · EVID-GH-CORTEX-PROVIDER]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-TEST — EVID-GH-CORTEX-TEST|EVID-GH-CORTEX-TEST · EVID-GH-CORTEX-TEST]]
+
+## Research questions
+
+- Research question: [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
 
 ## Research threads
 
 - [[Research Threads/THREAD-EXPERIENCE-TO-ACTION-001 — Experience to Action|THREAD-EXPERIENCE-TO-ACTION-001 · Experience to Action]]
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+- Supporting: [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]]
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

@@ -11,6 +11,12 @@ research_mapping: unmapped
 research_direction: null
 presented_in_domain_from:
 - '[[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]'
+- '[[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT
+  · CortexContext]]'
+- '[[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT
+  · PlannerOutput]]'
+- '[[Measurements/MEAS-CORTEX-PROPOSAL-001 — Produced PlannerOutput|MEAS-CORTEX-PROPOSAL-001
+  · Produced PlannerOutput]]'
 part_of: []
 presented_in_domain: []
 measured_at: []
@@ -37,5 +43,8 @@ Presentation/navigation grouping only; no canonical taxonomy or technical ancest
 ## Registry relationships
 
 - [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `presented_in_domain` → [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
+- [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]] — `presented_in_domain` → [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
+- [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]] — `presented_in_domain` → [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
+- [[Measurements/MEAS-CORTEX-PROPOSAL-001 — Produced PlannerOutput|MEAS-CORTEX-PROPOSAL-001 · Produced PlannerOutput]] — `presented_in_domain` → [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
 
 [[Home/Research Atlas|Research Atlas Home]]

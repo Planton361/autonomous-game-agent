@@ -153,7 +153,7 @@ nodes:
     implementation_status: partial
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 15
 - id: IF-CORTEX-MANAGER
   type: Interface
@@ -164,7 +164,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 16
 - id: CON-CORTEX-CONTEXT
   type: Contract
@@ -175,7 +175,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 17
 - id: CON-PLANNER-OUTPUT
   type: Contract
@@ -208,7 +208,7 @@ nodes:
     implementation_status: target-only
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 20
 - id: MEAS-RETRIEVAL-DELIVERY-001
   type: MeasurementPoint
@@ -220,7 +220,7 @@ nodes:
     implementation_status: target-only
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 21
 - id: MEAS-CORTEX-PROPOSAL-001
   type: MeasurementPoint
@@ -231,7 +231,7 @@ nodes:
     implementation_status: partial
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 22
 - id: MEAS-MANAGER-DISPOSITION-001
   type: MeasurementPoint
@@ -243,7 +243,7 @@ nodes:
     implementation_status: partial
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 23
 - id: MEAS-VERIFIED-OUTCOME-001
   type: MeasurementPoint
@@ -255,7 +255,7 @@ nodes:
     implementation_status: target-only
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 24
 - id: ENV-GAME-INSTANCE
   type: Environment
@@ -291,7 +291,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 27
 - id: CMP-VISIBLE-STATE-BRIDGE
   type: Component
@@ -541,7 +541,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 47
 - id: CMP-SAFETY-FILTER
   type: Component
@@ -579,7 +579,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 50
 - id: DAT-VISIBLE-OUTCOME
   type: DataArtifact
@@ -615,7 +615,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 53
 - id: CON-MEMORY-UPDATE-REQUEST
   type: Contract
@@ -627,7 +627,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 54
 - id: CON-POST-MORTEM-OUTPUT
   type: Contract
@@ -640,7 +640,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 55
 - id: CMP-REPLAY-BUFFER
   type: Component
@@ -665,7 +665,7 @@ nodes:
     implementation_status: implemented
     verification_status: unverified
   atlas_level: L2
-  overview_visibility: main
+  overview_visibility: expansion
   overview_order: 57
 - id: CMP-SKILL-TRAINER
   type: Component

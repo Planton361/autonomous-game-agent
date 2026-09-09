@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 import yaml
 
-from .schema import PREFIXES, Entity, Evidence, TechnicalIdentity
+from .schema import PREFIXES, Entity, Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, load_registry
 
 SCHEMA_VERSION = "0.2"
@@ -160,6 +160,93 @@ def frontmatter(properties: Mapping[str, object]) -> str:
     return "---\n" + yaml.safe_dump(dict(properties), sort_keys=False, allow_unicode=True) + "---\n"
 
 
+def technical_sections(atlas: Atlas, node: TechnicalIdentity) -> list[str]:
+    """Readable dossier projections; edge directions remain explicit and unmodified."""
+    edges = sorted(
+        (e for e in atlas.relationships if node.id in {e.source, e.target}),
+        key=lambda e: (e.relation, e.source, e.target),
+    )
+    lines: list[str] = []
+
+    def section(title: str, selected: list[Relationship]) -> None:
+        lines.extend(["## " + title, ""])
+        for edge in selected:
+            outgoing = edge.source == node.id
+            other = atlas.entities[edge.target if outgoing else edge.source]
+            labels = {
+                "part_of": ("Technical parent", "Technical child"),
+                "presented_in_domain": ("Presentation Domain", "Presented record"),
+                "consumes": ("Input", "Consumed by"),
+                "supplies": ("Output", "Supplied by"),
+                "constrains": ("Constrains", "Constrained by"),
+                "supports": ("Supports", "Supporting"),
+                "contradicts": ("Contradicts", "Contradicting"),
+                "measured_at": ("Measurement target", "Measurement point"),
+                "related_to_research_question": ("Research question", "Research subject"),
+                "studied_by": ("Studied by", "Studies"),
+                "supersedes": ("Supersedes", "Superseded by"),
+                "decomposed_into": ("Decomposed into", "Decomposed from"),
+                "research_suggests_decomposition": ("Proposed decomposition target", "Proposal"),
+            }
+            label = labels.get(edge.relation, (edge.relation, edge.relation + " from"))[
+                0 if outgoing else 1
+            ]
+            lines.append(f"- {label}: {note_link(other)}")
+            if edge.decision_id:
+                lines.append(f"  Approval: {note_link(atlas.entities[edge.decision_id])}")
+        if not selected:
+            lines.append("None mapped.")
+        lines.append("")
+
+    def adjacent_types(edge: Relationship) -> set[str]:
+        return {atlas.entities[id].type for id in (edge.source, edge.target) if id != node.id}
+
+    section("Technical structure", [e for e in edges if e.relation == "part_of"])
+    lines += ["Technical parents are outgoing `part_of`; children are incoming `part_of`.", ""]
+    section("Presentation", [e for e in edges if e.relation == "presented_in_domain"])
+    lines += [f"L-level: {node.atlas_level}. Overview visibility: {node.overview_visibility}.", ""]
+    section("Inputs and outputs", [e for e in edges if e.relation in {"supplies", "consumes"}])
+    for title, types in (
+        ("Interfaces and contracts", {"Interface", "Contract"}),
+        ("Data artifacts", {"DataArtifact"}),
+        ("Measurement points", {"MeasurementPoint"}),
+        ("Evidence", {"Evidence"}),
+        ("Research questions", {"ResearchQuestion"}),
+    ):
+        section(title, [e for e in edges if adjacent_types(e) & types])
+    lines += ["## Research threads", ""]
+    threads = record_properties(atlas, node)["research_threads"]
+    lines += [f"- {link}" for link in threads] or ["None mapped."]
+    lines.append("")
+    for title, types in (
+        ("Papers", {"Paper"}),
+        ("Findings and contradictions", {"Finding"}),
+        ("Decisions", {"Decision"}),
+        ("Experiment leads", {"ExperimentLead"}),
+    ):
+        section(
+            title,
+            [
+                e
+                for e in edges
+                if adjacent_types(e) & types
+                or (title == "Findings and contradictions" and e.relation == "contradicts")
+            ],
+        )
+    section("History", [e for e in edges if e.relation in {"supersedes", "decomposed_into"}])
+    lines += [
+        "Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.",
+        "",
+        "## Review / proposals",
+        "",
+        "No accepted proposal is mapped unless represented by the Registry decisions above. "
+        "Keep authored proposals in separate notes; accepted changes must enter through Registry "
+        "review. Generated notes do not accept changes or claims.",
+        "",
+    ]
+    return lines
+
+
 def render_record(atlas: Atlas, node: Entity) -> str:
     lines = [
         frontmatter(record_properties(atlas, node)),
@@ -179,6 +266,9 @@ def render_record(atlas: Atlas, node: Entity) -> str:
             f"Implementation: {status.implementation_status}. "
             f"Verification: {status.verification_status}.",
             "",
+            f"Research mapping: {node.research_mapping}. "
+            f"Research direction: {node.research_direction}.",
+            "",
             "Implementation is not live demonstration; integration tests are not measurement "
             "validation. Target-only does not mean a research gap.",
             "",
@@ -192,6 +282,10 @@ def render_record(atlas: Atlas, node: Entity) -> str:
             source_locator(node),
             "",
         ]
+    if isinstance(node, TechnicalIdentity):
+        lines += technical_sections(atlas, node)
+        lines += ["[[Home/Research Atlas|Research Atlas Home]]", ""]
+        return "\n".join(lines)
     lines += ["## Registry relationships", ""]
     edges = sorted(atlas.relationships, key=lambda e: (e.relation, e.source, e.target))
     for edge in edges:
@@ -345,14 +439,20 @@ def render_base() -> str:
     view("Measurement Points", ['note.atlas_type == "MeasurementPoint"'], "measured_at")
     view(
         "Open Leads",
-        ['note.atlas_type == "ExperimentLead"', 'note.research_direction == "open-lead"'],
+        [
+            'note.atlas_type == "ExperimentLead"',
+            'note.research_direction == "open-lead" || '
+            'note.research_direction == "needs-closure" || '
+            'note.research_direction == "active-candidate"',
+        ],
     )
     view(
         "Decisions / History",
         [
             'note.atlas_type == "Decision" || !note.supersedes.isEmpty() || '
             "!note.supersedes_from.isEmpty() || !note.decomposed_into.isEmpty() || "
-            "!note.decomposed_into_from.isEmpty()"
+            '!note.decomposed_into_from.isEmpty() || (note.atlas_type == "ExperimentLead" && '
+            '(note.research_direction == "killed" || note.research_direction == "deprioritized"))'
         ],
     )
     view(
@@ -418,7 +518,18 @@ MAP_BOXES = {
 BETWEEN_RUNS = frozenset(
     {"CMP-SKILL-TRAINER", "DAT-CANDIDATE-BODY-VERSION", "CMP-BODY-CERTIFICATION"}
 )
-CENTRAL_NODES = frozenset(MAP_BOXES) | {"SYS-AGA"}
+MAP_CONTAINED_IDS = frozenset({"CMP-MANAGER-GROUNDING", "CMP-BOUNDED-REFLEX"})
+
+
+def map_record_ids(atlas: Atlas) -> set[str]:
+    """Registry visibility selects ordinary records; only two contained details override it."""
+    return {
+        n.id
+        for n in atlas.entities.values()
+        if isinstance(n, TechnicalIdentity)
+        and n.type != "MeasurementPoint"
+        and (n.overview_visibility == "main" or n.id in MAP_CONTAINED_IDS)
+    }
 
 
 def element_id(identity: str) -> str:
@@ -478,14 +589,9 @@ def _text(identity: str, text: str, x: int, y: int, width: int, *, size: int = 1
 
 
 def render_map(atlas: Atlas) -> str:
-    boxes = {id: box for id, box in MAP_BOXES.items() if id in atlas.entities}
-    extra = [
-        n
-        for n in ordered_entities(atlas)
-        if n.overview_visibility == "main"
-        and n.type not in {"System", "Domain"}
-        and n.id not in boxes
-    ]
+    visible = map_record_ids(atlas) - {"SYS-AGA"}
+    boxes = {id: box for id, box in MAP_BOXES.items() if id in visible}
+    extra = [n for n in ordered_entities(atlas) if n.id in visible and n.id not in boxes]
     for i, node in enumerate(extra):
         boxes[node.id] = (470 + (i % 5) * 460, 3060 + (i // 5) * 230, 350, 160)
     elements = []
@@ -751,14 +857,9 @@ def validate_workspace_tree(atlas: Atlas, tree: Mapping[PurePosixPath, str]) -> 
             if element.get("link") != note_link(atlas.entities[identity]):
                 raise ValueError("Map record link mismatch")
             map_records.add(identity)
-    required = {
-        n.id
-        for n in atlas.entities.values()
-        if isinstance(n, TechnicalIdentity) and n.overview_visibility == "main"
-    }
-    required |= CENTRAL_NODES & atlas.entities.keys()
-    if not required <= map_records:
-        raise ValueError(f"Map central-node coverage mismatch: {required - map_records}")
+    required = map_record_ids(atlas)
+    if required != map_records:
+        raise ValueError(f"Map central-node coverage mismatch: {required ^ map_records}")
 
 
 def parse_frontmatter(text: str) -> dict:

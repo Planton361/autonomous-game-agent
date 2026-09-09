@@ -15,6 +15,9 @@ verification_status: unverified
 constrains:
 - '[[Components/CMP-BODY — Body|CMP-BODY · Body]]'
 - '[[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]'
+presented_in_domain:
+- '[[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE
+  · Executive Control & Contracts]]'
 executes_from:
 - '[[Components/CMP-BODY — Body|CMP-BODY · Body]]'
 grounds_from:
@@ -26,7 +29,6 @@ supports_from: &id001
   inspection]]'
 - '[[Evidence/EVID-GH-MANAGER-SPEC — EVID-GH-MANAGER-SPEC|EVID-GH-MANAGER-SPEC · EVID-GH-MANAGER-SPEC]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -54,20 +56,75 @@ TaskSpec / bounded Skill Contract
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]] — `constrains` → [[Components/CMP-BODY — Body|CMP-BODY · Body]]
-- [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]] — `constrains` → [[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]
-- [[Components/CMP-BODY — Body|CMP-BODY · Body]] — `executes` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]] — `grounds` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `supplies` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Evidence/EVID-48-TASK — Task — baseline inspection|EVID-48-TASK · Task — baseline inspection]] — `supports` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Evidence/EVID-GH-MANAGER-SPEC — EVID-GH-MANAGER-SPEC|EVID-GH-MANAGER-SPEC · EVID-GH-MANAGER-SPEC]] — `supports` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Supplied by: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-TASK — Task — baseline inspection|EVID-48-TASK · Task — baseline inspection]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-SPEC — EVID-GH-MANAGER-SPEC|EVID-GH-MANAGER-SPEC · EVID-GH-MANAGER-SPEC]]
+
+## Research questions
+
+None mapped.
 
 ## Research threads
 
 - [[Research Threads/THREAD-EXPERIENCE-TO-ACTION-001 — Experience to Action|THREAD-EXPERIENCE-TO-ACTION-001 · Experience to Action]]
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

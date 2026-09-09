@@ -51,14 +51,75 @@ Between runs only: held-out validation, safety checks, certification/rejection a
 
 Architecture authority: canonical-target. Implementation: target-only. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]] — `presented_in_domain` → [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
-- [[Evidence/EVID-48-CANON-LEARNING — Canonical Learning|EVID-48-CANON-LEARNING · Canonical Learning]] — `supports` → [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]
-- [[Evidence/EVID-48-TRAINING-LIMIT — Training Limit — baseline inspection|EVID-48-TRAINING-LIMIT · Training Limit — baseline inspection]] — `supports` → [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]
-- [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]] — `verifies` → [[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+- verifies: [[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CANON-LEARNING — Canonical Learning|EVID-48-CANON-LEARNING · Canonical Learning]]
+- Supporting: [[Evidence/EVID-48-TRAINING-LIMIT — Training Limit — baseline inspection|EVID-48-TRAINING-LIMIT · Training Limit — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

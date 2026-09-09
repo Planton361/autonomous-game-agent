@@ -5,13 +5,16 @@ atlas_name: Primitive Action Vocabulary
 atlas_level: L2
 atlas_generated: true
 registry_schema_version: '0.2'
-overview_visibility: main
+overview_visibility: expansion
 overview_order: 47
 research_mapping: unmapped
 research_direction: null
 architecture_authority: implementation-derived
 implementation_status: implemented
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY ·
+  Action & Safety]]'
 consumes_from:
 - '[[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]'
 - '[[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]'
@@ -22,7 +25,6 @@ supports_from: &id001
 - '[[Evidence/EVID-48-PRIMITIVE — Primitive — baseline inspection|EVID-48-PRIMITIVE
   · Primitive — baseline inspection]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -48,14 +50,77 @@ Closed PrimitiveAction enum: short directional movement, confirm, cancel, open_m
 
 Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `consumes` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
-- [[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]] — `consumes` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
-- [[Components/CMP-BODY — Body|CMP-BODY · Body]] — `supplies` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
-- [[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]] — `supplies` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
-- [[Evidence/EVID-48-PRIMITIVE — Primitive — baseline inspection|EVID-48-PRIMITIVE · Primitive — baseline inspection]] — `supports` → [[Interfaces & Contracts/CON-PRIMITIVE-ACTION — Primitive Action Vocabulary|CON-PRIMITIVE-ACTION · Primitive Action Vocabulary]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
+
+L-level: L2. Overview visibility: expansion.
+
+## Inputs and outputs
+
+- Consumed by: [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+- Consumed by: [[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]
+- Supplied by: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
+- Supplied by: [[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-PRIMITIVE — Primitive — baseline inspection|EVID-48-PRIMITIVE · Primitive — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

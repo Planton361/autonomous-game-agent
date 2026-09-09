@@ -14,12 +14,14 @@ implementation_status: implemented
 verification_status: unverified
 part_of:
 - '[[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]'
+presented_in_domain:
+- '[[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY
+  · Evidence, Memory & Retrieval]]'
 supports_from: &id001
 - '[[Evidence/EVID-48-CANON-MEMORY — Canonical Memory|EVID-48-CANON-MEMORY · Canonical
   Memory]]'
 - '[[Evidence/EVID-48-STRATEGY — Strategy — baseline inspection|EVID-48-STRATEGY ·
   Strategy — baseline inspection]]'
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -45,12 +47,75 @@ StrategyGraphStore persists evidence-backed strategies, status changes and outco
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MEM-STRATEGY — Strategy - Experiment Memory|CMP-MEM-STRATEGY · Strategy / Experiment Memory]] — `part_of` → [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
-- [[Evidence/EVID-48-CANON-MEMORY — Canonical Memory|EVID-48-CANON-MEMORY · Canonical Memory]] — `supports` → [[Components/CMP-MEM-STRATEGY — Strategy - Experiment Memory|CMP-MEM-STRATEGY · Strategy / Experiment Memory]]
-- [[Evidence/EVID-48-STRATEGY — Strategy — baseline inspection|EVID-48-STRATEGY · Strategy — baseline inspection]] — `supports` → [[Components/CMP-MEM-STRATEGY — Strategy - Experiment Memory|CMP-MEM-STRATEGY · Strategy / Experiment Memory]]
+- Technical parent: [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
+
+L-level: L3. Overview visibility: expansion.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CANON-MEMORY — Canonical Memory|EVID-48-CANON-MEMORY · Canonical Memory]]
+- Supporting: [[Evidence/EVID-48-STRATEGY — Strategy — baseline inspection|EVID-48-STRATEGY · Strategy — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

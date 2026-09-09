@@ -12,6 +12,8 @@ research_direction: null
 architecture_authority: canonical-target
 implementation_status: implemented
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]'
 consumes_from:
 - '[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]'
 supplies_from:
@@ -22,7 +24,6 @@ supports_from: &id001
 - '[[Evidence/EVID-GH-CORTEX-OUTPUT — EVID-GH-CORTEX-OUTPUT|EVID-GH-CORTEX-OUTPUT
   · EVID-GH-CORTEX-OUTPUT]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -50,17 +51,76 @@ PlannerOutput
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `consumes` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
-- [[Evidence/EVID-48-PLANNER-OUTPUT — Planner Output — baseline inspection|EVID-48-PLANNER-OUTPUT · Planner Output — baseline inspection]] — `supports` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
-- [[Evidence/EVID-GH-CORTEX-OUTPUT — EVID-GH-CORTEX-OUTPUT|EVID-GH-CORTEX-OUTPUT · EVID-GH-CORTEX-OUTPUT]] — `supports` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Consumed by: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+- Supplied by: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-PLANNER-OUTPUT — Planner Output — baseline inspection|EVID-48-PLANNER-OUTPUT · Planner Output — baseline inspection]]
+- Supporting: [[Evidence/EVID-GH-CORTEX-OUTPUT — EVID-GH-CORTEX-OUTPUT|EVID-GH-CORTEX-OUTPUT · EVID-GH-CORTEX-OUTPUT]]
+
+## Research questions
+
+None mapped.
 
 ## Research threads
 
 - [[Research Threads/THREAD-EXPERIENCE-TO-ACTION-001 — Experience to Action|THREAD-EXPERIENCE-TO-ACTION-001 · Experience to Action]]
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

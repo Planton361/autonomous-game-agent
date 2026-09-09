@@ -12,9 +12,14 @@ research_direction: null
 presented_in_domain_from:
 - '[[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL
   · No-Spoiler Firewall]]'
+- '[[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER
+  · Observation Builder]]'
 - '[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]'
+- '[[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE
+  · UI State Classification]]'
 - '[[Components/CMP-TEMPORAL-STATE — Temporal State|CMP-TEMPORAL-STATE · Temporal
   State]]'
+- '[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]'
 part_of: []
 presented_in_domain: []
 measured_at: []
@@ -41,7 +46,10 @@ Presentation/navigation grouping only; no canonical taxonomy or technical ancest
 ## Registry relationships
 
 - [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
+- [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
 - [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
+- [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE · UI State Classification]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
 - [[Components/CMP-TEMPORAL-STATE — Temporal State|CMP-TEMPORAL-STATE · Temporal State]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
+- [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
 
 [[Home/Research Atlas|Research Atlas Home]]

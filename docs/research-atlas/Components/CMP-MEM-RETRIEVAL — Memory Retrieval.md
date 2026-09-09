@@ -71,28 +71,82 @@ Cortex should receive a bounded snapshot of admissible memory. Persistence and e
 
 Architecture authority: canonical-target. Implementation: partial. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]] — `constrains` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Measurements/MEAS-RETRIEVAL-DELIVERY-001 — Actual memory-evidence delivered to Cortex|MEAS-RETRIEVAL-DELIVERY-001 · Actual memory/evidence delivered to Cortex]] — `measured_at` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `presented_in_domain` → [[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `related_to_research_question` → [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `supplies` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `supplies` → [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
-- [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-48-MEMORY — Memory — baseline inspection|EVID-48-MEMORY · Memory — baseline inspection]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-CANON-MEM — EVID-CANON-MEM|EVID-CANON-MEM · EVID-CANON-MEM]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-GH-MEM-CONTEXT — EVID-GH-MEM-CONTEXT|EVID-GH-MEM-CONTEXT · EVID-GH-MEM-CONTEXT]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-GH-MEM-DB — EVID-GH-MEM-DB|EVID-GH-MEM-DB · EVID-GH-MEM-DB]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-GH-MEM-FACTS — EVID-GH-MEM-FACTS|EVID-GH-MEM-FACTS · EVID-GH-MEM-FACTS]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
-- [[Evidence/EVID-GH-MEM-TEST — EVID-GH-MEM-TEST|EVID-GH-MEM-TEST · EVID-GH-MEM-TEST]] — `supports` → [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Output: [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
+- Output: [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
+
+## Interfaces and contracts
+
+- Constrained by: [[Interfaces & Contracts/CON-CORTEX-CONTEXT — CortexContext|CON-CORTEX-CONTEXT · CortexContext]]
+- Output: [[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory to Cortex]]
+
+## Data artifacts
+
+- Output: [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
+
+## Measurement points
+
+- Measurement point: [[Measurements/MEAS-RETRIEVAL-DELIVERY-001 — Actual memory-evidence delivered to Cortex|MEAS-RETRIEVAL-DELIVERY-001 · Actual memory/evidence delivered to Cortex]]
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-MEMORY — Memory — baseline inspection|EVID-48-MEMORY · Memory — baseline inspection]]
+- Supporting: [[Evidence/EVID-CANON-MEM — EVID-CANON-MEM|EVID-CANON-MEM · EVID-CANON-MEM]]
+- Supporting: [[Evidence/EVID-GH-MEM-CONTEXT — EVID-GH-MEM-CONTEXT|EVID-GH-MEM-CONTEXT · EVID-GH-MEM-CONTEXT]]
+- Supporting: [[Evidence/EVID-GH-MEM-DB — EVID-GH-MEM-DB|EVID-GH-MEM-DB · EVID-GH-MEM-DB]]
+- Supporting: [[Evidence/EVID-GH-MEM-FACTS — EVID-GH-MEM-FACTS|EVID-GH-MEM-FACTS · EVID-GH-MEM-FACTS]]
+- Supporting: [[Evidence/EVID-GH-MEM-TEST — EVID-GH-MEM-TEST|EVID-GH-MEM-TEST · EVID-GH-MEM-TEST]]
+
+## Research questions
+
+- Research question: [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
 
 ## Research threads
 
 - [[Research Threads/THREAD-EXPERIENCE-TO-ACTION-001 — Experience to Action|THREAD-EXPERIENCE-TO-ACTION-001 · Experience to Action]]
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+- Supporting: [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]]
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

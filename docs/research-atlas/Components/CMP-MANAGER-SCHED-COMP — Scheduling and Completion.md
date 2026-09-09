@@ -14,12 +14,14 @@ implementation_status: implemented
 verification_status: unverified
 part_of:
 - '[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]'
+presented_in_domain:
+- '[[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE
+  · Executive Control & Contracts]]'
 supports_from: &id001
 - '[[Evidence/EVID-48-SCHEDULING — Scheduling — baseline inspection|EVID-48-SCHEDULING
   · Scheduling — baseline inspection]]'
 - '[[Evidence/EVID-48-TEST-COMPLETION — Test Completion — baseline inspection|EVID-48-TEST-COMPLETION
   · Test Completion — baseline inspection]]'
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -45,12 +47,75 @@ ManagerOrchestrator queues task contracts and closes matching tasks from Manager
 
 Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MANAGER-SCHED-COMP — Scheduling and Completion|CMP-MANAGER-SCHED-COMP · Scheduling and Completion]] — `part_of` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-SCHEDULING — Scheduling — baseline inspection|EVID-48-SCHEDULING · Scheduling — baseline inspection]] — `supports` → [[Components/CMP-MANAGER-SCHED-COMP — Scheduling and Completion|CMP-MANAGER-SCHED-COMP · Scheduling and Completion]]
-- [[Evidence/EVID-48-TEST-COMPLETION — Test Completion — baseline inspection|EVID-48-TEST-COMPLETION · Test Completion — baseline inspection]] — `supports` → [[Components/CMP-MANAGER-SCHED-COMP — Scheduling and Completion|CMP-MANAGER-SCHED-COMP · Scheduling and Completion]]
+- Technical parent: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
+
+L-level: L3. Overview visibility: expansion.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-SCHEDULING — Scheduling — baseline inspection|EVID-48-SCHEDULING · Scheduling — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-COMPLETION — Test Completion — baseline inspection|EVID-48-TEST-COMPLETION · Test Completion — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

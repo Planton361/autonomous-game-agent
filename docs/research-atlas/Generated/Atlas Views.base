@@ -300,7 +300,8 @@ views:
   filters:
     and:
     - note.atlas_type == "ExperimentLead"
-    - note.research_direction == "open-lead"
+    - note.research_direction == "open-lead" || note.research_direction == "needs-closure"
+      || note.research_direction == "active-candidate"
   order:
   - file.name
   - note.atlas_id
@@ -325,7 +326,9 @@ views:
   filters:
     and:
     - note.atlas_type == "Decision" || !note.supersedes.isEmpty() || !note.supersedes_from.isEmpty()
-      || !note.decomposed_into.isEmpty() || !note.decomposed_into_from.isEmpty()
+      || !note.decomposed_into.isEmpty() || !note.decomposed_into_from.isEmpty() ||
+      (note.atlas_type == "ExperimentLead" && (note.research_direction == "killed"
+      || note.research_direction == "deprioritized"))
   order:
   - file.name
   - note.atlas_id

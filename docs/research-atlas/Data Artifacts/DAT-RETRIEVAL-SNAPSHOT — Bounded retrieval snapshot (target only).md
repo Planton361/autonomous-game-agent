@@ -5,13 +5,16 @@ atlas_name: Bounded retrieval snapshot (target only)
 atlas_level: L2
 atlas_generated: true
 registry_schema_version: '0.2'
-overview_visibility: main
+overview_visibility: expansion
 overview_order: 20
 research_mapping: unmapped
 research_direction: null
 architecture_authority: canonical-target
 implementation_status: target-only
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY
+  · Evidence, Memory & Retrieval]]'
 consumes_from:
 - '[[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]'
 supplies_from:
@@ -21,7 +24,6 @@ supports_from: &id001
   — baseline inspection]]'
 - '[[Evidence/EVID-CANON-MEM — EVID-CANON-MEM|EVID-CANON-MEM · EVID-CANON-MEM]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -47,13 +49,76 @@ Bounded retrieval snapshot (target only)
 
 Architecture authority: canonical-target. Implementation: target-only. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `consumes` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
-- [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]] — `supplies` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
-- [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]] — `supports` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
-- [[Evidence/EVID-CANON-MEM — EVID-CANON-MEM|EVID-CANON-MEM · EVID-CANON-MEM]] — `supports` → [[Data Artifacts/DAT-RETRIEVAL-SNAPSHOT — Bounded retrieval snapshot (target only)|DAT-RETRIEVAL-SNAPSHOT · Bounded retrieval snapshot (target only)]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
+
+L-level: L2. Overview visibility: expansion.
+
+## Inputs and outputs
+
+- Consumed by: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+- Supplied by: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CONTEXT — Context — baseline inspection|EVID-48-CONTEXT · Context — baseline inspection]]
+- Supporting: [[Evidence/EVID-CANON-MEM — EVID-CANON-MEM|EVID-CANON-MEM · EVID-CANON-MEM]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

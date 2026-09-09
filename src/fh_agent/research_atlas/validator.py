@@ -161,13 +161,21 @@ def validate_presentation(atlas: Atlas) -> None:
             raise ValueError("L2/L3 require technical records")
         if node.overview_visibility == "main" and level not in {"L0", "L1", "L2"}:
             raise ValueError("Main presentation requires L0/L1/L2")
-        if node.overview_visibility == "expansion" and level != "L3":
-            raise ValueError("Expansion presentation requires L3")
+        if node.overview_visibility == "expansion" and level not in {"L2", "L3"}:
+            raise ValueError("Expansion presentation requires L2/L3")
+        if level in {"L2", "L3"}:
+            if not any(
+                e.relation == "presented_in_domain" and e.source == node.id
+                for e in atlas.relationships
+            ):
+                raise ValueError("L2/L3 technical record requires at least one presentation Domain")
         if node.type != "Component":
             continue
         if node.technical.architecture_authority == "implementation-derived" and level != "L3":
             raise ValueError("implementation-derived Component must be marked L3")
         if level == "L3":
+            if node.overview_visibility != "expansion":
+                raise ValueError("L3 Component requires expansion presentation")
             parents = [
                 atlas.entities[e.target]
                 for e in atlas.relationships
@@ -175,12 +183,6 @@ def validate_presentation(atlas: Atlas) -> None:
             ]
             if not parents or any(p.type != "Component" or p.atlas_level != "L2" for p in parents):
                 raise ValueError("L3 Component requires part_of L2 Component")
-        if level == "L2" and node.overview_visibility == "main":
-            if not any(
-                e.relation == "presented_in_domain" and e.source == node.id
-                for e in atlas.relationships
-            ):
-                raise ValueError("Main L2 Component requires at least one presentation Domain")
 
 
 class UniqueKeyLoader(yaml.SafeLoader):

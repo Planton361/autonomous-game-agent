@@ -17,6 +17,9 @@ grounds:
   · TaskSpec / bounded Skill Contract]]'
 part_of:
 - '[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]'
+presented_in_domain:
+- '[[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE
+  · Executive Control & Contracts]]'
 supports_from: &id001
 - '[[Evidence/EVID-48-CANON-EXECUTIVE — Canonical Executive|EVID-48-CANON-EXECUTIVE
   · Canonical Executive]]'
@@ -26,7 +29,6 @@ supports_from: &id001
   · Submission — baseline inspection]]'
 - '[[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING
   · Test Grounding — baseline inspection]]'
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -52,15 +54,77 @@ Canonical Manager grounding responsibility implemented by bounded visible-candid
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]] — `grounds` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]] — `part_of` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-CANON-EXECUTIVE — Canonical Executive|EVID-48-CANON-EXECUTIVE · Canonical Executive]] — `supports` → [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
-- [[Evidence/EVID-48-GROUNDING — Grounding — baseline inspection|EVID-48-GROUNDING · Grounding — baseline inspection]] — `supports` → [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
-- [[Evidence/EVID-48-SUBMISSION — Submission — baseline inspection|EVID-48-SUBMISSION · Submission — baseline inspection]] — `supports` → [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
-- [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]] — `supports` → [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
+- Technical parent: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
+
+L-level: L3. Overview visibility: expansion.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+- grounds: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CANON-EXECUTIVE — Canonical Executive|EVID-48-CANON-EXECUTIVE · Canonical Executive]]
+- Supporting: [[Evidence/EVID-48-GROUNDING — Grounding — baseline inspection|EVID-48-GROUNDING · Grounding — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-SUBMISSION — Submission — baseline inspection|EVID-48-SUBMISSION · Submission — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

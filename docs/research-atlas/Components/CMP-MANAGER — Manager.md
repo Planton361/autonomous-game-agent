@@ -94,39 +94,94 @@ Authority boundary for validating proposals, grounding visible targets, construc
 
 Architecture authority: canonical-target. Implementation: implemented. Verification: integration-tested.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `consumes` → [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `consumes` → [[Interfaces & Contracts/CON-VERIFIER-RESULT — VerifierResult|CON-VERIFIER-RESULT · VerifierResult]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `consumes` → [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `controls` → [[Components/CMP-BODY — Body|CMP-BODY · Body]]
-- [[Measurements/MEAS-MANAGER-DISPOSITION-001 — Manager disposition and TaskSpec|MEAS-MANAGER-DISPOSITION-001 · Manager disposition and TaskSpec]] — `measured_at` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]] — `part_of` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Components/CMP-MANAGER-SCHED-COMP — Scheduling and Completion|CMP-MANAGER-SCHED-COMP · Scheduling and Completion]] — `part_of` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `presented_in_domain` → [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `proposes_to` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `related_to_research_question` → [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
-- [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]] — `supplies` → [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
-- [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-MANAGER — Manager — baseline inspection|EVID-48-MANAGER · Manager — baseline inspection]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-SCHEDULING — Scheduling — baseline inspection|EVID-48-SCHEDULING · Scheduling — baseline inspection]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-SUBMISSION — Submission — baseline inspection|EVID-48-SUBMISSION · Submission — baseline inspection]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-TASK-EXECUTOR — Task Executor — baseline inspection|EVID-48-TASK-EXECUTOR · Task Executor — baseline inspection]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-CANON-MANAGER — EVID-CANON-MANAGER|EVID-CANON-MANAGER · EVID-CANON-MANAGER]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-GROUND — EVID-GH-MANAGER-GROUND|EVID-GH-MANAGER-GROUND · EVID-GH-MANAGER-GROUND]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-INTEGRATION — EVID-GH-MANAGER-INTEGRATION|EVID-GH-MANAGER-INTEGRATION · EVID-GH-MANAGER-INTEGRATION]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-ORCHESTRATOR — EVID-GH-MANAGER-ORCHESTRATOR|EVID-GH-MANAGER-ORCHESTRATOR · EVID-GH-MANAGER-ORCHESTRATOR]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-SCHEDULING-TEST — Manager scheduling checks|EVID-GH-MANAGER-SCHEDULING-TEST · Manager scheduling checks]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-SPEC — EVID-GH-MANAGER-SPEC|EVID-GH-MANAGER-SPEC · EVID-GH-MANAGER-SPEC]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-TASK — EVID-GH-MANAGER-TASK|EVID-GH-MANAGER-TASK · EVID-GH-MANAGER-TASK]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
-- [[Evidence/EVID-GH-MANAGER-TEST — EVID-GH-MANAGER-TEST|EVID-GH-MANAGER-TEST · EVID-GH-MANAGER-TEST]] — `supports` → [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+- Technical child: [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
+- Technical child: [[Components/CMP-MANAGER-SCHED-COMP — Scheduling and Completion|CMP-MANAGER-SCHED-COMP · Scheduling and Completion]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Input: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+- Input: [[Interfaces & Contracts/CON-VERIFIER-RESULT — VerifierResult|CON-VERIFIER-RESULT · VerifierResult]]
+- Input: [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
+- Output: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
+## Interfaces and contracts
+
+- Input: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+- Input: [[Interfaces & Contracts/CON-VERIFIER-RESULT — VerifierResult|CON-VERIFIER-RESULT · VerifierResult]]
+- Input: [[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER · Cortex to Manager]]
+- Output: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+- Measurement point: [[Measurements/MEAS-MANAGER-DISPOSITION-001 — Manager disposition and TaskSpec|MEAS-MANAGER-DISPOSITION-001 · Manager disposition and TaskSpec]]
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-MANAGER — Manager — baseline inspection|EVID-48-MANAGER · Manager — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-SCHEDULING — Scheduling — baseline inspection|EVID-48-SCHEDULING · Scheduling — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-SUBMISSION — Submission — baseline inspection|EVID-48-SUBMISSION · Submission — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TASK-EXECUTOR — Task Executor — baseline inspection|EVID-48-TASK-EXECUTOR · Task Executor — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-GROUNDING — Test Grounding — baseline inspection|EVID-48-TEST-GROUNDING · Test Grounding — baseline inspection]]
+- Supporting: [[Evidence/EVID-CANON-MANAGER — EVID-CANON-MANAGER|EVID-CANON-MANAGER · EVID-CANON-MANAGER]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-GROUND — EVID-GH-MANAGER-GROUND|EVID-GH-MANAGER-GROUND · EVID-GH-MANAGER-GROUND]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-INTEGRATION — EVID-GH-MANAGER-INTEGRATION|EVID-GH-MANAGER-INTEGRATION · EVID-GH-MANAGER-INTEGRATION]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-ORCHESTRATOR — EVID-GH-MANAGER-ORCHESTRATOR|EVID-GH-MANAGER-ORCHESTRATOR · EVID-GH-MANAGER-ORCHESTRATOR]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-SCHEDULING-TEST — Manager scheduling checks|EVID-GH-MANAGER-SCHEDULING-TEST · Manager scheduling checks]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-SPEC — EVID-GH-MANAGER-SPEC|EVID-GH-MANAGER-SPEC · EVID-GH-MANAGER-SPEC]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-TASK — EVID-GH-MANAGER-TASK|EVID-GH-MANAGER-TASK · EVID-GH-MANAGER-TASK]]
+- Supporting: [[Evidence/EVID-GH-MANAGER-TEST — EVID-GH-MANAGER-TEST|EVID-GH-MANAGER-TEST · EVID-GH-MANAGER-TEST]]
+
+## Research questions
+
+- Research question: [[Research Questions/RQ-PROGRAM-AB-001 — Program A–B working question|RQ-PROGRAM-AB-001 · Program A–B working question]]
 
 ## Research threads
 
 - [[Research Threads/THREAD-EXPERIENCE-TO-ACTION-001 — Experience to Action|THREAD-EXPERIENCE-TO-ACTION-001 · Experience to Action]]
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+- Supporting: [[Decisions/DEC-ATLAS-PILOT-001 — Approved Atlas pilot scope|DEC-ATLAS-PILOT-001 · Approved Atlas pilot scope]]
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

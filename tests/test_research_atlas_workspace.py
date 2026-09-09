@@ -14,7 +14,6 @@ from fh_agent.research_atlas.validator import load_registry, validate_registry
 from fh_agent.research_atlas.workspace import (
     BASE_PATH,
     BETWEEN_RUNS,
-    CENTRAL_NODES,
     FOLDERS,
     HOME_PATH,
     MAP_PATH,
@@ -150,7 +149,6 @@ def test_main_l2_domain_is_required(payloads):
         ("CMP-CORTEX", "overview_order", 0),
         ("CMP-CORTEX", "overview_order", True),
         ("CMP-CORTEX", "overview_order", 1.5),
-        ("CMP-CORTEX", "overview_visibility", "expansion"),
         ("CMP-MANAGER-SCHED-COMP", "atlas_level", "L2"),
         ("CMP-MANAGER-SCHED-COMP", "overview_visibility", "main"),
     ],
@@ -408,7 +406,7 @@ def test_excalidraw_container_nodes_and_links(atlas):
         for el in elements
         if "atlas_id" in el.get("customData", {})
     }
-    assert CENTRAL_NODES <= nodes.keys()
+    assert EXPECTED_MAP_IDS == nodes.keys()
     for id, el in nodes.items():
         assert el["link"] == note_link(atlas.entities[id])
     for el in elements:
@@ -599,3 +597,154 @@ def test_generated_tree_contract_rejects_invalid_views(atlas, drift):
         tree[MAP_PATH] = before + "```json\n" + json.dumps(scene) + "\n```" + after
     with pytest.raises(ValueError):
         validate_workspace_tree(atlas, tree)
+
+
+EXPECTED_MAP_IDS = set(
+    """
+SYS-AGA ENV-GAME-INSTANCE CMP-SCREEN-CAPTURE CMP-VISIBLE-STATE-BRIDGE
+CMP-NO-SPOILER-FIREWALL CMP-PERCEPTION DAT-OBSERVATION CMP-TEMPORAL-STATE
+CMP-EVIDENCE-LEDGER CMP-MEMORY CMP-MEM-RETRIEVAL CMP-CORTEX CON-PLANNER-OUTPUT
+CMP-MANAGER CMP-MANAGER-GROUNDING CON-SKILL-CONTRACT CMP-BODY CMP-BOUNDED-REFLEX
+CMP-SAFETY-FILTER CMP-INPUT-EXECUTOR DAT-VISIBLE-OUTCOME CMP-INDEPENDENT-VERIFIER
+CMP-REPLAY-BUFFER CMP-SKILL-TRAINER DAT-CANDIDATE-BODY-VERSION CMP-BODY-CERTIFICATION
+""".split()
+)
+
+
+@pytest.mark.parametrize("id", ["CMP-CORTEX", "CON-PLANNER-OUTPUT", "DAT-OBSERVATION"])
+def test_l2_expansion_with_known_box_stays_l2_and_off_map(payloads, id):
+    from fh_agent.research_atlas.workspace import MAP_BOXES, map_record_ids
+
+    assert id in MAP_BOXES
+    find_node(payloads, id)["overview_visibility"] = "expansion"
+    a = validate_registry(*payloads)
+    assert a.entities[id].atlas_level == "L2"
+    assert id not in map_record_ids(a)
+    text = workspace_tree(a)[MAP_PATH]
+    assert id not in {e.get("customData", {}).get("atlas_id") for e in scene_from(text)["elements"]}
+
+
+def test_compact_map_excludes_measurements_and_expansion_only(atlas):
+    from fh_agent.research_atlas.workspace import map_record_ids
+
+    ids = map_record_ids(atlas)
+    assert ids == EXPECTED_MAP_IDS
+    for id in ids:
+        node = atlas.entities[id]
+        assert node.type != "MeasurementPoint"
+        if id not in {"CMP-MANAGER-GROUNDING", "CMP-BOUNDED-REFLEX"}:
+            assert node.overview_visibility == "main"
+
+
+def test_all_technical_detail_has_domains(atlas):
+    for n in atlas.entities.values():
+        if n.atlas_level in {"L2", "L3"}:
+            assert record_properties(atlas, n)["presented_in_domain"], n.id
+
+
+@pytest.mark.parametrize(
+    "id",
+    [
+        "CON-CORTEX-CONTEXT",
+        "DAT-SCREEN-FRAME",
+        "ENV-GAME-INSTANCE",
+        "CMP-MEM-FACTS",
+        "MEAS-VERIFIED-OUTCOME-001",
+    ],
+)
+def test_detail_domain_required(payloads, id):
+    payloads[1]["relationships"] = [
+        e
+        for e in payloads[1]["relationships"]
+        if not (e["relation"] == "presented_in_domain" and e["source"] == id)
+    ]
+    with pytest.raises(ValueError, match="at least one"):
+        validate_registry(*payloads)
+
+
+def test_changing_detail_domain_preserves_all_ancestry(payloads):
+    before = validate_registry(*payloads)
+    for e in payloads[1]["relationships"]:
+        if e["relation"] == "presented_in_domain" and e["source"] == "CMP-MEM-FACTS":
+            e["target"] = "DOM-COGNITION"
+    after = validate_registry(*payloads)
+    assert {id: before.ancestors(id) for id in before.entities} == {
+        id: after.ancestors(id) for id in after.entities
+    }
+
+
+def test_cortex_human_dossier_and_empty_overlay_sections(atlas):
+    from fh_agent.research_atlas.workspace import render_record
+
+    text = render_record(atlas, atlas.entities["CMP-CORTEX"])
+    for heading in [
+        "Classification",
+        "Technical structure",
+        "Presentation",
+        "Inputs and outputs",
+        "Interfaces and contracts",
+        "Data artifacts",
+        "Measurement points",
+        "Evidence",
+        "Research questions",
+        "Research threads",
+        "Papers",
+        "Findings and contradictions",
+        "Decisions",
+        "Experiment leads",
+        "History",
+        "Review / proposals",
+    ]:
+        assert "## " + heading + "\n" in text
+    for heading in ["Papers", "Findings and contradictions", "Experiment leads"]:
+        assert "## " + heading + "\n\nNone mapped." in text
+    body = text.split("## Evidence\n", 1)[1].split("\n## ", 1)[0]
+    assert note_link(atlas.entities["EVID-CANON-CORTEX"]) in body
+
+
+def base_fixture_matches(view, props):
+    # Evaluate only the emitted comparison/empty/boolean subset, against synthetic Properties.
+    expressions = []
+    for expression in view["filters"]["and"]:
+        expression = re.sub(
+            r"!note\.(\w+)\.isEmpty\(\)", lambda m: str(bool(props.get(m[1]))), expression
+        )
+        expression = re.sub(
+            r'note\.(\w+) == "([^"]+)"', lambda m: str(props.get(m[1]) == m[2]), expression
+        )
+        expression = expression.replace("||", "or").replace("&&", "and")
+        assert re.fullmatch(r"[TrueFalsondr ()]+", expression)
+        expressions.append(eval(expression, {"__builtins__": {}}))
+    return all(expressions)
+
+
+@pytest.mark.parametrize(
+    "direction,actionable,historical",
+    [
+        ("open-lead", True, False),
+        ("needs-closure", True, False),
+        ("active-candidate", True, False),
+        ("killed", False, True),
+        ("deprioritized", False, True),
+    ],
+)
+def test_base_lead_action_and_history_fixtures(payloads, direction, actionable, historical):
+    from fh_agent.research_atlas.workspace import render_base
+
+    payloads[0]["nodes"].append(
+        dict(
+            id="LEAD-REVIEW-FIXTURE",
+            type="ExperimentLead",
+            name="Review fixture",
+            description="Synthetic only",
+            research_direction=direction,
+        )
+    )
+    a = validate_registry(*payloads)
+    props = record_properties(a, a.entities["LEAD-REVIEW-FIXTURE"])
+    views = {v["name"]: v for v in yaml.safe_load(render_base())["views"]}
+    assert base_fixture_matches(views["Open Leads"], props) is actionable
+    assert base_fixture_matches(views["Decisions / History"], props) is historical
+    props["atlas_type"] = "Component"
+    assert not base_fixture_matches(views["Open Leads"], props)
+    assert not base_fixture_matches(views["Decisions / History"], props)

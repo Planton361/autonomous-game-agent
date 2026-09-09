@@ -5,20 +5,22 @@ atlas_name: ActionResult
 atlas_level: L2
 atlas_generated: true
 registry_schema_version: '0.2'
-overview_visibility: main
+overview_visibility: expansion
 overview_order: 50
 research_mapping: unmapped
 research_direction: null
 architecture_authority: implementation-derived
 implementation_status: implemented
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY ·
+  Action & Safety]]'
 supplies_from:
 - '[[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]'
 supports_from: &id001
 - '[[Evidence/EVID-48-ACTION-RESULT — Action Result — baseline inspection|EVID-48-ACTION-RESULT
   · Action Result — baseline inspection]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -44,11 +46,74 @@ Typed executed/blocked action result with optional evidence links, separate from
 
 Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]] — `supplies` → [[Data Artifacts/DAT-ACTION-RESULT — ActionResult|DAT-ACTION-RESULT · ActionResult]]
-- [[Evidence/EVID-48-ACTION-RESULT — Action Result — baseline inspection|EVID-48-ACTION-RESULT · Action Result — baseline inspection]] — `supports` → [[Data Artifacts/DAT-ACTION-RESULT — ActionResult|DAT-ACTION-RESULT · ActionResult]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
+
+L-level: L2. Overview visibility: expansion.
+
+## Inputs and outputs
+
+- Supplied by: [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-ACTION-RESULT — Action Result — baseline inspection|EVID-48-ACTION-RESULT · Action Result — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

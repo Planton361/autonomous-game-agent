@@ -63,20 +63,82 @@ ObservationBuilder assembles frame signatures, OCR output and UI signals. OCR ba
 
 Architecture authority: canonical-target. Implementation: partial. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]] — `consumes` → [[Data Artifacts/DAT-SCREEN-FRAME — ScreenFrame|DAT-SCREEN-FRAME · ScreenFrame]]
-- [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]] — `part_of` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]] — `part_of` → [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
-- [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE · UI State Classification]] — `part_of` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]] — `presented_in_domain` → [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
-- [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]] — `supplies` → [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
-- [[Evidence/EVID-48-BUILDER — Builder — baseline inspection|EVID-48-BUILDER · Builder — baseline inspection]] — `supports` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Evidence/EVID-48-CANON-INGRESS — Canonical Ingress|EVID-48-CANON-INGRESS · Canonical Ingress]] — `supports` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Evidence/EVID-48-OCR-LIMIT — Ocr Limit — baseline inspection|EVID-48-OCR-LIMIT · Ocr Limit — baseline inspection]] — `supports` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Evidence/EVID-48-SPATIAL-LIMIT — Spatial Limit — baseline inspection|EVID-48-SPATIAL-LIMIT · Spatial Limit — baseline inspection]] — `supports` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
-- [[Evidence/EVID-48-TEST-OBSERVATION — Test Observation — baseline inspection|EVID-48-TEST-OBSERVATION · Test Observation — baseline inspection]] — `supports` → [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+- Technical child: [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|CMP-OBSERVATION-BUILDER · Observation Builder]]
+- Technical parent: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+- Technical child: [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|CMP-PERCEPTION-UI-STATE · UI State Classification]]
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+- Input: [[Data Artifacts/DAT-SCREEN-FRAME — ScreenFrame|DAT-SCREEN-FRAME · ScreenFrame]]
+- Output: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+- Input: [[Data Artifacts/DAT-SCREEN-FRAME — ScreenFrame|DAT-SCREEN-FRAME · ScreenFrame]]
+- Output: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-BUILDER — Builder — baseline inspection|EVID-48-BUILDER · Builder — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-CANON-INGRESS — Canonical Ingress|EVID-48-CANON-INGRESS · Canonical Ingress]]
+- Supporting: [[Evidence/EVID-48-OCR-LIMIT — Ocr Limit — baseline inspection|EVID-48-OCR-LIMIT · Ocr Limit — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-SPATIAL-LIMIT — Spatial Limit — baseline inspection|EVID-48-SPATIAL-LIMIT · Spatial Limit — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-TEST-OBSERVATION — Test Observation — baseline inspection|EVID-48-TEST-OBSERVATION · Test Observation — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

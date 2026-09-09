@@ -12,6 +12,9 @@ research_direction: null
 architecture_authority: canonical-target
 implementation_status: target-only
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN
+  · Verification & Learning]]'
 observes_from:
 - '[[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER
   · Independent Verifier]]'
@@ -23,7 +26,6 @@ supports_from: &id001
 - '[[Evidence/EVID-48-VERIFIER-RESULT — Verifier Result — baseline inspection|EVID-48-VERIFIER-RESULT
   · Verifier Result — baseline inspection]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -49,13 +51,76 @@ Canonical visible after-effect before independent verification. Current runtime 
 
 Architecture authority: canonical-target. Implementation: target-only. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]] — `observes` → [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
-- [[Evidence/EVID-48-CANON-VERIFY — Canonical Verify|EVID-48-CANON-VERIFY · Canonical Verify]] — `supports` → [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
-- [[Evidence/EVID-48-OBSERVATION — Observation — baseline inspection|EVID-48-OBSERVATION · Observation — baseline inspection]] — `supports` → [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
-- [[Evidence/EVID-48-VERIFIER-RESULT — Verifier Result — baseline inspection|EVID-48-VERIFIER-RESULT · Verifier Result — baseline inspection]] — `supports` → [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
+
+L-level: L2. Overview visibility: main.
+
+## Inputs and outputs
+
+None mapped.
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-CANON-VERIFY — Canonical Verify|EVID-48-CANON-VERIFY · Canonical Verify]]
+- Supporting: [[Evidence/EVID-48-OBSERVATION — Observation — baseline inspection|EVID-48-OBSERVATION · Observation — baseline inspection]]
+- Supporting: [[Evidence/EVID-48-VERIFIER-RESULT — Verifier Result — baseline inspection|EVID-48-VERIFIER-RESULT · Verifier Result — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]

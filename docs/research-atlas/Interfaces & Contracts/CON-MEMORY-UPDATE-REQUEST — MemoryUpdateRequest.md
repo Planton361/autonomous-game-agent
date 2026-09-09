@@ -5,13 +5,16 @@ atlas_name: MemoryUpdateRequest
 atlas_level: L2
 atlas_generated: true
 registry_schema_version: '0.2'
-overview_visibility: main
+overview_visibility: expansion
 overview_order: 54
 research_mapping: unmapped
 research_direction: null
 architecture_authority: implementation-derived
 implementation_status: implemented
 verification_status: unverified
+presented_in_domain:
+- '[[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN
+  · Verification & Learning]]'
 consumes_from:
 - '[[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]'
 supplies_from:
@@ -20,7 +23,6 @@ supports_from: &id001
 - '[[Evidence/EVID-48-MEMORY-REQUEST — Memory Request — baseline inspection|EVID-48-MEMORY-REQUEST
   · Memory Request — baseline inspection]]'
 part_of: []
-presented_in_domain: []
 measured_at: []
 studied_by: []
 supersedes: []
@@ -46,12 +48,75 @@ Typed evidence-linked request in planning/reflection outputs. A proposal contrac
 
 Architecture authority: implementation-derived. Implementation: implemented. Verification: unverified.
 
+Research mapping: unmapped. Research direction: None.
+
 Implementation is not live demonstration; integration tests are not measurement validation. Target-only does not mean a research gap.
 
-## Registry relationships
+## Technical structure
 
-- [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]] — `consumes` → [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
-- [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]] — `supplies` → [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
-- [[Evidence/EVID-48-MEMORY-REQUEST — Memory Request — baseline inspection|EVID-48-MEMORY-REQUEST · Memory Request — baseline inspection]] — `supports` → [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+None mapped.
+
+Technical parents are outgoing `part_of`; children are incoming `part_of`.
+
+## Presentation
+
+- Presentation Domain: [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
+
+L-level: L2. Overview visibility: expansion.
+
+## Inputs and outputs
+
+- Consumed by: [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
+- Supplied by: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+
+## Interfaces and contracts
+
+None mapped.
+
+## Data artifacts
+
+None mapped.
+
+## Measurement points
+
+None mapped.
+
+## Evidence
+
+- Supporting: [[Evidence/EVID-48-MEMORY-REQUEST — Memory Request — baseline inspection|EVID-48-MEMORY-REQUEST · Memory Request — baseline inspection]]
+
+## Research questions
+
+None mapped.
+
+## Research threads
+
+None mapped.
+
+## Papers
+
+None mapped.
+
+## Findings and contradictions
+
+None mapped.
+
+## Decisions
+
+None mapped.
+
+## Experiment leads
+
+None mapped.
+
+## History
+
+None mapped.
+
+Outgoing/incoming edges show supersedes / superseded by and decomposed into / from.
+
+## Review / proposals
+
+No accepted proposal is mapped unless represented by the Registry decisions above. Keep authored proposals in separate notes; accepted changes must enter through Registry review. Generated notes do not accept changes or claims.
 
 [[Home/Research Atlas|Research Atlas Home]]
