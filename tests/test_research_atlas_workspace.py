@@ -71,7 +71,7 @@ REQUIRED_VIEWS = {
     "Open Leads",
     "Decisions / History",
     "Findings with contradictions",
-    "Unmapped research areas",
+    "Atlas Mapping Incomplete",
 }
 
 
@@ -327,6 +327,21 @@ def test_regeneration_replaces_drift_preserves_authored_notes(atlas, tmp_path):
     write_workspace(atlas, tmp_path)
     validate_workspace(atlas, tmp_path)
     assert proposal.read_text() == "Authored proposal, not authoritative.\n"
+
+
+def test_only_exact_private_base_source_is_exempt_from_public_base_count(atlas, tmp_path):
+    write_workspace(atlas, tmp_path)
+    source = tmp_path / "Wiki Views/Research Wiki Direct Views.base"
+    source.parent.mkdir()
+    original = (ATLAS / "Wiki Views/Research Wiki Direct Views.base").read_bytes()
+    source.write_bytes(original)
+    validate_workspace(atlas, tmp_path)
+    write_workspace(atlas, tmp_path)
+    assert source.read_bytes() == original
+    extra = source.with_name("unexpected.base")
+    extra.write_text("views: []\n")
+    with pytest.raises(ValueError, match="Exactly one central Base"):
+        validate_workspace(atlas, tmp_path)
 
 
 def test_rename_regenerates_all_links_without_changing_relations(payloads, tmp_path):

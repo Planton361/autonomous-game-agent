@@ -374,7 +374,7 @@ views:
   - property: note.atlas_id
     direction: ASC
 - type: table
-  name: Unmapped research areas
+  name: Atlas Mapping Incomplete
   filters:
     and:
     - note.atlas_type == "Component"
