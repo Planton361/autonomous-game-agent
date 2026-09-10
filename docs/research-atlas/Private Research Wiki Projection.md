@@ -159,10 +159,11 @@ Component, Topic, Method, Paper area or whole research direction exhausted.
 ## One-way boundary and limitations
 
 There is no reverse sync, private-to-public export, Canonical/SOT update, or
-Wiki-to-Agent-Memory/Retrieval/Cortex/runtime path. Private notes are only read to
-validate the envelope and explicitly opted-in flat profile. They never feed public
-rendering or alter technical ancestry. The public workspace generator accepts no
-private-vault input.
+Wiki-to-Agent-Memory/Retrieval/Cortex/runtime path. RA-1 reads private notes to
+validate the envelope and explicitly opted-in flat profile. RA-3B additionally
+consumes only the structured reference allowlist for private navigation/audit.
+Neither feeds public rendering or alters technical ancestry. The public workspace
+generator accepts no private-vault input.
 
 Run one projector at a time with a stable source checkout and vault. This is a
 local filesystem workflow, not a transaction across concurrent editors or hostile
@@ -170,10 +171,10 @@ filesystem mutation. An interrupted multi-file generation can leave drift;
 atomic replacement protects individual files, not the whole tree. A first run
 interrupted before its manifest may require operator recovery of unowned outputs.
 Structural map tests do not claim an interactive Obsidian/Excalidraw plugin test.
-Multi-hop derived indexes, corpus migration, Zotero, Work automation, gameplay,
+Arbitrary graph traversal, corpus migration, Zotero, Work automation, gameplay,
 and real input remain outside these projection tools.
 
-## RA-3A direct views and Process navigation
+## Historical RA-3A direct views and Process navigation
 
 The public Base now calls its unchanged Component/unmapped filter **Atlas Mapping
 Incomplete**. This means missing Atlas mapping, not missing literature or a gap.
@@ -190,7 +191,7 @@ uv run --no-sync python -m fh_agent.research_atlas.private_views \
 ```
 
 The separate owner `research-wiki-derived` owns exactly
-`_generated/derived/`, with these RA-3A outputs:
+`_generated/derived/`. Historical RA-3A manifest v1 had these outputs:
 
 ```text
 manifest/direct-views.yaml
@@ -214,10 +215,10 @@ role-presence views. Public-safe templates/seeds contain example blocks, not
 active frontmatter. Ordinary Markdown, RA-1 legacy records and generated technical
 records are excluded. Views display declarations, not verified scientific facts.
 
-The deterministic manifest pins source commit, Atlas schema 0.2 and exact-byte
-SHA-256 hashes of both source Bases and all three owned payloads. Generated Bases
-carry an owner comment; the navigation note carries owner frontmatter. No private
-absolute paths, timestamps, scientific data rows or new research objects are emitted.
+The historical v1 manifest pinned source commit, Atlas schema 0.2 and exact-byte
+SHA-256 hashes of both source Bases and three payloads. Generated Bases carry an
+owner comment; navigation notes carry owner frontmatter. RA-3B extends this same
+owner and manifest, as specified below; the two Base payloads retain their behavior.
 
 Before any write, the complete prior manifest, all targets and owner markers are
 checked. Symlink boundaries/descendants, traversal and absolute manifest paths
@@ -240,6 +241,67 @@ for optional manual authoring sources extending the RA-2 Process template.
 Seeds are drafts, not reviewed, and create no Public part_of or implementation
 claim. No automatic seed copying, migration, scientific Body parsing, candidate
 promotion, private-to-public sync or Wiki-to-Agent-Memory connection is provided.
-Candidate History, Decision Lineage and type-resolved multi-hop literature rollups
-remain deferred; Evidence Profiles are RA-6. Direct inventory counts cannot
-establish absence, coverage, exhaustion, novelty or evidence independence.
+Candidate History and Decision Lineage remain deferred; Evidence Profiles are RA-6.
+RA-3B supplies only the bounded declared-reference navigation described below.
+Direct inventory counts cannot establish absence, coverage, exhaustion, novelty
+or evidence independence.
+
+## RA-3B declared reference navigation (manifest v2)
+
+The same `private_views` CLI and `research-wiki-derived` owner now generate
+manifest `view_schema_version: "2.0"`, with `reference_index_schema_version: "1.0"`
+and a private structured-input fingerprint. No second projector or manifest is
+introduced. Exactly two payloads are added to the historical tree:
+
+```text
+indexes/declared-reference-index.yaml
+indexes/Declared Literature Navigation.md
+```
+
+The current tree therefore has five owned payloads plus
+`manifest/direct-views.yaml`, six files total. The Direct Views Index retains
+both Base links and adds Declared Literature Navigation. It describes the
+structured index as navigation/audit with no scientific adjudication.
+The historical 17 Direct Views and 15 Capability Matrix dispositions are unchanged.
+
+See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)
+for exact resolution, closed rows, E1–E9 and the finite Component/RQ/Process
+recipes. Only existing selected RA-2 reference properties are indexed. There is
+no body indexing or heuristic identity resolution. Unknown references remain
+valid unresolved audit rows; known wrong types remain their actual types with a
+mismatch diagnostic. Neither produces an inferred Paper identity or scientific
+validation error. Legacy identities resolve but do not expand.
+
+The fingerprint includes every authored private identity/type/profile/revision
+and consumed RA-2 reference sets in deterministic order. It excludes bodies,
+titles, paths and unconsumed metadata. Relevant edits cause `--check` drift;
+body-only edits without relevant revision/reference changes leave YAML unchanged.
+A separate read-only locator scan excludes all `_generated` content and does not
+follow authored symlinks. Locators affect Markdown links only: a note move can
+change Markdown without changing YAML; a whole-vault move with relative paths
+preserved changes neither. Link segments are encoded; unresolved IDs are escaped
+plaintext. No private absolute paths or unselected secrets are emitted.
+
+Strict v1 manifests may migrate in place on write. A v1 `--check` returns drift
+(exit 2) and never migrates or writes. Unknown versions fail closed. V1 cannot
+claim YAML ownership; v2 permits only the exact new index path. YAML owner/schema
+markers, existing Base/Markdown markers and all prior ownership/path checks must
+pass before writes. Unknown files are never adopted; edited obsolete files are
+never deleted. The manifest remains last after per-file atomic writes.
+
+RA-1 exactness, source-ref/HEAD, topology, marker, source cleanliness, Registry
+and RA-2 validation remain mandatory preconditions. No automatic RA-1 repair is
+performed. `--check` remains strictly write-free, including no temporary files
+or cleanup, and unresolved-only/empty output is a valid exact state. Use a single
+writer with stable source and vault input. There is no whole-tree transaction;
+interruption and concurrent edits retain the recovery limitations above.
+
+The three additional Markdown tables visibly say “declared … paths (derived
+navigation)” and each carries the full local warning against support,
+implementation evaluation and literature coverage implications. Roles retain
+the actual declaring record and revision, never inherit to a Paper anchor, and
+`research_method_or_baseline_refs` stays combined. The technical audit retains
+all unresolved/wrong-type declarations and every path retains full provenance.
+Candidate History and Decision Lineage remain deferred. No acceptance/status
+promotion, private-to-public export, scientific adjudication or Wiki-to-Agent
+Memory/Retrieval/Cortex path is introduced.
