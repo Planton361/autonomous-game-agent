@@ -561,14 +561,16 @@ def expected_tree(
             ) != OWNER:
                 raise ProjectionError("Prior index lost its owner")
             continue
+        if digest(data) != item.sha256:
+            raise ProjectionError(
+                "Prior source payload digest changed; preserve or restore generated history"
+            )
         record = read_record(data, item)
         old_records[record.source_version_id] = record
         if (
             record.source_version_id not in current.values()
             or record.source_version_id not in prior_current
         ):
-            if digest(data) != item.sha256:
-                raise ProjectionError("Edited retained source history; preserve or restore it")
             if seal(record) != record:
                 raise ProjectionError("Invalid retained source payload")
             tree[path] = data

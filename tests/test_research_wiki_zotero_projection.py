@@ -619,7 +619,65 @@ def test_a29_retained_history_cannot_be_forgotten(setup, fault):
         path.write_bytes(
             first[z.source_path(old.source_id, old.source_version_id)] + b"Changed history"
         )
-    no_mutation(setup, lambda: project(setup), "retained")
+    no_mutation(
+        setup, lambda: project(setup), "retained" if fault == "missing" else "digest changed"
+    )
+
+
+@pytest.mark.parametrize("tamper", ["body", "metadata", "predecessor"])
+def test_prior_current_digest_blocks_read_and_provenance_reuse(setup, monkeypatch, capsys, tamper):
+    tree = project(setup)
+    data = fixture_data()
+    if tamper == "predecessor":
+        data = mutate_version(data)
+        tree = project(setup, data)
+    record = records(data)[2]
+    root = setup[1] / z.OWNED_ROOT
+    path = root / z.source_path(record.source_id, record.source_version_id)
+    if tamper == "body":
+        changed = path.read_bytes() + b"Synthetic changed body"
+    else:
+        if tamper == "predecessor":
+            # Removing this fixture descriptor would otherwise preserve the
+            # tampered embedded predecessor as if it were trusted provenance.
+            record = record.model_copy(update={"predecessor_source_version_id": None})
+            data["items"][2]["predecessor"] = None
+            setup[3].write_text(json.dumps(data))
+        else:
+            record = record.model_copy(
+                update={
+                    "source_metadata": record.source_metadata.model_copy(
+                        update={"title": "Synthetic tampered title"}
+                    )
+                }
+            )
+        # Even a consistent embedded record digest is not the trust boundary.
+        changed = z.render_source(z.seal(record))
+    path.write_bytes(changed)
+    assert (root / z.MANIFEST).read_bytes() == tree[z.MANIFEST]
+    read_record = z.read_record
+
+    def guarded_read(raw, owned):
+        assert raw != changed, "Digest-mismatched payload reached embedded record parsing"
+        return read_record(raw, owned)
+
+    monkeypatch.setattr(z, "read_record", guarded_read)
+    for name in ("render_source", "cleanup_paths", "atomic_write"):
+        monkeypatch.setattr(z, name, denied)
+    for name in ("mkdir", "write_text", "write_bytes", "unlink"):
+        monkeypatch.setattr(Path, name, denied)
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", denied)
+    monkeypatch.setattr(os, "replace", denied)
+    no_mutation(setup, lambda: project(setup), "digest changed")
+    before = filesystem_state(setup[0]), filesystem_state(setup[1])
+    assert z.main(args(setup)) == 2
+    assert capsys.readouterr().err == (
+        "Zotero projection: Prior source payload digest changed; "
+        "preserve or restore generated history\n"
+    )
+    assert (filesystem_state(setup[0]), filesystem_state(setup[1])) == before
+    assert (root / z.MANIFEST).read_bytes() == tree[z.MANIFEST]
+    assert path.read_bytes() == changed
 
 
 def test_missing_current_can_be_reconstructed(setup):
@@ -970,7 +1028,9 @@ def test_a24_a27_missing_owner_and_default_schema_fields_do_not_get_adopted(setu
         path.write_bytes(
             z.markdown(props, body) if kind == "source" else z.yaml_text(props).encode()
         )
-        no_mutation(setup, lambda: project(setup), "lost")
+        no_mutation(
+            setup, lambda: project(setup), "lost" if kind == "manifest" else "digest changed"
+        )
     path.write_bytes(original)
     assert project(setup, check=True) == tree
 
