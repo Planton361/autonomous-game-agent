@@ -456,7 +456,7 @@ def render_base() -> str:
         ],
     )
     view(
-        "Findings with contradictions",
+        "Findings with declared contradiction links",
         [
             'note.atlas_type == "Finding"',
             "!note.contradicted_by.isEmpty() || !note.contradicts.isEmpty()",

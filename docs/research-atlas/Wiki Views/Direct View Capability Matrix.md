@@ -37,7 +37,7 @@ Bases do not replace the projector's structural validation or human Body review.
 
 Raw role references retain their explicitly named role only. They imply neither
 each other nor supports, part_of, implementation evidence or demonstrated transfer.
-The legacy public view labelled Findings with contradictions displays declared
+The legacy public view labelled Findings with declared contradiction links displays declared
 public relation links; it is not a scientific contradiction assessment. Public
 Decisions / History is an inventory, not the deferred private lineage index.
 
