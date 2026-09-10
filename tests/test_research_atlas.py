@@ -301,6 +301,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "wiki_schema",
                         "private_projection",
                         "private_views",
+                        "private_reference_index",
                     }
                     continue
                 modules = [node.module or ""]

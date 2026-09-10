@@ -146,7 +146,14 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
     before = outside_owned(vault)
     public_before = snapshot(repo)
     tree = views.project(repo, vault, sha)
-    assert set(tree) == {views.TECHNICAL_BASE, views.DIRECT_BASE, views.INDEX, views.MANIFEST}
+    assert set(tree) == {
+        views.TECHNICAL_BASE,
+        views.DIRECT_BASE,
+        views.INDEX,
+        views.MANIFEST,
+        views.REFERENCE_INDEX,
+        views.NAVIGATION,
+    }
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
     assert outside_owned(vault) == before
     first = snapshot(derived(vault))
@@ -163,7 +170,12 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "1.0"
+    assert manifest["view_schema_version"] == "2.0"
+    assert manifest["reference_index_schema_version"] == "1.0"
+    assert (
+        manifest["private_input_fingerprint"]
+        == yaml.safe_load(tree[views.REFERENCE_INDEX])["private_input_fingerprint"]
+    )
     assert manifest["generated_by"] == views.OWNER == "research-wiki-derived"
     assert manifest["source_repository"] == "Planton361/autonomous-game-agent"
     assert manifest["source_commit"] == sha == git(repo, "rev-parse", "HEAD")
@@ -348,7 +360,7 @@ def test_invalid_manifest_rejected_before_writes(setup, fault):
         if fault == "owner":
             m["generated_by"] = "other"
         elif fault == "schema":
-            m["view_schema_version"] = "2.0"
+            m["view_schema_version"] = "3.0"
         elif fault == "sha":
             m["owned_files"][0]["sha256"] = "invalid"
         elif fault == "duplicate":
@@ -389,7 +401,16 @@ def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
         assert outside_owned(vault) == before
 
 
-@pytest.mark.parametrize("relative", [views.TECHNICAL_BASE, views.DIRECT_BASE, views.INDEX])
+@pytest.mark.parametrize(
+    "relative",
+    [
+        views.TECHNICAL_BASE,
+        views.DIRECT_BASE,
+        views.INDEX,
+        views.REFERENCE_INDEX,
+        views.NAVIGATION,
+    ],
+)
 def test_owner_marker_required_even_for_current_output(setup, relative):
     repo, vault, sha = setup
     views.project(repo, vault, sha)
@@ -462,7 +483,7 @@ def test_atomic_payloads_and_manifest_last(setup, monkeypatch):
     monkeypatch.setattr(technical.os, "replace", replace_same_directory)
     views.project(repo, vault, sha)
     assert writes[-1] == replaces[-1] == views.MANIFEST
-    assert len(writes) == len(replaces) == 4
+    assert len(writes) == len(replaces) == 6
     assert not list(derived(vault).rglob(".projection-*"))
 
 
@@ -741,3 +762,275 @@ def test_capability_matrix_exact_coverage_and_conservative_dispositions():
     assert "inventory" in by_name["Search Coverage"][-1]
     assert "Paper → ReadingNote/Finding → RQ → Process → Component" in text
     assert "not authorization" in text and "not a research result" in text
+
+
+@pytest.fixture
+def reference_setup(setup):
+    from test_research_wiki_reference_index import sample_records
+
+    repo, vault, sha = setup
+    for record in sample_records():
+        write_note(vault / "authored" / (record["wiki_id"] + ".md"), record)
+    return repo, vault, sha
+
+
+def test_a14_a15_a16_structured_drift_body_and_locator(reference_setup):
+    repo, vault, sha = reference_setup
+    original = views.project(repo, vault, sha)
+    path = vault / "authored/READ-FIXTURE.md"
+    text = path.read_text()
+    path.write_text(text + "\nPRIVATE-BODY-SECRET\n")
+    assert views.project(repo, vault, sha, check=True) == original
+    path.write_text(path.read_text().replace("title: Synthetic fixture", "title: PRIVATE-TITLE"))
+    assert views.project(repo, vault, sha, check=True) == original
+    moved = path.with_name("renamed [reading]#.md")
+    path.rename(moved)
+    assert_no_mutation(
+        reference_setup, lambda: views.project(repo, vault, sha, check=True), "drift"
+    )
+    relocated = views.project(repo, vault, sha)
+    assert relocated[views.REFERENCE_INDEX] == original[views.REFERENCE_INDEX]
+    assert relocated[views.NAVIGATION] != original[views.NAVIGATION]
+    assert b"renamed%20%5Breading%5D%23.md" in relocated[views.NAVIGATION]
+    assert all(
+        b"PRIVATE-BODY-SECRET" not in data and b"PRIVATE-TITLE" not in data
+        for data in relocated.values()
+    )
+    moved.write_text(moved.read_text().replace("WRQ-FIXTURE", "WRQ-MISSING"))
+    assert_no_mutation(
+        reference_setup, lambda: views.project(repo, vault, sha, check=True), "drift"
+    )
+    changed = views.project(repo, vault, sha)
+    assert changed[views.REFERENCE_INDEX] != relocated[views.REFERENCE_INDEX]
+    assert views.project(repo, vault, sha, check=True) == changed
+    other = vault.with_name("relocated-vault")
+    shutil.copytree(vault, other)
+    assert views.project(repo, other, sha, check=True) == changed
+
+
+def test_a17_a19_private_outputs_preserve_public_and_authored(reference_setup):
+    from fh_agent.research_atlas.workspace import workspace_tree
+
+    repo, vault, sha = reference_setup
+    before = outside_owned(vault), filesystem_state(repo)
+    atlas = load_registry(repo / "docs/research-atlas")
+    public = workspace_tree(atlas)
+    ancestry = {key: atlas.ancestors(key) for key in atlas.entities}
+    output = views.project(repo, vault, sha)
+    assert b"WPAPER-FIXTURE" in output[views.REFERENCE_INDEX]
+    assert all(
+        str(vault).encode() not in data and b"SYNTHETIC-PRIVATE" not in data
+        for data in output.values()
+    )
+    assert (outside_owned(vault), filesystem_state(repo)) == before
+    assert workspace_tree(atlas) == public
+    assert {key: atlas.ancestors(key) for key in atlas.entities} == ancestry
+
+
+def install_v1(repo, vault, sha):
+    tree = views.views_tree(
+        sha, (repo / views.PUBLIC_SOURCE).read_bytes(), (repo / views.DIRECT_SOURCE).read_bytes()
+    )
+    for path, data in tree.items():
+        target = derived(vault) / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    return tree
+
+
+def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
+    repo, vault, sha = reference_setup
+    old = install_v1(repo, vault, sha)
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    migrated = views.project(repo, vault, sha)
+    assert len(migrated) == 6
+    assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
+    assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.0"
+    assert views.project(repo, vault, sha, check=True) == migrated
+
+
+@pytest.mark.parametrize(
+    "version,path",
+    [
+        ("1.0", str(views.REFERENCE_INDEX)),
+        ("2.0", "indexes/other.yaml"),
+        ("2.0", "indexes/nested/declared-reference-index.yaml"),
+    ],
+)
+def test_a21_yaml_ownership_is_exact(setup, version, path):
+    repo, vault, sha = setup
+    if version == "1.0":
+        install_v1(repo, vault, sha)
+    else:
+        views.project(repo, vault, sha)
+    change_manifest(vault, lambda m: m["owned_files"].append({"path": path, "sha256": "0" * 64}))
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "ownership")
+
+
+@pytest.mark.parametrize("target", [views.REFERENCE_INDEX, views.NAVIGATION])
+def test_a22_new_targets_are_never_adopted(setup, target):
+    repo, vault, sha = setup
+    install_v1(repo, vault, sha)
+    (derived(vault) / target).write_text("Unowned must survive")
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "Unknown/unowned")
+
+
+def test_a22_yaml_owner_version_is_required(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    path = derived(vault) / views.REFERENCE_INDEX
+    path.write_text(
+        path.read_text().replace("index_schema_version: '1.0'", "index_schema_version: '2.0'")
+    )
+    assert "2.0" in path.read_text()
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "owner marker")
+
+
+@pytest.mark.parametrize("state", ["v1", "unresolved", "unowned"])
+def test_a24_extended_states_check_has_zero_writes(setup, monkeypatch, state):
+    from test_research_wiki_schema import props
+
+    repo, vault, sha = setup
+    if state == "v1":
+        install_v1(repo, vault, sha)
+    else:
+        write_note(vault / "authored/finding.md", props("finding", source_refs=["PAPER-MISSING"]))
+        views.project(repo, vault, sha)
+        if state == "unowned":
+            (derived(vault) / "keep.md").write_text("Unowned")
+    before = filesystem_state(vault), filesystem_state(repo)
+    monkeypatch.setattr(views, "atomic_write", deny_write)
+    monkeypatch.setattr(technical, "atomic_write", deny_write)
+    monkeypatch.setattr(Path, "mkdir", deny_write)
+    monkeypatch.setattr(Path, "write_bytes", deny_write)
+    monkeypatch.setattr(Path, "write_text", deny_write)
+    monkeypatch.setattr(Path, "unlink", deny_write)
+    monkeypatch.setattr(technical.os, "replace", deny_write)
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", deny_write)
+    args = ["--repo-root", str(repo), "--vault-root", str(vault), "--source-ref", sha, "--check"]
+    assert views.main(args) == (0 if state == "unresolved" else 2)
+    assert (filesystem_state(vault), filesystem_state(repo)) == before
+
+
+def test_a25_interrupted_first_generation_preserves_unowned_recovery(setup, monkeypatch):
+    repo, vault, sha = setup
+    original = views.atomic_write
+
+    def interrupt(root, path, data):
+        original(root, path, data)
+        raise RuntimeError("Synthetic interruption")
+
+    monkeypatch.setattr(views, "atomic_write", interrupt)
+    with pytest.raises(RuntimeError, match="interruption"):
+        views.project(repo, vault, sha)
+    assert not (derived(vault) / views.MANIFEST).exists()
+    monkeypatch.setattr(views, "atomic_write", original)
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "Unknown/unowned")
+
+
+def test_a26_scanner_parity_and_generated_exclusion(setup):
+    from test_research_wiki_schema import LEGACY, props
+
+    from fh_agent.research_atlas.private_reference_index import make_snapshot
+
+    repo, vault, _ = setup
+    atlas = load_registry(repo / "docs/research-atlas")
+    write_note(vault / "authored/legacy.md", LEGACY)
+    write_note(vault / "authored/ra2.md", props("paper"))
+    (vault / "ordinary-frontmatter.md").write_text("---\nother: [broken\n---\nordinary")
+    (vault / "template.md").write_text("# Example\n```yaml\nwiki_id: WPAPER-FAKE\n```\n")
+    (vault / "authored/alias.md").symlink_to(vault / "authored/ra2.md")
+    (vault / "alias-dir").symlink_to(vault / "authored", target_is_directory=True)
+    snapshot, locators = views.authored_snapshot(vault, atlas)
+    assert snapshot == make_snapshot(
+        technical.authored_properties(vault, vault / technical.OWNED_ROOT), atlas
+    )
+    write_note(vault / "_generated/other-tool/fake.md", props("paper"))
+    assert views.authored_snapshot(vault, atlas) == (snapshot, locators)
+    assert set(locators) == {"PROC-SYNTHETIC-001", "PROC-FIXTURE", "WPAPER-FIXTURE"}
+
+
+@pytest.mark.parametrize(
+    "fault", ["duplicate", "bad-yaml", "bad-profile", "bad-encoding", "epistemic-only"]
+)
+def test_a26_scanner_failure_and_discovery(setup, fault):
+    repo, vault, _ = setup
+    atlas = load_registry(repo / "docs/research-atlas")
+    path = vault / "authored/test.md"
+    if fault == "epistemic-only":
+        path.write_text('---\nepistemic_schema_version: "0.1"\n---\n')
+        assert len(views.authored_snapshot(vault, atlas)[0].records) == 1
+        return
+    if fault == "duplicate":
+        write_note(path, ENVELOPE)
+    elif fault == "bad-yaml":
+        path.write_text('---\n"wiki_id": [bad\n---\n')
+    elif fault == "bad-profile":
+        write_note(
+            path, ENVELOPE | {"wiki_id": "PROC-NEW", "epistemic_schema_version": "unsupported"}
+        )
+    else:
+        path.write_bytes(b"\xff")
+    with pytest.raises(technical.ProjectionError):
+        views.authored_snapshot(vault, atlas)
+
+
+def test_a26_scanner_read_failure_never_returns_partial(setup, monkeypatch):
+    repo, vault, _ = setup
+    original = Path.read_text
+
+    def unreadable(path, *args, **kwargs):
+        if path == vault / "authored/process.md":
+            raise PermissionError("SYNTHETIC-PRIVATE-PATH")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", unreadable)
+    with pytest.raises(technical.ProjectionError, match="Cannot read authored") as caught:
+        views.authored_snapshot(vault, load_registry(repo / "docs/research-atlas"))
+    assert "SYNTHETIC-PRIVATE" not in str(caught.value)
+
+
+def test_a18_unsafe_reference_failure_precedes_any_write(setup, monkeypatch, capsys):
+    from test_research_wiki_schema import props
+
+    repo, vault, sha = setup
+    write_note(vault / "authored/finding.md", props("finding", source_refs=["/private/SECRET"]))
+    before = filesystem_state(vault), filesystem_state(repo)
+    monkeypatch.setattr(views, "atomic_write", deny_write)
+    assert (
+        views.main(["--repo-root", str(repo), "--vault-root", str(vault), "--source-ref", sha]) == 2
+    )
+    assert "SECRET" not in capsys.readouterr().err
+    assert (filesystem_state(vault), filesystem_state(repo)) == before
+
+
+def test_a25_interrupted_owned_regeneration_is_detectable_and_recoverable(
+    reference_setup, monkeypatch
+):
+    repo, vault, sha = reference_setup
+    views.project(repo, vault, sha)
+    old_manifest = (derived(vault) / views.MANIFEST).read_bytes()
+    note = vault / "authored/READ-FIXTURE.md"
+    note.write_text(note.read_text().replace("WRQ-FIXTURE", "WRQ-MISSING"))
+    original = views.atomic_write
+
+    def interrupt(root, relative, data):
+        if relative == views.MANIFEST:
+            raise RuntimeError("Synthetic pre-manifest interruption")
+        return original(root, relative, data)
+
+    monkeypatch.setattr(views, "atomic_write", interrupt)
+    with pytest.raises(RuntimeError, match="interruption"):
+        views.project(repo, vault, sha)
+    assert (derived(vault) / views.MANIFEST).read_bytes() == old_manifest
+    assert_no_mutation(
+        reference_setup, lambda: views.project(repo, vault, sha, check=True), "drift"
+    )
+    monkeypatch.setattr(views, "atomic_write", original)
+    repaired = views.project(repo, vault, sha)
+    assert repaired[views.MANIFEST] != old_manifest
+    assert views.project(repo, vault, sha, check=True) == repaired

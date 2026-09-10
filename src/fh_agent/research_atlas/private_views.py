@@ -1,11 +1,14 @@
-"""Commit-bound direct Base views; no scientific indexing or status derivation."""
+"""Private declared-reference navigation and direct Bases; no scientific adjudication."""
 
 import argparse
+import os
+import re
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Literal
 from urllib.parse import quote
 
+import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .private_projection import (
@@ -21,12 +24,24 @@ from .private_projection import (
     no_symlink_boundary,
     read_yaml,
     target_path,
+    unreadable_tree,
     utf8,
     yaml_text,
 )
 from .private_projection import (
     project as technical_projection,
 )
+from .private_reference_index import (
+    NAVIGATION,
+    REFERENCE_INDEX,
+    ReferenceIndex,
+    Snapshot,
+    build_index,
+    make_snapshot,
+    render_index,
+    render_navigation,
+)
+from .validator import Atlas, UniqueKeyLoader, load_registry
 
 OWNER = "research-wiki-derived"
 OWNED_ROOT = PurePosixPath("_generated/derived")
@@ -56,7 +71,7 @@ class SourceDigests(BaseModel):
     research_wiki_direct_base: SHA256
 
 
-class Manifest(BaseModel):
+class ManifestV1(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     view_schema_version: Literal["1.0"]
     generated_by: Literal["research-wiki-derived"]
@@ -67,8 +82,14 @@ class Manifest(BaseModel):
     owned_files: list[OwnedFile]
 
 
+class Manifest(ManifestV1):
+    view_schema_version: Literal["2.0"]
+    reference_index_schema_version: Literal["1.0"]
+    private_input_fingerprint: SHA256
+
+
 def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[PurePosixPath, bytes]:
-    """Render only navigation and Base definitions from public sources, never private data."""
+    """Retained v1 renderer; v2 extends its exact Base payloads under the same owner."""
     technical = read_yaml(utf8(public_base))
     direct = read_yaml(utf8(direct_base))
     for base in (technical, direct):
@@ -109,7 +130,7 @@ def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[Pure
         "No automatic acceptance, private-to-public promotion or Wiki-to-Agent-Memory path.\n"
     )
     tree[INDEX] = ("---\n" + yaml_text(props) + "---\n" + body).encode()
-    manifest = Manifest(
+    manifest = ManifestV1(
         view_schema_version="1.0",
         generated_by=OWNER,
         source_repository=REPOSITORY,
@@ -127,6 +148,80 @@ def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[Pure
     return tree
 
 
+def reference_views_tree(
+    commit: str,
+    public_base: bytes,
+    direct_base: bytes,
+    reference: ReferenceIndex,
+    atlas: Atlas,
+    locators: dict[str, PurePosixPath],
+) -> dict[PurePosixPath, bytes]:
+    tree = views_tree(commit, public_base, direct_base)
+    old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
+    tree[REFERENCE_INDEX] = render_index(reference)
+    tree[NAVIGATION] = render_navigation(reference, atlas, locators)
+    text = utf8(tree[INDEX]).replace(
+        "Navigation only; no scientific data index.",
+        "Declared structured reference index for navigation/audit; no scientific adjudication.",
+    )
+    tree[INDEX] = (
+        text + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
+    ).encode()
+    data = old.model_dump()
+    data.update(
+        view_schema_version="2.0",
+        reference_index_schema_version="1.0",
+        private_input_fingerprint=reference.private_input_fingerprint,
+        owned_files=[OwnedFile(path=str(p), sha256=digest(b)) for p, b in sorted(tree.items())],
+    )
+    tree[MANIFEST] = yaml_text(Manifest.model_validate(data).model_dump()).encode()
+    return tree
+
+
+def authored_snapshot(vault: Path, atlas: Atlas) -> tuple[Snapshot, dict[str, PurePosixPath]]:
+    """RA-1 discovery semantics, excluding all generated content; locators are not identity."""
+    properties: list[dict] = []
+    paths: list[PurePosixPath] = []
+    try:
+        for parent, directories, names in os.walk(
+            vault, followlinks=False, onerror=unreadable_tree
+        ):
+            directories[:] = sorted(
+                name
+                for name in directories
+                if Path(parent) / name != vault / "_generated"
+                and not (Path(parent) / name).is_symlink()
+            )
+            for name in sorted(names):
+                path = Path(parent) / name
+                if path.suffix.lower() != ".md" or path.is_symlink():
+                    continue
+                if not path.is_file():
+                    raise ProjectionError("Authored Markdown must be a readable regular file")
+                text = path.read_text(encoding="utf-8")
+                if not text.startswith("---\n"):
+                    continue
+                header = text[4:].split("\n---\n", 1)[0]
+                try:
+                    props = yaml.load(header, Loader=UniqueKeyLoader)
+                except (ValueError, yaml.YAMLError, TypeError) as exc:
+                    if re.search(r"wiki_schema_version|wiki_id", header):
+                        raise ProjectionError("Invalid declared Wiki frontmatter") from exc
+                    continue
+                if not isinstance(props, dict) or not (
+                    {"wiki_schema_version", "wiki_id"} & props.keys()
+                ):
+                    continue
+                props, _ = markdown_parts(text)
+                properties.append(props)
+                paths.append(PurePosixPath(path.relative_to(vault).as_posix()))
+    except (OSError, UnicodeError) as exc:
+        raise ProjectionError("Cannot read authored Wiki snapshot") from exc
+    snapshot = make_snapshot(properties, atlas)
+    locators = {props["wiki_id"]: path for props, path in zip(properties, paths, strict=True)}
+    return snapshot, locators
+
+
 def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
     path = target_path(root, MANIFEST)
     if not path.exists():
@@ -134,7 +229,13 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
     if not path.is_file():
         raise ProjectionError("Prior direct-views manifest must be a regular file")
     try:
-        manifest = Manifest.model_validate(read_yaml(utf8(path.read_bytes())))
+        data = read_yaml(utf8(path.read_bytes()))
+        if data.get("view_schema_version") == "1.0":
+            manifest = ManifestV1.model_validate(data)
+        elif data.get("view_schema_version") == "2.0":
+            manifest = Manifest.model_validate(data)
+        else:
+            raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
         raise ProjectionError("Invalid direct-views manifest; restore owner/schema/fields") from exc
     prior = {}
@@ -143,13 +244,14 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
-        # RA-3A owns only Base definitions and navigation notes, not future science indexes.
+        # V1 cannot claim YAML; V2 adds exactly one fixed YAML payload, not a subtree.
         if not (
             len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
+            or (manifest.view_schema_version == "2.0" and relative == REFERENCE_INDEX)
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         prior[relative] = item
@@ -180,14 +282,27 @@ def project(
         # before RA-1 reads this otherwise unmodeled navigation note.
         if relative.suffix.lower() == ".md":
             utf8(target_path(root, relative).read_bytes())
-    technical = technical_projection(repo_root, vault_root, source_ref, check=True)
+    try:
+        technical = technical_projection(repo_root, vault_root, source_ref, check=True)
+    except (OSError, UnicodeError) as exc:
+        raise ProjectionError("Cannot read projection preconditions") from exc
     commit = read_yaml(utf8(technical[PurePosixPath("manifest/projection.yaml")]))["source_commit"]
     repo = repo_root.resolve()
     if git(repo, "status", "--porcelain=v1", "--untracked-files=all", "--", *SOURCE_PATHS):
         raise ProjectionError(
             "Direct-view sources are dirty; commit or resolve source changes first"
         )
-    tree = views_tree(commit, source_bytes(repo, PUBLIC_SOURCE), source_bytes(repo, DIRECT_SOURCE))
+    atlas = load_registry(repo / "docs/research-atlas")
+    snapshot, locators = authored_snapshot(vault, atlas)
+    reference = build_index(atlas, snapshot, commit)
+    tree = reference_views_tree(
+        commit,
+        source_bytes(repo, PUBLIC_SOURCE),
+        source_bytes(repo, DIRECT_SOURCE),
+        reference,
+        atlas,
+        locators,
+    )
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")
     # Complete preflight before any mkdir, deletion, or atomic replace.
@@ -204,11 +319,16 @@ def project(
         if relative not in actual:
             continue
         data = target_path(root, relative).read_bytes()
-        owned = (
-            data.startswith(BASE_OWNER.encode())
-            if relative.suffix == ".base"
-            else markdown_parts(utf8(data))[0].get("generated_by") == OWNER
-        )
+        if relative == REFERENCE_INDEX:
+            metadata = read_yaml(utf8(data))
+            owned = (
+                metadata.get("generated_by") == OWNER
+                and metadata.get("index_schema_version") == "1.0"
+            )
+        elif relative.suffix == ".base":
+            owned = data.startswith(BASE_OWNER.encode())
+        else:
+            owned = markdown_parts(utf8(data))[0].get("generated_by") == OWNER
         if not owned:
             raise ProjectionError("Prior-owned view lost its owner marker; preserve or restore it")
         if relative not in tree and digest(data) != item.sha256:
