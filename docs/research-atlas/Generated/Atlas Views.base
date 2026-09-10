@@ -349,7 +349,7 @@ views:
   - property: note.atlas_id
     direction: ASC
 - type: table
-  name: Findings with contradictions
+  name: Findings with declared contradiction links
   filters:
     and:
     - note.atlas_type == "Finding"

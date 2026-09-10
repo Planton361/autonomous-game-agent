@@ -70,7 +70,7 @@ REQUIRED_VIEWS = {
     "Measurement Points",
     "Open Leads",
     "Decisions / History",
-    "Findings with contradictions",
+    "Findings with declared contradiction links",
     "Atlas Mapping Incomplete",
 }
 
@@ -370,6 +370,15 @@ def test_base_contract_isolated_and_views(atlas):
     base = yaml.safe_load(tree[BASE_PATH])
     assert base["filters"] == {"and": ["note.atlas_generated == true", "!note.atlas_id.isEmpty()"]}
     assert {v["name"] for v in base["views"]} == REQUIRED_VIEWS
+    declared = next(
+        v for v in base["views"] if v["name"] == "Findings with declared contradiction links"
+    )
+    assert declared["filters"] == {
+        "and": [
+            'note.atlas_type == "Finding"',
+            "!note.contradicted_by.isEmpty() || !note.contradicts.isEmpty()",
+        ]
+    }
     assert all(v["type"] == "table" for v in base["views"])
     # Base references only generated properties, including lifecycle relation projections.
     properties = set().union(*(record_properties(atlas, n) for n in atlas.entities.values()))
