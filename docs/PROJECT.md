@@ -16,12 +16,17 @@ This page is operational orientation, not a replacement for the project charter.
 - [`canonical/02_ARCHITECTURE_CANONICAL.md`](canonical/02_ARCHITECTURE_CANONICAL.md)
 - [`canonical/04_RESEARCH_PROTOCOL_CANONICAL.md`](canonical/04_RESEARCH_PROTOCOL_CANONICAL.md)
 
+The accepted active `ALIGN-2026-09-19-v1.0` control release records the replacement
+Mission Run/Life Episode semantics and simplified project workflow:
+[`orchestration/releases/ALIGN-2026-09-19-v1.0/README.md`](orchestration/releases/ALIGN-2026-09-19-v1.0/README.md).
+
 ## Core non-negotiables
 
 - Cortex never controls primitive keys directly; the Manager is the language/action authority.
 - Body uses universal skills only, while an independent Verifier determines visible outcomes.
 - Game-specific truth requires admissible evidence; hidden state and spoilers are not official authority.
-- Body weights remain frozen within a run.
+- Body weights remain frozen within a Mission Run; death/restart creates a Life
+  Episode and does not replace the controller.
 
 ## Repository orientation
 

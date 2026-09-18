@@ -2,12 +2,15 @@
 
 The frozen 2026-09-01 canonical research-source baseline is indexed at
 [`docs/canonical/00_CANONICAL_SOURCE_INDEX.md`](docs/canonical/00_CANONICAL_SOURCE_INDEX.md).
-The active user-approved research-program/orchestration supplement is indexed at
+The historical user-approved research-program/orchestration supplement is indexed at
 [`docs/canonical/00_ACTIVE_SOURCE_INDEX.md`](docs/canonical/00_ACTIVE_SOURCE_INDEX.md)
-for release `ALIGN-2026-09-06-v1.0`. TECH-ORCH / SCI-ORCH responsibilities and their
-shared startgate are defined in
-[`docs/canonical/10_ORCHESTRATOR_MANDATES.md`](docs/canonical/10_ORCHESTRATOR_MANDATES.md)
-and [`docs/canonical/08_ORCHESTRATION_PROTOCOL.md`](docs/canonical/08_ORCHESTRATION_PROTOCOL.md).
+for release `ALIGN-2026-09-06-v1.0`. Its permanent TECH-ORCH / SCI-ORCH choreography
+and old death/restart run boundary are preserved as historical source text.
+
+Issue #62 records the accepted active control release at
+[`docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md`](docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md).
+That release is the control overlay for Mission Run/Life Episode semantics and the
+simplified GitHub-centered workflow.
 Use the claim-specific authority rules below to decide which source governs a particular question.
 
 ## Claim-specific authority
@@ -18,6 +21,7 @@ Use the authority that matches the claim; there is no universal linear source hi
 | --- | --- |
 | Implementation truth | `main` HEAD + executable/CI verification |
 | Current task | Active GitHub Issue |
+| Mission Run / Life Episode semantics and current project-control workflow | Accepted active `ALIGN-2026-09-19-v1.0` control release; `docs/canonical/**` remains authoritative for architecture/research rules except where this accepted overlay explicitly supersedes an old operational interpretation |
 | Long-term research / architecture | `docs/canonical/**` |
 | Capability order / phase exit gates | `docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md` |
 | Operational program | GitHub Project |
@@ -31,10 +35,10 @@ A roadmap statement is never evidence that a capability is implemented. Current 
 
 - Cortex is a slow, evidence-grounded planner. It may propose goals, hypotheses, universal capabilities, constraints, and success criteria; it must never directly control primitive keys, timings, or the `InputExecutor`.
 - Manager is the sole authority that validates Cortex output, grounds visible evidence-linked targets, and opens, closes, suspends, or replans bounded skill contracts.
-- Body acts only within an active Manager contract. It uses universal reusable skills, never game-specific room, enemy, quest, or ending shortcuts. Body weights are frozen for the duration of a run.
+- Body acts only within an active Manager contract. It uses universal reusable skills, never game-specific room, enemy, quest, or ending shortcuts. Body weights are frozen for the duration of a Mission Run; a Life Episode restart does not refresh them.
 - Reflex is a fast Body path only: it may select contract-allowed actions for declared immediate visible conditions, and may not invent goals, expand permissions/budgets, suppress stop/replan signals, or bypass safety or logging.
 - Verifier is independent of Cortex and determines visible success, failure, progress, and outcome evidence. A screenshot/hash change alone is not success.
-- Learning and training occur between runs only: collect admissible experience with a frozen version, train a candidate, validate on held-out scenarios, certify or reject it, then activate only a certified version.
+- Parameter/model/controller training or replacement may occur only between Mission Runs under an explicitly authorized future learning protocol, never between Life Episodes inside the same Mission Run. Collect admissible experience with a frozen version, train a candidate, validate on held-out scenarios, certify or reject it, then activate only a certified version.
 - Game-specific facts, grounded targets, outcomes, and memory updates require evidence IDs linked to admissible visible evidence.
 
 ## No-spoiler and run integrity
