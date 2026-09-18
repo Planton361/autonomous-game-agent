@@ -171,8 +171,8 @@ filesystem mutation. An interrupted multi-file generation can leave drift;
 atomic replacement protects individual files, not the whole tree. A first run
 interrupted before its manifest may require operator recovery of unowned outputs.
 Structural map tests do not claim an interactive Obsidian/Excalidraw plugin test.
-Arbitrary graph traversal, corpus migration, Zotero, Work automation, gameplay,
-and real input remain outside these projection tools.
+Arbitrary graph traversal, corpus migration, real Zotero integration, Work
+automation, gameplay and real input remain outside these projection tools.
 
 ## Historical RA-3A direct views and Process navigation
 
@@ -305,3 +305,59 @@ all unresolved/wrong-type declarations and every path retains full provenance.
 Candidate History and Decision Lineage remain deferred. No acceptance/status
 promotion, private-to-public export, scientific adjudication or Wiki-to-Agent
 Memory/Retrieval/Cortex path is introduced.
+
+## RA-4A fixture-only Zotero source projection
+
+RA-4A adds an independent offline PoC, with one explicit synthetic JSON fixture
+as source. It is not a real Zotero export/API integration. See the normative
+[Zotero Source Projection Contract](Zotero%20Source%20Projection%20Contract.md).
+No account, SQLite/Data Directory, Zotero application, plugin or PDF is accessed.
+
+```bash
+uv run --no-sync python -m fh_agent.research_atlas.zotero_projection \
+  --repo-root . --vault-root "$PRIVATE_VAULT" --source-ref HEAD \
+  --fixture-export "$SYNTHETIC_ZOTERO_EXPORT"
+```
+
+Append `--check` for zero-write exact comparison: 0 means exact/success, 2 means
+expected configuration/validation/ownership/drift failure. Unexpected faults
+propagate. Use only synthetic fixtures/vaults for this PoC. Source-ref must equal
+committed HEAD; the generator package and Zotero contract must be clean. Existing
+private marker, physical non-nested roots and symlink/path safety apply.
+
+Owner `zotero-source-projection` owns only `_generated/zotero/`: manifest
+`manifest/projection.yaml`, version-addressed source notes at
+`sources/<source_id>/<source_version_id>.source.md`, and the two indexes
+`indexes/zotero-source-index.yaml` / `indexes/Zotero Source Index.md`. It never
+writes authored notes or the technical-atlas/derived roots, and invokes neither
+existing writer. Generated notes have no RA-1/RA-2 envelope or scientific status.
+
+Source-family identity binds library context and item key, not title/DOI/citation
+key or scholarly Work. Version identity additionally binds explicit version and
+attachment identity/digest. Annotation and ordinary metadata updates do not
+change version identity. Z1 reimport is deterministic; Z2 changes only its source
+payload and global indexes/manifest; Z3 creates a new version with explicit
+recoverable predecessor and retains old version bytes. No current-file alias
+can retarget an existing reference. Unchanged source records keep their last
+material export revision; indexes/manifest record the current export revision.
+Without an attachment digest, unchanged key/version cannot detect replacement
+bytes. Current/retained is projection presence only, never scientific preference.
+
+Require a single writer and stable inputs. Writes use per-file atomic
+flush/fsync/replace, manifest last. There is no whole-tree transaction or lock.
+Unknown files are never adopted, even with owner text. An interrupted new-version
+write can leave an unmanifested payload: preserve/move it outside the owned root,
+then retry. Edited retained history blocks generation; missing non-reconstructible
+history cannot be forgotten. Historical versions are not automatically pruned.
+
+All projection data stays private. No public Registry/workspace, Canonical/SOT
+or Runtime/Agent Memory/Retrieval/Cortex path is introduced. RA-3B remains
+unchanged: zsrc/zsv identifiers stay unresolved there. Intended manual references
+are source_refs to a zsrc family and version_read to an exact zsv version;
+RA-4A never sets either or any reading/review/Finding/Decision state.
+
+Before merge, TECH safety review and bounded SCI review of family/version/
+attachment/predecessor/locator and manual reference semantics remain mandatory,
+followed by Anton's explicit merge decision. RA-4B defaults to SKIP. RA-5 remains
+blocked until all technical/scientific/CI gates and merge pass; no bulk scientific
+record import follows automatically from this PoC.
