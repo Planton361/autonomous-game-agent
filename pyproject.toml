@@ -19,6 +19,7 @@ dev = [
 
 [project.scripts]
 fh-agent = "fh_agent.cli:main"
+projectctl = "fh_agent.projectctl:main"
 
 [build-system]
 requires = ["hatchling"]
