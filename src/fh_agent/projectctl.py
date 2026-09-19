@@ -60,6 +60,7 @@ class HandoffAssessment:
     tracked_remote: str | None
     relation: RemoteRelation
     remote_ref_available: bool | None
+    remote_ref_fresh: bool | None
     reasons: tuple[str, ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -71,6 +72,7 @@ class HandoffAssessment:
             "tracked_remote": self.tracked_remote,
             "relation": self.relation,
             "remote_ref_available": self.remote_ref_available,
+            "remote_ref_fresh": self.remote_ref_fresh,
             "reasons": list(self.reasons),
         }
 
@@ -126,6 +128,12 @@ def _runtime_info() -> RuntimeInfo:
 
 def _successful(result: CommandResult | None) -> bool:
     return result is not None and result.returncode == 0
+
+
+def _git_command(*arguments: str) -> list[str]:
+    """Build a Git probe with optional index-lock side effects disabled."""
+
+    return ["git", "--no-optional-locks", *arguments]
 
 
 def _first_nonempty_line(value: str) -> str:
@@ -227,6 +235,24 @@ def _repository_identity(remote_url: str) -> str | None:
     return f"{path}" if normalized_host == "github.com" else f"{normalized_host}/{path}"
 
 
+def _repository_identities(remote_urls: str) -> tuple[str, ...] | None:
+    """Normalize every configured URL without retaining raw URL contents."""
+
+    values = [line.strip() for line in remote_urls.splitlines() if line.strip()]
+    if not values:
+        return None
+    identities = tuple(_repository_identity(value) for value in values)
+    if any(identity is None for identity in identities):
+        return None
+    return tuple(identity for identity in identities if identity is not None)
+
+
+def _identities_match(identities: tuple[str, ...] | None) -> bool:
+    return bool(identities) and all(
+        identity.casefold() == EXPECTED_REPOSITORY.casefold() for identity in identities
+    )
+
+
 def _parse_relation(result: CommandResult) -> RemoteRelation:
     if not _successful(result):
         return "unknown"
@@ -248,6 +274,22 @@ def _parse_relation(result: CommandResult) -> RemoteRelation:
     return "unknown"
 
 
+def _parse_fetch_head(*, content: str, branch: str, remote_oid: str) -> bool:
+    """Require FETCH_HEAD proof for this branch, object, and expected repository."""
+
+    for line in content.splitlines():
+        fields = line.split("\t")
+        if not fields or fields[0].strip() != remote_oid:
+            continue
+        if f"branch '{branch}'" not in line:
+            continue
+        for token in line.split():
+            identity = _repository_identity(token.strip(".,'\""))
+            if identity is not None and identity.casefold() == EXPECTED_REPOSITORY.casefold():
+                return True
+    return False
+
+
 def _valid_remote_name(value: str | None) -> bool:
     return bool(value and re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._~/-]+", value))
 
@@ -260,6 +302,7 @@ def evaluate_handoff_state(
     tracked_remote: str | None,
     relation: RemoteRelation,
     remote_ref_available: bool | None,
+    remote_ref_fresh: bool | None = None,
 ) -> HandoffAssessment:
     """Evaluate handoff safety without probing the network or changing state."""
 
@@ -302,6 +345,12 @@ def evaluate_handoff_state(
     elif remote_ref_available is None:
         uncertain = True
         reasons.append("the local remote-tracking ref could not be inspected")
+    elif remote_ref_fresh is not True:
+        uncertain = True
+        if remote_ref_fresh is False:
+            reasons.append("the local remote-tracking ref has no matching origin-fetch provenance")
+        else:
+            reasons.append("remote-ref freshness could not be determined")
 
     if relation == "unknown":
         uncertain = True
@@ -325,6 +374,7 @@ def evaluate_handoff_state(
         tracked_remote=tracked_remote,
         relation=relation,
         remote_ref_available=remote_ref_available,
+        remote_ref_fresh=remote_ref_fresh,
         reasons=tuple(reasons),
     )
 
@@ -427,7 +477,7 @@ def collect_doctor_report(
         )
     )
 
-    root_result = command_runner(["git", "rev-parse", "--show-toplevel"], candidate_root)
+    root_result = command_runner(_git_command("rev-parse", "--show-toplevel"), candidate_root)
     root: Path | None = None
     if _successful(root_result):
         root_text = _command_output(root_result)
@@ -448,13 +498,16 @@ def collect_doctor_report(
     clean: bool | None = None
     head: str | None = None
     origin_identity: str | None = None
+    origin_fetch_identities: tuple[str, ...] | None = None
+    origin_push_identities: tuple[str, ...] | None = None
     origin_matches: bool | None = None
     tracked_remote: str | None = None
     remote_ref_available: bool | None = None
+    remote_ref_fresh: bool | None = None
     relation: RemoteRelation = "unknown"
 
     if root is not None:
-        branch_result = command_runner(["git", "branch", "--show-current"], root)
+        branch_result = command_runner(_git_command("branch", "--show-current"), root)
         branch_value = _command_output(branch_result) if _successful(branch_result) else ""
         branch = branch_value or None
         if branch is None:
@@ -467,7 +520,7 @@ def collect_doctor_report(
             checks.append(_check("branch", "PASS", branch, branch=branch))
 
         status_result = command_runner(
-            ["git", "status", "--porcelain=v1", "--untracked-files=all"], root
+            _git_command("status", "--porcelain=v1", "--untracked-files=all"), root
         )
         if _successful(status_result):
             clean = not bool(status_result.stdout)
@@ -482,7 +535,7 @@ def collect_doctor_report(
         else:
             checks.append(_check("working-tree", "FAIL", "working-tree status unavailable"))
 
-        head_result = command_runner(["git", "rev-parse", "--verify", "HEAD"], root)
+        head_result = command_runner(_git_command("rev-parse", "--verify", "HEAD"), root)
         head_value = _command_output(head_result) if _successful(head_result) else ""
         head = head_value or None
         checks.append(
@@ -494,29 +547,51 @@ def collect_doctor_report(
             )
         )
 
-        origin_result = command_runner(["git", "remote", "get-url", "origin"], root)
-        origin_url = _command_output(origin_result) if _successful(origin_result) else ""
-        origin_identity = _repository_identity(origin_url)
-        origin_matches = (
-            origin_identity.casefold() == EXPECTED_REPOSITORY.casefold()
-            if origin_identity is not None
-            else False
+        fetch_origin_result = command_runner(
+            _git_command("remote", "get-url", "--all", "origin"), root
+        )
+        push_origin_result = command_runner(
+            _git_command("remote", "get-url", "--push", "--all", "origin"), root
+        )
+        origin_fetch_identities = (
+            _repository_identities(fetch_origin_result.stdout)
+            if _successful(fetch_origin_result)
+            else None
+        )
+        origin_push_identities = (
+            _repository_identities(push_origin_result.stdout)
+            if _successful(push_origin_result)
+            else None
+        )
+        origin_identity = (
+            origin_fetch_identities[0]
+            if origin_fetch_identities is not None and len(origin_fetch_identities) == 1
+            else None
+        )
+        origin_matches = _identities_match(origin_fetch_identities) and _identities_match(
+            origin_push_identities
         )
         if origin_matches:
             origin_status: Status = "PASS"
-            origin_message = f"origin identity {origin_identity}"
-        elif origin_identity is None:
+            origin_message = f"origin fetch/push identity {EXPECTED_REPOSITORY}"
+        elif origin_fetch_identities is None or origin_push_identities is None:
             origin_status = "FAIL"
-            origin_message = "origin repository identity unavailable"
+            origin_message = "origin fetch/push repository identity unavailable or unsafe to parse"
         else:
             origin_status = "FAIL"
-            origin_message = f"origin identity {origin_identity} does not match expected repository"
+            origin_message = "origin fetch/push identity does not match expected repository"
         checks.append(
             _check(
                 "origin",
                 origin_status,
                 origin_message,
                 identity=origin_identity,
+                fetch_identities=(
+                    list(origin_fetch_identities) if origin_fetch_identities is not None else None
+                ),
+                push_identities=(
+                    list(origin_push_identities) if origin_push_identities is not None else None
+                ),
                 expected=EXPECTED_REPOSITORY,
                 matches=origin_matches,
             )
@@ -524,7 +599,7 @@ def collect_doctor_report(
 
         if branch is not None:
             tracking_result = command_runner(
-                ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+                _git_command("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
                 root,
             )
             tracking_value = (
@@ -560,24 +635,42 @@ def collect_doctor_report(
         comparison_remote = tracked_remote or expected_remote
         if _valid_remote_name(comparison_remote):
             remote_ref_result = command_runner(
-                [
-                    "git",
-                    "show-ref",
-                    "--verify",
-                    "--quiet",
-                    f"refs/remotes/{comparison_remote}",
-                ],
+                _git_command("rev-parse", "--verify", f"refs/remotes/{comparison_remote}"),
                 root,
             )
-            if remote_ref_result.returncode == 0:
+            remote_oid = (
+                _command_output(remote_ref_result) if _successful(remote_ref_result) else ""
+            )
+            if remote_oid:
                 remote_ref_available = True
             elif remote_ref_result.returncode is not None:
                 remote_ref_available = False
             else:
                 remote_ref_available = None
-            if remote_ref_available:
+            if remote_ref_available and remote_oid:
+                fetch_head_result = command_runner(
+                    _git_command("rev-parse", "--git-path", "FETCH_HEAD"), root
+                )
+                if _successful(fetch_head_result):
+                    fetch_head_path_text = _command_output(fetch_head_result)
+                    fetch_head_path = Path(fetch_head_path_text)
+                    if not fetch_head_path.is_absolute():
+                        fetch_head_path = root / fetch_head_path
+                    try:
+                        fetch_head_content = fetch_head_path.read_text(encoding="utf-8")
+                    except (OSError, UnicodeError):
+                        remote_ref_fresh = None
+                    else:
+                        remote_ref_fresh = _parse_fetch_head(
+                            content=fetch_head_content,
+                            branch=branch or "",
+                            remote_oid=remote_oid,
+                        )
+            if remote_ref_fresh is True:
                 relation_result = command_runner(
-                    ["git", "rev-list", "--left-right", "--count", f"HEAD...{comparison_remote}"],
+                    _git_command(
+                        "rev-list", "--left-right", "--count", f"HEAD...{comparison_remote}"
+                    ),
                     root,
                 )
                 relation = _parse_relation(relation_result)
@@ -593,6 +686,7 @@ def collect_doctor_report(
                 relation=relation,
                 remote=comparison_remote,
                 remote_ref_available=remote_ref_available,
+                remote_ref_fresh=remote_ref_fresh,
             )
         )
     else:
@@ -614,6 +708,7 @@ def collect_doctor_report(
         tracked_remote=tracked_remote,
         relation=relation,
         remote_ref_available=remote_ref_available,
+        remote_ref_fresh=remote_ref_fresh,
     )
     checks.append(
         _check(
@@ -646,6 +741,12 @@ def collect_doctor_report(
         "clean": clean,
         "origin": {
             "identity": origin_identity,
+            "fetch_identities": (
+                list(origin_fetch_identities) if origin_fetch_identities is not None else None
+            ),
+            "push_identities": (
+                list(origin_push_identities) if origin_push_identities is not None else None
+            ),
             "expected": EXPECTED_REPOSITORY,
             "matches": origin_matches,
         },
@@ -660,6 +761,7 @@ def collect_doctor_report(
         },
         "remote_relation": relation,
         "remote_ref_available": remote_ref_available,
+        "remote_ref_fresh": remote_ref_fresh,
     }
     environment = {
         "python": {

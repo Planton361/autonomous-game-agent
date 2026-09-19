@@ -72,7 +72,11 @@ settings are not part of this workflow.
 pushing, installing tools, logging in, or changing authentication. Its optional
 `--json` output is intended for later read-only workflow automation. A missing
 `gh` or Codex CLI is reported as a warning; missing or stale local remote refs are
-reported as unknown and never trigger an implicit network operation.
+reported as unknown and never trigger an implicit network operation. A
+remote-tracking ref is comparable only when its current object ID is recorded in
+the local `FETCH_HEAD` for the active branch and the recorded fetch identity is
+the expected repository; otherwise the relation remains unknown and the handoff
+is not safe.
 
 M-025 is the final historical M-XXX micro-milestone. New work does not create routine
 milestone files, session reports, or manual roadmap rows; the existing M-000R–M-025
