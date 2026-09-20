@@ -1,47 +1,66 @@
-name: Research or evaluation
-description: Plan a research, evaluation, protocol, or evidence activity.
-title: "[Research] "
+name: Research lifecycle work
+description: Plan one bounded research, decision, experiment, evaluation, publication, or review contract.
 labels: ["kind:research"]
 body:
-  - type: textarea
-    id: question
+  - type: dropdown
+    id: work-type
     attributes:
-      label: Research question
+      label: Work Type
+      description: Select the single primary work contract for this Issue.
+      options:
+        - Research
+        - Decision/Design
+        - Experiment
+        - Evaluation
+        - Paper/Publication
+        - Review
     validations:
       required: true
   - type: textarea
-    id: hypothesis
+    id: outcome
     attributes:
-      label: Hypothesis / decision
+      label: Question / outcome
+      description: State the bounded question or durable result this Issue must produce.
     validations:
       required: true
   - type: textarea
-    id: protocol
+    id: authority-gates
     attributes:
-      label: Protocol / data
+      label: Authority / decision gates
+      description: Identify applicable sources and any Program Owner, protocol, scientific-freeze, publication, or other protected gate.
     validations:
       required: true
   - type: textarea
-    id: metrics
+    id: evidence
     attributes:
-      label: Metrics / decision rule
+      label: Sources / evidence / provenance
+      description: Name the evidence needed to start and the durable evidence expected at completion.
     validations:
       required: true
   - type: textarea
-    id: artifacts
+    id: scientific-contract
     attributes:
-      label: Required artifacts
+      label: Scientific contract when applicable
+      description: For experiments/evaluation include RQ or hypothesis, treatment/comparator, frozen configuration, seeds/budgets, endpoints, data/run IDs, exclusions/stop conditions, and analysis plan as applicable. Use N/A when not applicable.
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Define how completion will be verified without collapsing technical checks into scientific results.
     validations:
       required: true
   - type: textarea
-    id: validity-threats
+    id: limitations
     attributes:
-      label: Validity threats
+      label: Known validity threats / limitations
+      description: Record material uncertainties or use N/A when none are known at Issue creation.
     validations:
       required: true
   - type: textarea
     id: non-goals
     attributes:
-      label: Non-goals
+      label: Non-goals / stop conditions
     validations:
       required: true
