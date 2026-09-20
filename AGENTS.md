@@ -10,7 +10,8 @@ and old death/restart run boundary are preserved as historical source text.
 Issue #62 records the accepted active control release at
 [`docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md`](docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md).
 That release is the control overlay for Mission Run/Life Episode semantics and the
-simplified GitHub-centered workflow.
+simplified GitHub-centered workflow. The current ChatGPT control entry is
+[`CHATGPT_PROJECT_INSTRUCTIONS.md`](CHATGPT_PROJECT_INSTRUCTIONS.md).
 Use the claim-specific authority rules below to decide which source governs a particular question.
 
 ## Claim-specific authority
@@ -27,9 +28,12 @@ Use the authority that matches the claim; there is no universal linear source hi
 | Operational program | GitHub Project |
 | Phase progress | GitHub Milestone + Issues |
 | Last actually executed checks | Pull Request and GitHub Actions records |
+| Literature finding | Checked primary source with version and locator |
+| Experiment result | Frozen experiment/run evidence + analysis |
+| Accepted scientific claim | Explicit reviewed claim/evidence record or accepted project artifact |
 | Product / research intent | Explicit user decision captured in an Issue, ADR, or project source |
 
-A roadmap statement is never evidence that a capability is implemented. Current user intent is authoritative for intent; durable decisions must be written back to repository artifacts.
+A roadmap statement is never evidence that a capability is implemented. Current user intent is authoritative for intent; durable decisions must be written back to repository artifacts. A green unit/integration test is technical evidence, not by itself a scientific result.
 
 ## Non-negotiable architecture and research rules
 
@@ -52,11 +56,49 @@ A roadmap statement is never evidence that a capability is implemented. Current 
 
 Never automate the wrong window. Primitive input requires an active valid contract, verified target-window focus, an allowed action, rate-limit capacity, a functional emergency stop, and durable logging with before/after evidence linkage. Do not launch the game or send input unless the user explicitly authorizes it.
 
+## Unified work contract
+
+Every active Issue has one Work Type:
+
+`Research | Decision/Design | Experiment | Delivery | Evaluation | Paper/Publication | Review | Live`
+
+Keep literature findings, hypotheses, accepted decisions, implementation, tests,
+experiment results, interpretations, accepted claims, and publication wording
+epistemically distinct.
+
+A new Issue, materially new contract, or different writer branch starts a fresh Codex
+session. A repair of the same Issue/contract/branch may resume. Use one writer per write
+branch; a separate explorer or reviewer must remain read-only unless a disjoint write
+contract explicitly authorizes otherwise.
+
+Codex may execute a frozen experiment or analysis when the active Issue authorizes it, but
+must not silently change the RQ, hypothesis, treatment, comparator, endpoint, protocol,
+scientific freeze, claim status, publication interpretation, architecture boundary, live
+authorization, or merge authority.
+
+Current manuscript status is `NO_ACTIVE_MASTER`. Normal manuscript editing requires a later
+accepted PAPER bootstrap that registers exactly one Overleaf project and one canonical
+main source file.
+
+For bounded handoffs, report:
+
+```text
+Status
+Work Type
+Issue
+Revision / source state
+Result
+Checks / Evidence
+Limitations
+Decision required
+Exactly one Next action
+```
+
 ## GitHub-native delivery workflow
 
 Read this file and the active GitHub Issue before changing files; use the claim-specific authority matrix above. One leaf Issue normally maps to one Pull Request, and the default work-in-progress limit is one Issue.
 
-For normal future work:
+For repository-writing work:
 
 ```text
 GitHub Ready Issue
@@ -71,9 +113,15 @@ GitHub Ready Issue
 → User merge
 ```
 
-Do not write normal work directly to `main`, merge a Pull Request, or declare an Issue `done` merely because a Draft PR exists. Before merge, report only `ready for review`, `partial`, or `blocked`. Issue closure drives Project Done; phase closure requires the canonical exit gate, not closed implementation Issues.
+Do not create a repository branch merely for analysis that produces no repository change.
+Do not write normal work directly to `main`, merge a Pull Request, or declare an Issue
+`done` merely because a Draft PR exists. Before merge, report only `ready for review`,
+`partial`, or `blocked`. Issue closure drives Project Done; phase closure requires the
+canonical exit gate, not closed implementation Issues.
 
-M-025 is the final historical global M-XXX micro-milestone. Do not create routine `docs/milestones/M-XXX-*.md` files, per-PR session reports, or manual `docs/ROADMAP.md` milestone rows. Historical M-000R–M-025 artifacts remain unchanged.
+M-025 is the final historical global M-XXX micro-milestone. Do not create routine
+`docs/milestones/M-XXX-*.md` files, per-PR session reports, or manual
+`docs/ROADMAP.md` milestone rows. Historical M-000R–M-025 artifacts remain unchanged.
 
 `docs/canonical/**` may change only after an explicit user-authorized architecture/research review.
 
