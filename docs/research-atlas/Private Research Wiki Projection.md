@@ -36,6 +36,41 @@ including staged and untracked changes. Unrelated repository dirt is permitted
 and preserved. Commit the projector before using it against its own checkout.
 No network is required for projection.
 
+## Workspace apply/check harness
+
+For a reviewed source checkout, use the stable local operator surface instead of
+running the two projectors manually:
+
+```bash
+uv run --no-sync fh-agent workspace apply --vault-root "$PRIVATE_VAULT"
+uv run --no-sync fh-agent workspace check --vault-root "$PRIVATE_VAULT"
+```
+
+`--vault-root` is explicit; when omitted, both commands use the local-only
+`PRIVATE_VAULT` environment variable. They require the canonical repository
+origin, the actual Git worktree root, a clean supported projector checkout, the
+exact local `HEAD`, and the marker at precisely the supplied vault root. They
+never search parent directories or scan for a vault. Paths with spaces are
+ordinary path arguments. No private absolute path is committed or sent to GitHub.
+
+`workspace apply` first creates a timestamped, never-overwritten restore point
+outside both the vault and the repository. By default it is a sibling
+`.research-wiki-restore-points/` directory; `--restore-root` can select another
+safe external directory. A restore point copies only the pre-apply generated
+roots (`_generated/technical-atlas/` and `_generated/derived/`) plus local
+relative metadata; it does not copy authored notes or `.obsidian/**`. The command
+prints its restore-point location locally, then runs technical projection, direct
+views, and both zero-write checks against the resolved full `HEAD` SHA. It exits
+zero only if every stage passes. A failed stage reports the restore point; there
+is deliberately no automatic rollback.
+
+`workspace check` creates no restore point and delegates only to both existing
+`--check` paths. It makes no directories, temporary files, manifests or other
+vault writes. Both commands preserve the existing owner, manifest, marker and
+semantic validation; unknown or authored content is never removed to force
+success. Use one writer and avoid concurrent Obsidian/editor changes: the
+harness is a recovery aid, not a whole-tree transaction or locking system.
+
 ## Generated ownership
 
 Only `_generated/technical-atlas/` belongs to this generator:

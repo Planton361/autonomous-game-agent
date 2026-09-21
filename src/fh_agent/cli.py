@@ -73,6 +73,7 @@ from fh_agent.evals.spatial_corpus_assembler import (
 )
 from fh_agent.evals.spatial_perception_corpus import validate_spatial_perception_corpus_files
 from fh_agent.evals.spatial_perception_dataset import SpatialPerceptionFrameAnnotation
+from fh_agent.research_atlas import workspace_harness as workspace
 
 app = typer.Typer(
     add_completion=False,
@@ -81,6 +82,8 @@ app = typer.Typer(
 console = Console()
 DEFAULT_SCREENSHOTS_DIR = Path("screenshots")
 DEFAULT_RUNS_DIR = Path("runs")
+workspace_app = typer.Typer(help="Apply or check the private Research Wiki workspace.")
+app.add_typer(workspace_app, name="workspace")
 
 
 @app.callback()
@@ -95,6 +98,57 @@ def root(
     if version:
         console.print(f"fh-agent {__version__}")
         raise typer.Exit()
+
+
+def _workspace_result(result: workspace.WorkspaceResult) -> None:
+    typer.echo(f"source SHA: {result.source_commit}")
+    typer.echo("stages passed: " + ", ".join(result.stages))
+    if result.restore_point is not None:
+        typer.echo(f"restore point: {result.restore_point}")
+
+
+@workspace_app.command("apply")
+def workspace_apply(
+    vault_root: Annotated[
+        Path | None,
+        typer.Option("--vault-root", help="Marked private vault root; defaults to PRIVATE_VAULT."),
+    ] = None,
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", help="Repository worktree root."),
+    ] = None,
+    restore_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--restore-root", help="External directory for generated-state restore points."
+        ),
+    ] = None,
+) -> None:
+    """Apply both projectors, then validate both generated roots at one exact HEAD."""
+    try:
+        _workspace_result(workspace.apply(repo_root or Path.cwd(), vault_root, restore_root))
+    except workspace.WorkspaceError as exc:
+        typer.echo(f"workspace apply: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+
+@workspace_app.command("check")
+def workspace_check(
+    vault_root: Annotated[
+        Path | None,
+        typer.Option("--vault-root", help="Marked private vault root; defaults to PRIVATE_VAULT."),
+    ] = None,
+    repo_root: Annotated[
+        Path | None,
+        typer.Option("--repo-root", help="Repository worktree root."),
+    ] = None,
+) -> None:
+    """Run both projector checks without writing workspace bytes or a restore point."""
+    try:
+        _workspace_result(workspace.check(repo_root or Path.cwd(), vault_root))
+    except workspace.WorkspaceError as exc:
+        typer.echo(f"workspace check: {exc}", err=True)
+        raise typer.Exit(2) from exc
 
 
 @app.command()
