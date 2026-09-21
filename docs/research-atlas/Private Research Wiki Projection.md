@@ -215,25 +215,60 @@ role-presence views. Public-safe templates/seeds contain example blocks, not
 active frontmatter. Ordinary Markdown, RA-1 legacy records and generated technical
 records are excluded. Views display declarations, not verified scientific facts.
 
-The historical v1 manifest pinned source commit, Atlas schema 0.2 and exact-byte
-SHA-256 hashes of both source Bases and three payloads. Generated Bases carry an
-owner comment; navigation notes carry owner frontmatter. RA-3B extends this same
-owner and manifest, as specified below; the two Base payloads retain their behavior.
+The historical v1/v2 manifests pinned source commit, Atlas schema 0.2 and
+exact-byte SHA-256 hashes of both source Bases and generated payloads. The
+generator emits an owner comment in each Base and owner frontmatter in navigation
+notes. Obsidian legitimately reserializes an opened Base as YAML: it may remove
+comments, reorder mapping keys, normalize quoting/indentation and replace
+`note.property` with its documented `property` shorthand in view property selectors.
+The [Obsidian Bases syntax](https://help.obsidian.md/bases/syntax) defines `.base`
+files as YAML and documents both note-property spellings as equivalent.
 
-Before any write, the complete prior manifest, all targets and owner markers are
-checked. Symlink boundaries/descendants, traversal and absolute manifest paths
+Current manifest v2.1 therefore classifies workspace artifacts explicitly:
+
+| Class | Scope | Ownership behavior |
+| --- | --- | --- |
+| A — authored | Everything outside the generated roots | Never generator-overwritten. |
+| B — strict deterministic generated output | Generated Markdown, YAML indexes and manifests | Owner/schema checks remain fail-closed; `--check` compares exact bytes. |
+| C — Obsidian-managed projection/config | Only the two manifest-owned `.base` payloads | The manifest records reconstructable emitted-byte and canonical semantic digests; validation accepts only narrow YAML serialization equivalence. |
+| D — operator-local UI state | Obsidian workspace/layout state such as `.obsidian/workspace*.json`, outside the generated roots | Neither read nor written by this projector and never technical, scientific or architecture authority. |
+
+Base semantic canonicalization ignores YAML comments, key order, quoting and
+indentation, and normalizes the documented `note.` shorthand only for `properties`
+keys and view `order`, `groupBy.property` and `sort[].property` selectors. Filters,
+view names, view/list ordering, configuration values, added/removed views and every
+other Base semantic remain exact. A meaningful Base edit therefore still fails
+closed. The repository source templates remain committed strict inputs; deterministic
+generator bytes remain reconstructable even when Obsidian later serializes an
+equivalent local form.
+Obsidian Sync may transport either serialization, but it supplies no ownership or
+semantic authority and is not needed to explain the observed deterministic rewrite.
+
+Before any write, the complete prior manifest, all targets and ownership evidence
+are checked. Symlink boundaries/descendants, traversal and absolute manifest paths
 fail closed. Unknown/unowned files block generation rather than being overwritten
-or deleted. Cleanup considers only obsolete Base/navigation files in the prior
-manifest with matching owner and digest. Empty directories are not pruned.
+or deleted. For v2.1 Bases, prior semantic digests replace volatile comments as the
+ownership proof; strict outputs retain their marker/schema rules. Existing v1/v2
+Bases migrate only when their recorded emitted-byte digest is intact or when the
+manifest-recorded current payload is semantically identical under the narrow Base
+rules above. This bridge cannot adopt an unmanifested Base. Cleanup considers only
+validated obsolete generated files. Empty directories are not pruned.
 All writes reuse RA-1's same-directory temporary file plus atomic replace;
 the direct-view manifest is last. Authored bytes and the technical projection
 remain unchanged. Run only one projector at a time: this is not a multi-file
 transaction or protection against concurrent hostile filesystem mutation.
 
 `--check` performs no mkdir, temporary file, replace, unlink or manifest update.
-Exit 0 means exact state, 2 means expected configuration/validation/drift failure;
-unexpected faults remain non-zero. Following an interrupted first write, preserve
-unowned outputs outside the root before retrying; do not erase authored work.
+Exit 0 means exact state for class B and semantic equivalence for class C; exit 2
+means expected configuration/validation/drift failure. Unexpected faults remain
+non-zero. Following an interrupted first write, preserve unowned outputs outside
+the root before retrying; do not erase authored work.
+
+For a later Workspace hardening leaf, CONTROL should prefer one operator command
+that creates a restore point, runs `private_projection`, runs `private_views`, and
+then runs both zero-write checks against one source revision and vault root. W01
+does not add that orchestration command; the existing projectors and safety
+boundaries remain separate here.
 
 See the [15-view capability matrix](Wiki%20Views/Direct%20View%20Capability%20Matrix.md)
 for direct/partial/deferred boundaries and the seven [Process Seeds](Process%20Seeds/)
@@ -246,12 +281,13 @@ RA-3B supplies only the bounded declared-reference navigation described below.
 Direct inventory counts cannot establish absence, coverage, exhaustion, novelty
 or evidence independence.
 
-## RA-3B declared reference navigation (manifest v2)
+## RA-3B declared reference navigation (manifest v2 family)
 
 The same `private_views` CLI and `research-wiki-derived` owner now generate
-manifest `view_schema_version: "2.0"`, with `reference_index_schema_version: "1.0"`
-and a private structured-input fingerprint. No second projector or manifest is
-introduced. Exactly two payloads are added to the historical tree:
+manifest `view_schema_version: "2.1"`, with `reference_index_schema_version: "1.0"`,
+a private structured-input fingerprint and explicit per-payload ownership class.
+No second projector or manifest is introduced. Exactly two payloads were added to
+the historical tree:
 
 ```text
 indexes/declared-reference-index.yaml
@@ -265,12 +301,12 @@ describes the structured index as navigation/audit with no scientific
 adjudication.
 The historical 17 Direct Views and 15 Capability Matrix dispositions are unchanged.
 
-The same v2 manifest also owns the bounded K3 first visual Knowledge Map slice:
+The same v2.1 manifest also owns the bounded K3 first visual Knowledge Map slice:
 
 ```text
 indexes/Research Knowledge Home.md
-workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md
-workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md
 ```
 
 These three payloads extend the existing `research-wiki-derived` writer; they do
@@ -282,9 +318,33 @@ implementation provenance, and keep the Independent Verifier Interface lane
 empty when no `IF-*` record exists. Empty private research/source panels are
 navigation state, not scientific absence or exhaustion.
 
+W01 versions the three K3 payloads with `k3_view_schema_version: "1.1"` while
+retaining manifest v2.1, the same owner and a finite owned path set. Home and both
+workbenches begin with the same plain-Markdown orientation pattern: human-readable
+title first, secondary stable ID where applicable, Home, exact Registry-backed
+parent and presentation context where available, Research/fallback navigation,
+and concise projection/authority cues. Workbench status remains split into target
+architecture, implementation declaration, technical verification, measurement
+presence, measurement validity, scientific evidence and accepted-claim axes; no
+overall status is derived. Wikilinks emitted inside Markdown table cells escape
+their alias delimiter for Obsidian table parsing; ordinary non-table Wikilinks
+remain unchanged. These links, lists and tables are the durable fallback and do
+not require Breadcrumbs, Canvas, Excalidraw, CSS or another plugin. The manifest
+continues to hash and own the changed bytes; no new writer or ownership subtree
+is introduced.
+
+The W01 G6 repair changes only the two workbench filenames to the human-first
+paths shown above. A prior v2.0/v2.1 manifest may name the exact retired ID-first paths
+`workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md` and
+`workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md` solely so the
+existing owner-marker and recorded-digest cleanup can remove intact generated
+outputs while writing the current paths. Edited, unowned, unknown or unmanifested
+files still fail closed; the retired names are never emitted as compatibility
+files.
+
 The K3 extension brings the current tree to eight owned payloads plus
 `manifest/direct-views.yaml`, nine files total. The Direct Views Index links the
-Research Knowledge Home / System Anatomy entry. K3 does not write authored
+Research Knowledge Home entry. K3 does not write authored
 private records, source identities, scientific evidence or claims.
 
 See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)
@@ -305,18 +365,20 @@ change Markdown without changing YAML; a whole-vault move with relative paths
 preserved changes neither. Link segments are encoded; unresolved IDs are escaped
 plaintext. No private absolute paths or unselected secrets are emitted.
 
-Strict v1 manifests may migrate in place on write. A v1 `--check` returns drift
-(exit 2) and never migrates or writes. Unknown versions fail closed. V1 cannot
-claim YAML ownership; v2 permits only the exact new index path and the three
-fixed K3 Markdown paths. YAML owner/schema markers, existing Base/Markdown
-markers and all prior ownership/path checks must pass before writes. Unknown
+Strict v1/v2.0 manifests may migrate in place to v2.1 on write. Their `--check`
+returns drift (exit 2) and never migrates or writes. Unknown versions fail closed.
+V1 cannot claim YAML ownership; v2.x permits only the exact new index path and the three
+current fixed K3 Markdown paths. Prior v2.x manifests may additionally name only
+the two retired W01 ID-first paths for owner-and-digest-validated cleanup. YAML
+owner/schema markers, Markdown owner markers, Base ownership-class validation and
+all prior ownership/path checks must pass before writes. Unknown
 files are never adopted; edited obsolete files are never deleted. The manifest
 remains last after per-file atomic writes.
 
 RA-1 exactness, source-ref/HEAD, topology, marker, source cleanliness, Registry
 and RA-2 validation remain mandatory preconditions. No automatic RA-1 repair is
 performed. `--check` remains strictly write-free, including no temporary files
-or cleanup, and unresolved-only/empty output is a valid exact state. Use a single
+or cleanup, and unresolved-only/empty output is a valid state. Use a single
 writer with stable source and vault input. There is no whole-tree transaction;
 interruption and concurrent edits retain the recovery limitations above.
 
