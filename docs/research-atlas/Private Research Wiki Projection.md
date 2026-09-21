@@ -282,9 +282,22 @@ implementation provenance, and keep the Independent Verifier Interface lane
 empty when no `IF-*` record exists. Empty private research/source panels are
 navigation state, not scientific absence or exhaustion.
 
+W01 versions the three K3 payloads with `k3_view_schema_version: "1.1"` while
+retaining manifest v2, the same owner and the same fixed paths. Home and both
+workbenches begin with the same plain-Markdown orientation pattern: human-readable
+title first, secondary stable ID where applicable, Home, exact Registry-backed
+parent and presentation context where available, Research/fallback navigation,
+and concise projection/authority cues. Workbench status remains split into target
+architecture, implementation declaration, technical verification, measurement
+presence, measurement validity, scientific evidence and accepted-claim axes; no
+overall status is derived. These links, lists and tables are the durable fallback
+and do not require Breadcrumbs, Canvas, Excalidraw, CSS or another plugin. The
+manifest continues to hash and own the changed bytes; no new writer or ownership
+subtree is introduced.
+
 The K3 extension brings the current tree to eight owned payloads plus
 `manifest/direct-views.yaml`, nine files total. The Direct Views Index links the
-Research Knowledge Home / System Anatomy entry. K3 does not write authored
+Research Knowledge Home entry. K3 does not write authored
 private records, source identities, scientific evidence or claims.
 
 See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)

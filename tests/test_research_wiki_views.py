@@ -220,7 +220,7 @@ def test_k3_payloads_use_stable_ids_and_exact_typed_relationships(setup):
     memory = tree[views.MEMORY_WORKBENCH].decode()
     verifier = tree[views.VERIFIER_WORKBENCH].decode()
 
-    assert "# Research Knowledge Home / System Anatomy" in home
+    assert "# Research Knowledge Home" in home
     assert "CMP-MEM-RETRIEVAL" in home and "CMP-INDEPENDENT-VERIFIER" in home
     assert "_generated/derived/workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval" in home
     assert "_generated/derived/workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier" in home
@@ -234,6 +234,83 @@ def test_k3_payloads_use_stable_ids_and_exact_typed_relationships(setup):
     assert "Presentation grouping (not technical `part_of`)" in verifier
     assert "DOM-COGNITION" not in memory
     assert "RQ-PROGRAM-AB-001" not in memory
+
+
+def test_w01_orientation_is_consistent_human_first_and_plain_markdown(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    payloads = {
+        views.K3_HOME: ("Research Knowledge Home", None),
+        views.MEMORY_WORKBENCH: ("Memory Retrieval", "CMP-MEM-RETRIEVAL"),
+        views.VERIFIER_WORKBENCH: ("Independent Verifier", "CMP-INDEPENDENT-VERIFIER"),
+    }
+
+    for path, (title, stable_id) in payloads.items():
+        properties, body = technical.markdown_parts(tree[path].decode())
+        assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.1"
+        assert body.startswith(f"# {title}\n\n## Orientation\n")
+        orientation = body.split("## Orientation\n\n", 1)[1].split("\n## ", 1)[0]
+        for label in (
+            "Open",
+            "Home",
+            "Broader context",
+            "Research / fallback",
+            "View type",
+            "Authority",
+        ):
+            assert f"**{label}:**" in orientation
+        assert "Generated, derived navigation projection" in orientation
+        assert "current code plus executable or CI evidence" in orientation
+        assert "authored private Research remains separate" in orientation
+        assert "breadcrumbs" not in orientation.lower()
+        if stable_id is None:
+            assert "Current page; no parent is asserted" in orientation
+        else:
+            assert f"stable ID `{stable_id}`" in orientation
+            assert "exact Registry `part_of`" in orientation
+            assert "navigation grouping only, not technical ancestry" in orientation
+            assert "**Presentation group:**" in orientation
+
+    home = tree[views.K3_HOME].decode()
+    memory = tree[views.MEMORY_WORKBENCH].decode()
+    verifier = tree[views.VERIFIER_WORKBENCH].decode()
+    assert "|Memory Retrieval · CMP-MEM-RETRIEVAL]]" in home
+    assert "|Independent Verifier · CMP-INDEPENDENT-VERIFIER]]" in home
+    assert "|Memory Retrieval · CMP-MEM-RETRIEVAL]]" in memory
+    assert "|Independent Verifier · CMP-INDEPENDENT-VERIFIER]]" in verifier
+    assert "|CMP-MEM-RETRIEVAL · Memory Retrieval]]" not in memory
+    assert "|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]" not in verifier
+
+
+def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+
+    for path in views.K3_PAYLOADS:
+        targets = re.findall(r"\[\[([^|\]]+)(?:\|[^\]]*)?\]\]", tree[path].decode())
+        assert targets
+        for target in targets:
+            assert (vault / f"{target}.md").is_file(), (path, target)
+
+
+def test_w01_status_axes_preserve_registry_states_without_promotion(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    memory = tree[views.MEMORY_WORKBENCH].decode()
+    verifier = tree[views.VERIFIER_WORKBENCH].decode()
+
+    for text in (memory, verifier):
+        assert "## Status axes — kept separate" in text
+        assert "not one overall badge, score or maturity claim" in text
+        assert "| Target architecture / basis | `canonical-target` |" in text
+        assert "| Technical verification | `unverified` |" in text
+        assert "| Measurement validity | Not established by this view |" in text
+        assert "| Scientific evidence | No private scientific evidence represented" in text
+        assert "| Accepted scientific claim | None created or implied by this view |" in text
+    assert "| Implementation declaration | `partial` |" in memory
+    assert "| Implementation declaration | `implemented` |" in verifier
+    assert "Actual memory/evidence delivered to Cortex · MEAS-RETRIEVAL-DELIVERY-001" in memory
+    assert "No MeasurementPoint selected for this workbench" in verifier
 
 
 def test_k3_verifier_interface_lane_is_explicitly_empty(setup):
