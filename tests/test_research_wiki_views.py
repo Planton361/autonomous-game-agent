@@ -153,6 +153,9 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.MANIFEST,
         views.REFERENCE_INDEX,
         views.NAVIGATION,
+        views.K3_HOME,
+        views.MEMORY_WORKBENCH,
+        views.VERIFIER_WORKBENCH,
     }
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
     assert outside_owned(vault) == before
@@ -208,6 +211,82 @@ def test_different_vault_locations_produce_identical_complete_output(setup):
     shutil.copytree(vault, other)
     assert views.project(repo, vault, sha) == views.project(repo, other, sha)
     assert snapshot(derived(vault)) == snapshot(derived(other))
+
+
+def test_k3_payloads_use_stable_ids_and_exact_typed_relationships(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    home = tree[views.K3_HOME].decode()
+    memory = tree[views.MEMORY_WORKBENCH].decode()
+    verifier = tree[views.VERIFIER_WORKBENCH].decode()
+
+    assert "# Research Knowledge Home / System Anatomy" in home
+    assert "CMP-MEM-RETRIEVAL" in home and "CMP-INDEPENDENT-VERIFIER" in home
+    assert "_generated/derived/workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval" in home
+    assert "_generated/derived/workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier" in home
+    assert "_generated/technical-atlas/records/CMP-MEM-RETRIEVAL" in memory
+    assert "_generated/technical-atlas/records/CMP-INDEPENDENT-VERIFIER" in verifier
+    assert "`part_of` →" in memory and "`supplies` →" in memory
+    assert "`measured_at` →" in memory and "`presented_in_domain` →" in memory
+    assert "`consumes` →" in verifier and "`observes` →" in verifier
+    assert "`supplies` →" in verifier and "`part_of` →" in verifier
+    assert "Presentation grouping (not technical `part_of`)" in memory
+    assert "Presentation grouping (not technical `part_of`)" in verifier
+    assert "DOM-COGNITION" not in memory
+    assert "RQ-PROGRAM-AB-001" not in memory
+
+
+def test_k3_verifier_interface_lane_is_explicitly_empty(setup):
+    repo, vault, sha = setup
+    verifier = views.project(repo, vault, sha)[views.VERIFIER_WORKBENCH].decode()
+
+    interface_start = verifier.index("## Interface lane")
+    contract_start = verifier.index("## Contract lane")
+    interface = verifier[interface_start:contract_start]
+    assert "Explicitly empty" in interface
+    assert "No corresponding `IF-*` Registry record exists" in interface
+    assert "No Interface is invented" in interface
+    assert "IF-MEM-CORTEX" not in verifier
+
+
+def test_k3_empty_private_and_source_state_is_non_scientific(setup):
+    repo, vault, sha = setup
+    (vault / "authored/process.md").unlink()
+    tree = views.project(repo, vault, sha)
+    for path in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
+        text = tree[path].decode()
+        assert "Authored private research record count: `0`." in text
+        assert "No authored private research records in this baseline." in text
+        assert "No populated source/Zotero projection in this baseline." in text
+        assert "empty/unavailable" in text
+        assert "not a scientifically negative finding" in text
+        assert "No accepted scientific claim is created or implied" in text
+        assert "historical technical provenance" in text
+        assert "No private scientific evidence" in text
+        assert "zsrc-" not in text and "zsv-" not in text
+
+
+def test_k3_private_input_does_not_change_public_bytes_or_k3_output(setup):
+    repo, vault, sha = setup
+    first = views.project(repo, vault, sha)
+    public_before = snapshot(repo)
+    (vault / "ordinary.md").write_text("PRIVATE-K3-BODY-SECRET\n")
+    second = views.project(repo, vault, sha)
+    assert first == second
+    assert snapshot(repo) == public_before
+    assert all(b"PRIVATE-K3-BODY-SECRET" not in data for data in second.values())
+
+
+def test_k3_manifest_ownership_and_check_are_deterministic(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    manifest = yaml.safe_load(tree[views.MANIFEST])
+    owned = {item["path"] for item in manifest["owned_files"]}
+    assert {str(path) for path in views.K3_PAYLOADS} <= owned
+    assert manifest["generated_by"] == views.OWNER
+    before = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == tree
+    assert filesystem_state(vault) == before
 
 
 @pytest.mark.parametrize("invalid", [b"[]", b"{}", b"views: []", b"bad: [", b"\xff"])
@@ -483,7 +562,7 @@ def test_atomic_payloads_and_manifest_last(setup, monkeypatch):
     monkeypatch.setattr(technical.os, "replace", replace_same_directory)
     views.project(repo, vault, sha)
     assert writes[-1] == replaces[-1] == views.MANIFEST
-    assert len(writes) == len(replaces) == 6
+    assert len(writes) == len(replaces) == 9
     assert not list(derived(vault).rglob(".projection-*"))
 
 
@@ -846,7 +925,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
-    assert len(migrated) == 6
+    assert len(migrated) == 9
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
     assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.0"

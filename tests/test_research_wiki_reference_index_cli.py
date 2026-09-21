@@ -81,6 +81,9 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
         str(views.TECHNICAL_BASE),
         str(views.NAVIGATION),
         str(views.REFERENCE_INDEX),
+        str(views.K3_HOME),
+        str(views.MEMORY_WORKBENCH),
+        str(views.VERIFIER_WORKBENCH),
     }
     old_yaml = (root / views.REFERENCE_INDEX).read_bytes()
     payload = yaml.safe_load(old_yaml)

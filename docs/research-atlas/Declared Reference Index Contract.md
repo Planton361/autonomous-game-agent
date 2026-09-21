@@ -194,7 +194,7 @@ locators unchanged changes no bytes.
 `private_views.py` remains the only writer/CLI, owner `research-wiki-derived`,
 root `_generated/derived/`, manifest `manifest/direct-views.yaml`.
 `private_reference_index.py` is pure typed logic/rendering with no writes or CLI.
-V2 owns exactly five payloads plus its manifest:
+V2 owns exactly eight payloads plus its manifest:
 
 ```text
 bases/Technical Atlas Views.base
@@ -202,6 +202,9 @@ bases/Research Wiki Direct Views.base
 indexes/Direct Views Index.md
 indexes/declared-reference-index.yaml
 indexes/Declared Literature Navigation.md
+indexes/Research Knowledge Home.md
+workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md
+workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md
 ```
 
 Strictly accept manifest `view_schema_version` `1.0` or `2.0`. V2 adds
@@ -209,8 +212,9 @@ Strictly accept manifest `view_schema_version` `1.0` or `2.0`. V2 adds
 source repository/commit/Atlas schema, Base source digests and owned-file digests.
 The manifest never owns itself. Valid v1 write regenerates in place as v2; v1
 `--check` returns drift/exit 2 with zero writes. Unknown versions fail closed.
-V1 cannot own YAML; v2 can own only the exact declared-reference YAML path, never
-a generic YAML subtree. Historical prior-owned Base/Markdown paths remain eligible
+V1 cannot own YAML or K3 workbench payloads; v2 can own only the exact
+declared-reference YAML path and the three fixed K3 paths, never a generic YAML
+or workbench subtree. Historical prior-owned Base/Markdown paths remain eligible
 only for the established owner-and-digest-validated obsolete cleanup.
 
 Before the first write: validate derived boundary/symlinks and prior manifest;
@@ -222,7 +226,7 @@ Markdown owner frontmatter remain mandatory; YAML requires the exact owner and
 index schema `1.0`. Lost-owner/unknown/unowned files fail, never get adopted.
 Edited obsolete files are not deleted. Cleanup uses only validated prior ownership.
 
-`--check` compares the expected six-file state byte-exactly without mkdir,
+`--check` compares the expected nine-file state byte-exactly without mkdir,
 temporary files, replace, unlink, cleanup or manifest rewrite. Exact state is 0;
 drift/configuration/validation is 2. Empty or unresolved-only indexes are valid.
 Writes use per-file atomic replacement and manifest last. Require one writer
