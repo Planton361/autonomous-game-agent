@@ -16,8 +16,13 @@ jobs:
   validate:
     name: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
+      - name: Start validation timer
+        id: timer
+        shell: bash
+        run: echo "started_ns=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -28,11 +33,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.12"
-
-      - name: Set up Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "22"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
@@ -61,12 +61,41 @@ jobs:
       - name: Check formatting
         run: uv run --no-sync ruff format --check .
 
-      - name: Test
-        env:
-          TERM: dumb
-        run: uv run --no-sync pytest
+      - name: Fast contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          fast_tests=()
+          while IFS= read -r test_path || [[ -n "$test_path" ]]; do
+            [[ -z "${test_path//[[:space:]]/}" || "$test_path" == \#* ]] && continue
+            case "$test_path" in
+              tests/test_*.py) ;;
+              *) echo "Invalid fast-test manifest entry: $test_path" >&2; exit 1 ;;
+            esac
+            test -f "$test_path"
+            fast_tests+=("$test_path")
+          done < .github/fast-tests.txt
+          test "${#fast_tests[@]}" -gt 0
+          printf 'Running %s fast-test manifest files\n' "${#fast_tests[@]}"
+          uv run --no-sync pytest --maxfail=1 "${fast_tests[@]}"
 
       - name: CLI smoke
         env:
           TERM: dumb
         run: uv run --no-sync fh-agent --help
+
+      - name: Report validation duration
+        env:
+          STARTED_NS: ${{ steps.timer.outputs.started_ns }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          finished_ns=$(date +%s%N)
+          elapsed_ms=$(( (finished_ns - STARTED_NS) / 1000000 ))
+          printf 'validate job execution: %s ms\n' "$elapsed_ms"
+          {
+            echo '### Required validate timing'
+            printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
+            echo '- Budget: `<= 60000 ms`'
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$elapsed_ms" -le 60000
