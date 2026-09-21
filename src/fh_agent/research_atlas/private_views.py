@@ -22,11 +22,22 @@ from .private_projection import (
     inspect_owned,
     markdown_parts,
     no_symlink_boundary,
+    private_link,
+    private_path,
     read_yaml,
     target_path,
     unreadable_tree,
     utf8,
     yaml_text,
+)
+from .private_projection import (
+    HOME as TECHNICAL_HOME,
+)
+from .private_projection import (
+    MAP as TECHNICAL_MAP,
+)
+from .private_projection import (
+    OWNED_ROOT as TECHNICAL_ROOT,
 )
 from .private_projection import (
     project as technical_projection,
@@ -41,6 +52,7 @@ from .private_reference_index import (
     render_index,
     render_navigation,
 )
+from .schema import Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, UniqueKeyLoader, load_registry
 
 OWNER = "research-wiki-derived"
@@ -57,6 +69,422 @@ SOURCE_PATHS = (
     "docs/research-atlas/Process Seeds",
 )
 BASE_OWNER = f"# generated_by: {OWNER}\n"
+
+K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
+MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md")
+VERIFIER_WORKBENCH = PurePosixPath("workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md")
+K3_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH))
+
+MEMORY_IDS = (
+    "CMP-MEM-RETRIEVAL",
+    "SYS-AGA",
+    "DOM-EVIDENCE-MEMORY",
+    "IF-MEM-CORTEX",
+    "CON-CORTEX-CONTEXT",
+    "DAT-RETRIEVAL-SNAPSHOT",
+    "MEAS-RETRIEVAL-DELIVERY-001",
+)
+VERIFIER_IDS = (
+    "CMP-INDEPENDENT-VERIFIER",
+    "SYS-AGA",
+    "DOM-VERIFY-LEARN",
+    "DAT-OBSERVATION",
+    "DAT-VISIBLE-OUTCOME",
+    "CON-VERIFIER-RESULT",
+)
+
+
+def _derived_link(path: PurePosixPath, label: str) -> str:
+    return f"[[{OWNED_ROOT / path.with_suffix('')}|{label}]]"
+
+
+def _technical_surface_link(path: PurePosixPath, label: str) -> str:
+    return f"[[{TECHNICAL_ROOT / path.with_suffix('')}|{label}]]"
+
+
+def _technical_link(atlas: Atlas, identity: str) -> str:
+    try:
+        node = atlas.entities[identity]
+    except KeyError as exc:
+        raise ProjectionError(f"K3 anchor is missing from the Registry: {identity}") from exc
+    return private_link(private_path(node), f"{node.id} · {node.name}")
+
+
+def _k3_node(atlas: Atlas, identity: str):
+    try:
+        node = atlas.entities[identity]
+    except KeyError as exc:
+        raise ProjectionError(f"K3 anchor is missing from the Registry: {identity}") from exc
+    if node.type not in {
+        "System",
+        "Domain",
+        "Component",
+        "Interface",
+        "Contract",
+        "DataArtifact",
+        "MeasurementPoint",
+        "Evidence",
+    }:
+        raise ProjectionError(f"K3 anchor has an unsupported Registry type: {identity}")
+    return node
+
+
+def _k3_relationships(atlas: Atlas, identities: tuple[str, ...]) -> list[Relationship]:
+    selected = set(identities)
+    return sorted(
+        (
+            edge
+            for edge in atlas.relationships
+            if edge.source in selected and edge.target in selected
+        ),
+        key=lambda edge: (edge.relation, edge.source, edge.target),
+    )
+
+
+def _historical_technical_evidence(
+    atlas: Atlas, identities: tuple[str, ...]
+) -> list[tuple[Evidence, Relationship]]:
+    selected = set(identities)
+    result: list[tuple[Evidence, Relationship]] = []
+    for edge in atlas.relationships:
+        if edge.relation != "supports" or edge.target not in selected:
+            continue
+        source = atlas.entities[edge.source]
+        if (
+            isinstance(source, Evidence)
+            and source.id.startswith("EVID-48-")
+            and source.provenance_kind == "github_implementation"
+        ):
+            result.append((source, edge))
+    return sorted(result, key=lambda item: (item[0].id, item[1].target))
+
+
+def _render_status_table(atlas: Atlas, identities: tuple[str, ...]) -> list[str]:
+    lines = [
+        "## Registry status fields (kept separate)",
+        "",
+        "These are public Registry fields, not a combined score or maturity claim.",
+        "",
+        "| Stable ID | Type | Architecture authority | Implementation | Technical verification |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for identity in identities:
+        node = _k3_node(atlas, identity)
+        if not isinstance(node, TechnicalIdentity):
+            continue
+        status = node.technical
+        lines.append(
+            f"| `{node.id}` | `{node.type}` | `{status.architecture_authority}` | "
+            f"`{status.implementation_status}` | `{status.verification_status}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def _render_lane(atlas: Atlas, title: str, identities: tuple[str, ...]) -> list[str]:
+    lines = [f"## {title}", ""]
+    for identity in identities:
+        node = _k3_node(atlas, identity)
+        if isinstance(node, TechnicalIdentity):
+            status = node.technical
+            lines.append(
+                f"- {_technical_link(atlas, identity)} — implementation "
+                f"`{status.implementation_status}`; technical verification "
+                f"`{status.verification_status}`."
+            )
+        else:
+            lines.append(f"- {_technical_link(atlas, identity)}")
+    if len(lines) == 2:
+        lines.append("- None selected.")
+    lines.append("")
+    return lines
+
+
+def _render_exact_relationships(atlas: Atlas, identities: tuple[str, ...]) -> list[str]:
+    edges = _k3_relationships(atlas, identities)
+    technical = [edge for edge in edges if edge.relation != "presented_in_domain"]
+    presentation = [edge for edge in edges if edge.relation == "presented_in_domain"]
+    lines = [
+        "## Exact Registry technical relationships",
+        "",
+        "Only existing typed Registry edges among the selected anchors are shown.",
+        "",
+    ]
+    for edge in technical:
+        lines.append(
+            f"- {_technical_link(atlas, edge.source)} — `{edge.relation}` → "
+            f"{_technical_link(atlas, edge.target)}"
+        )
+    if not technical:
+        lines.append("- None selected.")
+    lines.extend(
+        [
+            "",
+            "## Presentation grouping (not technical `part_of`)",
+            "",
+            "`presented_in_domain` is navigation grouping only; it does not define ancestry.",
+            "",
+        ]
+    )
+    for edge in presentation:
+        lines.append(
+            f"- {_technical_link(atlas, edge.source)} — `presented_in_domain` → "
+            f"{_technical_link(atlas, edge.target)}"
+        )
+    if not presentation:
+        lines.append("- No selected presentation grouping edge.")
+    lines.append("")
+    return lines
+
+
+def _render_historical_evidence(atlas: Atlas, identities: tuple[str, ...]) -> list[str]:
+    evidence = _historical_technical_evidence(atlas, identities)
+    lines = [
+        "## Evidence — historical technical provenance",
+        "",
+        "These accepted historical technical Evidence records document implementation inspection. "
+        "They are not scientific evidence, measurement validation or accepted claims.",
+        "",
+    ]
+    for source, edge in evidence:
+        lines.append(
+            f"- {_technical_link(atlas, source.id)} — historical technical provenance; "
+            f"existing Registry relation `{edge.relation}` → `{edge.target}`."
+        )
+    if not evidence:
+        lines.append("- No accepted historical technical Evidence link is selected.")
+    lines.append("")
+    return lines
+
+
+def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -> list[str]:
+    count = len(snapshot.records)
+    lines = ["## Research and literature state", "", "### Authored private research", ""]
+    lines.append(f"- Authored private research record count: `{count}`.")
+    if count == 0:
+        lines.extend(
+            [
+                "- No authored private research records in this baseline.",
+                "- This is an empty/unavailable research panel, not evidence that literature is "
+                "absent, "
+                "exhausted, complete or scientifically resolved.",
+            ]
+        )
+    else:
+        lines.append(
+            "- Private record bodies and identities are not projected into this technical "
+            "workbench."
+        )
+    lines.extend(["", "### Literature / source state", ""])
+    if source_projection_present:
+        lines.append(
+            "- A source/Zotero projection exists outside this K3 slice; K3 does not render source "
+            "identities or make literature claims."
+        )
+    else:
+        lines.extend(
+            [
+                "- No populated source/Zotero projection in this baseline.",
+                "- The source panel is explicitly empty/unavailable; this is not a scientifically "
+                "negative finding.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "### Scientific evidence state",
+            "",
+            "- No private scientific evidence is represented by this K3 baseline.",
+            "- Historical technical Evidence below remains implementation provenance only.",
+            "",
+            "### Accepted scientific claim state",
+            "",
+            "- No accepted scientific claim is created or implied by this workbench.",
+            "",
+        ]
+    )
+    return lines
+
+
+def render_k3_home(commit: str, atlas: Atlas) -> bytes:
+    for identity in (*MEMORY_IDS, *VERIFIER_IDS):
+        _k3_node(atlas, identity)
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        k3_view_schema_version="1.0",
+        k3_surface="system-anatomy-navigation",
+    )
+    body = [
+        "# Research Knowledge Home / System Anatomy",
+        "",
+        "Maintained K3 entry/navigation surface for the accepted two-subject visual slice.",
+        "The public Research Atlas Registry remains the technical source of truth; these notes are "
+        "generated navigation views.",
+        "",
+        "## Start here",
+        "",
+        f"- {_technical_surface_link(TECHNICAL_HOME, 'Technical Atlas Index')}",
+        f"- {_technical_surface_link(TECHNICAL_MAP, 'Existing RA-1 System Anatomy')}",
+        f"- {_derived_link(INDEX, 'Direct Views Index')}",
+        "",
+        "## K3 workbenches",
+        "",
+        f"- {_derived_link(MEMORY_WORKBENCH, 'Memory Retrieval · CMP-MEM-RETRIEVAL')}",
+        f"- {_derived_link(VERIFIER_WORKBENCH, 'Independent Verifier · CMP-INDEPENDENT-VERIFIER')}",
+        "",
+        "## Navigation contract",
+        "",
+        "Use stable Atlas IDs for identity. `part_of` is technical hierarchy; "
+        "`presented_in_domain` is presentation grouping only. No visual relation is invented here.",
+        "",
+        "Each workbench separates target architecture, implementation, technical verification, "
+        "measurement validity, literature, scientific evidence and accepted claims.",
+        "",
+        "The K3 workbenches retain explicit empty/unavailable research and source states. "
+        "They do not couple the Research Wiki to runtime Agent Memory, Retrieval or Cortex.",
+        "",
+    ]
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+
+
+def render_k3_workbench(
+    commit: str,
+    atlas: Atlas,
+    subject_id: str,
+    snapshot: Snapshot,
+    source_projection_present: bool,
+) -> bytes:
+    if subject_id == "CMP-MEM-RETRIEVAL":
+        identities = MEMORY_IDS
+        interface_ids = ("IF-MEM-CORTEX",)
+        contract_ids = ("CON-CORTEX-CONTEXT",)
+        data_ids = ("DAT-RETRIEVAL-SNAPSHOT",)
+        measurement_ids = ("MEAS-RETRIEVAL-DELIVERY-001",)
+        title = "Memory Retrieval"
+        receiver = (
+            f"- Receiver context for direction only: {_technical_link(atlas, 'CMP-CORTEX')}. "
+            "This context link does not assert a new Registry relationship."
+        )
+    elif subject_id == "CMP-INDEPENDENT-VERIFIER":
+        identities = VERIFIER_IDS
+        interface_ids = ()
+        contract_ids = ("CON-VERIFIER-RESULT",)
+        data_ids = ("DAT-OBSERVATION", "DAT-VISIBLE-OUTCOME")
+        measurement_ids = ()
+        title = "Independent Verifier"
+        receiver = ""
+    else:
+        raise ProjectionError(f"Unsupported K3 workbench subject: {subject_id}")
+
+    subject = _k3_node(atlas, subject_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"K3 workbench subject is not a technical identity: {subject_id}")
+    for identity in identities:
+        _k3_node(atlas, identity)
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        k3_view_schema_version="1.0",
+        k3_surface="component-workbench",
+        k3_subject=subject_id,
+    )
+    lines = [
+        f"# {title} / Interface Workbench",
+        "",
+        "Generated K3 navigation view. Registry relationships and public technical status fields "
+        "shown as distinct projections; no scientific conclusion is inferred.",
+        "",
+        "## Component identity and role",
+        "",
+        f"- Stable Atlas ID: `{subject.id}`",
+        f"- Component: {_technical_link(atlas, subject.id)}",
+        f"- Role: {subject.description}",
+        "",
+        "## Target architecture",
+        "",
+        f"- Architecture authority: `{subject.technical.architecture_authority}`.",
+        "- This section describes the accepted target/architecture classification; it is not a "
+        "claim that the target is implemented.",
+        "",
+        "## Implementation",
+        "",
+        f"- Registry implementation status: `{subject.technical.implementation_status}`.",
+        "- Implementation status is shown independently from verification, measurement validity "
+        "and scientific evidence.",
+        "",
+        "## Technical verification",
+        "",
+        f"- Registry verification status: `{subject.technical.verification_status}`.",
+        "- Technical verification status is not measurement validation or an accepted scientific "
+        "claim.",
+        "",
+        "## Technical parent",
+        "",
+        f"- Technical parent path is represented only by an exact Registry `part_of` edge; "
+        f"see {_technical_link(atlas, 'SYS-AGA')}.",
+        "",
+    ]
+    if receiver:
+        lines.extend(["## Direction context", "", receiver, ""])
+    if interface_ids:
+        lines.extend(_render_lane(atlas, "Interface lane", interface_ids))
+    else:
+        lines.extend(
+            [
+                "## Interface lane",
+                "",
+                "- **Explicitly empty.** No corresponding `IF-*` Registry record exists for this "
+                "Independent Verifier slice in the accepted K2 selection.",
+                "- No Interface is invented, and another relationship type is not rendered as an "
+                "Interface.",
+                "",
+            ]
+        )
+    lines.extend(_render_lane(atlas, "Contract lane", contract_ids))
+    lines.extend(_render_lane(atlas, "Data lane", data_ids))
+    lines.extend(_render_lane(atlas, "Measurement lane", measurement_ids))
+    lines.extend(_render_exact_relationships(atlas, identities))
+    lines.extend(_render_status_table(atlas, identities))
+    lines.extend(
+        [
+            "## Measurement validity",
+            "",
+        ]
+    )
+    if measurement_ids:
+        lines.append(
+            f"- Measurement anchor: {_technical_link(atlas, measurement_ids[0])}. "
+            "The anchor is not proof of measurement validity or an accepted claim."
+        )
+    else:
+        lines.append(
+            "- No measurement anchor is selected for this workbench; measurement validity is "
+            "not established here."
+        )
+    lines.extend(["", ""])
+    lines.extend(_render_historical_evidence(atlas, identities))
+    lines.extend(_render_private_state(snapshot, source_projection_present))
+    lines.extend(
+        [
+            "## Boundary reminders",
+            "",
+            "- Technical implementation markers are not scientific evidence.",
+            "- Technical verification is not measurement validity.",
+            "- Literature/source absence in this baseline is an unavailable panel, not a claim "
+            "about "
+            "the field.",
+            "- K3 does not create private records, source identities, interfaces, claims or "
+            "runtime "
+            "coupling.",
+            "",
+            f"{_derived_link(K3_HOME, 'Research Knowledge Home / System Anatomy')}",
+            "",
+        ]
+    )
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(lines)).encode()
 
 
 class OwnedFile(BaseModel):
@@ -155,17 +583,36 @@ def reference_views_tree(
     reference: ReferenceIndex,
     atlas: Atlas,
     locators: dict[str, PurePosixPath],
+    snapshot: Snapshot,
+    source_projection_present: bool,
 ) -> dict[PurePosixPath, bytes]:
     tree = views_tree(commit, public_base, direct_base)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)
+    tree[K3_HOME] = render_k3_home(commit, atlas)
+    tree[MEMORY_WORKBENCH] = render_k3_workbench(
+        commit,
+        atlas,
+        "CMP-MEM-RETRIEVAL",
+        snapshot,
+        source_projection_present,
+    )
+    tree[VERIFIER_WORKBENCH] = render_k3_workbench(
+        commit,
+        atlas,
+        "CMP-INDEPENDENT-VERIFIER",
+        snapshot,
+        source_projection_present,
+    )
     text = utf8(tree[INDEX]).replace(
         "Navigation only; no scientific data index.",
         "Declared structured reference index for navigation/audit; no scientific adjudication.",
     )
     tree[INDEX] = (
-        text + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
+        text
+        + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
+        + f"- {_derived_link(K3_HOME, 'Research Knowledge Home / System Anatomy')}\n"
     ).encode()
     data = old.model_dump()
     data.update(
@@ -252,6 +699,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
             or (manifest.view_schema_version == "2.0" and relative == REFERENCE_INDEX)
+            or (manifest.view_schema_version == "2.0" and relative in K3_PAYLOADS)
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         prior[relative] = item
@@ -302,6 +750,8 @@ def project(
         reference,
         atlas,
         locators,
+        snapshot,
+        (vault / PurePosixPath("_generated/zotero/manifest/projection.yaml")).is_file(),
     )
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")

@@ -258,11 +258,34 @@ indexes/declared-reference-index.yaml
 indexes/Declared Literature Navigation.md
 ```
 
-The current tree therefore has five owned payloads plus
-`manifest/direct-views.yaml`, six files total. The Direct Views Index retains
-both Base links and adds Declared Literature Navigation. It describes the
-structured index as navigation/audit with no scientific adjudication.
+The RA-3B reference-navigation payload set before the K3 extension had five
+owned payloads plus `manifest/direct-views.yaml`, six files total. The Direct
+Views Index retains both Base links and adds Declared Literature Navigation. It
+describes the structured index as navigation/audit with no scientific
+adjudication.
 The historical 17 Direct Views and 15 Capability Matrix dispositions are unchanged.
+
+The same v2 manifest also owns the bounded K3 first visual Knowledge Map slice:
+
+```text
+indexes/Research Knowledge Home.md
+workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md
+workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md
+```
+
+These three payloads extend the existing `research-wiki-derived` writer; they do
+not introduce a second renderer, owner or manifest. Their content is generated
+from the fixed public K2 selections and a privacy-safe authored-record count.
+The workbenches preserve exact Registry typed edges, explicitly separate
+presentation grouping from `part_of`, label historical technical Evidence as
+implementation provenance, and keep the Independent Verifier Interface lane
+empty when no `IF-*` record exists. Empty private research/source panels are
+navigation state, not scientific absence or exhaustion.
+
+The K3 extension brings the current tree to eight owned payloads plus
+`manifest/direct-views.yaml`, nine files total. The Direct Views Index links the
+Research Knowledge Home / System Anatomy entry. K3 does not write authored
+private records, source identities, scientific evidence or claims.
 
 See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)
 for exact resolution, closed rows, E1–E9 and the finite Component/RQ/Process
@@ -284,10 +307,11 @@ plaintext. No private absolute paths or unselected secrets are emitted.
 
 Strict v1 manifests may migrate in place on write. A v1 `--check` returns drift
 (exit 2) and never migrates or writes. Unknown versions fail closed. V1 cannot
-claim YAML ownership; v2 permits only the exact new index path. YAML owner/schema
-markers, existing Base/Markdown markers and all prior ownership/path checks must
-pass before writes. Unknown files are never adopted; edited obsolete files are
-never deleted. The manifest remains last after per-file atomic writes.
+claim YAML ownership; v2 permits only the exact new index path and the three
+fixed K3 Markdown paths. YAML owner/schema markers, existing Base/Markdown
+markers and all prior ownership/path checks must pass before writes. Unknown
+files are never adopted; edited obsolete files are never deleted. The manifest
+remains last after per-file atomic writes.
 
 RA-1 exactness, source-ref/HEAD, topology, marker, source cleanliness, Registry
 and RA-2 validation remain mandatory preconditions. No automatic RA-1 repair is
