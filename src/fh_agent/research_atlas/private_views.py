@@ -71,9 +71,15 @@ SOURCE_PATHS = (
 BASE_OWNER = f"# generated_by: {OWNER}\n"
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
-MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md")
-VERIFIER_WORKBENCH = PurePosixPath("workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md")
+MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
+VERIFIER_WORKBENCH = PurePosixPath("workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md")
+LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md")
+LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
+    "workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md"
+)
 K3_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH))
+LEGACY_K3_PAYLOADS = frozenset((LEGACY_MEMORY_WORKBENCH, LEGACY_VERIFIER_WORKBENCH))
+K3_PRIOR_PAYLOADS = K3_PAYLOADS | LEGACY_K3_PAYLOADS
 K3_VIEW_SCHEMA_VERSION = "1.1"
 
 MEMORY_IDS = (
@@ -109,6 +115,11 @@ def _technical_link(atlas: Atlas, identity: str) -> str:
     except KeyError as exc:
         raise ProjectionError(f"K3 anchor is missing from the Registry: {identity}") from exc
     return private_link(private_path(node), f"{node.name} · {node.id}")
+
+
+def _markdown_table_cell(value: str) -> str:
+    """Escape cell delimiters without changing ordinary Markdown links."""
+    return re.sub(r"(?<!\\)\|", lambda _: r"\|", value)
 
 
 def _k3_node(atlas: Atlas, identity: str):
@@ -258,8 +269,8 @@ def _render_status_axes(
     atlas: Atlas, subject: TechnicalIdentity, measurement_ids: tuple[str, ...]
 ) -> list[str]:
     if measurement_ids:
-        measurement_presence = "; ".join(
-            _technical_link(atlas, identity) for identity in measurement_ids
+        measurement_presence = _markdown_table_cell(
+            "; ".join(_technical_link(atlas, identity) for identity in measurement_ids)
         )
     else:
         measurement_presence = "No MeasurementPoint selected for this workbench"
@@ -787,7 +798,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
             or (manifest.view_schema_version == "2.0" and relative == REFERENCE_INDEX)
-            or (manifest.view_schema_version == "2.0" and relative in K3_PAYLOADS)
+            or (manifest.view_schema_version == "2.0" and relative in K3_PRIOR_PAYLOADS)
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         prior[relative] = item

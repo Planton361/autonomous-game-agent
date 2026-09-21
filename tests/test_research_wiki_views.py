@@ -133,6 +133,22 @@ def change_manifest(vault, edit):
     path.write_text(technical.yaml_text(data))
 
 
+def install_legacy_workbench_paths(vault):
+    root = derived(vault)
+    manifest_path = root / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_text())
+    pairs = (
+        (views.MEMORY_WORKBENCH, views.LEGACY_MEMORY_WORKBENCH),
+        (views.VERIFIER_WORKBENCH, views.LEGACY_VERIFIER_WORKBENCH),
+    )
+    for current, legacy in pairs:
+        (root / current).rename(root / legacy)
+        item = next(item for item in manifest["owned_files"] if item["path"] == str(current))
+        item["path"] = str(legacy)
+    manifest["owned_files"].sort(key=lambda item: item["path"])
+    manifest_path.write_text(technical.yaml_text(manifest))
+
+
 def assert_no_mutation(setup, action, match=None):
     repo, vault, _ = setup
     before = filesystem_state(vault), snapshot(repo)
@@ -222,8 +238,8 @@ def test_k3_payloads_use_stable_ids_and_exact_typed_relationships(setup):
 
     assert "# Research Knowledge Home" in home
     assert "CMP-MEM-RETRIEVAL" in home and "CMP-INDEPENDENT-VERIFIER" in home
-    assert "_generated/derived/workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval" in home
-    assert "_generated/derived/workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier" in home
+    assert "_generated/derived/workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL" in home
+    assert "_generated/derived/workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER" in home
     assert "_generated/technical-atlas/records/CMP-MEM-RETRIEVAL" in memory
     assert "_generated/technical-atlas/records/CMP-INDEPENDENT-VERIFIER" in verifier
     assert "`part_of` →" in memory and "`supplies` →" in memory
@@ -287,9 +303,10 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
     tree = views.project(repo, vault, sha)
 
     for path in views.K3_PAYLOADS:
-        targets = re.findall(r"\[\[([^|\]]+)(?:\|[^\]]*)?\]\]", tree[path].decode())
-        assert targets
-        for target in targets:
+        links = re.findall(r"\[\[([^\]]+)\]\]", tree[path].decode())
+        assert links
+        for link in links:
+            target = link.replace(r"\|", "|").partition("|")[0]
             assert (vault / f"{target}.md").is_file(), (path, target)
 
 
@@ -311,6 +328,61 @@ def test_w01_status_axes_preserve_registry_states_without_promotion(setup):
     assert "| Implementation declaration | `implemented` |" in verifier
     assert "Actual memory/evidence delivered to Cortex · MEAS-RETRIEVAL-DELIVERY-001" in memory
     assert "No MeasurementPoint selected for this workbench" in verifier
+
+    measurement_row = next(
+        line for line in memory.splitlines() if line.startswith("| Measurement presence |")
+    )
+    cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", measurement_row.strip("|"))]
+    assert len(cells) == 3
+    assert cells[0] == "Measurement presence"
+    assert "[[" in cells[1] and r"\|Actual memory/evidence delivered" in cells[1]
+    assert cells[2] == "A MeasurementPoint does not establish measurement validity."
+    assert views._markdown_table_cell("[[one|One]]; [[two|Two]]") == (r"[[one\|One]]; [[two\|Two]]")
+    assert "|Research Knowledge Home]]" in memory
+
+
+def test_w01_workbench_rename_migrates_only_owned_legacy_paths(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    authored_before = outside_owned(vault)
+    install_legacy_workbench_paths(vault)
+    before_check = filesystem_state(vault)
+
+    with pytest.raises(technical.ProjectionError, match="drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before_check
+
+    migrated = views.project(repo, vault, sha)
+    manifest = yaml.safe_load(migrated[views.MANIFEST])
+    owned = {item["path"] for item in manifest["owned_files"]}
+    assert {str(path) for path in views.K3_PAYLOADS} <= owned
+    assert not ({str(path) for path in views.LEGACY_K3_PAYLOADS} & owned)
+    for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
+        assert (derived(vault) / current).is_file()
+    for legacy in views.LEGACY_K3_PAYLOADS:
+        assert not (derived(vault) / legacy).exists()
+    assert outside_owned(vault) == authored_before
+    assert views.project(repo, vault, sha, check=True) == migrated
+
+
+@pytest.mark.parametrize("fault", ["edited", "owner", "unknown"])
+def test_w01_legacy_workbench_cleanup_fails_closed(setup, fault):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    install_legacy_workbench_paths(vault)
+    legacy = derived(vault) / views.LEGACY_MEMORY_WORKBENCH
+    if fault == "edited":
+        legacy.write_text(legacy.read_text() + "Authored edit must survive\n")
+        match = "Obsolete"
+    elif fault == "owner":
+        legacy.write_text(legacy.read_text().replace(views.OWNER, "other-owner"))
+        match = "owner marker"
+    else:
+        (derived(vault) / "unknown.md").write_text("Unknown content must survive\n")
+        match = "Unknown/unowned"
+
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), match)
+    assert legacy.is_file()
 
 
 def test_k3_verifier_interface_lane_is_explicitly_empty(setup):
@@ -495,6 +567,7 @@ def test_manifest_cannot_claim_existing_authored_file_for_cleanup(setup, absolut
         "manifest/direct-views.yaml",
         "indexes/old.yaml",
         "records/old.md",
+        "workbenches/not-owned.md",
         "",
     ],
 )
@@ -565,6 +638,9 @@ def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
         views.INDEX,
         views.REFERENCE_INDEX,
         views.NAVIGATION,
+        views.K3_HOME,
+        views.MEMORY_WORKBENCH,
+        views.VERIFIER_WORKBENCH,
     ],
 )
 def test_owner_marker_required_even_for_current_output(setup, relative):

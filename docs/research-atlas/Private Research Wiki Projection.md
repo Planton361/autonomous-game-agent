@@ -269,8 +269,8 @@ The same v2 manifest also owns the bounded K3 first visual Knowledge Map slice:
 
 ```text
 indexes/Research Knowledge Home.md
-workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md
-workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md
 ```
 
 These three payloads extend the existing `research-wiki-derived` writer; they do
@@ -283,17 +283,28 @@ empty when no `IF-*` record exists. Empty private research/source panels are
 navigation state, not scientific absence or exhaustion.
 
 W01 versions the three K3 payloads with `k3_view_schema_version: "1.1"` while
-retaining manifest v2, the same owner and the same fixed paths. Home and both
+retaining manifest v2, the same owner and a finite owned path set. Home and both
 workbenches begin with the same plain-Markdown orientation pattern: human-readable
 title first, secondary stable ID where applicable, Home, exact Registry-backed
 parent and presentation context where available, Research/fallback navigation,
 and concise projection/authority cues. Workbench status remains split into target
 architecture, implementation declaration, technical verification, measurement
 presence, measurement validity, scientific evidence and accepted-claim axes; no
-overall status is derived. These links, lists and tables are the durable fallback
-and do not require Breadcrumbs, Canvas, Excalidraw, CSS or another plugin. The
-manifest continues to hash and own the changed bytes; no new writer or ownership
-subtree is introduced.
+overall status is derived. Wikilinks emitted inside Markdown table cells escape
+their alias delimiter for Obsidian table parsing; ordinary non-table Wikilinks
+remain unchanged. These links, lists and tables are the durable fallback and do
+not require Breadcrumbs, Canvas, Excalidraw, CSS or another plugin. The manifest
+continues to hash and own the changed bytes; no new writer or ownership subtree
+is introduced.
+
+The W01 G6 repair changes only the two workbench filenames to the human-first
+paths shown above. A prior v2 manifest may name the exact retired ID-first paths
+`workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md` and
+`workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md` solely so the
+existing owner-marker and recorded-digest cleanup can remove intact generated
+outputs while writing the current paths. Edited, unowned, unknown or unmanifested
+files still fail closed; the retired names are never emitted as compatibility
+files.
 
 The K3 extension brings the current tree to eight owned payloads plus
 `manifest/direct-views.yaml`, nine files total. The Direct Views Index links the
@@ -321,8 +332,10 @@ plaintext. No private absolute paths or unselected secrets are emitted.
 Strict v1 manifests may migrate in place on write. A v1 `--check` returns drift
 (exit 2) and never migrates or writes. Unknown versions fail closed. V1 cannot
 claim YAML ownership; v2 permits only the exact new index path and the three
-fixed K3 Markdown paths. YAML owner/schema markers, existing Base/Markdown
-markers and all prior ownership/path checks must pass before writes. Unknown
+current fixed K3 Markdown paths. Prior v2 manifests may additionally name only
+the two retired W01 ID-first paths for owner-and-digest-validated cleanup. YAML
+owner/schema markers, existing Base/Markdown markers and all prior ownership/path
+checks must pass before writes. Unknown
 files are never adopted; edited obsolete files are never deleted. The manifest
 remains last after per-file atomic writes.
 

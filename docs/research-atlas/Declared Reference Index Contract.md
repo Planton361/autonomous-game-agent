@@ -203,8 +203,8 @@ indexes/Direct Views Index.md
 indexes/declared-reference-index.yaml
 indexes/Declared Literature Navigation.md
 indexes/Research Knowledge Home.md
-workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md
-workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md
 ```
 
 Strictly accept manifest `view_schema_version` `1.0` or `2.0`. V2 adds
@@ -213,9 +213,12 @@ source repository/commit/Atlas schema, Base source digests and owned-file digest
 The manifest never owns itself. Valid v1 write regenerates in place as v2; v1
 `--check` returns drift/exit 2 with zero writes. Unknown versions fail closed.
 V1 cannot own YAML or K3 workbench payloads; v2 can own only the exact
-declared-reference YAML path and the three fixed K3 paths, never a generic YAML
-or workbench subtree. Historical prior-owned Base/Markdown paths remain eligible
-only for the established owner-and-digest-validated obsolete cleanup.
+declared-reference YAML path and the three current fixed K3 paths, never a generic
+YAML or workbench subtree. Prior v2 manifests may additionally name only the two
+retired W01 ID-first workbench paths for the established
+owner-and-digest-validated obsolete cleanup. Those paths are never emitted as
+compatibility files. Historical prior-owned Base/Markdown paths remain eligible
+only for the same fail-closed cleanup.
 
 Before the first write: validate derived boundary/symlinks and prior manifest;
 run RA-1 `technical_projection(..., check=True)` for topology, marker, source-ref
