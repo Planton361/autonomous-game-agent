@@ -194,7 +194,7 @@ locators unchanged changes no bytes.
 `private_views.py` remains the only writer/CLI, owner `research-wiki-derived`,
 root `_generated/derived/`, manifest `manifest/direct-views.yaml`.
 `private_reference_index.py` is pure typed logic/rendering with no writes or CLI.
-V2 owns exactly eight payloads plus its manifest:
+V2.1 owns exactly eight payloads plus its manifest:
 
 ```text
 bases/Technical Atlas Views.base
@@ -207,13 +207,14 @@ workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md
 workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md
 ```
 
-Strictly accept manifest `view_schema_version` `1.0` or `2.0`. V2 adds
-`reference_index_schema_version: "1.0"` and `private_input_fingerprint`, retaining
-source repository/commit/Atlas schema, Base source digests and owned-file digests.
-The manifest never owns itself. Valid v1 write regenerates in place as v2; v1
-`--check` returns drift/exit 2 with zero writes. Unknown versions fail closed.
-V1 cannot own YAML or K3 workbench payloads; v2 can own only the exact
-declared-reference YAML path and the three current fixed K3 paths, never a generic
+Strictly accept manifest `view_schema_version` `1.0`, `2.0` or `2.1`. V2 adds
+`reference_index_schema_version: "1.0"` and `private_input_fingerprint`; v2.1 adds
+an explicit ownership class and semantic digest for each Obsidian-managed Base,
+while retaining source repository/commit/Atlas schema, Base source digests and
+owned-file byte digests. The manifest never owns itself. Valid v1/v2.0 writes
+regenerate in place as v2.1; their `--check` returns drift/exit 2 with zero writes.
+Unknown versions fail closed. V1 cannot own YAML or K3 workbench payloads; v2.x
+can own only the exact declared-reference YAML path and the three current fixed K3 paths, never a generic
 YAML or workbench subtree. Prior v2 manifests may additionally name only the two
 retired W01 ID-first workbench paths for the established
 owner-and-digest-validated obsolete cleanup. Those paths are never emitted as
@@ -224,14 +225,19 @@ Before the first write: validate derived boundary/symlinks and prior manifest;
 run RA-1 `technical_projection(..., check=True)` for topology, marker, source-ref
 == HEAD, relevant source cleanliness, Registry/RA-2 validity and exact projection;
 scan authored inputs; build all output in memory; validate every target, owner,
-unknown file and path. Never repair RA-1 implicitly. Base owner comments and
-Markdown owner frontmatter remain mandatory; YAML requires the exact owner and
-index schema `1.0`. Lost-owner/unknown/unowned files fail, never get adopted.
-Edited obsolete files are not deleted. Cleanup uses only validated prior ownership.
+unknown file and path. Never repair RA-1 implicitly. Markdown owner frontmatter
+remains mandatory; YAML requires the exact owner and index schema `1.0`. The two
+`.base` paths are explicitly Obsidian-managed projections: v2.1 validates their
+manifest-recorded semantic digests while normalizing only YAML presentation and
+documented note-property shorthand in property selectors. Meaningful Base edits,
+lost strict-output owners and unknown/unowned files fail closed and are never
+adopted. Edited obsolete files are not deleted. Cleanup uses only validated prior
+ownership.
 
-`--check` compares the expected nine-file state byte-exactly without mkdir,
-temporary files, replace, unlink, cleanup or manifest rewrite. Exact state is 0;
-drift/configuration/validation is 2. Empty or unresolved-only indexes are valid.
+`--check` compares class-B payloads byte-exactly and the two class-C Bases by their
+narrow canonical semantics, without mkdir, temporary files, replace, unlink,
+cleanup or manifest rewrite. Accepted state is 0; drift/configuration/validation
+is 2. Empty or unresolved-only indexes are valid.
 Writes use per-file atomic replacement and manifest last. Require one writer
 and stable inputs; there is no whole-tree transaction or concurrent-editor lock.
 Interrupted first generation may require preserving unowned outputs before retry.

@@ -69,6 +69,9 @@ SOURCE_PATHS = (
     "docs/research-atlas/Process Seeds",
 )
 BASE_OWNER = f"# generated_by: {OWNER}\n"
+STRICT_OWNERSHIP = "strict-bytes"
+OBSIDIAN_BASE_OWNERSHIP = "obsidian-base-semantics"
+OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE))
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
 MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
@@ -592,6 +595,11 @@ class OwnedFile(BaseModel):
     sha256: SHA256
 
 
+class OwnedFileV21(OwnedFile):
+    ownership: Literal["strict-bytes", "obsidian-base-semantics"]
+    semantic_sha256: SHA256 | None = None
+
+
 class SourceDigests(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     public_atlas_base: SHA256
@@ -615,8 +623,72 @@ class Manifest(ManifestV1):
     private_input_fingerprint: SHA256
 
 
+class ManifestV21(Manifest):
+    view_schema_version: Literal["2.1"]
+    owned_files: list[OwnedFileV21]
+
+
+def _canonical_property_id(value: object) -> object:
+    if isinstance(value, str) and value.startswith("note."):
+        return value.removeprefix("note.")
+    return value
+
+
+def _base_semantics(data: bytes) -> dict:
+    """Canonicalize only documented/observed Obsidian Base serialization equivalences."""
+    base = read_yaml(utf8(data))
+    canonical = dict(base)
+    properties = base.get("properties")
+    if isinstance(properties, dict):
+        normalized_properties = {}
+        for key, value in properties.items():
+            normalized = _canonical_property_id(key)
+            if normalized in normalized_properties:
+                raise ProjectionError("Ambiguous property identities in prior-owned Base")
+            normalized_properties[normalized] = value
+        canonical["properties"] = normalized_properties
+    configured_views = base.get("views")
+    if isinstance(configured_views, list):
+        normalized_views = []
+        for configured_view in configured_views:
+            if not isinstance(configured_view, dict):
+                normalized_views.append(configured_view)
+                continue
+            view = dict(configured_view)
+            order = configured_view.get("order")
+            if isinstance(order, list):
+                view["order"] = [_canonical_property_id(item) for item in order]
+            group = configured_view.get("groupBy")
+            if isinstance(group, dict) and "property" in group:
+                view["groupBy"] = dict(group)
+                view["groupBy"]["property"] = _canonical_property_id(group["property"])
+            sorts = configured_view.get("sort")
+            if isinstance(sorts, list):
+                view["sort"] = []
+                for configured_sort in sorts:
+                    if isinstance(configured_sort, dict) and "property" in configured_sort:
+                        normalized_sort = dict(configured_sort)
+                        normalized_sort["property"] = _canonical_property_id(
+                            configured_sort["property"]
+                        )
+                        view["sort"].append(normalized_sort)
+                    else:
+                        view["sort"].append(configured_sort)
+            normalized_views.append(view)
+        canonical["views"] = normalized_views
+    return canonical
+
+
+def _base_semantic_digest(data: bytes) -> str:
+    return digest(yaml_text(_base_semantics(data)).encode())
+
+
+def _base_semantically_matches(actual: bytes, expected: bytes) -> bool:
+    return _base_semantics(actual) == _base_semantics(expected)
+
+
 def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[PurePosixPath, bytes]:
-    """Retained v1 renderer; v2 extends its exact Base payloads under the same owner."""
+    """Retained v1 renderer; later manifests extend its Bases under the same owner."""
     technical = read_yaml(utf8(public_base))
     direct = read_yaml(utf8(direct_base))
     for base in (technical, direct):
@@ -714,13 +786,26 @@ def reference_views_tree(
         + f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}\n"
     ).encode()
     data = old.model_dump()
+    owned_files = []
+    for path, payload in sorted(tree.items()):
+        obsidian_managed = path in OBSIDIAN_MANAGED_BASES
+        owned_files.append(
+            OwnedFileV21(
+                path=str(path),
+                sha256=digest(payload),
+                ownership=OBSIDIAN_BASE_OWNERSHIP if obsidian_managed else STRICT_OWNERSHIP,
+                semantic_sha256=(_base_semantic_digest(payload) if obsidian_managed else None),
+            )
+        )
     data.update(
-        view_schema_version="2.0",
+        view_schema_version="2.1",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
-        owned_files=[OwnedFile(path=str(p), sha256=digest(b)) for p, b in sorted(tree.items())],
+        owned_files=owned_files,
     )
-    tree[MANIFEST] = yaml_text(Manifest.model_validate(data).model_dump()).encode()
+    tree[MANIFEST] = yaml_text(
+        ManifestV21.model_validate(data).model_dump(exclude_none=True)
+    ).encode()
     return tree
 
 
@@ -780,6 +865,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV1.model_validate(data)
         elif data.get("view_schema_version") == "2.0":
             manifest = Manifest.model_validate(data)
+        elif data.get("view_schema_version") == "2.1":
+            manifest = ManifestV21.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -790,17 +877,27 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
-        # V1 cannot claim YAML; V2 adds exactly one fixed YAML payload, not a subtree.
+        # V1 cannot claim YAML; later versions add one fixed YAML payload, not a subtree.
         if not (
             len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
-            or (manifest.view_schema_version == "2.0" and relative == REFERENCE_INDEX)
-            or (manifest.view_schema_version == "2.0" and relative in K3_PRIOR_PAYLOADS)
+            or (manifest.view_schema_version in {"2.0", "2.1"} and relative == REFERENCE_INDEX)
+            or (manifest.view_schema_version in {"2.0", "2.1"} and relative in K3_PRIOR_PAYLOADS)
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
+        if isinstance(item, OwnedFileV21):
+            obsidian_managed = relative.suffix == ".base"
+            if (
+                obsidian_managed
+                and (item.ownership != OBSIDIAN_BASE_OWNERSHIP or item.semantic_sha256 is None)
+            ) or (
+                not obsidian_managed
+                and (item.ownership != STRICT_OWNERSHIP or item.semantic_sha256 is not None)
+            ):
+                raise ProjectionError("Invalid direct-view ownership classification")
         prior[relative] = item
     return prior
 
@@ -868,23 +965,41 @@ def project(
         if relative not in actual:
             continue
         data = target_path(root, relative).read_bytes()
-        if relative == REFERENCE_INDEX:
+        if relative.suffix == ".base":
+            if isinstance(item, OwnedFileV21):
+                owned = _base_semantic_digest(data) == item.semantic_sha256
+            else:
+                exact_legacy = data.startswith(BASE_OWNER.encode()) and digest(data) == item.sha256
+                migration_bridge = (
+                    relative in tree
+                    and item.sha256 == digest(tree[relative])
+                    and _base_semantically_matches(data, tree[relative])
+                )
+                owned = exact_legacy or migration_bridge
+            if not owned:
+                raise ProjectionError(
+                    "Prior-owned Base changed semantically; preserve or restore it"
+                )
+        elif relative == REFERENCE_INDEX:
             metadata = read_yaml(utf8(data))
             owned = (
                 metadata.get("generated_by") == OWNER
                 and metadata.get("index_schema_version") == "1.0"
             )
-        elif relative.suffix == ".base":
-            owned = data.startswith(BASE_OWNER.encode())
         else:
             owned = markdown_parts(utf8(data))[0].get("generated_by") == OWNER
         if not owned:
             raise ProjectionError("Prior-owned view lost its owner marker; preserve or restore it")
-        if relative not in tree and digest(data) != item.sha256:
+        if relative.suffix != ".base" and relative not in tree and digest(data) != item.sha256:
             raise ProjectionError("Obsolete owned view was edited; preserve edits before cleanup")
     if check:
         if actual != tree.keys() or any(
-            target_path(root, p).read_bytes() != data for p, data in tree.items()
+            (
+                not _base_semantically_matches(target_path(root, p).read_bytes(), data)
+                if p in OBSIDIAN_MANAGED_BASES
+                else target_path(root, p).read_bytes() != data
+            )
+            for p, data in tree.items()
         ):
             raise ProjectionError("Direct-view drift; regenerate with the same source-ref")
         return tree
@@ -903,7 +1018,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--vault-root", type=Path, required=True)
     parser.add_argument("--source-ref", required=True)
     parser.add_argument(
-        "--check", action="store_true", help="Validate exact views without any writes"
+        "--check", action="store_true", help="Validate owned view state without any writes"
     )
     args = parser.parse_args(argv)
     try:

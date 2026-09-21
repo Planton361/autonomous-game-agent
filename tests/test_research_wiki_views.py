@@ -149,6 +149,56 @@ def install_legacy_workbench_paths(vault):
     manifest_path.write_text(technical.yaml_text(manifest))
 
 
+def manifest_owned_item(relative, data):
+    path = PurePosixPath(relative)
+    item = {
+        "path": str(path),
+        "sha256": technical.digest(data),
+        "ownership": (
+            views.OBSIDIAN_BASE_OWNERSHIP if path.suffix == ".base" else views.STRICT_OWNERSHIP
+        ),
+    }
+    if path.suffix == ".base":
+        item["semantic_sha256"] = views._base_semantic_digest(data)
+    return item
+
+
+def downgrade_manifest_to_v2(vault):
+    path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(path.read_text())
+    manifest["view_schema_version"] = "2.0"
+    for item in manifest["owned_files"]:
+        item.pop("ownership")
+        item.pop("semantic_sha256", None)
+    path.write_text(technical.yaml_text(manifest))
+
+
+def normalize_owned_bases_as_obsidian(vault):
+    """Reproduce actual Obsidian save: comments/formatting change and note IDs shorten."""
+    for relative in views.OBSIDIAN_MANAGED_BASES:
+        path = derived(vault) / relative
+        base = yaml.safe_load(path.read_bytes())
+        for view in base["views"]:
+            if "order" in view:
+                view["order"] = [
+                    item.removeprefix("note.") if isinstance(item, str) else item
+                    for item in view["order"]
+                ]
+            if "groupBy" in view:
+                view["groupBy"]["property"] = view["groupBy"]["property"].removeprefix("note.")
+            for item in view.get("sort", []):
+                item["property"] = item["property"].removeprefix("note.")
+        path.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=True))
+
+
+@pytest.fixture
+def obsidian_normalized_bases(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    normalize_owned_bases_as_obsidian(vault)
+    return repo, vault, sha, tree
+
+
 def assert_no_mutation(setup, action, match=None):
     repo, vault, _ = setup
     before = filesystem_state(vault), snapshot(repo)
@@ -189,7 +239,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.0"
+    assert manifest["view_schema_version"] == "2.1"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -204,9 +254,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
         "research_wiki_direct_base": technical.digest((repo / views.DIRECT_SOURCE).read_bytes()),
     }
     assert manifest["owned_files"] == [
-        {"path": str(p), "sha256": technical.digest(data)}
-        for p, data in sorted(tree.items())
-        if p != views.MANIFEST
+        manifest_owned_item(p, data) for p, data in sorted(tree.items()) if p != views.MANIFEST
     ]
     public_base = yaml.safe_load((repo / views.PUBLIC_SOURCE).read_bytes())
     private_base = yaml.safe_load(tree[views.TECHNICAL_BASE])
@@ -357,6 +405,27 @@ def test_w01_workbench_rename_migrates_only_owned_legacy_paths(setup):
     owned = {item["path"] for item in manifest["owned_files"]}
     assert {str(path) for path in views.K3_PAYLOADS} <= owned
     assert not ({str(path) for path in views.LEGACY_K3_PAYLOADS} & owned)
+    for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
+        assert (derived(vault) / current).is_file()
+    for legacy in views.LEGACY_K3_PAYLOADS:
+        assert not (derived(vault) / legacy).exists()
+    assert outside_owned(vault) == authored_before
+    assert views.project(repo, vault, sha, check=True) == migrated
+
+
+def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    authored_before = outside_owned(vault)
+    install_legacy_workbench_paths(vault)
+    downgrade_manifest_to_v2(vault)
+    normalize_owned_bases_as_obsidian(vault)
+
+    migrated = views.project(repo, vault, sha)
+    manifest = yaml.safe_load(migrated[views.MANIFEST])
+    assert manifest["view_schema_version"] == "2.1"
+    for base in views.OBSIDIAN_MANAGED_BASES:
+        assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
         assert (derived(vault) / current).is_file()
     for legacy in views.LEGACY_K3_PAYLOADS:
@@ -521,10 +590,7 @@ def test_unknown_file_blocks_otherwise_valid_obsolete_cleanup(setup):
     data = views.BASE_OWNER.encode() + b"views: []\n"
     relative = "bases/obsolete.base"
     (derived(vault) / relative).write_bytes(data)
-    change_manifest(
-        vault,
-        lambda m: m["owned_files"].append({"path": relative, "sha256": technical.digest(data)}),
-    )
+    change_manifest(vault, lambda m: m["owned_files"].append(manifest_owned_item(relative, data)))
     (derived(vault) / "unknown.md").write_text("Preserve this unowned note")
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "Unknown/unowned")
     assert (derived(vault) / relative).read_bytes() == data
@@ -546,9 +612,7 @@ def test_manifest_cannot_claim_existing_authored_file_for_cleanup(setup, absolut
     relative = str(authored) if absolute else "../../authored/process.md"
     change_manifest(
         vault,
-        lambda m: m["owned_files"].append(
-            {"path": relative, "sha256": technical.digest(authored.read_bytes())}
-        ),
+        lambda m: m["owned_files"].append(manifest_owned_item(relative, authored.read_bytes())),
     )
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "Unsafe")
 
@@ -574,7 +638,16 @@ def test_manifest_cannot_claim_existing_authored_file_for_cleanup(setup, absolut
 def test_prior_manifest_paths_fail_closed(setup, path):
     repo, vault, sha = setup
     views.project(repo, vault, sha)
-    change_manifest(vault, lambda m: m["owned_files"].append({"path": path, "sha256": "0" * 64}))
+    change_manifest(
+        vault,
+        lambda m: m["owned_files"].append(
+            {
+                "path": path,
+                "sha256": "0" * 64,
+                "ownership": views.STRICT_OWNERSHIP,
+            }
+        ),
+    )
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha))
 
 
@@ -603,6 +676,28 @@ def test_invalid_manifest_rejected_before_writes(setup, fault):
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha))
 
 
+@pytest.mark.parametrize("fault", ["base_as_strict", "strict_as_base", "missing_semantic"])
+def test_v21_ownership_classification_fails_closed(setup, fault):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+
+    def edit(manifest):
+        base = next(
+            item for item in manifest["owned_files"] if item["path"] == str(views.DIRECT_BASE)
+        )
+        strict = next(item for item in manifest["owned_files"] if item["path"] == str(views.INDEX))
+        if fault == "base_as_strict":
+            base["ownership"] = views.STRICT_OWNERSHIP
+        elif fault == "strict_as_base":
+            strict["ownership"] = views.OBSIDIAN_BASE_OWNERSHIP
+            strict["semantic_sha256"] = strict["sha256"]
+        else:
+            base.pop("semantic_sha256")
+
+    change_manifest(vault, edit)
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "ownership")
+
+
 @pytest.mark.parametrize("suffix", [".base", ".md"])
 @pytest.mark.parametrize("edited", [False, True])
 def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
@@ -617,13 +712,15 @@ def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
     ).encode()
     path = derived(vault) / relative
     path.write_bytes(data)
-    change_manifest(
-        vault,
-        lambda m: m["owned_files"].append({"path": relative, "sha256": technical.digest(data)}),
-    )
+    change_manifest(vault, lambda m: m["owned_files"].append(manifest_owned_item(relative, data)))
     if edited:
-        path.write_bytes(data + b"Authored edits")
-        assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "Obsolete")
+        if suffix == ".base":
+            path.write_text(views.BASE_OWNER + "views:\n- type: table\n  name: Edited\n")
+            match = "semantically"
+        else:
+            path.write_bytes(data + b"Authored edits")
+            match = "Obsolete"
+        assert_no_mutation(setup, lambda: views.project(repo, vault, sha), match)
     else:
         views.project(repo, vault, sha)
         assert not path.exists()
@@ -633,8 +730,6 @@ def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
 @pytest.mark.parametrize(
     "relative",
     [
-        views.TECHNICAL_BASE,
-        views.DIRECT_BASE,
         views.INDEX,
         views.REFERENCE_INDEX,
         views.NAVIGATION,
@@ -649,6 +744,49 @@ def test_owner_marker_required_even_for_current_output(setup, relative):
     path = derived(vault) / relative
     path.write_text(path.read_text().replace(views.OWNER, "unowned"))
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "owner marker")
+
+
+def test_obsidian_normalized_bases_are_semantically_owned_and_check_is_zero_write(
+    obsidian_normalized_bases, monkeypatch
+):
+    repo, vault, sha, tree = obsidian_normalized_bases
+    manifest = yaml.safe_load(tree[views.MANIFEST])
+    owned = {item["path"]: item for item in manifest["owned_files"]}
+    for relative in views.OBSIDIAN_MANAGED_BASES:
+        data = (derived(vault) / relative).read_bytes()
+        assert not data.startswith(views.BASE_OWNER.encode())
+        assert data != tree[relative]
+        assert technical.digest(data) != owned[str(relative)]["sha256"]
+        assert views._base_semantic_digest(data) == owned[str(relative)]["semantic_sha256"]
+    before = filesystem_state(vault), snapshot(repo)
+    monkeypatch.setattr(views, "atomic_write", deny_write)
+    monkeypatch.setattr(technical, "atomic_write", deny_write)
+    monkeypatch.setattr(Path, "mkdir", deny_write)
+    monkeypatch.setattr(Path, "unlink", deny_write)
+    monkeypatch.setattr(Path, "write_bytes", deny_write)
+    monkeypatch.setattr(Path, "write_text", deny_write)
+    monkeypatch.setattr(technical.os, "replace", deny_write)
+    monkeypatch.setattr(tempfile, "NamedTemporaryFile", deny_write)
+    assert views.project(repo, vault, sha, check=True) == tree
+    assert (filesystem_state(vault), snapshot(repo)) == before
+
+
+@pytest.mark.parametrize("relative", sorted(views.OBSIDIAN_MANAGED_BASES))
+@pytest.mark.parametrize("change", ["name", "column_order", "filter"])
+def test_meaningful_base_changes_still_fail_closed(setup, relative, change):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    normalize_owned_bases_as_obsidian(vault)
+    path = derived(vault) / relative
+    base = yaml.safe_load(path.read_bytes())
+    if change == "name":
+        base["views"][0]["name"] += " — operator edit"
+    elif change == "column_order":
+        base["views"][0]["order"][-2:] = reversed(base["views"][0]["order"][-2:])
+    else:
+        base["filters"]["and"].append('file.name == "operator edit"')
+    path.write_text(yaml.safe_dump(base, allow_unicode=True, sort_keys=True))
+    assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "semantically")
 
 
 @pytest.mark.parametrize(
@@ -675,7 +813,7 @@ def test_check_is_zero_write_even_on_failure(setup, monkeypatch, state):
     if state != "missing":
         views.project(repo, vault, sha)
     if state == "drift":
-        path = derived(vault) / views.DIRECT_BASE
+        path = derived(vault) / views.INDEX
         path.write_bytes(path.read_bytes() + b"# drift\n")
     before = filesystem_state(vault), snapshot(repo)
     monkeypatch.setattr(views, "atomic_write", deny_write)
@@ -1081,7 +1219,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert len(migrated) == 9
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.0"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.1"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
@@ -1089,8 +1227,8 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     "version,path",
     [
         ("1.0", str(views.REFERENCE_INDEX)),
-        ("2.0", "indexes/other.yaml"),
-        ("2.0", "indexes/nested/declared-reference-index.yaml"),
+        ("2.1", "indexes/other.yaml"),
+        ("2.1", "indexes/nested/declared-reference-index.yaml"),
     ],
 )
 def test_a21_yaml_ownership_is_exact(setup, version, path):
@@ -1099,7 +1237,10 @@ def test_a21_yaml_ownership_is_exact(setup, version, path):
         install_v1(repo, vault, sha)
     else:
         views.project(repo, vault, sha)
-    change_manifest(vault, lambda m: m["owned_files"].append({"path": path, "sha256": "0" * 64}))
+    item = {"path": path, "sha256": "0" * 64}
+    if version == "2.1":
+        item["ownership"] = views.STRICT_OWNERSHIP
+    change_manifest(vault, lambda m: m["owned_files"].append(item))
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "ownership")
 
 
