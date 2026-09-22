@@ -74,6 +74,8 @@ OBSIDIAN_BASE_OWNERSHIP = "obsidian-base-semantics"
 OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE))
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
+HIERARCHY = PurePosixPath("indexes/Technical Hierarchy.md")
+HIERARCHY_DIR = PurePosixPath("hierarchy")
 MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
 VERIFIER_WORKBENCH = PurePosixPath("workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md")
 LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md")
@@ -118,6 +120,201 @@ def _technical_link(atlas: Atlas, identity: str) -> str:
     except KeyError as exc:
         raise ProjectionError(f"K3 anchor is missing from the Registry: {identity}") from exc
     return private_link(private_path(node), f"{node.name} · {node.id}")
+
+
+def _hierarchy_path(identity: str) -> PurePosixPath:
+    if not re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", identity):
+        raise ProjectionError(f"Invalid hierarchy identity: {identity}")
+    return HIERARCHY_DIR / f"{identity}.md"
+
+
+def _hierarchy_link(atlas: Atlas, identity: str) -> str:
+    node = atlas.entities[identity]
+    return _derived_link(_hierarchy_path(identity), f"{node.name} · {node.id}")
+
+
+def hierarchy_tree(commit: str, atlas: Atlas) -> dict[PurePosixPath, bytes]:
+    """Render every technical identity using only child-to-parent part_of edges."""
+    technical = {
+        identity: node
+        for identity, node in atlas.entities.items()
+        if isinstance(node, TechnicalIdentity)
+    }
+    parents: dict[str, set[str]] = {identity: set() for identity in technical}
+    children: dict[str, set[str]] = {identity: set() for identity in technical}
+    groups: dict[str, set[str]] = {identity: set() for identity in technical}
+    for edge in atlas.relationships:
+        if edge.relation not in {"part_of", "presented_in_domain"}:
+            continue
+        if edge.source not in atlas.entities or edge.target not in atlas.entities:
+            raise ProjectionError(
+                f"Missing hierarchy relationship endpoint: {edge.source} -> {edge.target}"
+            )
+        if edge.relation == "presented_in_domain":
+            if edge.source in groups:
+                if atlas.entities[edge.target].type != "Domain":
+                    raise ProjectionError("Presentation group is not a Domain")
+                groups[edge.source].add(edge.target)
+            continue
+        if edge.source not in technical or edge.target not in technical:
+            raise ProjectionError("part_of endpoint is not a technical identity")
+        if edge.source == edge.target:
+            raise ProjectionError(f"Self-parent part_of relationship: {edge.source}")
+        if edge.target in parents[edge.source]:
+            raise ProjectionError(f"Duplicate part_of relationship: {edge.source} -> {edge.target}")
+        parents[edge.source].add(edge.target)
+        children[edge.target].add(edge.source)
+
+    def order(identity: str) -> tuple[str, str]:
+        return (technical[identity].name.casefold(), identity)
+
+    # Resolve all paths, retaining every valid parent. An active-stack hit is a cycle.
+    paths: dict[str, tuple[tuple[str, ...], ...]] = {}
+    active: set[str] = set()
+
+    def paths_to(identity: str) -> tuple[tuple[str, ...], ...]:
+        if identity in active:
+            raise ProjectionError(f"Technical part_of cycle: {identity}")
+        if identity in paths:
+            return paths[identity]
+        active.add(identity)
+        result = (
+            tuple(
+                path + (identity,)
+                for parent in sorted(parents[identity], key=order)
+                for path in paths_to(parent)
+            )
+            if parents[identity]
+            else ((identity,),)
+        )
+        active.remove(identity)
+        paths[identity] = result
+        return result
+
+    for identity in sorted(technical):
+        paths_to(identity)
+
+    systems = sorted((i for i, n in technical.items() if n.type == "System"), key=order)
+    reachable = {
+        path[-1] for identity in technical for path in paths[identity] if path[0] in systems
+    }
+    detached = sorted(technical.keys() - reachable, key=lambda i: (technical[i].type, *order(i)))
+
+    def frontmatter(surface: str, identity: str | None = None) -> str:
+        props = dict(
+            generated_by=OWNER,
+            source_repository=REPOSITORY,
+            source_commit=commit,
+            hierarchy_view_schema_version="1.0",
+            hierarchy_surface=surface,
+        )
+        if identity is not None:
+            props.update(
+                hierarchy_subject=identity,
+                technical_parents=sorted(parents[identity], key=order),
+                technical_children=sorted(children[identity], key=order),
+                presentation_domains=sorted(groups[identity]),
+            )
+            if parents[identity]:
+                props["up"] = [
+                    f"[[{OWNED_ROOT / _hierarchy_path(parent).with_suffix('')}]]"
+                    for parent in sorted(parents[identity], key=order)
+                ]
+        return "---\n" + yaml_text(props) + "---\n"
+
+    tree: dict[PurePosixPath, bytes] = {}
+    entry = [
+        "# Technical Hierarchy",
+        "",
+        "Registry `part_of` defines technical ancestry: child → parent. "
+        "Domain grouping is a separate presentation view. Labels lead; stable IDs remain in links.",
+        "",
+        "## System roots",
+        "",
+    ]
+
+    def branch(identity: str, depth: int) -> None:
+        entry.append("  " * depth + "- " + _hierarchy_link(atlas, identity))
+        for child in sorted(children[identity], key=order):
+            branch(child, depth + 1)
+
+    for system in systems:
+        branch(system, 0)
+    if not systems:
+        entry.append("- No System root is declared.")
+    entry += [
+        "",
+        "## Without a `part_of` path to a System",
+        "",
+        "These technical records are not assigned a System parent by this view. "
+        "Other Registry relations and Domain grouping do not create ancestry.",
+        "",
+    ]
+    for identity in detached:
+        entry.append(f"- {_hierarchy_link(atlas, identity)} — `{technical[identity].type}`")
+    if not detached:
+        entry.append("- None.")
+    entry += [
+        "",
+        "## Presentation Domains",
+        "",
+        "Domain links below are grouping aids only; they are never technical parents.",
+        "",
+    ]
+    for identity, node in sorted(
+        atlas.entities.items(), key=lambda item: (item[1].name.casefold(), item[0])
+    ):
+        if node.type != "Domain":
+            continue
+        members = sorted((i for i in technical if identity in groups[i]), key=order)
+        entry.append(
+            f"- {_technical_link(atlas, identity)}: "
+            + ("; ".join(_hierarchy_link(atlas, i) for i in members) if members else "No members.")
+        )
+    entry += ["", f"{_derived_link(K3_HOME, 'Research Knowledge Home')}", ""]
+    tree[HIERARCHY] = (frontmatter("entry") + "\n".join(entry)).encode()
+
+    for identity in sorted(technical):
+        node = technical[identity]
+        parent_ids = sorted(parents[identity], key=order)
+        child_ids = sorted(children[identity], key=order)
+        lines = [
+            f"# {node.name}",
+            "",
+            f"Stable ID: `{identity}` · Type: `{node.type}`",
+            "",
+            f"- **Hierarchy:** {_derived_link(HIERARCHY, 'Technical Hierarchy')}",
+            f"- **Technical record:** {_technical_link(atlas, identity)}",
+            "",
+            "## Paths from System roots",
+            "",
+        ]
+        rooted = [path for path in paths[identity] if path[0] in systems]
+        if rooted:
+            for path in sorted(rooted, key=lambda p: tuple(order(i) for i in p)):
+                lines.append("- " + " → ".join(_hierarchy_link(atlas, i) for i in path))
+        else:
+            lines.append("- No `part_of` path to a System is declared; no root is inferred.")
+        lines += ["", "## Technical parents (`part_of`: this node → parent)", ""]
+        lines += [f"- {_hierarchy_link(atlas, i)}" for i in parent_ids] or ["- None declared."]
+        lines += ["", "## Technical children (`part_of`: child → this node)", ""]
+        lines += [f"- {_hierarchy_link(atlas, i)}" for i in child_ids] or ["- None declared."]
+        lines += [
+            "",
+            "## Presentation Domains (not technical ancestry)",
+            "",
+            "`presented_in_domain` is a view/navigation aid only.",
+            "",
+        ]
+        lines += [f"- {_technical_link(atlas, i)}" for i in sorted(groups[identity])] or [
+            "- None declared."
+        ]
+        lines += ["", f"{_derived_link(HIERARCHY, 'Back to Technical Hierarchy')}", ""]
+        path = _hierarchy_path(identity)
+        if path in tree:
+            raise ProjectionError(f"Duplicate hierarchy output path: {path}")
+        tree[path] = (frontmatter("technical-node", identity) + "\n".join(lines)).encode()
+    return tree
 
 
 def _markdown_table_cell(value: str) -> str:
@@ -217,7 +414,7 @@ def _render_workbench_orientation(atlas: Atlas, subject_id: str, title: str) -> 
         if groups
         else "No Registry presentation group is declared; none is inferred."
     )
-    return _render_orientation_header(
+    lines = _render_orientation_header(
         title=title,
         surface="Component workbench",
         stable_id=subject_id,
@@ -226,6 +423,8 @@ def _render_workbench_orientation(atlas: Atlas, subject_id: str, title: str) -> 
         presentation_context=presentation,
         research_fallback=_derived_link(INDEX, "Direct Views Index") + ".",
     )
+    lines.extend([f"- **Technical hierarchy:** {_hierarchy_link(atlas, subject_id)}", ""])
+    return lines
 
 
 def _historical_technical_evidence(
@@ -458,6 +657,10 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
             "- "
             + _derived_link(VERIFIER_WORKBENCH, "Independent Verifier · CMP-INDEPENDENT-VERIFIER"),
             "",
+            "## Technical hierarchy",
+            "",
+            f"- {_derived_link(HIERARCHY, 'Browse technical ancestry and presentation grouping')}",
+            "",
             "## Navigation contract",
             "",
             "Use stable Atlas IDs for identity. `part_of` is technical hierarchy; "
@@ -628,6 +831,10 @@ class ManifestV21(Manifest):
     owned_files: list[OwnedFileV21]
 
 
+class ManifestV22(ManifestV21):
+    view_schema_version: Literal["2.2"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -776,6 +983,10 @@ def reference_views_tree(
         snapshot,
         source_projection_present,
     )
+    hierarchy = hierarchy_tree(commit, atlas)
+    if tree.keys() & hierarchy.keys():
+        raise ProjectionError("Duplicate generated hierarchy path")
+    tree.update(hierarchy)
     text = utf8(tree[INDEX]).replace(
         "Navigation only; no scientific data index.",
         "Declared structured reference index for navigation/audit; no scientific adjudication.",
@@ -784,6 +995,7 @@ def reference_views_tree(
         text
         + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
         + f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}\n"
+        + f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}\n"
     ).encode()
     data = old.model_dump()
     owned_files = []
@@ -798,13 +1010,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.1",
+        view_schema_version="2.2",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV21.model_validate(data).model_dump(exclude_none=True)
+        ManifestV22.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -867,6 +1079,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = Manifest.model_validate(data)
         elif data.get("view_schema_version") == "2.1":
             manifest = ManifestV21.model_validate(data)
+        elif data.get("view_schema_version") == "2.2":
+            manifest = ManifestV22.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -884,8 +1098,21 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
-            or (manifest.view_schema_version in {"2.0", "2.1"} and relative == REFERENCE_INDEX)
-            or (manifest.view_schema_version in {"2.0", "2.1"} and relative in K3_PRIOR_PAYLOADS)
+            or (
+                manifest.view_schema_version in {"2.0", "2.1", "2.2"}
+                and relative == REFERENCE_INDEX
+            )
+            or (
+                manifest.view_schema_version in {"2.0", "2.1", "2.2"}
+                and relative in K3_PRIOR_PAYLOADS
+            )
+            or (manifest.view_schema_version == "2.2" and relative == HIERARCHY)
+            or (
+                manifest.view_schema_version == "2.2"
+                and relative.parent == HIERARCHY_DIR
+                and relative.suffix == ".md"
+                and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
+            )
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         if isinstance(item, OwnedFileV21):
