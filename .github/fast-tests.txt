@@ -36,6 +36,7 @@ tests/test_planner_output.py
 tests/test_project_control_contract.py
 tests/test_projectctl.py
 tests/test_research_atlas.py
+tests/test_workspace_harness_fast.py
 tests/test_run_mode_manifest_alignment.py
 tests/test_safe_reach_target.py
 tests/test_safe_reach_target_skill.py

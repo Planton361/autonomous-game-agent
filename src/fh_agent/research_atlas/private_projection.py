@@ -377,9 +377,8 @@ def atomic_write(root: Path, relative: PurePosixPath, data: bytes) -> None:
             temporary.unlink(missing_ok=True)
 
 
-def project(
-    repo_root: Path, vault_root: Path, source_ref: str, *, check: bool = False
-) -> dict[PurePosixPath, bytes]:
+def validate_private_vault(vault_root: Path, repo_root: Path) -> Path:
+    """Validate the shared physical-root and ownership-marker preconditions without writes."""
     repo = repo_root.resolve()
     no_symlink_boundary(vault_root.absolute())
     vault = vault_root.resolve()
@@ -399,6 +398,14 @@ def project(
         or metadata.get("project") != REPOSITORY
     ):
         raise ProjectionError("Invalid private marker version/project")
+    return vault
+
+
+def project(
+    repo_root: Path, vault_root: Path, source_ref: str, *, check: bool = False
+) -> dict[PurePosixPath, bytes]:
+    repo = repo_root.resolve()
+    vault = validate_private_vault(vault_root, repo)
     root = vault / OWNED_ROOT
     actual = inspect_owned(root)
     commit = source_state(repo, source_ref)
