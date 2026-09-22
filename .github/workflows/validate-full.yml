@@ -1,8 +1,6 @@
 name: validate-full
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
