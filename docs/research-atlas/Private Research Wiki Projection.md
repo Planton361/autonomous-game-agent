@@ -377,10 +377,50 @@ outputs while writing the current paths. Edited, unowned, unknown or unmanifeste
 files still fail closed; the retired names are never emitted as compatibility
 files.
 
-The K3 extension brings the current tree to eight owned payloads plus
+At W01, the K3 extension brought the tree to eight owned payloads plus
 `manifest/direct-views.yaml`, nine files total. The Direct Views Index links the
 Research Knowledge Home entry. K3 does not write authored
 private records, source identities, scientific evidence or claims.
+
+## W02 technical hierarchy navigator (manifest v2.2)
+
+The `research-wiki-derived` owner now adds `indexes/Technical Hierarchy.md` and
+one `hierarchy/<stable technical ID>.md` note per current technical Registry identity.
+The same manifest owns each output with a strict byte digest. The generated notes
+link to their corresponding `_generated/technical-atlas/records/<ID>.md` notes;
+they do not edit those notes or any authored note. Existing v1/v2.0/v2.1 manifests
+are read for bounded migration. A v2.2 manifest can claim only the fixed entry
+path and stable-ID-shaped Markdown paths under `hierarchy/`; unknown files remain
+unowned and block application. Obsolete hierarchy files require the prior owner
+marker and recorded byte digest before cleanup.
+
+The entry starts at declared System roots and expands only `part_of` edges in
+their Registry direction (child → parent). Each node note lists every rooted path,
+all direct parents, all direct children, and a link back to the entry. Multiple
+parents produce multiple paths. Technical records without a `part_of` path to a
+System appear in a separate unconnected section; interfaces, contracts, data,
+measurements and environments are not given invented parents. A separate Domain
+section uses only `presented_in_domain` and states that it is presentation
+grouping, never ancestry. Labels lead in all navigation text; IDs remain visible
+and provide stable filenames and frontmatter identity. Sorted labels with ID
+tie-breaks make the output independent of Registry enumeration order. Cycles,
+self-parent edges, missing endpoints and duplicate output paths fail before writes.
+
+Generated frontmatter includes `technical_parents`, `technical_children`, and
+`presentation_domains` for derived navigation consumers. Nodes with declared
+parents also carry an `up` list of links to those generated parent notes. This
+matches the optional Breadcrumbs typed-link field described in its
+[hierarchy guide](https://breadcrumbs-docs.michaelpporter.com/guides/getting-started-with-hierarchies/)
+and supports multiple parents without choosing one. These fields are
+reconstructable from the Registry; no plugin setting or private `.obsidian` state
+is written. An operator who uses Breadcrumbs may need to enable its typed-link
+builder and rebuild its graph; this is optional configuration. Plain Markdown
+paths and parent/child lists are the complete navigation fallback. Research
+Knowledge Home and the two existing K3 workbenches link into the hierarchy while
+retaining their W01 status and Interface
+lane semantics. Real-vault application remains a separate G6 step after CONTROL
+reviews an exact PR head; use only `uv run --no-sync fh-agent workspace apply`
+with the #82 restore-point harness.
 
 See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)
 for exact resolution, closed rows, E1–E9 and the finite Component/RQ/Process

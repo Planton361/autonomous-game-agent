@@ -14,7 +14,8 @@ from test_research_wiki_projection import commit, filesystem_state, git, snapsho
 
 from fh_agent.research_atlas import private_projection as technical
 from fh_agent.research_atlas import private_views as views
-from fh_agent.research_atlas.validator import load_registry
+from fh_agent.research_atlas.schema import Relationship
+from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.wiki_schema import Process, validate_wiki_records
 from fh_agent.research_atlas.workspace import parse_frontmatter, render_base, workspace_tree
 
@@ -167,9 +168,25 @@ def downgrade_manifest_to_v2(vault):
     path = derived(vault) / views.MANIFEST
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.0"
+    # Reconstruct the old finite output set before testing a v2.0 migration.
+    for item in list(manifest["owned_files"]):
+        if item["path"] == str(views.HIERARCHY) or item["path"].startswith("hierarchy/"):
+            (derived(vault) / item["path"]).unlink()
+            manifest["owned_files"].remove(item)
     for item in manifest["owned_files"]:
         item.pop("ownership")
         item.pop("semantic_sha256", None)
+    path.write_text(technical.yaml_text(manifest))
+
+
+def install_pre_w02_v21(vault):
+    path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(path.read_text())
+    manifest["view_schema_version"] = "2.1"
+    for item in list(manifest["owned_files"]):
+        if item["path"] == str(views.HIERARCHY) or item["path"].startswith("hierarchy/"):
+            (derived(vault) / item["path"]).unlink()
+            manifest["owned_files"].remove(item)
     path.write_text(technical.yaml_text(manifest))
 
 
@@ -222,7 +239,8 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.K3_HOME,
         views.MEMORY_WORKBENCH,
         views.VERIFIER_WORKBENCH,
-    }
+        views.HIERARCHY,
+    } | set(views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas")))
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
     assert outside_owned(vault) == before
     first = snapshot(derived(vault))
@@ -239,7 +257,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.1"
+    assert manifest["view_schema_version"] == "2.2"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -298,6 +316,114 @@ def test_k3_payloads_use_stable_ids_and_exact_typed_relationships(setup):
     assert "Presentation grouping (not technical `part_of`)" in verifier
     assert "DOM-COGNITION" not in memory
     assert "RQ-PROGRAM-AB-001" not in memory
+
+
+def test_w02_hierarchy_direction_domain_separation_and_link_targets(setup):
+    repo, vault, sha = setup
+    tree = views.project(repo, vault, sha)
+    entry = tree[views.HIERARCHY].decode()
+    memory = tree[views._hierarchy_path("CMP-MEMORY")].decode()
+    retrieval = tree[views._hierarchy_path("CMP-MEM-RETRIEVAL")].decode()
+    verifier = tree[views._hierarchy_path("CMP-INDEPENDENT-VERIFIER")].decode()
+    assert "# Technical Hierarchy" in entry
+    assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in entry
+    assert "Independent Verifier · CMP-INDEPENDENT-VERIFIER" in entry
+    assert "## Technical children" in memory
+    assert "Memory Retrieval · CMP-MEM-RETRIEVAL" not in memory
+    assert "## Technical parents" in retrieval
+    assert "Autonomous Game Agent Experiment System · SYS-AGA" in retrieval
+    assert "Memory · CMP-MEMORY" not in retrieval
+    retrieval_props, _ = technical.markdown_parts(retrieval)
+    assert retrieval_props["up"] == ["[[_generated/derived/hierarchy/SYS-AGA]]"]
+    assert retrieval_props["presentation_domains"] == ["DOM-EVIDENCE-MEMORY"]
+    assert "Verification & Learning · DOM-VERIFY-LEARN" in verifier
+    assert "## Presentation Domains (not technical ancestry)" in verifier
+    assert "## Without a `part_of` path to a System" in entry
+    assert (
+        "No `part_of` path to a System is declared"
+        in tree[views._hierarchy_path("IF-MEM-CORTEX")].decode()
+    )
+    for path, data in tree.items():
+        if path != views.HIERARCHY and path.parent != views.HIERARCHY_DIR:
+            continue
+        for link in re.findall(r"\[\[([^\]]+)\]\]", data.decode()):
+            target = link.partition("|")[0]
+            assert (vault / f"{target}.md").is_file(), (path, target)
+
+
+def test_w02_multiple_parents_cycles_self_parent_and_shuffled_order():
+    atlas = load_registry(ATLAS)
+    extra = Relationship(relation="part_of", source="CMP-BOUNDED-REFLEX", target="CMP-MANAGER")
+    multi = Atlas(atlas.entities, (*atlas.relationships, extra))
+    first = views.hierarchy_tree("a" * 40, multi)
+    reflex = first[views._hierarchy_path("CMP-BOUNDED-REFLEX")].decode()
+    assert "Body · CMP-BODY" in reflex and "Manager · CMP-MANAGER" in reflex
+    assert reflex.count("→ [[_generated/derived/hierarchy/CMP-BOUNDED-REFLEX") == 2
+    reflex_props, _ = technical.markdown_parts(reflex)
+    assert reflex_props["technical_parents"] == ["CMP-BODY", "CMP-MANAGER"]
+    assert reflex_props["up"] == [
+        "[[_generated/derived/hierarchy/CMP-BODY]]",
+        "[[_generated/derived/hierarchy/CMP-MANAGER]]",
+    ]
+    shuffled = Atlas(
+        dict(reversed(list(atlas.entities.items()))), tuple(reversed(multi.relationships))
+    )
+    assert first == views.hierarchy_tree("a" * 40, shuffled)
+    with pytest.raises(technical.ProjectionError, match="cycle"):
+        views.hierarchy_tree(
+            "a" * 40,
+            Atlas(
+                atlas.entities,
+                (
+                    *atlas.relationships,
+                    Relationship(
+                        relation="part_of", source="CMP-BODY", target="CMP-BOUNDED-REFLEX"
+                    ),
+                ),
+            ),
+        )
+    with pytest.raises(technical.ProjectionError, match="Self-parent"):
+        views.hierarchy_tree(
+            "a" * 40,
+            Atlas(
+                atlas.entities,
+                (
+                    *atlas.relationships,
+                    Relationship(relation="part_of", source="CMP-BODY", target="CMP-BODY"),
+                ),
+            ),
+        )
+    with pytest.raises(technical.ProjectionError, match="Missing hierarchy relationship endpoint"):
+        views.hierarchy_tree(
+            "a" * 40,
+            Atlas(
+                atlas.entities,
+                (
+                    *atlas.relationships,
+                    Relationship(relation="part_of", source="CMP-MISSING", target="SYS-AGA"),
+                ),
+            ),
+        )
+    with pytest.raises(technical.ProjectionError, match="Duplicate part_of"):
+        views.hierarchy_tree(
+            "a" * 40,
+            Atlas(atlas.entities, (*atlas.relationships, extra, extra)),
+        )
+
+
+def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    install_pre_w02_v21(vault)
+    before = filesystem_state(vault)
+    authored = outside_owned(vault)
+    with pytest.raises(technical.ProjectionError, match="drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    tree = views.project(repo, vault, sha)
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.2"
+    assert views.project(repo, vault, sha, check=True) == tree
+    assert outside_owned(vault) == authored
 
 
 def test_w01_orientation_is_consistent_human_first_and_plain_markdown(setup):
@@ -423,7 +549,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.1"
+    assert manifest["view_schema_version"] == "2.2"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -853,7 +979,8 @@ def test_atomic_payloads_and_manifest_last(setup, monkeypatch):
     monkeypatch.setattr(technical.os, "replace", replace_same_directory)
     views.project(repo, vault, sha)
     assert writes[-1] == replaces[-1] == views.MANIFEST
-    assert len(writes) == len(replaces) == 9
+    manifest = yaml.safe_load((derived(vault) / views.MANIFEST).read_text())
+    assert len(writes) == len(replaces) == len(manifest["owned_files"]) + 1
     assert not list(derived(vault).rglob(".projection-*"))
 
 
@@ -1216,10 +1343,10 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
-    assert len(migrated) == 9
+    assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.1"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.2"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
