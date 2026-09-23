@@ -294,6 +294,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                 if node.level:
                     assert node.level == 1
                     assert node.module in {
+                        "anatomy",
                         "schema",
                         "validator",
                         "render",
