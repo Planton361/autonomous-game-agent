@@ -4,9 +4,13 @@ Generated from Registry YAML; fully overwriteable. Do not edit structured claims
 
 Registry = authoritative SOT. Generated notes = views. Presentation Domain != technical hierarchy: only `part_of` defines technical ancestry.
 
-Open docs/research-atlas/ as an Obsidian vault. Enable the Bases core plugin. The Excalidraw community plugin is required only for the visual map; no personal plugin settings are committed.
+Open docs/research-atlas/ as an Obsidian vault. Enable the Bases core plugin. The Excalidraw community plugin is required only for the rich visual surfaces; no personal plugin settings are committed.
 
-[[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]] · [[Generated/Atlas Views.base|Atlas Views]] · [[overview|Compatibility overview]]
+**Primary visual entry:** [[Assets/Excalidraw/Agent Anatomy.excalidraw|Agent Anatomy]] · [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval slice]].
+
+**Fallback / reference:** If Excalidraw is unavailable, use this Markdown Home, the linked technical records and [[overview|Compatibility overview]]. The previous [[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]] remains available for W03 comparison and rollback.
+
+[[Generated/Atlas Views.base|Atlas Views]]
 
 ## Read and maintain
 
@@ -18,7 +22,7 @@ Zotero/Work remain external proposal boundaries only: no API, automation, import
 
 Regenerate from repository root with `uv run --no-sync python -m fh_agent.research_atlas.workspace docs/research-atlas`; append `--check` for drift validation. The old dossiers/ views are migrated and removed.
 
-File-format references: [Bases syntax](https://obsidian.md/help/bases/syntax), [Excalidraw writer](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/master/src/shared/ExcalidrawData.ts) and [Drawing parser](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/master/src/shared/excalidrawMarkdownParsing.ts). The generated map uses parsed frontmatter, Text Elements, Element Links and an uncompressed JSON Drawing section. Validation is structural; it does not claim an interactive Obsidian plugin test.
+File-format references: [Bases syntax](https://obsidian.md/help/bases/syntax), [Excalidraw writer](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/master/src/shared/ExcalidrawData.ts) and [Drawing parser](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/master/src/shared/excalidrawMarkdownParsing.ts). The generated maps use parsed frontmatter, Text Elements, Element Links and an uncompressed JSON Drawing section. Validation is structural; it does not claim an interactive Obsidian plugin test.
 
 ## System and presentation views
 

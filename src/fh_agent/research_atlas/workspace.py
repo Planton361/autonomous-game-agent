@@ -38,6 +38,10 @@ FOLDERS = {
 HOME_PATH = PurePosixPath("Home/Research Atlas.md")
 BASE_PATH = PurePosixPath("Generated/Atlas Views.base")
 MAP_PATH = PurePosixPath("Assets/Excalidraw/System Anatomy.excalidraw.md")
+ANATOMY_PATH = PurePosixPath("Assets/Excalidraw/Agent Anatomy.excalidraw.md")
+DOMAIN_SLICE_PATH = PurePosixPath(
+    "Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw.md"
+)
 WIKILINK = re.compile(r"\[\[([^\]\n]+)\]\]")
 
 
@@ -325,11 +329,19 @@ def render_home(atlas: Atlas) -> str:
         "Presentation Domain != technical hierarchy: only `part_of` defines technical ancestry.",
         "",
         "Open docs/research-atlas/ as an Obsidian vault. Enable the Bases core plugin. "
-        "The Excalidraw community plugin is required only for the visual map; "
+        "The Excalidraw community plugin is required only for the rich visual surfaces; "
         "no personal plugin settings are committed.",
         "",
-        "[[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]] · "
-        "[[Generated/Atlas Views.base|Atlas Views]] · [[overview|Compatibility overview]]",
+        "**Primary visual entry:** [[Assets/Excalidraw/Agent Anatomy.excalidraw|Agent Anatomy]] · "
+        "[[Assets/Excalidraw/Domain Evidence, Memory & "
+        "Retrieval.excalidraw|Evidence, Memory & Retrieval slice]].",
+        "",
+        "**Fallback / reference:** If Excalidraw is unavailable, use this Markdown Home, "
+        "the linked technical records and [[overview|Compatibility overview]]. The previous "
+        "[[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]] remains available for "
+        "W03 comparison and rollback.",
+        "",
+        "[[Generated/Atlas Views.base|Atlas Views]]",
         "",
         "## Read and maintain",
         "",
@@ -353,7 +365,7 @@ def render_home(atlas: Atlas) -> str:
         "[Excalidraw writer](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/"
         "master/src/shared/ExcalidrawData.ts) and "
         "[Drawing parser](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/"
-        "master/src/shared/excalidrawMarkdownParsing.ts). The generated map uses parsed "
+        "master/src/shared/excalidrawMarkdownParsing.ts). The generated maps use parsed "
         "frontmatter, Text Elements, Element Links and an uncompressed JSON Drawing section. "
         "Validation is structural; it does not claim an interactive Obsidian plugin test.",
         "",
@@ -771,6 +783,7 @@ def render_map(atlas: Atlas) -> str:
 
 
 def workspace_tree(atlas: Atlas) -> dict[PurePosixPath, str]:
+    from .anatomy import render_agent_anatomy, render_domain_slice
     from .render import render_overview
 
     tree = {
@@ -784,6 +797,8 @@ def workspace_tree(atlas: Atlas) -> dict[PurePosixPath, str]:
             HOME_PATH: render_home(atlas),
             BASE_PATH: render_base(),
             MAP_PATH: render_map(atlas),
+            ANATOMY_PATH: render_agent_anatomy(atlas),
+            DOMAIN_SLICE_PATH: render_domain_slice(atlas),
             PurePosixPath("overview.md"): render_overview(atlas),
         }
     )
@@ -802,6 +817,8 @@ def validate_links(tree: Mapping[PurePosixPath, str]) -> None:
 
 def validate_workspace_tree(atlas: Atlas, tree: Mapping[PurePosixPath, str]) -> None:
     """Validate record coverage, Base property contract and map identity before writing."""
+    from .anatomy import validate_generated_visuals
+
     validate_links(tree)
     records: dict[str, dict] = {}
     for path, text in tree.items():
@@ -828,38 +845,7 @@ def validate_workspace_tree(atlas: Atlas, tree: Mapping[PurePosixPath, str]) -> 
     referenced = set(re.findall(r"note\.([a-z_]+)", tree[BASE_PATH]))
     if not referenced <= properties:
         raise ValueError(f"Base references undeclared Properties: {referenced - properties}")
-    drawing = tree[MAP_PATH]
-    if parse_frontmatter(drawing).get("excalidraw-plugin") != "parsed":
-        raise ValueError("Map requires parsed Excalidraw frontmatter")
-    if "## Text Elements\n" not in drawing or "## Element Links\n" not in drawing:
-        raise ValueError("Map requires Text Elements and Element Links sections")
-    match = re.search(r"\n## Drawing\n[^`]*```json\n([\s\S]*?)```\n", drawing)
-    if not match:
-        raise ValueError("Map requires uncompressed JSON Drawing section")
-    scene = json.loads(match.group(1))
-    elements = scene["elements"]
-    if scene.get("type") != "excalidraw" or scene.get("version") != 2 or scene.get("files"):
-        raise ValueError("Invalid basic Excalidraw scene")
-    if len({el["id"] for el in elements}) != len(elements):
-        raise ValueError("Duplicate Excalidraw element ID")
-    map_records = set()
-    relations = [e.model_dump(exclude_none=True) for e in atlas.relationships]
-    for element in elements:
-        if element["type"] not in {"rectangle", "text", "arrow"}:
-            raise ValueError("Unsupported Excalidraw element type")
-        if element["type"] == "arrow":
-            if element.get("customData", {}).get("atlas_relation") not in relations:
-                raise ValueError("Map arrow must correspond to a typed Registry relationship")
-        identity = element.get("customData", {}).get("atlas_id")
-        if identity is not None:
-            if identity not in atlas.entities or identity in map_records:
-                raise ValueError("Invalid or duplicate map record ID")
-            if element.get("link") != note_link(atlas.entities[identity]):
-                raise ValueError("Map record link mismatch")
-            map_records.add(identity)
-    required = map_record_ids(atlas)
-    if required != map_records:
-        raise ValueError(f"Map central-node coverage mismatch: {required ^ map_records}")
+    validate_generated_visuals(atlas, tree)
 
 
 def parse_frontmatter(text: str) -> dict:
@@ -905,8 +891,12 @@ def validate_workspace(atlas: Atlas, root: Path) -> None:
     # This public-safe copy source is not another generated public workspace Base.
     bases.discard(PurePosixPath("Wiki Views/Research Wiki Direct Views.base"))
     maps = {PurePosixPath(p.relative_to(root).as_posix()) for p in root.rglob("*.excalidraw.md")}
-    if bases != {BASE_PATH} or maps != {MAP_PATH}:
-        raise ValueError("Exactly one central Base and map required")
+    if bases != {BASE_PATH}:
+        raise ValueError("Exactly one central Base required")
+    if maps != {MAP_PATH, ANATOMY_PATH, DOMAIN_SLICE_PATH}:
+        raise ValueError(
+            "Generated workspace visual ownership differs from the finite W03 output set"
+        )
 
 
 def write_workspace(atlas: Atlas, root: Path) -> None:

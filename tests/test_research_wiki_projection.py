@@ -434,6 +434,7 @@ def test_display_rename_keeps_private_path_and_resolver_links(setup, display_nam
     index = yaml.safe_load(tree[projection.INDEX])
     assert index["entries"]["CMP-CORTEX"]["path"] == "records/CMP-CORTEX.md"
     targets = {str(projection.OWNED_ROOT / p.with_suffix("")) for p in tree if p.suffix == ".md"}
+    targets.add(str(projection.K3_HOME_TARGET.with_suffix("")))
     for data in tree.values():
         for target in re.findall(r"\[\[([^|\]]+)\|", data.decode()):
             assert target in targets
@@ -458,6 +459,46 @@ def test_private_map_preserves_public_semantics(setup):
     assert {k: v for k, v in public.items() if k != "elements"} == {
         k: v for k, v in private.items() if k != "elements"
     }
+
+
+def test_w03_v10_projection_manifest_migrates_finite_visual_outputs(setup):
+    _, vault, _ = setup
+    authored = snapshot(vault, authored=True)
+    current_tree = generate(setup)
+    root = vault / projection.OWNED_ROOT
+    manifest_path = root / projection.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_text())
+    legacy_map = current_tree[projection.MAP]
+    for item in list(manifest["owned_files"]):
+        if item["kind"] in {"agent_anatomy", "domain_slice"}:
+            (root / item["path"]).unlink()
+            manifest["owned_files"].remove(item)
+    manifest["projection_schema_version"] = "1.0"
+    manifest_path.write_text(yaml.safe_dump(manifest))
+    before_check = filesystem_state(vault)
+    with pytest.raises(projection.ProjectionError, match="drift"):
+        generate(setup, check=True)
+    assert filesystem_state(vault) == before_check
+
+    migrated = generate(setup)
+    final_manifest = yaml.safe_load(migrated[projection.MANIFEST])
+    assert final_manifest["projection_schema_version"] == "1.1"
+    assert migrated[projection.MAP] == legacy_map
+    assert projection.ANATOMY in migrated and projection.DOMAIN_SLICE in migrated
+    owned_visuals = {
+        item["kind"]: item["path"]
+        for item in final_manifest["owned_files"]
+        if item["kind"] in {"system_map", "agent_anatomy", "domain_slice"}
+    }
+    assert owned_visuals == {
+        "system_map": str(projection.MAP),
+        "agent_anatomy": str(projection.ANATOMY),
+        "domain_slice": str(projection.DOMAIN_SLICE),
+    }
+    assert snapshot(vault, authored=True) == authored
+    before_final_check = filesystem_state(vault)
+    assert generate(setup, check=True) == migrated
+    assert filesystem_state(vault) == before_final_check
 
 
 @pytest.mark.parametrize("drift", ["none", "missing", "content", "unknown", "empty"])
