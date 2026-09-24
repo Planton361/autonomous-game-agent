@@ -825,8 +825,8 @@ def render_domain_slice(atlas: Atlas) -> str:
         _navigation_button(
             "research-home-detail-navigation",
             (
-                "Research Knowledge Home · Technical Hierarchy / exact records / "
-                "Memory Retrieval workbench"
+                "Research Knowledge Home · Memory Retrieval Component Hub / "
+                "Technical Hierarchy / exact records"
             ),
             HOME_PATH,
             (500, 1240, 1150, 64),

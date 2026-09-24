@@ -4,6 +4,7 @@ import argparse
 import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal
 from urllib.parse import quote
@@ -80,32 +81,89 @@ HIERARCHY = PurePosixPath("indexes/Technical Hierarchy.md")
 HIERARCHY_DIR = PurePosixPath("hierarchy")
 MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
 VERIFIER_WORKBENCH = PurePosixPath("workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md")
+MEMORY_HUB_TECHNICAL = PurePosixPath(
+    "workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Technical.md"
+)
+MEMORY_HUB_RESEARCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Research.md")
+VERIFIER_HUB_TECHNICAL = PurePosixPath(
+    "workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Technical.md"
+)
+VERIFIER_HUB_RESEARCH = PurePosixPath(
+    "workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Research.md"
+)
 LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memory Retrieval.md")
 LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
     "workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md"
 )
-K3_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH))
+K3_PAYLOADS = frozenset(
+    (
+        K3_HOME,
+        MEMORY_WORKBENCH,
+        VERIFIER_WORKBENCH,
+        MEMORY_HUB_TECHNICAL,
+        MEMORY_HUB_RESEARCH,
+        VERIFIER_HUB_TECHNICAL,
+        VERIFIER_HUB_RESEARCH,
+    )
+)
+K3_HUB_CHILD_PAYLOADS = frozenset(
+    (
+        MEMORY_HUB_TECHNICAL,
+        MEMORY_HUB_RESEARCH,
+        VERIFIER_HUB_TECHNICAL,
+        VERIFIER_HUB_RESEARCH,
+    )
+)
 LEGACY_K3_PAYLOADS = frozenset((LEGACY_MEMORY_WORKBENCH, LEGACY_VERIFIER_WORKBENCH))
-K3_PRIOR_PAYLOADS = K3_PAYLOADS | LEGACY_K3_PAYLOADS
-K3_VIEW_SCHEMA_VERSION = "1.2"
+K3_PRIOR_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH)) | LEGACY_K3_PAYLOADS
+K3_VIEW_SCHEMA_VERSION = "1.3"
 
-MEMORY_IDS = (
-    "CMP-MEM-RETRIEVAL",
-    "SYS-AGA",
-    "DOM-EVIDENCE-MEMORY",
-    "IF-MEM-CORTEX",
-    "CON-CORTEX-CONTEXT",
-    "DAT-RETRIEVAL-SNAPSHOT",
-    "MEAS-RETRIEVAL-DELIVERY-001",
-)
-VERIFIER_IDS = (
-    "CMP-INDEPENDENT-VERIFIER",
-    "SYS-AGA",
-    "DOM-VERIFY-LEARN",
-    "DAT-OBSERVATION",
-    "DAT-VISIBLE-OUTCOME",
-    "CON-VERIFIER-RESULT",
-)
+
+@dataclass(frozen=True, slots=True)
+class ComponentHubPaths:
+    overview: PurePosixPath
+    technical: PurePosixPath
+    research: PurePosixPath
+
+
+COMPONENT_HUB_PATHS = {
+    "CMP-MEM-RETRIEVAL": ComponentHubPaths(
+        overview=MEMORY_WORKBENCH,
+        technical=MEMORY_HUB_TECHNICAL,
+        research=MEMORY_HUB_RESEARCH,
+    ),
+    "CMP-INDEPENDENT-VERIFIER": ComponentHubPaths(
+        overview=VERIFIER_WORKBENCH,
+        technical=VERIFIER_HUB_TECHNICAL,
+        research=VERIFIER_HUB_RESEARCH,
+    ),
+}
+
+_COMPONENT_LANE_RELATIONS = {
+    "Interface": frozenset({"supplies", "consumes"}),
+    "Contract": frozenset({"supplies", "consumes", "constrains", "executes", "verifies"}),
+    "DataArtifact": frozenset(
+        {"supplies", "consumes", "observes", "updates", "retrieves_from", "derived_from"}
+    ),
+    "MeasurementPoint": frozenset({"measured_at"}),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentHubModel:
+    """Shared Hub inputs resolved from one Component's exact Registry relations."""
+
+    subject_id: str
+    paths: ComponentHubPaths
+    technical_parent_ids: tuple[str, ...]
+    child_component_ids: tuple[str, ...]
+    presentation_domain_ids: tuple[str, ...]
+    interface_ids: tuple[str, ...]
+    contract_ids: tuple[str, ...]
+    data_artifact_ids: tuple[str, ...]
+    measurement_point_ids: tuple[str, ...]
+    selected_ids: tuple[str, ...]
+    direct_relationships: tuple[Relationship, ...]
 
 
 def _derived_link(path: PurePosixPath, label: str) -> str:
@@ -287,10 +345,13 @@ def hierarchy_tree(commit: str, atlas: Atlas) -> dict[PurePosixPath, bytes]:
             "",
             f"- **Hierarchy:** {_derived_link(HIERARCHY, 'Technical Hierarchy')}",
             f"- **Technical record:** {_technical_link(atlas, identity)}",
-            "",
-            "## Paths from System roots",
-            "",
         ]
+        hub_paths = COMPONENT_HUB_PATHS.get(identity)
+        if hub_paths is not None:
+            lines.append(
+                f"- **Component Hub:** {_derived_link(hub_paths.overview, 'Open Overview')}"
+            )
+        lines.extend(["", "## Paths from System roots", ""])
         rooted = [path for path in paths[identity] if path[0] in systems]
         if rooted:
             for path in sorted(rooted, key=lambda p: tuple(order(i) for i in p)):
@@ -365,6 +426,95 @@ def _relationship_targets(atlas: Atlas, source: str, relation: str) -> tuple[str
     )
 
 
+def _component_hub_model(atlas: Atlas, subject_id: str) -> ComponentHubModel:
+    """Build the common Hub input from exact, directly registered Component relations."""
+    try:
+        paths = COMPONENT_HUB_PATHS[subject_id]
+    except KeyError as exc:
+        raise ProjectionError(f"Unsupported Component Hub subject: {subject_id}") from exc
+    subject = _k3_node(atlas, subject_id)
+    if not isinstance(subject, TechnicalIdentity) or subject.type != "Component":
+        raise ProjectionError(f"Component Hub subject is not a Component: {subject_id}")
+
+    def ordered(identities: set[str] | tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                identities,
+                key=lambda identity: (atlas.entities[identity].name.casefold(), identity),
+            )
+        )
+
+    parents = set(_relationship_targets(atlas, subject_id, "part_of"))
+    children = {
+        edge.source
+        for edge in atlas.relationships
+        if edge.relation == "part_of"
+        and edge.target == subject_id
+        and atlas.entities[edge.source].type == "Component"
+    }
+    domains = set(_relationship_targets(atlas, subject_id, "presented_in_domain"))
+    for identity in parents | children:
+        if not isinstance(_k3_node(atlas, identity), TechnicalIdentity):
+            raise ProjectionError("Component Hub part_of endpoint is not a technical identity")
+    for identity in domains:
+        if _k3_node(atlas, identity).type != "Domain":
+            raise ProjectionError("Component Hub presentation endpoint is not a Domain")
+
+    related: dict[str, set[str]] = {
+        "Interface": set(),
+        "Contract": set(),
+        "DataArtifact": set(),
+        "MeasurementPoint": set(),
+    }
+    direct_relationships = tuple(
+        sorted(
+            (
+                edge
+                for edge in atlas.relationships
+                if edge.source == subject_id or edge.target == subject_id
+            ),
+            key=lambda edge: (edge.relation, edge.source, edge.target),
+        )
+    )
+    for edge in direct_relationships:
+        if edge.relation in {"part_of", "presented_in_domain"}:
+            continue
+        neighbor = edge.target if edge.source == subject_id else edge.source
+        kind = atlas.entities[neighbor].type
+        if kind in related and edge.relation in _COMPONENT_LANE_RELATIONS[kind]:
+            related[kind].add(neighbor)
+
+    interface_ids = ordered(related["Interface"])
+    contract_ids = ordered(related["Contract"])
+    data_artifact_ids = ordered(related["DataArtifact"])
+    measurement_point_ids = ordered(related["MeasurementPoint"])
+    selected = {
+        subject_id,
+        *parents,
+        *children,
+        *domains,
+        *interface_ids,
+        *contract_ids,
+        *data_artifact_ids,
+        *measurement_point_ids,
+    }
+    historical = _historical_technical_evidence(atlas, tuple(sorted(selected - domains)))
+    selected.update(source.id for source, _ in historical)
+    return ComponentHubModel(
+        subject_id=subject_id,
+        paths=paths,
+        technical_parent_ids=ordered(parents),
+        child_component_ids=ordered(children),
+        presentation_domain_ids=ordered(domains),
+        interface_ids=interface_ids,
+        contract_ids=contract_ids,
+        data_artifact_ids=data_artifact_ids,
+        measurement_point_ids=measurement_point_ids,
+        selected_ids=ordered(selected),
+        direct_relationships=direct_relationships,
+    )
+
+
 def _render_orientation_header(
     *,
     title: str,
@@ -401,31 +551,123 @@ def _render_orientation_header(
     return lines
 
 
-def _render_workbench_orientation(atlas: Atlas, subject_id: str, title: str) -> list[str]:
-    parents = _relationship_targets(atlas, subject_id, "part_of")
-    groups = _relationship_targets(atlas, subject_id, "presented_in_domain")
-    broader = (
-        "; ".join(_technical_link(atlas, identity) for identity in parents)
-        + " — exact Registry `part_of`."
-        if parents
-        else "No technical parent is declared in the Registry; none is inferred."
+def _render_hub_header(
+    atlas: Atlas, hub: ComponentHubModel, view: Literal["overview", "technical", "research"]
+) -> list[str]:
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"Component Hub subject is not technical: {hub.subject_id}")
+    labels = (("overview", "Overview"), ("technical", "Technical"), ("research", "Research"))
+    links = [
+        f"**{label}**" if view == key else _derived_link(getattr(hub.paths, key), label)
+        for key, label in labels
+    ]
+    return [
+        f"# {subject.name}",
+        "",
+        f"*Component Hub · {view.title()}*  ",
+        f"`{subject.id}`",
+        "",
+        "**Views:** " + " · ".join(links),
+        "",
+        "---",
+        "",
+    ]
+
+
+def _render_hub_return_navigation(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    lines = ["## Return navigation", ""]
+    lines.extend(
+        [
+            f"- {_derived_link(hub.paths.overview, 'Back to Overview')}",
+            f"- {_technical_surface_link(TECHNICAL_ANATOMY, 'Agent Anatomy')}",
+            f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}",
+            f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
+        ]
     )
-    presentation = (
-        "; ".join(_technical_link(atlas, identity) for identity in groups)
-        + " — Registry navigation grouping only, not technical ancestry."
-        if groups
-        else "No Registry presentation group is declared; none is inferred."
+    for identity in hub.presentation_domain_ids:
+        lines.append(f"- {_technical_link(atlas, identity)} — Registry presentation Domain")
+        if identity == "DOM-EVIDENCE-MEMORY":
+            lines.append(
+                "- "
+                + _technical_surface_link(
+                    TECHNICAL_DOMAIN_SLICE, "Evidence, Memory & Retrieval · Domain slice"
+                )
+            )
+    lines.append("")
+    return lines
+
+
+def _render_presentation_context(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    subject_link = _technical_link(atlas, hub.subject_id)
+    lines = ["## Navigation location and technical parentage", ""]
+    lines.append(
+        "**Navigation location** follows the Agent → presentation Domain → Component path; "
+        "this is not technical ancestry."
     )
-    lines = _render_orientation_header(
-        title=title,
-        surface="Component workbench",
-        stable_id=subject_id,
-        home=_derived_link(K3_HOME, "Research Knowledge Home") + ".",
-        broader_context=broader,
-        presentation_context=presentation,
-        research_fallback=_derived_link(INDEX, "Direct Views Index") + ".",
-    )
-    lines.extend([f"- **Technical hierarchy:** {_hierarchy_link(atlas, subject_id)}", ""])
+    if hub.presentation_domain_ids:
+        for identity in hub.presentation_domain_ids:
+            lines.append(
+                f"- {_technical_surface_link(TECHNICAL_ANATOMY, 'Agent')} → "
+                f"{_technical_link(atlas, identity)} → {subject_link}"
+            )
+    else:
+        lines.append("- No Registry presentation Domain is declared; none is inferred.")
+    lines.extend(["", "**Technical parent(s)** come only from outgoing Registry `part_of` edges."])
+    if hub.technical_parent_ids:
+        for identity in hub.technical_parent_ids:
+            lines.append(f"- {subject_link} — `part_of` → {_technical_link(atlas, identity)}")
+    else:
+        lines.append("- No technical parent is declared in the Registry; none is inferred.")
+    lines.append("")
+    return lines
+
+
+def _render_overview_status(subject: TechnicalIdentity) -> list[str]:
+    status = subject.technical
+    return [
+        "## Current technical state",
+        "",
+        "These Registry axes stay separate; this view creates no combined status "
+        "or maturity label.",
+        "",
+        "| Axis | Current Registry state | What it describes |",
+        "| --- | --- | --- |",
+        f"| Architecture authority | `{status.architecture_authority}` | "
+        "Target or accepted basis. |",
+        f"| Implementation status | `{status.implementation_status}` | "
+        "Implementation declaration only. |",
+        f"| Technical verification | `{status.verification_status}` | "
+        "Technical verification only. |",
+        "",
+    ]
+
+
+def _render_mechanism_summary(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    subject = _k3_node(atlas, hub.subject_id)
+    lines = [
+        "## Mechanism in the Registry",
+        "",
+        "A short orientation from exact direct Registry relations; this is not a technical map.",
+        "",
+    ]
+    selected = [
+        edge
+        for edge in hub.direct_relationships
+        if edge.relation not in {"part_of", "presented_in_domain"}
+        and edge.source in hub.selected_ids
+        and edge.target in hub.selected_ids
+        and atlas.entities[edge.source].type != "Evidence"
+        and atlas.entities[edge.target].type != "Evidence"
+    ]
+    for edge in selected:
+        lines.append(
+            f"- {_technical_link(atlas, edge.source)} — `{edge.relation}` → "
+            f"{_technical_link(atlas, edge.target)}"
+        )
+    if not selected:
+        lines.append(f"- No direct mechanism relation is registered for {subject.name}.")
+    lines.append("")
     return lines
 
 
@@ -447,28 +689,6 @@ def _historical_technical_evidence(
     return sorted(result, key=lambda item: (item[0].id, item[1].target))
 
 
-def _render_status_table(atlas: Atlas, identities: tuple[str, ...]) -> list[str]:
-    lines = [
-        "## Registry status fields (kept separate)",
-        "",
-        "These are public Registry fields, not a combined score or maturity claim.",
-        "",
-        "| Stable ID | Type | Architecture authority | Implementation | Technical verification |",
-        "| --- | --- | --- | --- | --- |",
-    ]
-    for identity in identities:
-        node = _k3_node(atlas, identity)
-        if not isinstance(node, TechnicalIdentity):
-            continue
-        status = node.technical
-        lines.append(
-            f"| `{node.id}` | `{node.type}` | `{status.architecture_authority}` | "
-            f"`{status.implementation_status}` | `{status.verification_status}` |"
-        )
-    lines.append("")
-    return lines
-
-
 def _render_status_axes(
     atlas: Atlas, subject: TechnicalIdentity, measurement_ids: tuple[str, ...]
 ) -> list[str]:
@@ -477,7 +697,7 @@ def _render_status_axes(
             "; ".join(_technical_link(atlas, identity) for identity in measurement_ids)
         )
     else:
-        measurement_presence = "No MeasurementPoint selected for this workbench"
+        measurement_presence = "No directly related MeasurementPoint is selected for this Component"
     return [
         "## Status axes — kept separate",
         "",
@@ -494,10 +714,10 @@ def _render_status_axes(
         f"| Measurement presence | {measurement_presence} | "
         "A MeasurementPoint does not establish measurement validity. |",
         "| Measurement validity | Not established by this view | No stronger state is inferred. |",
-        "| Scientific evidence | No private scientific evidence represented by this K3 baseline | "
+        "| Scientific evidence | No private scientific evidence is shown by this Technical view | "
         "Historical technical Evidence remains implementation provenance only. |",
         "| Accepted scientific claim | None created or implied by this view | "
-        "An empty panel does not mean the topic is unresearched. |",
+        "Scientific acceptance requires a separate record. |",
         "",
     ]
 
@@ -580,34 +800,50 @@ def _render_historical_evidence(atlas: Atlas, identities: tuple[str, ...]) -> li
 
 def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -> list[str]:
     count = len(snapshot.records)
-    lines = ["## Research and literature state", "", "### Authored private research", ""]
+    lines = [
+        "## Research and source availability",
+        "",
+        "No currently supported/assigned research content is shown in this view.",
+        "",
+        "This view does not infer Research Question or Research Thread associations. "
+        "It does not mean the topic is unresearched, literature is absent, a scientific gap "
+        "exists, novelty is established, evidence is weak or strong, research is complete, "
+        "or the Component should be prioritized.",
+        "",
+        "No automatic paper ranking, synthesis generation, novelty score, evidence score, "
+        "maturity score or coverage score is produced.",
+        "",
+        "### Existing research navigation",
+        "",
+        "Existing declared-reference navigation remains a separate, non-adjudicative surface.",
+        f"- {_derived_link(NAVIGATION, 'Open Declared Literature Navigation')}",
+        f"- {_derived_link(INDEX, 'Open Direct Views Index')}",
+        "",
+        "### Authored private research availability",
+        "",
+    ]
     lines.append(f"- Authored private research record count: `{count}`.")
     if count == 0:
         lines.extend(
             [
-                "- No authored private research records in this baseline.",
-                "- This is an empty/unavailable research panel, not evidence that literature is "
-                "absent, "
-                "exhausted, complete or scientifically resolved.",
+                "- No authored private research records are present in this snapshot.",
+                "- This availability state says nothing about research completeness or the field.",
             ]
         )
     else:
-        lines.append(
-            "- Private record bodies and identities are not projected into this technical "
-            "workbench."
-        )
-    lines.extend(["", "### Literature / source state", ""])
+        lines.append("- Private record bodies and identities are not projected into this Hub view.")
+    lines.extend(["", "### Literature / source availability", ""])
     if source_projection_present:
         lines.append(
-            "- A source/Zotero projection exists outside this K3 slice; K3 does not render source "
-            "identities or make literature claims."
+            "- A source/Zotero projection exists outside this view; source identities and "
+            "literature claims are not rendered here."
         )
     else:
         lines.extend(
             [
-                "- No populated source/Zotero projection in this baseline.",
-                "- The source panel is explicitly empty/unavailable; this is not a scientifically "
-                "negative finding.",
+                "- No populated source/Zotero projection is available in this snapshot.",
+                "- The source panel is explicitly empty/unavailable; this is not a scientific "
+                "finding.",
             ]
         )
     lines.extend(
@@ -615,12 +851,13 @@ def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -
             "",
             "### Scientific evidence state",
             "",
-            "- No private scientific evidence is represented by this K3 baseline.",
-            "- Historical technical Evidence below remains implementation provenance only.",
+            "- No private scientific evidence is represented by this view.",
+            "- Historical technical Evidence appears only in the Technical view and remains "
+            "implementation provenance.",
             "",
             "### Accepted scientific claim state",
             "",
-            "- No accepted scientific claim is created or implied by this workbench.",
+            "- No accepted scientific claim is created or implied by this Hub view.",
             "",
         ]
     )
@@ -628,8 +865,8 @@ def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -
 
 
 def render_k3_home(commit: str, atlas: Atlas) -> bytes:
-    for identity in (*MEMORY_IDS, *VERIFIER_IDS):
-        _k3_node(atlas, identity)
+    for identity in COMPONENT_HUB_PATHS:
+        _component_hub_model(atlas, identity)
     props = dict(
         generated_by=OWNER,
         source_repository=REPOSITORY,
@@ -672,11 +909,21 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
             "comparison and rollback during G6.",
             f"- {_technical_surface_link(TECHNICAL_MAP, 'System Anatomy · reference / rollback')}",
             "",
-            "## Component workbenches",
+            "## Component Hubs",
             "",
-            f"- {_derived_link(MEMORY_WORKBENCH, 'Memory Retrieval · CMP-MEM-RETRIEVAL')}",
             "- "
-            + _derived_link(VERIFIER_WORKBENCH, "Independent Verifier · CMP-INDEPENDENT-VERIFIER"),
+            + _derived_link(
+                COMPONENT_HUB_PATHS["CMP-MEM-RETRIEVAL"].overview,
+                "Memory Retrieval · CMP-MEM-RETRIEVAL",
+            ),
+            "- "
+            + _derived_link(
+                COMPONENT_HUB_PATHS["CMP-INDEPENDENT-VERIFIER"].overview,
+                "Independent Verifier · CMP-INDEPENDENT-VERIFIER",
+            ),
+            "",
+            "Each Component Hub starts with Overview and opens Technical or Research views "
+            "of that same Component identity.",
             "",
             "## Technical hierarchy",
             "",
@@ -688,15 +935,162 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
             "`presented_in_domain` is presentation grouping only. "
             "No visual relation is invented here.",
             "",
-            "Each workbench separates target architecture, implementation, technical verification, "
-            "measurement validity, literature, scientific evidence and accepted claims.",
+            "Each Hub keeps architecture authority, implementation, technical verification, "
+            "measurement validity, research availability and scientific claims separate.",
             "",
-            "The K3 workbenches retain explicit empty/unavailable research and source states. "
-            "They do not couple the Research Wiki to runtime Agent Memory, Retrieval or Cortex.",
+            "Research panels retain explicit empty/unavailable states. They do not couple the "
+            "Research Wiki to runtime Agent Memory, Retrieval or Cortex.",
             "",
         ]
     )
     return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+
+
+def _render_component_hub_overview(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"Component Hub subject is not technical: {hub.subject_id}")
+    lines = _render_hub_header(atlas, hub, "overview")
+    lines.extend(
+        [
+            "## What this Component does",
+            "",
+            subject.description,
+            "",
+            f"- Component record: {_technical_link(atlas, subject.id)}",
+            "",
+        ]
+    )
+    lines.extend(_render_presentation_context(atlas, hub))
+    lines.extend(_render_overview_status(subject))
+    lines.extend(_render_mechanism_summary(atlas, hub))
+    lines.extend(
+        [
+            "## Choose a view",
+            "",
+            "- **Open Technical** — "
+            + _derived_link(hub.paths.technical, "exact Registry structure and technical status"),
+            "- **Open Research** — "
+            + _derived_link(hub.paths.research, "supported research navigation and availability"),
+            "",
+        ]
+    )
+    lines.extend(_render_hub_return_navigation(atlas, hub))
+    return lines
+
+
+def _render_component_hub_interface_lane(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    if hub.interface_ids:
+        return _render_lane(atlas, "Interface lane", hub.interface_ids)
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"Component Hub subject is not technical: {hub.subject_id}")
+    if subject.id == "CMP-INDEPENDENT-VERIFIER":
+        explanation = (
+            "No corresponding `IF-*` Registry record exists for this Independent Verifier slice "
+            "in the current Registry selection."
+        )
+    else:
+        explanation = (
+            "No corresponding `IF-*` Registry record is directly related to this Component in "
+            "the current Registry selection."
+        )
+    return [
+        "## Interface lane",
+        "",
+        f"- **Explicitly empty.** {explanation}",
+        "- No Interface is invented. No other relation type is rendered as an Interface, "
+        "and no placeholder is generated.",
+        "",
+    ]
+
+
+def _render_component_hub_technical(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"Component Hub subject is not technical: {hub.subject_id}")
+    lines = _render_hub_header(atlas, hub, "technical")
+    lines.extend(
+        [
+            "## Component identity and role",
+            "",
+            f"- Component: {_technical_link(atlas, subject.id)}",
+            f"- Role: {subject.description}",
+            "",
+            "## Direct Component hierarchy",
+            "",
+            "Only Registry `part_of` edges define the technical parent/child relationship.",
+            "",
+            "### Technical parent(s)",
+            "",
+        ]
+    )
+    for identity in hub.technical_parent_ids:
+        lines.append(
+            f"- {_technical_link(atlas, subject.id)} — `part_of` → "
+            f"{_technical_link(atlas, identity)}"
+        )
+    if not hub.technical_parent_ids:
+        lines.append("- No technical parent is declared in the Registry.")
+    lines.extend(["", "### Direct Component subcomponents", ""])
+    for identity in hub.child_component_ids:
+        lines.append(
+            f"- {_technical_link(atlas, identity)} — `part_of` → "
+            f"{_technical_link(atlas, subject.id)}"
+        )
+    if not hub.child_component_ids:
+        lines.append("- No direct Component subcomponents are declared by `part_of`.")
+    lines.extend(["", ""])
+    lines.extend(_render_component_hub_interface_lane(atlas, hub))
+    lines.extend(_render_lane(atlas, "Contract lane", hub.contract_ids))
+    lines.extend(_render_lane(atlas, "Data Artifact lane", hub.data_artifact_ids))
+    lines.extend(_render_lane(atlas, "Measurement lane", hub.measurement_point_ids))
+    lines.extend(_render_status_axes(atlas, subject, hub.measurement_point_ids))
+    lines.extend(_render_exact_relationships(atlas, hub.selected_ids))
+    lines.extend(_render_historical_evidence(atlas, hub.selected_ids))
+    lines.extend(_render_hub_return_navigation(atlas, hub))
+    return lines
+
+
+def _render_component_hub_research(
+    atlas: Atlas,
+    hub: ComponentHubModel,
+    snapshot: Snapshot,
+    source_projection_present: bool,
+) -> list[str]:
+    lines = _render_hub_header(atlas, hub, "research")
+    lines.extend(_render_private_state(snapshot, source_projection_present))
+    lines.extend(_render_hub_return_navigation(atlas, hub))
+    return lines
+
+
+def render_component_hub_view(
+    commit: str,
+    atlas: Atlas,
+    hub: ComponentHubModel,
+    view: Literal["overview", "technical", "research"],
+    snapshot: Snapshot,
+    source_projection_present: bool,
+) -> bytes:
+    """Render one of three views from the same typed Component Hub contract."""
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity) or subject.type != "Component":
+        raise ProjectionError(f"Component Hub subject is invalid: {hub.subject_id}")
+    if view == "overview":
+        lines = _render_component_hub_overview(atlas, hub)
+    elif view == "technical":
+        lines = _render_component_hub_technical(atlas, hub)
+    else:
+        lines = _render_component_hub_research(atlas, hub, snapshot, source_projection_present)
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        k3_view_schema_version=K3_VIEW_SCHEMA_VERSION,
+        k3_surface=f"component-hub-{view}",
+        k3_subject=hub.subject_id,
+    )
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(lines)).encode()
 
 
 def render_k3_workbench(
@@ -706,111 +1100,11 @@ def render_k3_workbench(
     snapshot: Snapshot,
     source_projection_present: bool,
 ) -> bytes:
-    if subject_id == "CMP-MEM-RETRIEVAL":
-        identities = MEMORY_IDS
-        interface_ids = ("IF-MEM-CORTEX",)
-        contract_ids = ("CON-CORTEX-CONTEXT",)
-        data_ids = ("DAT-RETRIEVAL-SNAPSHOT",)
-        measurement_ids = ("MEAS-RETRIEVAL-DELIVERY-001",)
-        title = "Memory Retrieval"
-        receiver = (
-            f"- Receiver context for direction only: {_technical_link(atlas, 'CMP-CORTEX')}. "
-            "This context link does not assert a new Registry relationship."
-        )
-    elif subject_id == "CMP-INDEPENDENT-VERIFIER":
-        identities = VERIFIER_IDS
-        interface_ids = ()
-        contract_ids = ("CON-VERIFIER-RESULT",)
-        data_ids = ("DAT-OBSERVATION", "DAT-VISIBLE-OUTCOME")
-        measurement_ids = ()
-        title = "Independent Verifier"
-        receiver = ""
-    else:
-        raise ProjectionError(f"Unsupported K3 workbench subject: {subject_id}")
-
-    subject = _k3_node(atlas, subject_id)
-    if not isinstance(subject, TechnicalIdentity):
-        raise ProjectionError(f"K3 workbench subject is not a technical identity: {subject_id}")
-    for identity in identities:
-        _k3_node(atlas, identity)
-    props = dict(
-        generated_by=OWNER,
-        source_repository=REPOSITORY,
-        source_commit=commit,
-        k3_view_schema_version=K3_VIEW_SCHEMA_VERSION,
-        k3_surface="component-workbench",
-        k3_subject=subject_id,
+    """Retain the human-first K3 entry path as the Component Hub Overview."""
+    hub = _component_hub_model(atlas, subject_id)
+    return render_component_hub_view(
+        commit, atlas, hub, "overview", snapshot, source_projection_present
     )
-    lines = _render_workbench_orientation(atlas, subject_id, title)
-    lines.extend(
-        [
-            "## Component identity and role",
-            "",
-            f"- Stable Atlas ID: `{subject.id}`",
-            f"- Component: {_technical_link(atlas, subject.id)}",
-            f"- Role: {subject.description}",
-            "",
-        ]
-    )
-    lines.extend(_render_status_axes(atlas, subject, measurement_ids))
-    if receiver:
-        lines.extend(["## Direction context", "", receiver, ""])
-    if interface_ids:
-        lines.extend(_render_lane(atlas, "Interface lane", interface_ids))
-    else:
-        lines.extend(
-            [
-                "## Interface lane",
-                "",
-                "- **Explicitly empty.** No corresponding `IF-*` Registry record exists for this "
-                "Independent Verifier slice in the accepted K2 selection.",
-                "- No Interface is invented, and another relationship type is not rendered as an "
-                "Interface.",
-                "",
-            ]
-        )
-    lines.extend(_render_lane(atlas, "Contract lane", contract_ids))
-    lines.extend(_render_lane(atlas, "Data lane", data_ids))
-    lines.extend(_render_lane(atlas, "Measurement lane", measurement_ids))
-    lines.extend(_render_exact_relationships(atlas, identities))
-    lines.extend(_render_status_table(atlas, identities))
-    lines.extend(
-        [
-            "## Measurement validity",
-            "",
-        ]
-    )
-    if measurement_ids:
-        lines.append(
-            f"- Measurement anchor: {_technical_link(atlas, measurement_ids[0])}. "
-            "The anchor is not proof of measurement validity or an accepted claim."
-        )
-    else:
-        lines.append(
-            "- No measurement anchor is selected for this workbench; measurement validity is "
-            "not established here."
-        )
-    lines.extend(["", ""])
-    lines.extend(_render_historical_evidence(atlas, identities))
-    lines.extend(_render_private_state(snapshot, source_projection_present))
-    lines.extend(
-        [
-            "## Boundary reminders",
-            "",
-            "- Technical implementation markers are not scientific evidence.",
-            "- Technical verification is not measurement validity.",
-            "- Literature/source absence in this baseline is an unavailable panel, not a claim "
-            "about "
-            "the field.",
-            "- K3 does not create private records, source identities, interfaces, claims or "
-            "runtime "
-            "coupling.",
-            "",
-            f"{_derived_link(K3_HOME, 'Back to Research Knowledge Home')}",
-            "",
-        ]
-    )
-    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(lines)).encode()
 
 
 class OwnedFile(BaseModel):
@@ -854,6 +1148,10 @@ class ManifestV21(Manifest):
 
 class ManifestV22(ManifestV21):
     view_schema_version: Literal["2.2"]
+
+
+class ManifestV23(ManifestV21):
+    view_schema_version: Literal["2.3"]
 
 
 def _canonical_property_id(value: object) -> object:
@@ -990,20 +1288,21 @@ def reference_views_tree(
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)
     tree[K3_HOME] = render_k3_home(commit, atlas)
-    tree[MEMORY_WORKBENCH] = render_k3_workbench(
-        commit,
-        atlas,
-        "CMP-MEM-RETRIEVAL",
-        snapshot,
-        source_projection_present,
-    )
-    tree[VERIFIER_WORKBENCH] = render_k3_workbench(
-        commit,
-        atlas,
-        "CMP-INDEPENDENT-VERIFIER",
-        snapshot,
-        source_projection_present,
-    )
+    for subject_id, paths in COMPONENT_HUB_PATHS.items():
+        hub = _component_hub_model(atlas, subject_id)
+        for view, path in (
+            ("overview", paths.overview),
+            ("technical", paths.technical),
+            ("research", paths.research),
+        ):
+            tree[path] = render_component_hub_view(
+                commit,
+                atlas,
+                hub,
+                view,
+                snapshot,
+                source_projection_present,
+            )
     hierarchy = hierarchy_tree(commit, atlas)
     if tree.keys() & hierarchy.keys():
         raise ProjectionError("Duplicate generated hierarchy path")
@@ -1031,13 +1330,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.2",
+        view_schema_version="2.3",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV22.model_validate(data).model_dump(exclude_none=True)
+        ManifestV23.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -1102,6 +1401,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV21.model_validate(data)
         elif data.get("view_schema_version") == "2.2":
             manifest = ManifestV22.model_validate(data)
+        elif data.get("view_schema_version") == "2.3":
+            manifest = ManifestV23.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -1120,16 +1421,20 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
             or (
-                manifest.view_schema_version in {"2.0", "2.1", "2.2"}
+                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3"}
                 and relative == REFERENCE_INDEX
             )
             or (
                 manifest.view_schema_version in {"2.0", "2.1", "2.2"}
                 and relative in K3_PRIOR_PAYLOADS
             )
-            or (manifest.view_schema_version == "2.2" and relative == HIERARCHY)
             or (
-                manifest.view_schema_version == "2.2"
+                manifest.view_schema_version == "2.3"
+                and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
+            )
+            or (manifest.view_schema_version in {"2.2", "2.3"} and relative == HIERARCHY)
+            or (
+                manifest.view_schema_version in {"2.2", "2.3"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
