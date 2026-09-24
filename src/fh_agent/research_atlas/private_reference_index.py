@@ -632,6 +632,45 @@ def build_index(atlas: Atlas, snapshot: Snapshot, commit: str) -> ReferenceIndex
     )
 
 
+def component_navigation_rows(index: ReferenceIndex, component_id: str) -> tuple[Row, ...]:
+    """Select existing eligible N-C rows terminating at one exact public Component."""
+    selected = (
+        row
+        for row in index.rows
+        if row.row_kind == "navigation-path"
+        and row.navigation_view == "component"
+        and row.recipe is not None
+        and row.recipe.startswith("N-C/")
+        and row.path_eligible
+        and row.target_identifier == component_id
+        and row.target_resolution_status == "resolved-public"
+        and row.resolved_target_type == "Component"
+        and row.target_record_version is None
+        and row.target_profile is None
+        and bool(row.via)
+        and row.via[-1].edge_id == "E9"
+        and row.via[-1].traversal_direction == "forward"
+        and row.via[-1].traverse_to.identifier == component_id
+        and row.via[-1].traverse_to.resolution_status == "resolved-public"
+        and row.via[-1].traverse_to.resolved_type == "Component"
+        and row.via[-1].declared_target_identifier == component_id
+        and row.via[-1].declared_target_resolution_status == "resolved-public"
+        and row.via[-1].declared_target_type == "Component"
+    )
+    return tuple(
+        sorted(
+            selected,
+            key=lambda row: (
+                row.target_identifier,
+                row.navigation_start.identifier if row.navigation_start else "",
+                row.originating_property,
+                row.source_wiki_id,
+                row.row_id,
+            ),
+        )
+    )
+
+
 WARNING = (
     "Declared reference paths only. Roles belong to the named declaring record and are not "
     "inherited by the paper. These paths do not establish support, implementation evaluation "

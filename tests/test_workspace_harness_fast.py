@@ -1,18 +1,27 @@
 """Fast fail-closed orchestration contracts for the private Workspace harness."""
 
+import html
 import json
+import posixpath
 import re
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
+from urllib.parse import unquote
 
 import pytest
+from test_research_wiki_schema import props as wiki_props
 
 from fh_agent.research_atlas import private_projection as technical_projection
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import workspace_harness as workspace
 from fh_agent.research_atlas.private_projection import ProjectionError
-from fh_agent.research_atlas.private_reference_index import build_index, make_snapshot
-from fh_agent.research_atlas.validator import load_registry
+from fh_agent.research_atlas.private_reference_index import (
+    build_index,
+    component_navigation_rows,
+    make_snapshot,
+)
+from fh_agent.research_atlas.schema import Relationship
+from fh_agent.research_atlas.validator import Atlas, load_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_COMMIT = "a" * 40
@@ -30,6 +39,112 @@ DETAIL_ENDPOINTS = (
 @pytest.fixture
 def atlas():
     return load_registry(ROOT / "docs/research-atlas")
+
+
+def component_research_fixture_records():
+    """Synthetic RA-2 rows for every accepted N-C prefix and audit boundary."""
+    memory = "CMP-MEM-RETRIEVAL"
+    return [
+        wiki_props("paper", wiki_id="WPAPER-K0", research_direct_subject_refs=[memory]),
+        wiki_props("paper", wiki_id="WPAPER-K1-INVERSE"),
+        wiki_props(
+            "reading_note",
+            wiki_id="READ-K1-INVERSE",
+            paper_refs=["WPAPER-K1-INVERSE"],
+            research_measurement_relevance_refs=[memory],
+        ),
+        wiki_props("paper", wiki_id="WPAPER-K1-FORWARD", reading_note_refs=["READ-K1-FORWARD"]),
+        wiki_props(
+            "reading_note",
+            wiki_id="READ-K1-FORWARD",
+            paper_refs=["WPAPER-K1-FORWARD"],
+            research_project_transfer_refs=[memory],
+        ),
+        wiki_props("paper", wiki_id="WPAPER-K2"),
+        wiki_props(
+            "finding",
+            wiki_id="WFIND-K2",
+            source_refs=["WPAPER-K2"],
+            research_adjacent_context_refs=[memory],
+        ),
+        wiki_props("paper", wiki_id="WPAPER-K3"),
+        wiki_props(
+            "reading_note",
+            wiki_id="READ-K3",
+            paper_refs=["WPAPER-K3"],
+            finding_refs=["WFIND-K3"],
+        ),
+        wiki_props(
+            "finding",
+            wiki_id="WFIND-K3",
+            research_method_or_baseline_refs=[memory],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-VERIFIER",
+            research_direct_subject_refs=["CMP-INDEPENDENT-VERIFIER"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-OTHER-COMPONENT",
+            research_direct_subject_refs=["CMP-CORTEX"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-DOMAIN-SIBLING",
+            research_direct_subject_refs=["CMP-MEMORY"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-INTERFACE",
+            research_direct_subject_refs=["IF-MEM-CORTEX"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-CONTRACT",
+            research_direct_subject_refs=["CON-VERIFIER-RESULT"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-DATA",
+            research_direct_subject_refs=["DAT-OBSERVATION"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-MEASUREMENT",
+            research_direct_subject_refs=["MEAS-RETRIEVAL-DELIVERY-001"],
+        ),
+        wiki_props("reading_note", wiki_id="READ-WRONG-TYPE", paper_refs=[memory]),
+        wiki_props("reading_note", wiki_id="READ-UNRESOLVED", paper_refs=["WPAPER-MISSING"]),
+    ]
+
+
+def component_research_tree(atlas, records=None, *, locators=None):
+    records = component_research_fixture_records() if records is None else records
+    snapshot = make_snapshot(records, atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    if locators is None:
+        locators = {
+            record["wiki_id"]: PurePosixPath("authored") / f"{record['wiki_id']}.md"
+            for record in records
+        }
+    if "WFIND-K3" in locators:
+        locators["WFIND-K3"] = PurePosixPath("authored/finding [fixture] #3.md")
+    return (
+        views.reference_views_tree(
+            SOURCE_COMMIT,
+            (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+            (ROOT / views.DIRECT_SOURCE).read_bytes(),
+            reference,
+            atlas,
+            locators,
+            snapshot,
+            False,
+        ),
+        snapshot,
+        reference,
+        locators,
+    )
 
 
 @pytest.fixture
@@ -286,6 +401,9 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
 
     for hub_id in views.COMPONENT_HUB_PATHS:
         hub = views._component_hub_model(atlas, hub_id)
+        research_model = views._component_research_model(
+            atlas, build_index(atlas, snapshot, SOURCE_COMMIT), hub_id
+        )
         technical = views.render_component_hub_view(
             SOURCE_COMMIT, atlas, hub, "technical", snapshot, False
         ).decode()
@@ -293,7 +411,14 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
             SOURCE_COMMIT, atlas, hub, "overview", snapshot, False
         ).decode()
         research = views.render_component_hub_view(
-            SOURCE_COMMIT, atlas, hub, "research", snapshot, False
+            SOURCE_COMMIT,
+            atlas,
+            hub,
+            "research",
+            snapshot,
+            False,
+            research_model,
+            {},
         ).decode()
         expected_ids = (
             *hub.interface_ids,
@@ -327,6 +452,200 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
         detail_prefix = str(views.OWNED_ROOT / views.TECHNICAL_DETAIL_ROOT)
         assert detail_prefix not in overview
         assert detail_prefix not in research
+
+
+def test_w06_component_research_renders_exact_registry_and_all_nc_rows(atlas):
+    tree, snapshot, reference, locators = component_research_tree(atlas)
+    memory_model = views._component_research_model(atlas, reference, "CMP-MEM-RETRIEVAL")
+    verifier_model = views._component_research_model(atlas, reference, "CMP-INDEPENDENT-VERIFIER")
+    memory_rows = component_navigation_rows(reference, "CMP-MEM-RETRIEVAL")
+    assert memory_model.research_question_relationships == (
+        next(
+            edge
+            for edge in atlas.relationships
+            if edge.source == "CMP-MEM-RETRIEVAL"
+            and edge.relation == "related_to_research_question"
+        ),
+    )
+    assert verifier_model.research_question_relationships == ()
+    assert {row.target_identifier for row in memory_rows} == {"CMP-MEM-RETRIEVAL"}
+    assert len(memory_rows) == 6
+    assert {row.recipe for row in memory_rows} == {
+        "N-C/K0/E9:forward",
+        "N-C/K1/E1:inverse/E9:forward",
+        "N-C/K1/E2:forward/E9:forward",
+        "N-C/K2/E3:inverse/E9:forward",
+        "N-C/K3/E1:inverse/E4:forward/E9:forward",
+    }
+    assert sum(row.recipe.startswith("N-C/K1/E1:") for row in memory_rows) == 2
+    assert all(row.recipe.startswith("N-C/") and row.path_eligible for row in memory_rows)
+    assert {row.recipe.split("/")[1] for row in memory_rows} == {"K0", "K1", "K2", "K3"}
+    assert {row.path_kind for row in memory_rows} == {"direct", "derived"}
+    assert any(row.prerequisite_refs for row in memory_rows)
+    assert {row.originating_role for row in memory_rows} == {
+        "research_direct_subject_refs",
+        "research_method_or_baseline_refs",
+        "research_measurement_relevance_refs",
+        "research_project_transfer_refs",
+        "research_adjacent_context_refs",
+    }
+
+    memory = tree[views.MEMORY_HUB_RESEARCH].decode()
+    verifier = tree[views.VERIFIER_HUB_RESEARCH].decode()
+    question = atlas.entities["RQ-PROGRAM-AB-001"]
+    assert f"{question.name} · `RQ-PROGRAM-AB-001`" in memory
+    assert "`related_to_research_question` →" in memory
+    assert (
+        "No current Registry Research Question relation is declared for this Component." in verifier
+    )
+    assert "RQ-PROGRAM-AB-001" not in verifier
+
+    for row in memory_rows:
+        assert memory.count(row.row_id) == 1
+        assert f"`{row.path_kind}`" in memory
+        assert f"`{row.recipe}`" in memory
+    k3 = next(row for row in memory_rows if "/K3/" in row.recipe)
+    assert k3.source_wiki_id == "WFIND-K3"
+    assert k3.source_doc_type == "finding"
+    assert k3.navigation_start is not None
+    assert k3.navigation_start.identifier == "WPAPER-K3"
+    k3_number = memory_rows.index(k3) + 1
+    k3_block = memory.split(f"### Path {k3_number} · `{k3.path_kind}`\n", 1)[1].split(
+        "\n### Path ", 1
+    )[0]
+    assert "Declaring record: [WFIND-K3](" in k3_block
+    assert "Paper/source identity: [WPAPER-K3](" in k3_block
+    assert "Declaring record: [WPAPER-K3]" not in k3_block
+    assert "Originating property: `research_method_or_baseline_refs`" in memory
+    assert "Originating role: `research_method_or_baseline_refs`" in memory
+    assert "Target Component: [CMP-MEM-RETRIEVAL](" in k3_block
+    assert "resolved-public`; type `Component`; record version `none`; profile `none`" in k3_block
+    assert "Index row: `navigation-path` · view `component` · eligible `true`" in k3_block
+    assert "Final reference type check: `not-constrained`" in k3_block
+    assert "Index diagnostics: none" in k3_block
+    assert "Declared target:" in memory and "Prerequisite references:" in memory
+    assert "`E9`" in memory and "direction `forward`" in memory
+    assert "revision `v1`" in k3_block
+    assert "finding%20%5Bfixture%5D%20%233.md" in k3_block
+    locator_link = re.search(r"\[WFIND-K3\]\(([^)]+)\)", k3_block)
+    assert locator_link is not None
+    research_parent = (views.OWNED_ROOT / views.MEMORY_HUB_RESEARCH).parent.as_posix()
+    resolved_locator = PurePosixPath(
+        posixpath.normpath(posixpath.join(research_parent, unquote(locator_link[1])))
+    )
+    assert resolved_locator == locators["WFIND-K3"]
+    k1_forward = next(row for row in memory_rows if "E2:forward" in row.recipe)
+    k1_forward_block = memory.split(
+        f"### Path {memory_rows.index(k1_forward) + 1} · `{k1_forward.path_kind}`\n", 1
+    )[1].split("\n### Path ", 1)[0]
+    assert "Prerequisite references:\n  1. Edge `E1`" in k1_forward_block
+    assert "property `paper_refs`" in k1_forward_block
+    assert "method used" not in memory
+    assert "best baseline" not in memory
+    assert "implementation studied" not in memory
+
+    for unrelated_identity in (
+        "WPAPER-VERIFIER",
+        "WPAPER-OTHER-COMPONENT",
+        "WPAPER-DOMAIN-SIBLING",
+        "WPAPER-INTERFACE",
+        "WPAPER-CONTRACT",
+        "WPAPER-DATA",
+        "WPAPER-MEASUREMENT",
+        "READ-WRONG-TYPE",
+        "READ-UNRESOLVED",
+        "CMP-CORTEX",
+        "CMP-MEMORY",
+        "IF-MEM-CORTEX",
+    ):
+        assert unrelated_identity not in memory
+    assert "Open Declared Literature Navigation" in memory
+    assert "Direct Reference Audit" in memory
+    navigation = html.unescape(tree[views.NAVIGATION].decode())
+    assert "READ-WRONG-TYPE" in navigation and "wrong-target-type" in navigation
+    assert "READ-UNRESOLVED" in navigation and "unresolved-reference" in navigation
+    assert all("/Users/" not in data.decode() for data in tree.values())
+    assert all(not path.is_absolute() for path in locators.values())
+
+
+def test_w06_component_research_does_not_roll_up_parent_or_domain_sibling(atlas):
+    parent_edge = Relationship(
+        relation="part_of",
+        source="CMP-MEM-RETRIEVAL",
+        target="CMP-CORTEX",
+    )
+    with_parent = Atlas(atlas.entities, (*atlas.relationships, parent_edge))
+    hub = views._component_hub_model(with_parent, "CMP-MEM-RETRIEVAL")
+    memory_domains = views._relationship_targets(atlas, "CMP-MEM-RETRIEVAL", "presented_in_domain")
+    sibling_domains = views._relationship_targets(atlas, "CMP-MEMORY", "presented_in_domain")
+    assert "CMP-CORTEX" in hub.technical_parent_ids
+    assert memory_domains and set(memory_domains) & set(sibling_domains)
+
+    tree, snapshot, reference, locators = component_research_tree(with_parent)
+    model = views._component_research_model(with_parent, reference, "CMP-MEM-RETRIEVAL")
+    memory = views.render_component_hub_view(
+        SOURCE_COMMIT,
+        with_parent,
+        hub,
+        "research",
+        snapshot,
+        False,
+        model,
+        locators,
+    ).decode()
+    assert {row.target_identifier for row in model.literature_paths} == {"CMP-MEM-RETRIEVAL"}
+    assert "WPAPER-OTHER-COMPONENT" not in memory
+    assert "WPAPER-DOMAIN-SIBLING" not in memory
+    assert "CMP-CORTEX" not in memory and "CMP-MEMORY" not in memory
+    assert tree[views.MEMORY_HUB_RESEARCH].decode() == memory
+
+
+def test_w06_component_research_empty_state_is_neutral_and_keeps_exact_rq(atlas):
+    snapshot = make_snapshot([], atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    hub = views._component_hub_model(atlas, "CMP-MEM-RETRIEVAL")
+    research_model = views._component_research_model(atlas, reference, hub.subject_id)
+    memory = views.render_component_hub_view(
+        SOURCE_COMMIT,
+        atlas,
+        hub,
+        "research",
+        snapshot,
+        False,
+        research_model,
+        {},
+    ).decode()
+    assert "No matching declared Component literature paths are present in this snapshot." in memory
+    assert "No current Registry Research Question relation is declared" not in memory
+    assert "No literature is present" not in memory
+    assert "research gap" not in memory
+    assert "No authored private research records are present in this snapshot." in memory
+    assert "Direct Reference Audit" in memory
+
+
+def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas):
+    records = component_research_fixture_records()
+    current_tree, _, _, _ = component_research_tree(atlas, records)
+    shuffled_atlas = replace(
+        atlas,
+        entities=dict(reversed(tuple(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    reversed_records = tuple(reversed(records))
+    shuffled_locators = {
+        record["wiki_id"]: PurePosixPath("authored") / f"{record['wiki_id']}.md"
+        for record in reversed_records
+    }
+    shuffled_tree, _, _, _ = component_research_tree(
+        shuffled_atlas, reversed_records, locators=shuffled_locators
+    )
+    assert current_tree == shuffled_tree
+    manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
+    assert manifest["view_schema_version"] == "2.4"
+    owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
+    assert views.K3_PAYLOADS <= owned
+    assert not any("Component Research" in str(path) for path in owned)
+    assert not any(path.suffix == ".base" and "Component" in path.name for path in owned)
 
 
 def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
