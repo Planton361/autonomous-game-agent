@@ -14,10 +14,19 @@ from typing import Annotated, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
+from .anatomy import render_agent_anatomy, render_domain_slice
 from .schema import PREFIXES, Entity
 from .validator import Atlas, UniqueKeyLoader, load_registry
 from .wiki_schema import validate_wiki_records
-from .workspace import HOME_PATH, frontmatter, note_path_for, render_map, render_record
+from .workspace import (
+    ANATOMY_PATH,
+    DOMAIN_SLICE_PATH,
+    HOME_PATH,
+    frontmatter,
+    note_path_for,
+    render_map,
+    render_record,
+)
 
 OWNER = "public-research-atlas"
 REPOSITORY = "Planton361/autonomous-game-agent"
@@ -26,6 +35,9 @@ MANIFEST = PurePosixPath("manifest/projection.yaml")
 INDEX = PurePosixPath("indexes/atlas-id-index.yaml")
 HOME = PurePosixPath("indexes/Technical Atlas Index.md")
 MAP = PurePosixPath("system-map/System Anatomy.excalidraw.md")
+ANATOMY = PurePosixPath("system-map/Agent Anatomy.excalidraw.md")
+DOMAIN_SLICE = PurePosixPath("domain-maps/Evidence, Memory & Retrieval.excalidraw.md")
+K3_HOME_TARGET = PurePosixPath("_generated/derived/indexes/Research Knowledge Home.md")
 REGISTRY_FILES = ("nodes.yaml", "relationships.yaml", "evidence.yaml")
 SOURCE_PATHS = ("docs/research-atlas/registry", "src/fh_agent/research_atlas")
 SHA256 = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
@@ -39,14 +51,22 @@ class ProjectionError(ValueError):
 class OwnedFile(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     path: str
-    kind: Literal["atlas_record", "evidence", "system_map", "id_index", "index"]
+    kind: Literal[
+        "atlas_record",
+        "evidence",
+        "system_map",
+        "agent_anatomy",
+        "domain_slice",
+        "id_index",
+        "index",
+    ]
     atlas_id: str | None = None
     sha256: SHA256
 
 
 class Manifest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    projection_schema_version: Literal["1.0"]
+    projection_schema_version: Literal["1.0", "1.1"]
     generated_by: Literal["public-research-atlas"]
     source_repository: Literal["Planton361/autonomous-game-agent"]
     source_commit: COMMIT
@@ -112,30 +132,40 @@ def projection_tree(
 ) -> dict[PurePosixPath, bytes]:
     """Pure rendering; private authored content is intentionally not an input."""
     targets = {
-        str(note_path_for(n.id, n.type, n.name).with_suffix("")): private_path(n)
+        str(note_path_for(n.id, n.type, n.name).with_suffix("")): OWNED_ROOT
+        / private_path(n).with_suffix("")
         for n in atlas.entities.values()
     }
-    targets[str(HOME_PATH.with_suffix(""))] = HOME
+    targets[str(HOME_PATH.with_suffix(""))] = OWNED_ROOT / HOME.with_suffix("")
+    targets[str(ANATOMY_PATH.with_suffix(""))] = OWNED_ROOT / ANATOMY.with_suffix("")
+    targets[str(DOMAIN_SLICE_PATH.with_suffix(""))] = OWNED_ROOT / DOMAIN_SLICE.with_suffix("")
+    map_targets = dict(targets)
+    # Complete workspace apply generates this W01/W02 landing page in the second projection.
+    map_targets[str(HOME_PATH.with_suffix(""))] = K3_HOME_TARGET.with_suffix("")
 
-    def rewrite(text: str) -> str:
+    def rewrite(text: str, link_targets: dict[str, PurePosixPath]) -> str:
         def link(match: re.Match) -> str:
             target, _, alias = match[1].partition("|")
-            if target not in targets:
+            if target not in link_targets:
                 raise ProjectionError("Public renderer emitted an unresolved technical link")
-            return private_link(targets[target], alias or target)
+            return f"[[{link_targets[target]}|{alias or target}]]"
 
         return re.sub(r"\[\[([^\]]+)\]\]", link, text)
 
-    def rewrite_properties(value: object) -> object:
+    def rewrite_properties(value: object, link_targets: dict[str, PurePosixPath]) -> object:
         if isinstance(value, str):
-            return rewrite(value)
+            return rewrite(value, link_targets)
         if isinstance(value, list):
-            return [rewrite_properties(item) for item in value]
+            return [rewrite_properties(item, link_targets) for item in value]
         if isinstance(value, dict):
-            return {key: rewrite_properties(item) for key, item in value.items()}
+            return {key: rewrite_properties(item, link_targets) for key, item in value.items()}
         return value
 
-    def note(text: str, source_digest: str) -> bytes:
+    def note(
+        text: str,
+        source_digest: str,
+        link_targets: dict[str, PurePosixPath] = targets,
+    ) -> bytes:
         props, body = markdown_parts(text)
         # Parse YAML first so folded public links become complete strings before rewriting.
         props.update(
@@ -145,7 +175,12 @@ def projection_tree(
             source_schema="0.2",
             source_record_digest=source_digest,
         )
-        return ("---\n" + yaml_text(rewrite_properties(props)) + "---\n" + rewrite(body)).encode()
+        return (
+            "---\n"
+            + yaml_text(rewrite_properties(props, link_targets))
+            + "---\n"
+            + rewrite(body, link_targets)
+        ).encode()
 
     tree: dict[PurePosixPath, bytes] = {}
     entries = {}
@@ -167,6 +202,12 @@ def projection_tree(
         )
     public_map = render_map(atlas)
     tree[MAP] = note(public_map, digest(public_map.encode()))
+    public_anatomy = render_agent_anatomy(atlas)
+    tree[ANATOMY] = note(public_anatomy, digest(public_anatomy.encode()), map_targets)
+    public_domain_slice = render_domain_slice(atlas)
+    tree[DOMAIN_SLICE] = note(
+        public_domain_slice, digest(public_domain_slice.encode()), map_targets
+    )
     tree[INDEX] = yaml_text(
         dict(index_schema_version="1.0", generated_by=OWNER, source_commit=commit, entries=entries)
     ).encode()
@@ -175,7 +216,15 @@ def projection_tree(
         "# Technical Atlas Index\n\n"
         "Public Git/YAML Registry is authoritative. One-way generated view.\n\n"
     )
-    home += private_link(MAP, "System Anatomy") + "\n\n"
+    home += (
+        private_link(ANATOMY, "Agent Anatomy")
+        + " · "
+        + private_link(DOMAIN_SLICE, "Evidence, Memory & Retrieval slice")
+        + "\n\n"
+        + "Reference / rollback: "
+        + private_link(MAP, "System Anatomy")
+        + "\n\n"
+    )
     home += (
         "\n".join(
             "- " + private_link(private_path(n), n.id + " · " + n.name)
@@ -191,10 +240,16 @@ def projection_tree(
         source_record_digest=digest(yaml_text(entries).encode()),
     )
     tree[HOME] = (frontmatter(props) + home).encode()
-    for path, kind in ((MAP, "system_map"), (INDEX, "id_index"), (HOME, "index")):
+    for path, kind in (
+        (MAP, "system_map"),
+        (ANATOMY, "agent_anatomy"),
+        (DOMAIN_SLICE, "domain_slice"),
+        (INDEX, "id_index"),
+        (HOME, "index"),
+    ):
         owned.append(dict(path=str(path), kind=kind, sha256=digest(tree[path])))
     manifest = Manifest(
-        projection_schema_version="1.0",
+        projection_schema_version="1.1",
         generated_by=OWNER,
         source_repository=REPOSITORY,
         source_commit=commit,
@@ -301,6 +356,15 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         ) from exc
     if set(manifest.source_registry_sha256) != set(REGISTRY_FILES):
         raise ProjectionError("Invalid prior manifest Registry digests")
+    visual_paths = {
+        "system_map": MAP,
+        "agent_anatomy": ANATOMY,
+        "domain_slice": DOMAIN_SLICE,
+    }
+    if manifest.projection_schema_version == "1.0" and any(
+        item.kind in {"agent_anatomy", "domain_slice"} for item in manifest.owned_files
+    ):
+        raise ProjectionError("Projection schema 1.0 cannot own W03 visual assets")
     owned = {}
     for item in manifest.owned_files:
         target_path(root, item.path)
@@ -315,11 +379,10 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or relative != PurePosixPath(prefix) / (item.atlas_id + ".md")
             ):
                 raise ProjectionError("Manifest record identity/path mismatch")
-        elif (
-            relative != {"system_map": MAP, "id_index": INDEX, "index": HOME}[item.kind]
-            or item.atlas_id is not None
-        ):
-            raise ProjectionError("Manifest kind/path mismatch")
+        else:
+            expected = {**visual_paths, "id_index": INDEX, "index": HOME}[item.kind]
+            if relative != expected or item.atlas_id is not None:
+                raise ProjectionError("Manifest kind/path mismatch")
         owned[relative] = item
     if manifest.record_count != sum(
         i.kind == "atlas_record" for i in owned.values()

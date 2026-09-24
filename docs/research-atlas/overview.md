@@ -2,7 +2,7 @@
 
 Generated from Registry YAML; fully overwriteable. Do not edit structured claims here.
 
-[[Home/Research Atlas|Research Atlas Home]] · [[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy]]
+[[Home/Research Atlas|Research Atlas Home]] · [[Assets/Excalidraw/Agent Anatomy.excalidraw|Agent Anatomy]] · [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval slice]] · [[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy reference]]
 
 Domains are presentation views. Technical ancestry derives only from `part_of`. Statuses and relationships are in generated record notes, backed by Registry.
 

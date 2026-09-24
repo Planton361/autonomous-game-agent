@@ -437,7 +437,7 @@ def test_w01_orientation_is_consistent_human_first_and_plain_markdown(setup):
 
     for path, (title, stable_id) in payloads.items():
         properties, body = technical.markdown_parts(tree[path].decode())
-        assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.1"
+        assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.2"
         assert body.startswith(f"# {title}\n\n## Orientation\n")
         orientation = body.split("## Orientation\n\n", 1)[1].split("\n## ", 1)[0]
         for label in (
@@ -482,6 +482,46 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
         for link in links:
             target = link.replace(r"\|", "|").partition("|")[0]
             assert (vault / f"{target}.md").is_file(), (path, target)
+
+
+def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup):
+    repo, vault, sha = setup
+    technical_tree = technical.project(repo, vault, sha, check=True)
+    derived_tree = views.project(repo, vault, sha)
+    technical_manifest = yaml.safe_load(technical_tree[technical.MANIFEST])
+    assert technical_manifest["projection_schema_version"] == "1.1"
+    assert technical.ANATOMY in technical_tree and technical.DOMAIN_SLICE in technical_tree
+    assert technical.MAP in technical_tree
+    assert {item["kind"] for item in technical_manifest["owned_files"]} >= {
+        "system_map",
+        "agent_anatomy",
+        "domain_slice",
+    }
+
+    home = derived_tree[views.K3_HOME].decode()
+    assert home.index("Agent Anatomy") < home.index("System Anatomy")
+    assert "representative Domain slice" in home
+    assert "Technical Hierarchy" in home
+    assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in home
+    assert "Markdown fallback" in home and "comparison and rollback" in home
+
+    targets = {
+        str(technical.OWNED_ROOT / candidate)
+        for path in technical_tree
+        for candidate in (path, path.with_suffix(""))
+    } | {
+        str(views.OWNED_ROOT / candidate)
+        for path in derived_tree
+        for candidate in (path, path.with_suffix(""))
+    }
+    for path, data in (*technical_tree.items(), *derived_tree.items()):
+        for raw in re.findall(r"\[\[([^\]]+)\]\]", data.decode()):
+            target = raw.replace(r"\|", "|").partition("|")[0]
+            assert target in targets, (path, target)
+            assert (vault / target).is_file() or (vault / f"{target}.md").is_file(), (
+                path,
+                target,
+            )
 
 
 def test_w01_status_axes_preserve_registry_states_without_promotion(setup):

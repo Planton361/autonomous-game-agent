@@ -15,19 +15,18 @@ research_wiki_private_version: "1.0"
 project: Planton361/autonomous-game-agent
 ```
 
-Supply the absolute vault directory through `PRIVATE_VAULT` in your local shell;
-the command below contains no actual private location. From the repository root:
+Actual private-vault application uses the restore-point harness from the
+repository root:
 
 ```bash
-uv run --no-sync python -m fh_agent.research_atlas.private_projection \
-  --repo-root . --vault-root "$PRIVATE_VAULT" --source-ref HEAD
+uv run --no-sync fh-agent workspace apply
+uv run --no-sync fh-agent workspace check
 ```
 
-Append `--check` to validate the exact generated state and declared private
-references without writing files, temporary files, directories, or the manifest.
-Exit status is `0` for success, `2` for expected configuration/validation/drift
-errors; unexpected faults propagate as ordinary failures. Expected errors appear
-briefly on stderr. The projector does not create a vault or its marker.
+The lower-level projector modules remain implementation stages and test
+surfaces; do not run them as a manual sequence against the actual private vault.
+The harness resolves the local-only `PRIVATE_VAULT` setting or accepts an
+explicit `--vault-root` argument.
 
 `--repo-root` must be the actual Git worktree root. `--source-ref` resolves locally
 to a full 40-character commit and must equal checked-out `HEAD`. Both
@@ -80,14 +79,26 @@ manifest/projection.yaml
 records/<ATLAS-ID>.md
 evidence/<EVID-ID>.md
 system-map/System Anatomy.excalidraw.md
+system-map/Agent Anatomy.excalidraw.md
+domain-maps/Evidence, Memory & Retrieval.excalidraw.md
 indexes/atlas-id-index.yaml
 indexes/Technical Atlas Index.md
 ```
 
 Paths use stable public IDs; names appear in frontmatter, headings, and aliases.
-Internal WikiLinks use vault-relative paths beneath the generated root, including
-the System Anatomy element links. The map preserves the public map's semantics.
+Internal WikiLinks use vault-relative paths beneath the generated root. W03 makes
+Agent Anatomy the primary rich Home and adds one Evidence, Memory & Retrieval
+Domain slice. System Anatomy remains a separate reference/rollback map. Region
+sequence cues are explicitly presentation-only; the Domain slice shows selected
+Registry-backed relations and keeps `presented_in_domain` separate from technical
+`part_of` ancestry. The maps preserve public visual semantics while routing Home
+navigation to the generated Research Knowledge Home.
 The ID index resolves current public identities; it is not another Registry.
+
+W03 advances the technical projection manifest from `1.0` to `1.1`. A finite
+`1.0` manifest remains readable so the two new owned paths can be added without
+replacing or deleting the prior System Anatomy. The output set, path, owner and
+digest checks remain closed; unknown files still fail closed.
 
 The deterministic manifest records the source repository, full commit, Atlas
 schema `0.2`, exact-byte SHA-256 digests of all three Registry files, record and
@@ -421,6 +432,34 @@ retaining their W01 status and Interface
 lane semantics. Real-vault application remains a separate G6 step after CONTROL
 reviews an exact PR head; use only `uv run --no-sync fh-agent workspace apply`
 with the #82 restore-point harness.
+
+## W03 Agent Anatomy and Domain slice
+
+The `public-research-atlas` projection owns the two additional finite Excalidraw
+paths listed above. The private Research Knowledge Home prominently links to
+Agent Anatomy, the representative Domain slice, W02 Technical Hierarchy, and the
+existing Memory Retrieval workbench. System Anatomy remains directly reachable
+for W03 G6 comparison and rollback. Markdown navigation stays usable if the
+Excalidraw plugin is unavailable.
+
+The `research-wiki-derived` Home advances from K3 view schema `1.1` to `1.2`;
+its existing `2.2` ownership manifest and finite output paths remain in place.
+
+Agent Anatomy groups selected technical landmarks into operator-facing regions
+and uses dashed sequence cues labelled as presentation only. Functional regions
+do not create Registry ancestry or technical relations. Between-run candidate
+work is outside the in-run boundary; the independent Verifier is shown outside
+Cortex decision authority; the optional bridge remains behind the No-Spoiler
+Firewall.
+
+The Evidence, Memory & Retrieval slice selects current `presented_in_domain`
+members for navigation, then shows a curated set of exact Registry relations to
+the shared System parent, interface, retrieval snapshot and Cortex context.
+Memory and Memory Retrieval remain separate technical siblings under `SYS-AGA`;
+the Domain is not their technical parent. Both surfaces use deterministic
+semantic/layout element IDs and inspectable parsed Excalidraw Markdown. They
+consume no private scientific content, and the private projector rewrites only
+vault-relative destinations.
 
 See the normative [Declared Reference Index Contract](Declared%20Reference%20Index%20Contract.md)
 for exact resolution, closed rows, E1–E9 and the finite Component/RQ/Process

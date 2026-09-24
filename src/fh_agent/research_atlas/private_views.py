@@ -11,6 +11,7 @@ from urllib.parse import quote
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from .private_projection import ANATOMY as TECHNICAL_ANATOMY
 from .private_projection import (
     COMMIT,
     REPOSITORY,
@@ -30,6 +31,7 @@ from .private_projection import (
     utf8,
     yaml_text,
 )
+from .private_projection import DOMAIN_SLICE as TECHNICAL_DOMAIN_SLICE
 from .private_projection import (
     HOME as TECHNICAL_HOME,
 )
@@ -85,7 +87,7 @@ LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
 K3_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH))
 LEGACY_K3_PAYLOADS = frozenset((LEGACY_MEMORY_WORKBENCH, LEGACY_VERIFIER_WORKBENCH))
 K3_PRIOR_PAYLOADS = K3_PAYLOADS | LEGACY_K3_PAYLOADS
-K3_VIEW_SCHEMA_VERSION = "1.1"
+K3_VIEW_SCHEMA_VERSION = "1.2"
 
 MEMORY_IDS = (
     "CMP-MEM-RETRIEVAL",
@@ -633,14 +635,16 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
         source_repository=REPOSITORY,
         source_commit=commit,
         k3_view_schema_version=K3_VIEW_SCHEMA_VERSION,
-        k3_surface="system-anatomy-navigation",
+        k3_surface="agent-anatomy-navigation",
     )
     body = _render_orientation_header(
         title="Research Knowledge Home",
-        surface="Workspace home and current System Anatomy entry",
+        surface="Workspace home and current Agent Anatomy entry",
         home="Current page; no parent is asserted.",
         broader_context=(
-            _technical_surface_link(TECHNICAL_MAP, "System Anatomy")
+            _technical_surface_link(TECHNICAL_ANATOMY, "Agent Anatomy")
+            + "; "
+            + _technical_surface_link(TECHNICAL_MAP, "System Anatomy reference")
             + "; "
             + _technical_surface_link(TECHNICAL_HOME, "Technical Atlas Index")
             + "."
@@ -649,7 +653,24 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
     )
     body.extend(
         [
-            "Maintained K3 entry/navigation surface for the accepted two-subject visual slice.",
+            "Maintained workspace entry. Agent Anatomy is the primary rich visual surface; "
+            "the Domain slice provides one scoped drill-down.",
+            "",
+            "## Agent Anatomy",
+            "",
+            f"- {_technical_surface_link(TECHNICAL_ANATOMY, 'Open the primary Agent Anatomy')}",
+            "- "
+            + _technical_surface_link(
+                TECHNICAL_DOMAIN_SLICE,
+                "Evidence, Memory & Retrieval · representative Domain slice",
+            ),
+            "",
+            "## Markdown fallback and rollback",
+            "",
+            "If Excalidraw is unavailable, continue with the Technical Hierarchy and linked "
+            "technical records below. The previous System Anatomy stays available for direct "
+            "comparison and rollback during G6.",
+            f"- {_technical_surface_link(TECHNICAL_MAP, 'System Anatomy · reference / rollback')}",
             "",
             "## Component workbenches",
             "",
