@@ -129,7 +129,7 @@ Component · CMP-MEM-RETRIEVAL ^a8a86a8d
 
 ← Back to Agent Anatomy ^715c8c01
 
-Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench ^ce6229d7
+Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records ^ce6229d7
 
 If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records. ^a0119704
 
@@ -229,9 +229,9 @@ a8a86a8d: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL 
 
 715c8c01: [[Assets/Excalidraw/Agent Anatomy.excalidraw|← Back to Agent Anatomy]]
 
-c64e6537: [[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench]]
+c64e6537: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
 
-ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench]]
+ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
 
 ## Drawing
 ```json
@@ -2838,7 +2838,7 @@ ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy /
       "height": 64,
       "id": "c64e6537",
       "isDeleted": false,
-      "link": "[[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench]]",
+      "link": "[[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2872,18 +2872,18 @@ ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy /
       "id": "ce6229d7",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Home/Research Atlas|Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench]]",
+      "link": "[[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench",
-      "rawText": "Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench",
+      "originalText": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
+      "rawText": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
       "roughness": 0,
       "roundness": null,
       "seed": 1315056087,
       "strokeColor": "#26384b",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "Research Knowledge Home · Technical Hierarchy / exact records / Memory Retrieval workbench",
+      "text": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
