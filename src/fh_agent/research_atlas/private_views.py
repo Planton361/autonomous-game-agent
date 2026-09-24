@@ -1,6 +1,8 @@
 """Private declared-reference navigation and direct Bases; no scientific adjudication."""
 
 import argparse
+import hashlib
+import json
 import os
 import re
 import sys
@@ -116,7 +118,54 @@ K3_HUB_CHILD_PAYLOADS = frozenset(
 )
 LEGACY_K3_PAYLOADS = frozenset((LEGACY_MEMORY_WORKBENCH, LEGACY_VERIFIER_WORKBENCH))
 K3_PRIOR_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH)) | LEGACY_K3_PAYLOADS
-K3_VIEW_SCHEMA_VERSION = "1.3"
+TECHNICAL_DETAIL_ROOT = PurePosixPath("workbenches/Technical Details")
+TECHNICAL_DETAIL_ENDPOINT_TYPES = {
+    "IF-MEM-CORTEX": "Interface",
+    "CON-CORTEX-CONTEXT": "Contract",
+    "DAT-RETRIEVAL-SNAPSHOT": "DataArtifact",
+    "MEAS-RETRIEVAL-DELIVERY-001": "MeasurementPoint",
+    "CON-VERIFIER-RESULT": "Contract",
+    "DAT-OBSERVATION": "DataArtifact",
+    "DAT-VISIBLE-OUTCOME": "DataArtifact",
+}
+TECHNICAL_DETAIL_IDS = tuple(TECHNICAL_DETAIL_ENDPOINT_TYPES)
+TECHNICAL_DETAIL_RELATIONS = frozenset(
+    {
+        "part_of",
+        "supplies",
+        "consumes",
+        "controls",
+        "constrains",
+        "proposes_to",
+        "grounds",
+        "executes",
+        "observes",
+        "verifies",
+        "updates",
+        "retrieves_from",
+        "measured_at",
+        "derived_from",
+    }
+)
+TECHNICAL_DETAIL_PAYLOADS = frozenset(
+    path
+    for identity in TECHNICAL_DETAIL_IDS
+    for path in (
+        TECHNICAL_DETAIL_ROOT / f"{identity}.md",
+        TECHNICAL_DETAIL_ROOT / f"{identity}.canvas",
+    )
+)
+K3_VIEW_SCHEMA_VERSION = "1.4"
+
+
+def technical_detail_paths(identity: str) -> tuple[PurePosixPath, PurePosixPath]:
+    """Return finite stable workbench and Canvas paths for a W05 endpoint."""
+    if identity not in TECHNICAL_DETAIL_ENDPOINT_TYPES:
+        raise ProjectionError(f"Unsupported W05 detail endpoint: {identity}")
+    return (
+        TECHNICAL_DETAIL_ROOT / f"{identity}.md",
+        TECHNICAL_DETAIL_ROOT / f"{identity}.canvas",
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,8 +215,21 @@ class ComponentHubModel:
     direct_relationships: tuple[Relationship, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class TechnicalDetailModel:
+    """One exact endpoint scope shared by Markdown and native Canvas renderers."""
+
+    endpoint_id: str
+    originating_hub_ids: tuple[str, ...]
+    direct_relationships: tuple[Relationship, ...]
+
+
 def _derived_link(path: PurePosixPath, label: str) -> str:
     return f"[[{OWNED_ROOT / path.with_suffix('')}|{label}]]"
+
+
+def _canvas_link(path: PurePosixPath, label: str) -> str:
+    return f"[[{OWNED_ROOT / path}|{label}]]"
 
 
 def _technical_surface_link(path: PurePosixPath, label: str) -> str:
@@ -689,6 +751,347 @@ def _historical_technical_evidence(
     return sorted(result, key=lambda item: (item[0].id, item[1].target))
 
 
+def technical_detail_models(atlas: Atlas) -> tuple[TechnicalDetailModel, ...]:
+    """Resolve only the finite W04 technical-lane endpoints and their exact direct edges."""
+    origins: dict[str, set[str]] = {}
+    for hub_id in COMPONENT_HUB_PATHS:
+        hub = _component_hub_model(atlas, hub_id)
+        for identity in (
+            *hub.interface_ids,
+            *hub.contract_ids,
+            *hub.data_artifact_ids,
+            *hub.measurement_point_ids,
+        ):
+            origins.setdefault(identity, set()).add(hub_id)
+
+    if origins.keys() != TECHNICAL_DETAIL_ENDPOINT_TYPES.keys():
+        actual = ", ".join(sorted(origins)) or "none"
+        expected = ", ".join(TECHNICAL_DETAIL_IDS)
+        raise ProjectionError(
+            "W05 endpoint set differs from the accepted finite Hub scope; "
+            f"Registry endpoints: {actual}; bounded endpoints: {expected}"
+        )
+
+    models: list[TechnicalDetailModel] = []
+    for identity in TECHNICAL_DETAIL_IDS:
+        node = _k3_node(atlas, identity)
+        expected_type = TECHNICAL_DETAIL_ENDPOINT_TYPES[identity]
+        if not isinstance(node, TechnicalIdentity) or node.type != expected_type:
+            raise ProjectionError(
+                f"W05 endpoint {identity} is not the bounded Registry type {expected_type}"
+            )
+        historical_edges = {edge for _, edge in _historical_technical_evidence(atlas, (identity,))}
+        relationships = tuple(
+            sorted(
+                (
+                    edge
+                    for edge in atlas.relationships
+                    if identity in {edge.source, edge.target}
+                    and (
+                        (
+                            edge.relation in TECHNICAL_DETAIL_RELATIONS
+                            and isinstance(atlas.entities[edge.source], TechnicalIdentity)
+                            and isinstance(atlas.entities[edge.target], TechnicalIdentity)
+                        )
+                        or edge in historical_edges
+                    )
+                ),
+                key=lambda edge: (edge.relation, edge.source, edge.target),
+            )
+        )
+        models.append(
+            TechnicalDetailModel(
+                endpoint_id=identity,
+                originating_hub_ids=tuple(sorted(origins[identity])),
+                direct_relationships=relationships,
+            )
+        )
+    return tuple(models)
+
+
+_DETAIL_TYPE_LABELS = {
+    "System": "System",
+    "Component": "Component",
+    "Interface": "Interface",
+    "Contract": "Contract",
+    "DataArtifact": "Data Artifact",
+    "MeasurementPoint": "Measurement Point",
+    "Evidence": "Technical Evidence",
+}
+_DETAIL_TYPE_MARKERS = {
+    "System": "⬟",
+    "Component": "■",
+    "Interface": "○",
+    "Contract": "□",
+    "DataArtifact": "▧",
+    "MeasurementPoint": "◎",
+    "Evidence": "◇",
+}
+_DETAIL_TYPE_COLORS = {
+    "System": "3",
+    "Component": "1",
+    "Interface": "5",
+    "Contract": "2",
+    "DataArtifact": "4",
+    "MeasurementPoint": "6",
+    "Evidence": "4",
+}
+
+
+def _detail_node_key(atlas: Atlas, identity: str) -> tuple[int, str, str]:
+    node = atlas.entities[identity]
+    type_order = {
+        "System": 0,
+        "Component": 1,
+        "Interface": 2,
+        "Contract": 3,
+        "DataArtifact": 4,
+        "MeasurementPoint": 5,
+        "Evidence": 6,
+    }
+    return (type_order[node.type], node.name.casefold(), identity)
+
+
+def _canvas_node_id(identity: str) -> str:
+    return "node-" + hashlib.sha256(f"w05-node\0{identity}".encode()).hexdigest()[:16]
+
+
+def _canvas_edge_id(edge: Relationship) -> str:
+    key = f"w05-edge\0{edge.source}\0{edge.relation}\0{edge.target}"
+    return "edge-" + hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
+def _canvas_card_text(atlas: Atlas, identity: str, focal_id: str) -> tuple[str, str]:
+    node = atlas.entities[identity]
+    role = (
+        f"✦ FOCAL ENDPOINT · {_DETAIL_TYPE_LABELS[node.type]}"
+        if identity == focal_id
+        else f"{_DETAIL_TYPE_MARKERS[node.type]} {_DETAIL_TYPE_LABELS[node.type]}"
+    )
+    name = re.sub(r"[\r\n`*_[\]#<>|]", " ", node.name)
+    name = " ".join(name.split())
+    stable_type = "Evidence" if isinstance(node, Evidence) else node.type
+    return (
+        f"**{role}**\n\n{name}\n\n`{identity}` · Registry type `{stable_type}`\n\n"
+        f"{_technical_link(atlas, identity)}",
+        _DETAIL_TYPE_COLORS[node.type],
+    )
+
+
+def render_technical_detail_canvas(atlas: Atlas, model: TechnicalDetailModel) -> bytes:
+    """Render an endpoint-centered native JSON Canvas with exact directed relations."""
+    focal_id = model.endpoint_id
+    neighbors = {
+        edge.target if edge.source == focal_id else edge.source
+        for edge in model.direct_relationships
+    }
+    incoming = {edge.source for edge in model.direct_relationships if edge.target == focal_id}
+    outgoing = {edge.target for edge in model.direct_relationships if edge.source == focal_id}
+    source_only = sorted(incoming - outgoing, key=lambda item: _detail_node_key(atlas, item))
+    target_only = sorted(outgoing - incoming, key=lambda item: _detail_node_key(atlas, item))
+    both = sorted(incoming & outgoing, key=lambda item: _detail_node_key(atlas, item))
+    focal_x, focal_y = 700, 390
+    positions: dict[str, tuple[int, int]] = {focal_id: (focal_x, focal_y)}
+
+    def column(identities: list[str], x: int) -> None:
+        start_y = focal_y - (len(identities) - 1) * 110
+        for index, identity in enumerate(identities):
+            positions[identity] = (x, start_y + index * 220)
+
+    column(source_only, 40)
+    column(target_only, 1360)
+    for index, identity in enumerate(both):
+        positions[identity] = (focal_x + index * 420, focal_y + 250)
+
+    node_ids = {identity: _canvas_node_id(identity) for identity in neighbors | {focal_id}}
+    ordered_nodes = sorted(neighbors, key=lambda item: _detail_node_key(atlas, item)) + [focal_id]
+    nodes = []
+    for identity in ordered_nodes:
+        x, y = positions[identity]
+        text, color = _canvas_card_text(atlas, identity, focal_id)
+        nodes.append(
+            {
+                "id": node_ids[identity],
+                "type": "text",
+                "x": x,
+                "y": y,
+                "width": 390 if identity == focal_id else 350,
+                "height": 190 if identity == focal_id else 170,
+                "color": "5" if identity == focal_id else color,
+                "text": text,
+            }
+        )
+    edges = [
+        {
+            "id": _canvas_edge_id(edge),
+            "fromNode": node_ids[edge.source],
+            "toNode": node_ids[edge.target],
+            "fromEnd": "none",
+            "toEnd": "arrow",
+            "label": edge.relation,
+        }
+        for edge in model.direct_relationships
+    ]
+    canvas = {
+        "generated_by": OWNER,
+        "canvas_view_schema_version": "1.0",
+        "nodes": nodes,
+        "edges": edges,
+    }
+    return (json.dumps(canvas, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
+
+
+def render_technical_detail_workbench(
+    commit: str, atlas: Atlas, model: TechnicalDetailModel
+) -> bytes:
+    """Render shared Markdown identity, status, relation, provenance, and return context."""
+    subject = _k3_node(atlas, model.endpoint_id)
+    if not isinstance(subject, TechnicalIdentity):
+        raise ProjectionError(f"W05 endpoint is not technical: {model.endpoint_id}")
+    _, canvas_path = technical_detail_paths(subject.id)
+    status = subject.technical
+    lines = [
+        f"# {subject.name}",
+        "",
+        f"`{subject.id}` · Registry type `{subject.type}`",
+        "",
+        "## Orientation",
+        "",
+        f"- **Open object:** {_technical_link(atlas, subject.id)}",
+        "- **Current technical context:** one endpoint-centered scope of direct technical "
+        "Registry relations; no deeper decomposition is inferred.",
+        "- **Originating Component Hub(s):**",
+    ]
+    for hub_id in model.originating_hub_ids:
+        paths = COMPONENT_HUB_PATHS[hub_id]
+        lines.append(
+            f"  - {_technical_link(atlas, hub_id)} · "
+            f"{_derived_link(paths.overview, 'Hub Overview')} · "
+            f"{_derived_link(paths.technical, 'Hub Technical view')}"
+        )
+    component_ids = sorted(
+        {
+            identity
+            for edge in model.direct_relationships
+            for identity in (edge.source, edge.target)
+            if identity != subject.id and atlas.entities[identity].type == "Component"
+        },
+        key=lambda identity: _detail_node_key(atlas, identity),
+    )
+    lines.extend(["", "### Direct Component context", ""])
+    if component_ids:
+        lines.extend(f"- {_technical_link(atlas, identity)}" for identity in component_ids)
+    else:
+        lines.append("- No direct Component relation is registered in this scope.")
+    lines.extend(
+        [
+            "",
+            "## Technical status axes — kept separate",
+            "",
+            "These are independent Registry fields; this workbench creates no combined score.",
+            "",
+            "| Axis | Current Registry state | Boundary |",
+            "| --- | --- | --- |",
+            f"| Architecture authority | `{status.architecture_authority}` | "
+            "Authority classification only. |",
+            f"| Implementation status | `{status.implementation_status}` | "
+            "Implementation declaration only. |",
+            f"| Technical verification | `{status.verification_status}` | "
+            "Technical verification only. |",
+            "",
+        ]
+    )
+    if subject.type == "MeasurementPoint":
+        lines.extend(
+            [
+                "## Measurement boundary",
+                "",
+                "This MeasurementPoint identifies a registered technical measurement target "
+                "relation only.",
+                "",
+                "- Measurement validity: **not established here**.",
+                "- Scientific evidence or effect: **not established here**.",
+                "- Accepted scientific claim: **none created or implied**.",
+                "",
+            ]
+        )
+    evidence_edges = [
+        edge
+        for edge in model.direct_relationships
+        if atlas.entities[edge.source].type == "Evidence"
+    ]
+    lines.extend(
+        [
+            "## Evidence / implementation provenance",
+            "",
+            "Only the existing accepted historical technical Evidence selection is shown. "
+            "It is implementation provenance, not scientific evidence or claim promotion.",
+            "",
+        ]
+    )
+    if evidence_edges:
+        for edge in evidence_edges:
+            lines.append(
+                f"- {_technical_link(atlas, edge.source)} — `{edge.relation}` → "
+                f"{_technical_link(atlas, edge.target)}."
+            )
+    else:
+        lines.append("- No accepted historical technical Evidence relation is selected.")
+    lines.extend(
+        [
+            "",
+            "## Exact direct Registry relations",
+            "",
+            "Each row preserves Registry source → relation → target direction. Canvas edges "
+            "encode this same curated set; no reverse meaning is inferred.",
+            "",
+        ]
+    )
+    if model.direct_relationships:
+        for edge in model.direct_relationships:
+            lines.append(
+                f"- {_technical_link(atlas, edge.source)} — `{edge.relation}` → "
+                f"{_technical_link(atlas, edge.target)}"
+            )
+    else:
+        lines.append("- No direct technical Registry relations are registered for this endpoint.")
+    lines.extend(
+        [
+            "",
+            "## Scoped Canvas map",
+            "",
+            f"- {_canvas_link(canvas_path, 'Open the matching native Canvas map')}",
+            "- The Canvas is a derived visualization, not technical authority.",
+            "",
+            "## Return navigation",
+            "",
+        ]
+    )
+    for hub_id in model.originating_hub_ids:
+        paths = COMPONENT_HUB_PATHS[hub_id]
+        lines.append(f"- {_derived_link(paths.overview, 'Back to Hub Overview')}")
+        lines.append(f"- {_derived_link(paths.technical, 'Back to Hub Technical view')}")
+    lines.extend(
+        [
+            f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}",
+            f"- {_technical_surface_link(TECHNICAL_ANATOMY, 'Agent Anatomy')}",
+            f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
+            "",
+        ]
+    )
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        k3_view_schema_version=K3_VIEW_SCHEMA_VERSION,
+        k3_surface="technical-detail-workbench",
+        k3_subject=subject.id,
+        k3_registry_type=subject.type,
+        k3_originating_hubs=list(model.originating_hub_ids),
+    )
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(lines)).encode()
+
+
 def _render_status_axes(
     atlas: Atlas, subject: TechnicalIdentity, measurement_ids: tuple[str, ...]
 ) -> list[str]:
@@ -722,7 +1125,13 @@ def _render_status_axes(
     ]
 
 
-def _render_lane(atlas: Atlas, title: str, identities: tuple[str, ...]) -> list[str]:
+def _render_lane(
+    atlas: Atlas,
+    title: str,
+    identities: tuple[str, ...],
+    *,
+    detail_workbenches: bool = False,
+) -> list[str]:
     lines = [f"## {title}", ""]
     for identity in identities:
         node = _k3_node(atlas, identity)
@@ -735,6 +1144,14 @@ def _render_lane(atlas: Atlas, title: str, identities: tuple[str, ...]) -> list[
             )
         else:
             lines.append(f"- {_technical_link(atlas, identity)}")
+        if detail_workbenches:
+            workbench_path, canvas_path = technical_detail_paths(identity)
+            lines.append(
+                "  - "
+                + _derived_link(workbench_path, "Open technical detail workbench")
+                + " · "
+                + _canvas_link(canvas_path, "Open scoped Canvas map")
+            )
     if len(lines) == 2:
         lines.append("- None selected.")
     lines.append("")
@@ -981,7 +1398,7 @@ def _render_component_hub_overview(atlas: Atlas, hub: ComponentHubModel) -> list
 
 def _render_component_hub_interface_lane(atlas: Atlas, hub: ComponentHubModel) -> list[str]:
     if hub.interface_ids:
-        return _render_lane(atlas, "Interface lane", hub.interface_ids)
+        return _render_lane(atlas, "Interface lane", hub.interface_ids, detail_workbenches=True)
     subject = _k3_node(atlas, hub.subject_id)
     if not isinstance(subject, TechnicalIdentity):
         raise ProjectionError(f"Component Hub subject is not technical: {hub.subject_id}")
@@ -1042,9 +1459,13 @@ def _render_component_hub_technical(atlas: Atlas, hub: ComponentHubModel) -> lis
         lines.append("- No direct Component subcomponents are declared by `part_of`.")
     lines.extend(["", ""])
     lines.extend(_render_component_hub_interface_lane(atlas, hub))
-    lines.extend(_render_lane(atlas, "Contract lane", hub.contract_ids))
-    lines.extend(_render_lane(atlas, "Data Artifact lane", hub.data_artifact_ids))
-    lines.extend(_render_lane(atlas, "Measurement lane", hub.measurement_point_ids))
+    lines.extend(_render_lane(atlas, "Contract lane", hub.contract_ids, detail_workbenches=True))
+    lines.extend(
+        _render_lane(atlas, "Data Artifact lane", hub.data_artifact_ids, detail_workbenches=True)
+    )
+    lines.extend(
+        _render_lane(atlas, "Measurement lane", hub.measurement_point_ids, detail_workbenches=True)
+    )
     lines.extend(_render_status_axes(atlas, subject, hub.measurement_point_ids))
     lines.extend(_render_exact_relationships(atlas, hub.selected_ids))
     lines.extend(_render_historical_evidence(atlas, hub.selected_ids))
@@ -1152,6 +1573,10 @@ class ManifestV22(ManifestV21):
 
 class ManifestV23(ManifestV21):
     view_schema_version: Literal["2.3"]
+
+
+class ManifestV24(ManifestV21):
+    view_schema_version: Literal["2.4"]
 
 
 def _canonical_property_id(value: object) -> object:
@@ -1288,8 +1713,11 @@ def reference_views_tree(
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)
     tree[K3_HOME] = render_k3_home(commit, atlas)
+    hubs = {
+        subject_id: _component_hub_model(atlas, subject_id) for subject_id in COMPONENT_HUB_PATHS
+    }
     for subject_id, paths in COMPONENT_HUB_PATHS.items():
-        hub = _component_hub_model(atlas, subject_id)
+        hub = hubs[subject_id]
         for view, path in (
             ("overview", paths.overview),
             ("technical", paths.technical),
@@ -1303,6 +1731,10 @@ def reference_views_tree(
                 snapshot,
                 source_projection_present,
             )
+    for detail in technical_detail_models(atlas):
+        workbench_path, canvas_path = technical_detail_paths(detail.endpoint_id)
+        tree[workbench_path] = render_technical_detail_workbench(commit, atlas, detail)
+        tree[canvas_path] = render_technical_detail_canvas(atlas, detail)
     hierarchy = hierarchy_tree(commit, atlas)
     if tree.keys() & hierarchy.keys():
         raise ProjectionError("Duplicate generated hierarchy path")
@@ -1330,13 +1762,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.3",
+        view_schema_version="2.4",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV23.model_validate(data).model_dump(exclude_none=True)
+        ManifestV24.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -1403,6 +1835,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV22.model_validate(data)
         elif data.get("view_schema_version") == "2.3":
             manifest = ManifestV23.model_validate(data)
+        elif data.get("view_schema_version") == "2.4":
+            manifest = ManifestV24.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -1421,7 +1855,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
             )
             or (
-                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3"}
+                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4"}
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -1429,16 +1863,17 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in K3_PRIOR_PAYLOADS
             )
             or (
-                manifest.view_schema_version == "2.3"
+                manifest.view_schema_version in {"2.3", "2.4"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
-            or (manifest.view_schema_version in {"2.2", "2.3"} and relative == HIERARCHY)
+            or (manifest.view_schema_version in {"2.2", "2.3", "2.4"} and relative == HIERARCHY)
             or (
-                manifest.view_schema_version in {"2.2", "2.3"}
+                manifest.view_schema_version in {"2.2", "2.3", "2.4"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
+            or (manifest.view_schema_version == "2.4" and relative in TECHNICAL_DETAIL_PAYLOADS)
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         if isinstance(item, OwnedFileV21):
@@ -1538,6 +1973,16 @@ def project(
             owned = (
                 metadata.get("generated_by") == OWNER
                 and metadata.get("index_schema_version") == "1.0"
+            )
+        elif relative.suffix == ".canvas":
+            try:
+                canvas = json.loads(utf8(data))
+            except (ValueError, TypeError):
+                canvas = None
+            owned = (
+                isinstance(canvas, dict)
+                and canvas.get("generated_by") == OWNER
+                and canvas.get("canvas_view_schema_version") == "1.0"
             )
         else:
             owned = markdown_parts(utf8(data))[0].get("generated_by") == OWNER

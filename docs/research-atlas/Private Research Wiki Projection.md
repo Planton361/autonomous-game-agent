@@ -513,6 +513,53 @@ notes link to the Hub Overview; the W03 Domain slice routes through Research
 Knowledge Home. Actual-vault G6 remains a separate acceptance gate after
 CONTROL reviews the exact PR head.
 
+## W05 precise technical detail maps (manifest v2.4)
+
+W05 adds one shared endpoint detail renderer and one native JSON Canvas renderer for the
+finite technical records directly exposed by the two W04 Technical Hub lanes:
+
+```text
+IF-MEM-CORTEX
+CON-CORTEX-CONTEXT
+DAT-RETRIEVAL-SNAPSHOT
+MEAS-RETRIEVAL-DELIVERY-001
+CON-VERIFIER-RESULT
+DAT-OBSERVATION
+DAT-VISIBLE-OUTCOME
+```
+
+For each ID, `workbenches/Technical Details/<ID>.md` and the matching `.canvas` are
+separately listed strict-byte owned payloads. The manifest adds no wildcard folder
+ownership. Existing Hub Overview and Research content retain their W04 contract; the
+Technical lanes link each present exact endpoint to its Markdown workbench and Canvas.
+The Verifier lane remains empty for Interface and MeasurementPoint because no directly
+related records of those types exist in the current Registry.
+
+Each workbench preserves the endpoint title, stable ID and exact Registry type, originating
+Hub links, direct Component context, separate architecture/implementation/technical-
+verification axes, exact source → relation → target rows, accepted historical technical
+Evidence links, Canvas link and low-friction return navigation. MeasurementPoint pages
+state that measurement validity, scientific evidence/effect and accepted claims are not
+established by the relation or view.
+
+Each Canvas is valid JSON Canvas 1.0 JSON. It is endpoint-centered and contains only the
+curated direct technical relation set shared with its Markdown workbench. Arrows preserve
+Registry source and target, and labels retain the exact relation name. Historical
+implementation provenance is limited to the same accepted `EVID-48-*` implementation
+Evidence selected by W04. Cards use a type marker plus a readable type label and stable ID;
+their relative Atlas-record links resolve in the workspace. Presentation grouping, return
+navigation and layout cues do not create semantic edges. Node and edge IDs are stable
+hashes of Registry identities or exact relation triples. JSON key/order/coordinates are
+deterministic; no machine-specific Canvas configuration is written.
+
+Manifest v2.4 may add only the fourteen exact W05 files derived from the seven IDs above.
+Prior v1.0–v2.3 manifests retain only their previously declared finite paths and may
+migrate to v2.4 on write after the existing owner, digest, path and authored-content checks
+pass. Unknown or unowned files still block writes; edited obsolete owned files are not
+deleted. `--check` remains zero-write. These generated workbenches/maps are presentation
+only and do not establish technical authority, measurement validity or scientific claims.
+Actual-vault G6 remains a separate acceptance gate after CONTROL reviews the exact PR head.
+
 The fingerprint includes every authored private identity/type/profile/revision
 and consumed RA-2 reference sets in deterministic order. It excludes bodies,
 titles, paths and unconsumed metadata. Relevant edits cause `--check` drift;
@@ -525,9 +572,9 @@ plaintext. No private absolute paths or unselected secrets are emitted.
 
 Strict v1/v2.0 manifests may migrate in place to v2.1 on write. Their `--check`
 returns drift (exit 2) and never migrates or writes. Unknown versions fail closed.
-V1 cannot claim YAML ownership; v2.x permits only the exact new index path and the three
-current fixed K3 Markdown paths. Prior v2.x manifests may additionally name only
-the two retired W01 ID-first paths for owner-and-digest-validated cleanup. YAML
+V1 cannot claim YAML ownership; v2.x permits only exact schema-versioned paths. Prior
+versions can name only their previously declared fixed paths, with W02 hierarchy, W04 Hub
+children and W05 detail paths added by their respective manifest versions. YAML
 owner/schema markers, Markdown owner markers, Base ownership-class validation and
 all prior ownership/path checks must pass before writes. Unknown
 files are never adopted; edited obsolete files are never deleted. The manifest

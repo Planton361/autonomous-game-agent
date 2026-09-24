@@ -236,6 +236,66 @@ def test_check_is_zero_write_and_never_creates_a_restore_point(setup):
     assert filesystem_state(restore_root) == before_restore_root
 
 
+def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
+    repo, vault, source_commit = setup
+    technical.project(repo, vault, source_commit)
+    views.project(repo, vault, source_commit)
+    derived_root = vault / views.OWNED_ROOT
+    manifest_path = derived_root / views.MANIFEST
+    prior = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
+    detail_paths = set(views.TECHNICAL_DETAIL_PAYLOADS)
+    for relative in detail_paths:
+        (derived_root / relative).unlink()
+    prior["view_schema_version"] = "2.3"
+    prior["owned_files"] = [
+        item for item in prior["owned_files"] if Path(item["path"]) not in detail_paths
+    ]
+    manifest_path.write_bytes(views.yaml_text(prior).encode())
+
+    authored_before = {
+        path: digest
+        for path, digest in snapshot(vault, authored=True).items()
+        if not path.startswith(f"{views.OWNED_ROOT}/")
+    }
+    before_check = filesystem_state(vault)
+    with pytest.raises(views.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, source_commit, check=True)
+    assert filesystem_state(vault) == before_check
+
+    views.project(repo, vault, source_commit)
+    current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
+    assert current["view_schema_version"] == "2.4"
+    current_details = {
+        Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
+    }
+    current_details |= {
+        Path(item["path"])
+        for item in current["owned_files"]
+        if item["path"].startswith(str(views.TECHNICAL_DETAIL_ROOT))
+    }
+    assert current_details == {Path(path) for path in detail_paths}
+    authored_after = {
+        path: digest
+        for path, digest in snapshot(vault, authored=True).items()
+        if not path.startswith(f"{views.OWNED_ROOT}/")
+    }
+    assert authored_after == authored_before
+
+    unknown = derived_root / views.TECHNICAL_DETAIL_ROOT / "UNOWNED.md"
+    unknown.parent.mkdir(parents=True, exist_ok=True)
+    unknown.write_text("preserve this unowned file", encoding="utf-8")
+    before_unknown_check = filesystem_state(vault)
+    with pytest.raises(views.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, source_commit)
+    assert filesystem_state(vault) == before_unknown_check
+    authored_after_unknown = {
+        path: digest
+        for path, digest in snapshot(vault, authored=True).items()
+        if not path.startswith(f"{views.OWNED_ROOT}/")
+    }
+    assert authored_after_unknown == authored_before
+
+
 def test_cli_exposes_stable_workspace_commands_without_user_paths(setup):
     repo, vault, source_commit = setup
     result = CliRunner().invoke(app, ["workspace", "--help"])
