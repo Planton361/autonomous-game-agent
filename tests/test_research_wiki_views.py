@@ -174,6 +174,7 @@ def downgrade_manifest_to_v2(vault):
             item["path"] == str(views.HIERARCHY)
             or item["path"].startswith("hierarchy/")
             or PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS
+            or PurePosixPath(item["path"]) in views.TECHNICAL_DETAIL_PAYLOADS
         ):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
@@ -188,7 +189,10 @@ def downgrade_manifest_to_v22(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.2"
     for item in list(manifest["owned_files"]):
-        if PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS:
+        if (
+            PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS
+            or PurePosixPath(item["path"]) in views.TECHNICAL_DETAIL_PAYLOADS
+        ):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
     path.write_text(technical.yaml_text(manifest))
@@ -203,6 +207,7 @@ def install_pre_w02_v21(vault):
             item["path"] == str(views.HIERARCHY)
             or item["path"].startswith("hierarchy/")
             or PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS
+            or PurePosixPath(item["path"]) in views.TECHNICAL_DETAIL_PAYLOADS
         ):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
@@ -256,7 +261,7 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.REFERENCE_INDEX,
         views.NAVIGATION,
         views.HIERARCHY,
-    } | set(views.K3_PAYLOADS) | set(
+    } | set(views.K3_PAYLOADS) | set(views.TECHNICAL_DETAIL_PAYLOADS) | set(
         views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas"))
     )
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
@@ -275,7 +280,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.3"
+    assert manifest["view_schema_version"] == "2.4"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -444,7 +449,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.3"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.4"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -454,7 +459,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
     tree = views.project(repo, vault, sha)
     home = tree[views.K3_HOME].decode()
     home_props, _ = technical.markdown_parts(tree[views.K3_HOME].decode())
-    assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.3"
+    assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.5"
     assert "Component Hubs" in home
     assert "Overview and opens Technical or Research views of that same Component identity" in home
 
@@ -479,7 +484,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
         assert f"{title} · {identity}" in home
         for view, path in payloads:
             properties, body = technical.markdown_parts(tree[path].decode())
-            assert properties["k3_view_schema_version"] == "1.3"
+            assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION
             assert properties["k3_surface"] == f"component-hub-{view}"
             assert properties["k3_subject"] == identity
             assert body.startswith(f"# {title}\n\n*Component Hub · {view.title()}*")
@@ -489,6 +494,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
             assert "Research Knowledge Home" in body
         overview = tree[paths.overview].decode()
         assert "Open Technical" in overview and "Open Research" in overview
+        assert "declared Research Questions and literature paths" in overview
 
     memory_overview = tree[views.MEMORY_WORKBENCH].decode()
     parentage = memory_overview.split("**Technical parent(s)**", 1)[1].split("\n## ", 1)[0]
@@ -516,7 +522,21 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
         assert links
         for link in links:
             target = link.replace(r"\|", "|").partition("|")[0]
-            assert (vault / f"{target}.md").is_file(), (path, target)
+            relative = PurePosixPath(target)
+            if relative.suffix == ".excalidraw":
+                generated = PurePosixPath(f"{relative}.md")
+            elif relative.suffix in {".canvas", ".base"}:
+                generated = relative
+            elif not relative.suffix:
+                generated = relative.with_suffix(".md")
+            else:
+                generated = relative
+            if relative.is_relative_to(views.OWNED_ROOT):
+                assert generated.relative_to(views.OWNED_ROOT) in tree, (path, target)
+            else:
+                assert relative.is_relative_to(technical.OWNED_ROOT), (path, target)
+            expected = vault / generated
+            assert expected.is_file(), (path, target)
 
 
 def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup):
@@ -653,7 +673,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.3"
+    assert manifest["view_schema_version"] == "2.4"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -668,9 +688,11 @@ def test_w04_hub_rendering_is_registry_order_independent():
 
     def render(atlas):
         snapshot = views.make_snapshot([], atlas)
+        reference = views.build_index(atlas, snapshot, "a" * 40)
         output = {}
         for subject_id, paths in views.COMPONENT_HUB_PATHS.items():
             hub = views._component_hub_model(atlas, subject_id)
+            research_model = views._component_research_model(atlas, reference, subject_id)
             for view, path in (
                 ("overview", paths.overview),
                 ("technical", paths.technical),
@@ -683,6 +705,8 @@ def test_w04_hub_rendering_is_registry_order_independent():
                     view,
                     snapshot,
                     False,
+                    research_model if view == "research" else None,
+                    {},
                 )
         return output
 
@@ -723,7 +747,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.3"
+    assert manifest["view_schema_version"] == "2.4"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -773,16 +797,17 @@ def test_k3_empty_private_and_source_state_is_non_scientific(setup):
     tree = views.project(repo, vault, sha)
     for path in (views.MEMORY_HUB_RESEARCH, views.VERIFIER_HUB_RESEARCH):
         text = tree[path].decode()
-        assert "No currently supported/assigned research content is shown in this view." in text
+        assert (
+            "No matching declared Component literature paths are present in this snapshot." in text
+        )
         assert "Authored private research record count: `0`." in text
         assert "No authored private research records are present in this snapshot." in text
         assert "No populated source/Zotero projection is available in this snapshot." in text
-        assert "empty/unavailable" in text
-        assert "This view does not infer Research Question or Research Thread associations." in text
+        assert "Only current Registry `related_to_research_question` edges" in text
         assert "not a scientific finding" in text
-        assert "No accepted scientific claim is created or implied" in text
+        assert "No accepted scientific claim is created or implied by this Hub view." in text
         assert "Historical technical Evidence appears only in the Technical view" in text
-        assert "No private scientific evidence" in text
+        assert "No private evidence body is shown by this navigation view." in text
         assert "zsrc-" not in text and "zsv-" not in text
         assert "Open Declared Literature Navigation" in text
         assert "IF-MEM-CORTEX" not in text
@@ -1531,7 +1556,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.3"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.4"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 

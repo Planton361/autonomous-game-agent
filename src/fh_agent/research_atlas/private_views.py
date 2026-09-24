@@ -4,10 +4,12 @@ import argparse
 import hashlib
 import json
 import os
+import posixpath
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Literal
 from urllib.parse import quote
 
@@ -50,12 +52,19 @@ from .private_projection import (
 from .private_reference_index import (
     NAVIGATION,
     REFERENCE_INDEX,
+    Identity,
     ReferenceIndex,
+    Row,
     Snapshot,
+    Via,
     build_index,
+    component_navigation_rows,
     make_snapshot,
     render_index,
     render_navigation,
+)
+from .private_reference_index import (
+    plain as reference_plain,
 )
 from .schema import Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, UniqueKeyLoader, load_registry
@@ -155,7 +164,7 @@ TECHNICAL_DETAIL_PAYLOADS = frozenset(
         TECHNICAL_DETAIL_ROOT / f"{identity}.canvas",
     )
 )
-K3_VIEW_SCHEMA_VERSION = "1.4"
+K3_VIEW_SCHEMA_VERSION = "1.5"
 
 
 def technical_detail_paths(identity: str) -> tuple[PurePosixPath, PurePosixPath]:
@@ -213,6 +222,15 @@ class ComponentHubModel:
     measurement_point_ids: tuple[str, ...]
     selected_ids: tuple[str, ...]
     direct_relationships: tuple[Relationship, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentResearchModel:
+    """One exact Component's Registry RQ edges and existing N-C index rows."""
+
+    subject_id: str
+    research_question_relationships: tuple[Relationship, ...]
+    literature_paths: tuple[Row, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -574,6 +592,40 @@ def _component_hub_model(atlas: Atlas, subject_id: str) -> ComponentHubModel:
         measurement_point_ids=measurement_point_ids,
         selected_ids=ordered(selected),
         direct_relationships=direct_relationships,
+    )
+
+
+def _component_research_model(
+    atlas: Atlas, reference: ReferenceIndex, subject_id: str
+) -> ComponentResearchModel:
+    """Select only exact Registry RQ relations and existing N-C rows for one Hub subject."""
+    if subject_id not in COMPONENT_HUB_PATHS:
+        raise ProjectionError(f"Unsupported Component Hub subject: {subject_id}")
+    subject = atlas.entities.get(subject_id)
+    if not isinstance(subject, TechnicalIdentity) or subject.type != "Component":
+        raise ProjectionError(f"Component Hub subject is not a Component: {subject_id}")
+    questions = tuple(
+        sorted(
+            (
+                edge
+                for edge in atlas.relationships
+                if edge.source == subject_id and edge.relation == "related_to_research_question"
+            ),
+            key=lambda edge: (
+                atlas.entities[edge.target].name.casefold(),
+                edge.target,
+                edge.source,
+            ),
+        )
+    )
+    if any(atlas.entities[edge.target].type != "ResearchQuestion" for edge in questions):
+        raise ProjectionError(
+            "Component Research Question relation has a wrong Registry target type"
+        )
+    return ComponentResearchModel(
+        subject_id=subject_id,
+        research_question_relationships=questions,
+        literature_paths=component_navigation_rows(reference, subject_id),
     )
 
 
@@ -1215,31 +1267,101 @@ def _render_historical_evidence(atlas: Atlas, identities: tuple[str, ...]) -> li
     return lines
 
 
+def _component_research_link(
+    atlas: Atlas,
+    identifier: str,
+    locators: dict[str, PurePosixPath],
+    source_path: PurePosixPath,
+) -> str:
+    relative = locators.get(identifier)
+    if identifier in atlas.entities:
+        relative = TECHNICAL_ROOT / private_path(atlas.entities[identifier])
+    if relative is None:
+        return reference_plain(identifier)
+    raw = str(relative)
+    if (
+        relative.is_absolute()
+        or PureWindowsPath(raw).drive
+        or "\\" in raw
+        or ".." in relative.parts
+        or not relative.parts
+        or any(unicodedata.category(char) in {"Cc", "Cf", "Cs"} for char in raw)
+    ):
+        raise ProjectionError("Unsafe Component Research locator")
+    target = posixpath.relpath(raw, start=source_path.parent.as_posix())
+    return f"[{identifier}]({quote(target, safe='/')})"
+
+
+def _component_identity_display(
+    identity: Identity,
+    atlas: Atlas,
+    locators: dict[str, PurePosixPath],
+    source_path: PurePosixPath,
+) -> str:
+    revision = "none" if identity.record_version is None else f"v{identity.record_version}"
+    profile = identity.profile or "none"
+    record_type = identity.resolved_type or "none"
+    link = _component_research_link(atlas, identity.identifier, locators, source_path)
+    return (
+        f"{link} (`{identity.resolution_status}`; type `{record_type}`; "
+        f"record version `{revision}`; profile `{profile}`)"
+    )
+
+
+def _component_via_edge_lines(
+    edge: Via,
+    atlas: Atlas,
+    locators: dict[str, PurePosixPath],
+    source_path: PurePosixPath,
+    number: int,
+) -> list[str]:
+    declared_target = Identity(
+        identifier=edge.declared_target_identifier,
+        resolution_status=edge.declared_target_resolution_status,
+        resolved_type=edge.declared_target_type,
+        record_version=edge.declared_target_record_version,
+        profile=edge.declared_target_profile,
+    )
+    declaring = _component_research_link(atlas, edge.declaring_wiki_id, locators, source_path)
+    return [
+        f"{number}. Edge `{edge.edge_id}` · direction `{edge.traversal_direction}`",
+        "   - Traversal: "
+        + _component_identity_display(edge.traverse_from, atlas, locators, source_path)
+        + " → "
+        + _component_identity_display(edge.traverse_to, atlas, locators, source_path),
+        "   - Declaration: "
+        + f"{declaring} · type `{edge.declaring_doc_type}` · "
+        + f"revision `v{edge.declaring_record_version}` · "
+        + f"property `{edge.property}` · role `{edge.role or 'none'}`",
+        "   - Declared target: "
+        + _component_identity_display(declared_target, atlas, locators, source_path),
+    ]
+
+
 def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -> list[str]:
     count = len(snapshot.records)
     lines = [
         "## Research and source availability",
         "",
-        "No currently supported/assigned research content is shown in this view.",
-        "",
-        "This view does not infer Research Question or Research Thread associations. "
-        "It does not mean the topic is unresearched, literature is absent, a scientific gap "
-        "exists, novelty is established, evidence is weak or strong, research is complete, "
-        "or the Component should be prioritized.",
+        "This view displays exact Registry relationships and declared-reference paths. "
+        "It does not establish scientific evidence, support, literature coverage, novelty, "
+        "a gap, completeness, priority, or an accepted scientific claim.",
         "",
         "No automatic paper ranking, synthesis generation, novelty score, evidence score, "
         "maturity score or coverage score is produced.",
         "",
-        "### Existing research navigation",
+        "### Existing research navigation and audit",
         "",
-        "Existing declared-reference navigation remains a separate, non-adjudicative surface.",
-        f"- {_derived_link(NAVIGATION, 'Open Declared Literature Navigation')}",
+        "The Declared Literature Navigation page retains the complete index inventory and "
+        "Direct Reference Audit, including unresolved and wrong-type declarations.",
+        f"- {_derived_link(NAVIGATION, 'Open Declared Literature Navigation')} — "
+        "Direct Reference Audit",
         f"- {_derived_link(INDEX, 'Open Direct Views Index')}",
         "",
         "### Authored private research availability",
         "",
+        f"- Authored private research record count: `{count}`.",
     ]
-    lines.append(f"- Authored private research record count: `{count}`.")
     if count == 0:
         lines.extend(
             [
@@ -1248,36 +1370,158 @@ def _render_private_state(snapshot: Snapshot, source_projection_present: bool) -
             ]
         )
     else:
-        lines.append("- Private record bodies and identities are not projected into this Hub view.")
+        lines.append(
+            "- Record bodies are not projected here; only identities and declared references "
+            "needed for this view are shown."
+        )
     lines.extend(["", "### Literature / source availability", ""])
     if source_projection_present:
         lines.append(
-            "- A source/Zotero projection exists outside this view; source identities and "
-            "literature claims are not rendered here."
+            "- A source/Zotero projection exists outside this view; its source details and PDF "
+            "content are not rendered here."
         )
     else:
         lines.extend(
             [
                 "- No populated source/Zotero projection is available in this snapshot.",
-                "- The source panel is explicitly empty/unavailable; this is not a scientific "
-                "finding.",
+                "- This source-availability state is not a scientific finding.",
             ]
         )
     lines.extend(
         [
             "",
-            "### Scientific evidence state",
+            "### Scientific evidence and claim state",
             "",
-            "- No private scientific evidence is represented by this view.",
+            "- No private evidence body is shown by this navigation view.",
+            "- No accepted scientific claim is created or implied by this Hub view.",
             "- Historical technical Evidence appears only in the Technical view and remains "
             "implementation provenance.",
             "",
-            "### Accepted scientific claim state",
+        ]
+    )
+    return lines
+
+
+def _render_component_hub_research(
+    atlas: Atlas,
+    hub: ComponentHubModel,
+    snapshot: Snapshot,
+    source_projection_present: bool,
+    research: ComponentResearchModel,
+    locators: dict[str, PurePosixPath],
+) -> list[str]:
+    if research.subject_id != hub.subject_id:
+        raise ProjectionError("Component Research model subject does not match its Hub")
+    subject = _k3_node(atlas, hub.subject_id)
+    if not isinstance(subject, TechnicalIdentity) or subject.type != "Component":
+        raise ProjectionError(f"Component Hub subject is not a Component: {hub.subject_id}")
+    source_path = OWNED_ROOT / hub.paths.research
+    lines = _render_hub_header(atlas, hub, "research")
+    lines.extend(
+        [
+            "## Component research scope",
             "",
-            "- No accepted scientific claim is created or implied by this Hub view.",
+            f"- Component: {_technical_link(atlas, subject.id)}",
+            f"- Stable ID: `{subject.id}`",
+            f"- Hub return: {_derived_link(hub.paths.overview, 'Overview')} · "
+            f"{_derived_link(hub.paths.technical, 'Technical')}",
+            "",
+            "## Declared Research Questions",
+            "",
+            "Only current Registry `related_to_research_question` edges declared by this exact "
+            "Component are shown. These public relations are not literature coverage or a "
+            "scientific result.",
             "",
         ]
     )
+    if research.research_question_relationships:
+        for edge in research.research_question_relationships:
+            question = atlas.entities[edge.target]
+            lines.append(
+                f"- {_technical_link(atlas, edge.source)} — `{edge.relation}` → "
+                f"{_technical_link(atlas, edge.target)} — {question.name} · `{question.id}`"
+            )
+    else:
+        lines.append(
+            "No current Registry Research Question relation is declared for this Component."
+        )
+    lines.extend(
+        [
+            "",
+            "## Declared literature paths to this Component",
+            "",
+            "These are all eligible current N-C navigation rows terminating at this exact "
+            "Component in the Declared Reference Index. Each row retains its ordered edge "
+            "provenance and actual terminal declaration; the index remains the path authority.",
+            "",
+        ]
+    )
+    if research.literature_paths:
+        for path_number, row in enumerate(research.literature_paths, start=1):
+            if row.navigation_start is None:
+                raise ProjectionError(
+                    "Eligible Component navigation row has no Paper/source identity"
+                )
+            target = Identity(
+                identifier=row.target_identifier,
+                resolution_status=row.target_resolution_status,
+                resolved_type=row.resolved_target_type,
+                record_version=row.target_record_version,
+                profile=row.target_profile,
+            )
+            lines.extend(
+                [
+                    f"### Path {path_number} · `{row.path_kind}`",
+                    "",
+                    f"- Index row: `{row.row_kind}` · view `{row.navigation_view}` · "
+                    f"eligible `{str(row.path_eligible).lower()}`",
+                    "- Paper/source identity: "
+                    + _component_identity_display(
+                        row.navigation_start, atlas, locators, source_path
+                    ),
+                    f"- Recipe: `{row.recipe}`",
+                    "- Declaring record: "
+                    + _component_research_link(atlas, row.source_wiki_id, locators, source_path)
+                    + f" · type `{row.source_doc_type}` · revision `v{row.source_record_version}`",
+                    f"- Originating property: `{row.originating_property}`",
+                    f"- Originating role: `{row.originating_role or 'none'}`",
+                    "- Target Component: "
+                    + _component_identity_display(target, atlas, locators, source_path),
+                    f"- Final reference type check: `{row.type_check}`; expected target types: "
+                    + (", ".join(f"`{item}`" for item in row.expected_target_types) or "none"),
+                    "- Index diagnostics: "
+                    + (", ".join(f"`{item}`" for item in row.diagnostic_codes) or "none"),
+                    "- Ordered `via` edges:",
+                ]
+            )
+            for edge_number, edge in enumerate(row.via, start=1):
+                lines.extend(
+                    "  " + line
+                    for line in _component_via_edge_lines(
+                        edge, atlas, locators, source_path, edge_number
+                    )
+                )
+            lines.append("- Prerequisite references:")
+            if row.prerequisite_refs:
+                for prerequisite_number, edge in enumerate(row.prerequisite_refs, start=1):
+                    lines.extend(
+                        "  " + line
+                        for line in _component_via_edge_lines(
+                            edge, atlas, locators, source_path, prerequisite_number
+                        )
+                    )
+            else:
+                lines.append("  - None.")
+            lines.extend([f"- Index row ID: `{row.row_id}`", ""])
+    else:
+        lines.extend(
+            [
+                "No matching declared Component literature paths are present in this snapshot.",
+                "",
+            ]
+        )
+    lines.extend(_render_private_state(snapshot, source_projection_present))
+    lines.extend(_render_hub_return_navigation(atlas, hub))
     return lines
 
 
@@ -1388,7 +1632,7 @@ def _render_component_hub_overview(atlas: Atlas, hub: ComponentHubModel) -> list
             "- **Open Technical** — "
             + _derived_link(hub.paths.technical, "exact Registry structure and technical status"),
             "- **Open Research** — "
-            + _derived_link(hub.paths.research, "supported research navigation and availability"),
+            + _derived_link(hub.paths.research, "declared Research Questions and literature paths"),
             "",
         ]
     )
@@ -1473,18 +1717,6 @@ def _render_component_hub_technical(atlas: Atlas, hub: ComponentHubModel) -> lis
     return lines
 
 
-def _render_component_hub_research(
-    atlas: Atlas,
-    hub: ComponentHubModel,
-    snapshot: Snapshot,
-    source_projection_present: bool,
-) -> list[str]:
-    lines = _render_hub_header(atlas, hub, "research")
-    lines.extend(_render_private_state(snapshot, source_projection_present))
-    lines.extend(_render_hub_return_navigation(atlas, hub))
-    return lines
-
-
 def render_component_hub_view(
     commit: str,
     atlas: Atlas,
@@ -1492,6 +1724,8 @@ def render_component_hub_view(
     view: Literal["overview", "technical", "research"],
     snapshot: Snapshot,
     source_projection_present: bool,
+    research: ComponentResearchModel | None = None,
+    locators: dict[str, PurePosixPath] | None = None,
 ) -> bytes:
     """Render one of three views from the same typed Component Hub contract."""
     subject = _k3_node(atlas, hub.subject_id)
@@ -1502,7 +1736,11 @@ def render_component_hub_view(
     elif view == "technical":
         lines = _render_component_hub_technical(atlas, hub)
     else:
-        lines = _render_component_hub_research(atlas, hub, snapshot, source_projection_present)
+        if research is None:
+            raise ProjectionError("Component Research rendering requires its accepted index model")
+        lines = _render_component_hub_research(
+            atlas, hub, snapshot, source_projection_present, research, locators or {}
+        )
     props = dict(
         generated_by=OWNER,
         source_repository=REPOSITORY,
@@ -1716,6 +1954,10 @@ def reference_views_tree(
     hubs = {
         subject_id: _component_hub_model(atlas, subject_id) for subject_id in COMPONENT_HUB_PATHS
     }
+    research_models = {
+        subject_id: _component_research_model(atlas, reference, subject_id)
+        for subject_id in COMPONENT_HUB_PATHS
+    }
     for subject_id, paths in COMPONENT_HUB_PATHS.items():
         hub = hubs[subject_id]
         for view, path in (
@@ -1730,6 +1972,8 @@ def reference_views_tree(
                 view,
                 snapshot,
                 source_projection_present,
+                research_models[subject_id] if view == "research" else None,
+                locators,
             )
     for detail in technical_detail_models(atlas):
         workbench_path, canvas_path = technical_detail_paths(detail.endpoint_id)

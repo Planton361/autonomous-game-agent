@@ -493,13 +493,10 @@ shown only when a direct `part_of` edge declares them. The Verifier Interface
 lane remains explicitly empty when no directly related Interface is registered;
 other relationship types do not fill it.
 
-Research views expose the existing private-snapshot availability count and
-source-projection state, and link to current declared-reference navigation.
-They use the neutral empty-state wording `No currently supported/assigned
-research content is shown in this view.` This state is not a scientific claim.
-The views do not infer Component-to-Research Question/Thread associations,
-attach deep private Research to technical records, or generate scientific
-summaries, scores, rankings or claims.
+At W04, Research views exposed the private-snapshot availability count and
+source-projection state and linked to declared-reference navigation. The W04
+Research-view behavior was extended by W06; current behavior is described in
+the W06 section.
 
 The generated direct-view manifest advances to schema `2.3`; Hub Markdown uses
 K3 view schema `1.3`. Ownership is limited to the four exact child paths above
@@ -530,8 +527,8 @@ DAT-VISIBLE-OUTCOME
 
 For each ID, `workbenches/Technical Details/<ID>.md` and the matching `.canvas` are
 separately listed strict-byte owned payloads. The manifest adds no wildcard folder
-ownership. Existing Hub Overview and Research content retain their W04 contract; the
-Technical lanes link each present exact endpoint to its Markdown workbench and Canvas.
+ownership. The Hub Overview retains its W04 contract; W06 later extends Research.
+The Technical lanes link each present exact endpoint to its Markdown workbench and Canvas.
 The Verifier lane remains empty for Interface and MeasurementPoint because no directly
 related records of those types exist in the current Registry.
 
@@ -559,6 +556,40 @@ pass. Unknown or unowned files still block writes; edited obsolete owned files a
 deleted. `--check` remains zero-write. These generated workbenches/maps are presentation
 only and do not establish technical authority, measurement validity or scientific claims.
 Actual-vault G6 remains a separate acceptance gate after CONTROL reviews the exact PR head.
+
+## W06 Component-scoped Research views
+
+W06 updates the existing Memory Retrieval and Independent Verifier `Research.md`
+pages using one shared model. It adds no generated path or Base. Each page shows
+only the exact current Registry `related_to_research_question` edges declared by
+its Component, with the actual direction, both stable identities, the human
+Research Question name and a link to the public technical projection record.
+The Registry relationship lane remains distinct from private literature
+navigation and does not imply literature coverage or a scientific result.
+
+The literature section filters the existing Declared Reference Index to
+eligible N-C `navigation-path` rows ending at the exact public Component.
+The index remains the path authority; this view adds no traversal, parent or
+Domain rollup, role inheritance, ranking, top-k or truncation. Every selected
+row shows its Paper/source identity, direct/derived path kind, recipe, complete
+ordered `via` edges, actual declaring record/type/revision, originating
+property and verbatim role, exact Component target, prerequisite references
+and row ID. These fields keep the role on the record that declared it and make
+each navigation path traceable to its source declaration.
+
+Unresolved and wrong-type declarations stay visible in the existing Direct
+Reference Audit through the page's Declared Literature Navigation link; they
+are not promoted into eligible Component paths. The current Component-specific
+empty state is `No matching declared Component literature paths are present in
+this snapshot.` It makes no claim about literature absence, research absence,
+novelty, a gap, completeness or priority. Private record bodies remain
+unprojected; generated links use relative, encoded locators only.
+
+W06 changes only the bytes of the four already-owned Hub child pages. The
+manifest remains v2.4 and adds no ownership entries; the K3 Markdown view
+schema advances to `1.5`. Deterministic selection and rendering use the
+current Registry and existing structured index rows. `--check` remains
+zero-write. Actual-vault G6 remains gated on CONTROL approving the exact PR head.
 
 The fingerprint includes every authored private identity/type/profile/revision
 and consumed RA-2 reference sets in deterministic order. It excludes bodies,
