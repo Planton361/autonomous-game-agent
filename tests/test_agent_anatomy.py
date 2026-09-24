@@ -95,7 +95,7 @@ def test_w03_assets_are_finite_generated_and_navigable(atlas):
     assert "Primary visual entry" in home and "Markdown Home" in home
     assert "comparison and rollback" in home
     assert "Technical Hierarchy" in tree[DOMAIN_SLICE_PATH]
-    assert "Memory Retrieval workbench" in tree[DOMAIN_SLICE_PATH]
+    assert "Memory Retrieval Component Hub" in tree[DOMAIN_SLICE_PATH]
     validate_links(tree)
 
 

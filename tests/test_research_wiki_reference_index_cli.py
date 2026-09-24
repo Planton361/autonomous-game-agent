@@ -11,6 +11,7 @@ from test_research_wiki_projection import commit, filesystem_state, git, write_n
 from test_research_wiki_reference_index import sample_records
 
 from fh_agent.research_atlas import private_views as views
+from fh_agent.research_atlas.validator import load_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,17 +75,25 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
     assert cli("private_views", "--check").returncode == 0
     assert filesystem_state(vault) == before_check
     root = vault / views.OWNED_ROOT
-    assert {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()} == {
-        str(views.MANIFEST),
-        str(views.INDEX),
-        str(views.DIRECT_BASE),
-        str(views.TECHNICAL_BASE),
-        str(views.NAVIGATION),
-        str(views.REFERENCE_INDEX),
-        str(views.K3_HOME),
-        str(views.MEMORY_WORKBENCH),
-        str(views.VERIFIER_WORKBENCH),
-    }
+    expected = (
+        {
+            str(views.MANIFEST),
+            str(views.INDEX),
+            str(views.DIRECT_BASE),
+            str(views.TECHNICAL_BASE),
+            str(views.NAVIGATION),
+            str(views.REFERENCE_INDEX),
+        }
+        | {str(path) for path in views.K3_PAYLOADS}
+        | {
+            str(path)
+            for path in views.hierarchy_tree(
+                sha,
+                load_registry(repo / "docs/research-atlas"),
+            )
+        }
+    )
+    assert {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()} == expected
     old_yaml = (root / views.REFERENCE_INDEX).read_bytes()
     payload = yaml.safe_load(old_yaml)
     assert payload["source_commit"] == sha

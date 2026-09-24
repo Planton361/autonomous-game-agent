@@ -207,17 +207,32 @@ workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md
 workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md
 ```
 
-Strictly accept manifest `view_schema_version` `1.0`, `2.0` or `2.1`. V2 adds
+That is the original v2.1 payload set. W02 extends the manifest to v2.2 for the
+finite Technical Hierarchy; W04 extends it to v2.3 for the shared Component Hub
+views. The two human-first workbench paths remain the Overview entries. W04 adds
+only these four exact child paths:
+
+```text
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Technical.md
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Research.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Technical.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Research.md
+```
+
+The current writer accepts manifest `view_schema_version` `1.0`, `2.0`,
+`2.1`, `2.2` and `2.3`. V2 adds
 `reference_index_schema_version: "1.0"` and `private_input_fingerprint`; v2.1 adds
 an explicit ownership class and semantic digest for each Obsidian-managed Base,
 while retaining source repository/commit/Atlas schema, Base source digests and
-owned-file byte digests. The manifest never owns itself. Valid v1/v2.0 writes
-regenerate in place as v2.1; their `--check` returns drift/exit 2 with zero writes.
-Unknown versions fail closed. V1 cannot own YAML or K3 workbench payloads; v2.x
-can own only the exact declared-reference YAML path and the three current fixed K3 paths, never a generic
-YAML or workbench subtree. Prior v2 manifests may additionally name only the two
-retired W01 ID-first workbench paths for the established
-owner-and-digest-validated obsolete cleanup. Those paths are never emitted as
+owned-file byte digests. The manifest never owns itself. Valid v1/v2.0/v2.1/v2.2
+states regenerate in place as v2.3; their `--check` reports drift/exit 2 with
+zero writes. Unknown versions fail closed. V1 cannot own YAML or K3 workbench
+payloads. V2.0–v2.2 may own only the exact declared-reference YAML path and the
+original fixed K3 paths; v2.2 also owns the fixed hierarchy entry and its
+stable-ID-shaped hierarchy notes. V2.3 additionally accepts only the four W04
+Hub child paths listed above; it never owns an arbitrary Hub subtree. Prior v2
+manifests may additionally name only the two retired W01 ID-first workbench
+paths for owner-and-digest-validated cleanup. Those paths are never emitted as
 compatibility files. Historical prior-owned Base/Markdown paths remain eligible
 only for the same fail-closed cleanup.
 

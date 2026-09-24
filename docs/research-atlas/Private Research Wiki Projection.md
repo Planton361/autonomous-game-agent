@@ -469,6 +469,50 @@ valid unresolved audit rows; known wrong types remain their actual types with a
 mismatch diagnostic. Neither produces an inferred Paper identity or scientific
 validation error. Legacy identities resolve but do not expand.
 
+## W04 Component Synthesis Hubs (manifest v2.3)
+
+W04 keeps the human-first Memory Retrieval and Independent Verifier workbench
+paths as each Component's Overview entry. One shared renderer builds the same
+three views for both stable Component identities:
+
+```text
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md                 # Overview
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Technical.md
+workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL/Research.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md       # Overview
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Technical.md
+workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER/Research.md
+```
+
+The Overview distinguishes Registry `part_of` parentage from
+`presented_in_domain` navigation context, preserves the separate architecture,
+implementation and verification axes, and links to Technical and Research.
+Technical lanes are populated only from directly related, typed Registry
+records; selected edges keep their Registry direction. Component children are
+shown only when a direct `part_of` edge declares them. The Verifier Interface
+lane remains explicitly empty when no directly related Interface is registered;
+other relationship types do not fill it.
+
+Research views expose the existing private-snapshot availability count and
+source-projection state, and link to current declared-reference navigation.
+They use the neutral empty-state wording `No currently supported/assigned
+research content is shown in this view.` This state is not a scientific claim.
+The views do not infer Component-to-Research Question/Thread associations,
+attach deep private Research to technical records, or generate scientific
+summaries, scores, rankings or claims.
+
+The generated direct-view manifest advances to schema `2.3`; Hub Markdown uses
+K3 view schema `1.3`. Ownership is limited to the four exact child paths above
+and the existing fixed paths. No wildcard owns a Hub folder. Prior `2.0`–`2.2`
+manifests may claim only their previously declared fixed paths and the two
+finite retired W01 workbench names; applying them adds the W04 children. A
+`2.3` manifest may additionally own only the four declared Hub child paths.
+Unknown or unowned files still block generation, authored notes remain outside
+the generated tree, and `--check` remains zero-write. W02 Component hierarchy
+notes link to the Hub Overview; the W03 Domain slice routes through Research
+Knowledge Home. Actual-vault G6 remains a separate acceptance gate after
+CONTROL reviews the exact PR head.
+
 The fingerprint includes every authored private identity/type/profile/revision
 and consumed RA-2 reference sets in deterministic order. It excludes bodies,
 titles, paths and unconsumed metadata. Relevant edits cause `--check` drift;
