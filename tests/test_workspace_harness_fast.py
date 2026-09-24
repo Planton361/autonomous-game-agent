@@ -22,6 +22,7 @@ from fh_agent.research_atlas.private_reference_index import (
 )
 from fh_agent.research_atlas.schema import Relationship
 from fh_agent.research_atlas.validator import Atlas, load_registry
+from fh_agent.research_atlas.wiki_schema import WIKI_PREFIXES
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_COMMIT = "a" * 40
@@ -122,6 +123,7 @@ def component_research_fixture_records():
 def component_research_tree(atlas, records=None, *, locators=None):
     records = component_research_fixture_records() if records is None else records
     snapshot = make_snapshot(records, atlas)
+    private_records = views.landscape_private_records(records, atlas)
     reference = build_index(atlas, snapshot, SOURCE_COMMIT)
     if locators is None:
         locators = {
@@ -140,6 +142,7 @@ def component_research_tree(atlas, records=None, *, locators=None):
             locators,
             snapshot,
             False,
+            private_records,
         ),
         snapshot,
         reference,
@@ -392,7 +395,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.4"
+    assert manifest["view_schema_version"] == "2.5"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -623,6 +626,180 @@ def test_w06_component_research_empty_state_is_neutral_and_keeps_exact_rq(atlas)
     assert "Direct Reference Audit" in memory
 
 
+def w07_private_fixtures():
+    records = []
+    for kind in views.LANDSCAPE_PRIVATE_TYPES:
+        identity = f"{WIKI_PREFIXES[kind]}-W07-001"
+        changes = {
+            "wiki_id": identity,
+            "title": f"Synthetic W07 {kind.replace('_', ' ')}",
+            "record_version": 7,
+            "document_maturity": "in_review",
+            "research_direct_subject_refs": ["CMP-CORTEX"],
+        }
+        if kind == "research_question":
+            changes.update(question_stage="literature_mapped", decision_state="none")
+        elif kind == "finding":
+            changes.update(review_state="checked")
+        elif kind == "search_record":
+            changes["document_maturity"] = "draft"
+        records.append(wiki_props(kind, **changes))
+    records.extend(
+        wiki_props(
+            "search_record",
+            wiki_id=f"SEARCH-W07-MANY-{index:02d}",
+            title=f"Synthetic W07 search record {index:02d}",
+            target_refs=["WRQ-FIXTURE"],
+            research_direct_subject_refs=["CMP-CORTEX"],
+        )
+        for index in range(24)
+    )
+    return records
+
+
+def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
+    records = w07_private_fixtures()
+    snapshot = make_snapshot(records, atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    locators = {
+        record["wiki_id"]: PurePosixPath("authored") / f"synthetic note [{record['wiki_id']}] #1.md"
+        for record in records
+    }
+    private_records = views.landscape_private_records(records, atlas)
+    page = views.render_research_landscape(
+        SOURCE_COMMIT, atlas, snapshot, locators, private_records
+    )
+    text = page.decode()
+
+    assert text.startswith("---\ngenerated_by: research-wiki-derived\n")
+    assert text.startswith("---") and "# Research Landscape" in text
+    assert "derived navigation projection" in text
+    assert "Research Knowledge Home" in text and "Agent Anatomy" in text
+    assert "Technical Hierarchy" in text
+    assert "Declared Literature Navigation" in text
+    assert "Direct Reference Audit" in text and "Direct Views Index" in text
+    assert "No new" not in text
+    for node in atlas.entities.values():
+        if node.type in views.LANDSCAPE_PUBLIC_TYPES:
+            assert node.name in text and node.id in text and node.type in text
+    exact_relation_count = sum(
+        edge.relation == "related_to_research_question" for edge in atlas.relationships
+    )
+    assert text.count("`related_to_research_question`") == exact_relation_count + 1
+    assert "`part_of`" not in text
+    assert "domain-member" not in text.lower()
+
+    for kind in views.LANDSCAPE_PRIVATE_TYPES:
+        assert f"### {views.LANDSCAPE_PRIVATE_LABELS[kind]}" in text
+        assert f"Synthetic W07 {kind.replace('_', ' ')}" in text
+    public_section = text.split("## Private authored RA-2 inventory", 1)[0]
+    assert "Synthetic W07 research question" not in public_section
+    for index in range(24):
+        assert f"SEARCH-W07-MANY-{index:02d}" in text
+        assert f"Synthetic W07 search record {index:02d}" in text
+    assert "Record class: `research_question`" in text
+    assert "Record version: `7`" in text
+    assert "Document maturity: `in_review`" in text
+    assert "`question_stage`: `literature_mapped`" in text
+    assert "`decision_state`: `none`" in text
+    assert "`review_state`: `checked`" in text
+    assert "`research_direct_subject_refs`: `CMP-CORTEX`" in text
+    assert "synthetic%20note%20%5BSEARCH-W07-MANY-00%5D%20%231.md" in text
+    assert "No current records are present for this record class in this snapshot." in text
+    assert "No current declared relationships are present" not in text
+    assert "evidence score" not in text.lower()
+    assert "confidence score" not in text.lower()
+    assert "priority score" not in text.lower()
+    assert "top-k" not in text.lower()
+    assert ".base" not in text.lower()
+
+    shuffled = replace(
+        atlas,
+        entities=dict(reversed(tuple(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    shuffled_snapshot = make_snapshot(reversed(records), shuffled)
+    shuffled_reference = build_index(shuffled, shuffled_snapshot, SOURCE_COMMIT)
+    shuffled_locators = dict(reversed(tuple(locators.items())))
+    shuffled_records = views.landscape_private_records(list(reversed(records)), shuffled)
+    shuffled_tree = views.reference_views_tree(
+        SOURCE_COMMIT,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        shuffled_reference,
+        shuffled,
+        shuffled_locators,
+        shuffled_snapshot,
+        False,
+        shuffled_records,
+    )
+    current_tree = views.reference_views_tree(
+        SOURCE_COMMIT,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        locators,
+        snapshot,
+        False,
+        private_records,
+    )
+    assert current_tree == shuffled_tree
+    assert views.RESEARCH_LANDSCAPE in current_tree
+    assert views.RESEARCH_LANDSCAPE in views.K3_PAYLOADS
+    assert b"Research Landscape" in current_tree[views.K3_HOME]
+    assert b"Research Landscape" in current_tree[views.INDEX]
+    home_text = current_tree[views.K3_HOME].decode()
+    assert home_text.index("Open the Global Research Landscape") < home_text.index("Component Hubs")
+    for subject_id, paths in views.COMPONENT_HUB_PATHS.items():
+        assert subject_id in text
+        assert str(views.OWNED_ROOT / paths.research.with_suffix("")) in text
+    manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
+    owned = {item["path"] for item in manifest["owned_files"]}
+    assert str(views.RESEARCH_LANDSCAPE) in owned
+    assert str(SOURCE_COMMIT).encode() in page
+    assert b"/Users/" not in page and b"C:\\" not in page
+
+
+def test_w07_landscape_keeps_public_and_navigation_sections_useful_when_private_empty(atlas):
+    snapshot = make_snapshot([], atlas)
+    page = views.render_research_landscape(SOURCE_COMMIT, atlas, snapshot, {}, ()).decode()
+    assert "Program A–B working question" in page
+    assert "Experience to Action" in page
+    assert "No current records are present for this record class in this snapshot." in page
+    for record_type in ("Paper", "Finding", "ExperimentLead"):
+        section = page.split(f"### {record_type}\n", 1)[1].split("\n### ", 1)[0]
+        assert "No current records are present for this record class in this snapshot." in section
+    assert "Declared Literature Navigation" in page
+    assert "Direct Reference Audit" in page and "Direct Views Index" in page
+    assert "Technical Hierarchy" in page and "Memory Retrieval" in page
+    assert "research absence" in page and "does not state" in page
+    no_question_relations = replace(
+        atlas,
+        relationships=tuple(
+            edge for edge in atlas.relationships if edge.relation != "related_to_research_question"
+        ),
+    )
+    no_relations_page = views.render_research_landscape(
+        SOURCE_COMMIT, no_question_relations, snapshot, {}, ()
+    ).decode()
+    assert "No current declared relationships are present in this snapshot." in no_relations_page
+    legacy_record = {
+        "wiki_schema_version": "0.1",
+        "wiki_id": "PROC-W07-LEGACY",
+        "doc_type": "process",
+        "privacy": "private",
+        "export_policy": "deny",
+        "atlas_refs": [],
+    }
+    legacy_snapshot = make_snapshot([legacy_record], atlas)
+    legacy_page = views.render_research_landscape(
+        SOURCE_COMMIT, atlas, legacy_snapshot, {}, ()
+    ).decode()
+    process_section = legacy_page.split("### Process\n", 1)[1].split("\n### ", 1)[0]
+    assert "No current RA-2 records are present" in process_section
+
+
 def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas):
     records = component_research_fixture_records()
     current_tree, _, _, _ = component_research_tree(atlas, records)
@@ -641,7 +818,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.4"
+    assert manifest["view_schema_version"] == "2.5"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -688,6 +865,15 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
     write_manifest("2.4", [unknown])
     with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
         views.validate_prior(root)
+    write_manifest("2.4", [views.RESEARCH_LANDSCAPE])
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
+    write_manifest("2.5", [views.RESEARCH_LANDSCAPE])
+    assert set(views.validate_prior(root)) == {views.RESEARCH_LANDSCAPE}
+    unknown_index = PurePosixPath("indexes/Unowned Landscape.md")
+    write_manifest("2.5", [unknown_index])
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
 
 
 @pytest.mark.parametrize(
@@ -699,6 +885,7 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
         ("2.2", (views.HIERARCHY, views.HIERARCHY_DIR / "SYS-AGA.md")),
         ("2.3", (views.MEMORY_HUB_TECHNICAL,)),
         ("2.4", (views.technical_detail_paths("IF-MEM-CORTEX")[1],)),
+        ("2.5", (views.RESEARCH_LANDSCAPE,)),
     ],
 )
 def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version, paths):
@@ -721,7 +908,7 @@ def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version,
                 "sha256": "c" * 64,
                 **(
                     {"ownership": views.STRICT_OWNERSHIP}
-                    if version in {"2.1", "2.2", "2.3", "2.4"}
+                    if version in {"2.1", "2.2", "2.3", "2.4", "2.5"}
                     else {}
                 ),
             }

@@ -68,6 +68,7 @@ from .private_reference_index import (
 )
 from .schema import Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, UniqueKeyLoader, load_registry
+from .wiki_schema import EpistemicRecord, validate_wiki_records
 
 OWNER = "research-wiki-derived"
 OWNED_ROOT = PurePosixPath("_generated/derived")
@@ -88,6 +89,7 @@ OBSIDIAN_BASE_OWNERSHIP = "obsidian-base-semantics"
 OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE))
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
+RESEARCH_LANDSCAPE = PurePosixPath("indexes/Research Landscape.md")
 HIERARCHY = PurePosixPath("indexes/Technical Hierarchy.md")
 HIERARCHY_DIR = PurePosixPath("hierarchy")
 MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
@@ -106,7 +108,7 @@ LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memor
 LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
     "workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md"
 )
-K3_PAYLOADS = frozenset(
+K3_PRE_W07_PAYLOADS = frozenset(
     (
         K3_HOME,
         MEMORY_WORKBENCH,
@@ -117,6 +119,8 @@ K3_PAYLOADS = frozenset(
         VERIFIER_HUB_RESEARCH,
     )
 )
+W07_PAYLOADS = frozenset((RESEARCH_LANDSCAPE,))
+K3_PAYLOADS = K3_PRE_W07_PAYLOADS | W07_PAYLOADS
 K3_HUB_CHILD_PAYLOADS = frozenset(
     (
         MEMORY_HUB_TECHNICAL,
@@ -164,7 +168,53 @@ TECHNICAL_DETAIL_PAYLOADS = frozenset(
         TECHNICAL_DETAIL_ROOT / f"{identity}.canvas",
     )
 )
-K3_VIEW_SCHEMA_VERSION = "1.5"
+K3_VIEW_SCHEMA_VERSION = "1.6"
+
+LANDSCAPE_PUBLIC_TYPES = (
+    "ResearchQuestion",
+    "ResearchThread",
+    "Paper",
+    "Finding",
+    "ExperimentLead",
+    "Decision",
+)
+LANDSCAPE_PRIVATE_TYPES = (
+    "research_question",
+    "research_thread",
+    "search_record",
+    "reading_note",
+    "finding",
+    "synthesis",
+    "experiment_lead",
+    "decision_draft",
+    "paper",
+    "dossier",
+    "process",
+    "topic",
+    "journal_entry",
+)
+LANDSCAPE_PRIVATE_LABELS = {
+    "research_question": "Research Question",
+    "research_thread": "Research Thread",
+    "search_record": "Search Record",
+    "reading_note": "Reading Note",
+    "finding": "Finding",
+    "synthesis": "Synthesis",
+    "experiment_lead": "Experiment Lead",
+    "decision_draft": "Decision draft",
+    "paper": "Paper",
+    "dossier": "Dossier",
+    "process": "Process",
+    "topic": "Topic",
+    "journal_entry": "Journal Entry",
+}
+LANDSCAPE_PRIVATE_STATUS_FIELDS = {
+    "research_question": ("question_stage", "decision_state"),
+    "experiment_lead": ("question_stage", "decision_state"),
+    "finding": ("review_state",),
+    "decision_draft": ("decision_record_state",),
+}
+V25_INDEX_PAYLOADS = frozenset((INDEX, NAVIGATION, K3_HOME, RESEARCH_LANDSCAPE, HIERARCHY))
 
 
 def technical_detail_paths(identity: str) -> tuple[PurePosixPath, PurePosixPath]:
@@ -1525,6 +1575,263 @@ def _render_component_hub_research(
     return lines
 
 
+def _landscape_inline(value: str) -> str:
+    """Keep structured labels readable and prevent Markdown from changing their meaning."""
+    value = " ".join(value.split())
+    for character in ("\\", "`", "[", "]", "|"):
+        value = value.replace(character, "\\" + character)
+    return value
+
+
+def _landscape_authored_link(
+    record: EpistemicRecord,
+    locators: dict[str, PurePosixPath],
+    source_path: PurePosixPath,
+) -> str:
+    relative = locators.get(record.wiki_id)
+    if relative is None:
+        raise ProjectionError("RA-2 Landscape record has no authored-note locator")
+    raw = str(relative)
+    if (
+        relative.is_absolute()
+        or PureWindowsPath(raw).drive
+        or "\\" in raw
+        or ".." in relative.parts
+        or not relative.parts
+        or any(unicodedata.category(char) in {"Cc", "Cf", "Cs"} for char in raw)
+    ):
+        raise ProjectionError("Unsafe RA-2 Landscape locator")
+    target = posixpath.relpath(raw, start=source_path.parent.as_posix())
+    return f"[{_landscape_inline(record.title)}]({quote(target, safe='/')}) · ID `{record.wiki_id}`"
+
+
+def landscape_private_records(properties: list[dict], atlas: Atlas) -> tuple[EpistemicRecord, ...]:
+    """Return only validated RA-2 records for the structured Landscape inventory."""
+    try:
+        records = validate_wiki_records(properties, atlas.entities.keys())
+    except ValueError as exc:
+        raise ProjectionError(
+            "Invalid private identity or profile; repair declared records"
+        ) from exc
+    return tuple(record for record in records if isinstance(record, EpistemicRecord))
+
+
+def _render_public_landscape(atlas: Atlas) -> list[str]:
+    lines = [
+        "## Public Research Atlas inventory",
+        "",
+        "This section reflects public Registry identities and their existing declared fields. "
+        "A listed identity or relation is not evidence of research coverage, support, or outcome.",
+        "",
+    ]
+    for record_type in LANDSCAPE_PUBLIC_TYPES:
+        records = sorted(
+            (node for node in atlas.entities.values() if node.type == record_type),
+            key=lambda node: (node.name.casefold(), node.id),
+        )
+        lines.extend([f"### {record_type}", ""])
+        if not records:
+            lines.extend(
+                ["No current records are present for this record class in this snapshot.", ""]
+            )
+            continue
+        for node in records:
+            lines.append(f"- {_technical_link(atlas, node.id)} · type `{node.type}`")
+            for field in ("research_mapping", "research_direction"):
+                if field in node.model_fields_set:
+                    lines.append(f"  - `{field}`: `{getattr(node, field)}`")
+            if node.type == "Decision":
+                lines.append(f"  - `decision_scope`: `{node.decision_scope}`")
+            if node.type == "ResearchThread":
+                lines.append("  - Registry-declared `ordered_refs` (listed order):")
+                for index, identity in enumerate(node.ordered_refs, start=1):
+                    lines.append(f"    {index}. {_technical_link(atlas, identity)}")
+            description = _landscape_inline(node.description)
+            if description:
+                lines.append(f"  - Registry description: {description}")
+        lines.append("")
+
+    relations = sorted(
+        (edge for edge in atlas.relationships if edge.relation == "related_to_research_question"),
+        key=lambda edge: (
+            atlas.entities[edge.target].name.casefold(),
+            atlas.entities[edge.source].name.casefold(),
+            edge.source,
+            edge.target,
+        ),
+    )
+    lines.extend(
+        [
+            "### Exact `related_to_research_question` Registry declarations",
+            "",
+            "Only direct Registry edges are listed. No parent, Domain, role, or other "
+            "relationship is expanded into research relevance.",
+            "",
+        ]
+    )
+    if not relations:
+        lines.extend(
+            [
+                "No current declared relationships are present in this snapshot.",
+                "",
+            ]
+        )
+    else:
+        for edge in relations:
+            source = atlas.entities[edge.source]
+            target = atlas.entities[edge.target]
+            lines.append(
+                f"- {_technical_link(atlas, source.id)} · `{source.type}` — "
+                f"`{edge.relation}` → {_technical_link(atlas, target.id)} · `{target.type}`"
+            )
+        lines.append("")
+    return lines
+
+
+def _render_private_landscape(
+    snapshot: Snapshot,
+    locators: dict[str, PurePosixPath],
+    records: tuple[EpistemicRecord, ...],
+) -> list[str]:
+    by_type: dict[str, list[EpistemicRecord]] = {
+        doc_type: [] for doc_type in LANDSCAPE_PRIVATE_TYPES
+    }
+    for record in records:
+        if record.doc_type not in by_type:
+            raise ProjectionError("RA-2 Landscape class is missing from the accepted class list")
+        by_type[record.doc_type].append(record)
+    snapshot_records = {
+        record.wiki_id: record for record in snapshot.records if record.profile == "ra2"
+    }
+    if set(snapshot_records) != {record.wiki_id for record in records}:
+        raise ProjectionError("RA-2 Landscape inventory does not match the validated snapshot")
+    lines = [
+        "## Private authored RA-2 inventory",
+        "",
+        "Only typed RA-2 metadata and declared properties exposed by the current direct-view "
+        "contract are listed. Record bodies and unmodeled prose are not read into this view.",
+        "",
+    ]
+    source_path = OWNED_ROOT / RESEARCH_LANDSCAPE
+    for doc_type in LANDSCAPE_PRIVATE_TYPES:
+        class_records = sorted(
+            by_type[doc_type], key=lambda record: (record.title.casefold(), record.wiki_id)
+        )
+        label = LANDSCAPE_PRIVATE_LABELS[doc_type]
+        lines.extend([f"### {label}", ""])
+        if not class_records:
+            lines.extend(
+                [
+                    "No current RA-2 records are present for this record class in this snapshot.",
+                    "",
+                ]
+            )
+            continue
+        for record in class_records:
+            lines.append(f"- {_landscape_authored_link(record, locators, source_path)}")
+            lines.append(
+                f"  - Record class: `{record.doc_type}` · Record version: `{record.record_version}`"
+            )
+            lines.append(f"  - Document maturity: `{record.document_maturity}`")
+            for field in LANDSCAPE_PRIVATE_STATUS_FIELDS.get(record.doc_type, ()):
+                lines.append(f"  - `{field}`: `{getattr(record, field)}`")
+            references = snapshot_records[record.wiki_id].references
+            declared = [(name, values) for name, values in references.items() if values]
+            if declared:
+                lines.append("  - Existing declared properties:")
+                for name, values in declared:
+                    rendered = ", ".join(f"`{value}`" for value in values)
+                    lines.append(f"    - `{name}`: {rendered}")
+        lines.append("")
+    return lines
+
+
+def render_research_landscape(
+    commit: str,
+    atlas: Atlas,
+    snapshot: Snapshot,
+    locators: dict[str, PurePosixPath],
+    private_records: tuple[EpistemicRecord, ...],
+) -> bytes:
+    """Render the global Markdown research inventory from accepted structured inputs."""
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        landscape_schema_version="1.0",
+        landscape_surface="global-research-navigation",
+    )
+    body = _render_orientation_header(
+        title="Research Landscape",
+        surface="Global Research Landscape over current structured records",
+        home=_derived_link(K3_HOME, "Research Knowledge Home"),
+        broader_context=(
+            _technical_surface_link(TECHNICAL_ANATOMY, "Agent Anatomy")
+            + " · "
+            + _derived_link(HIERARCHY, "Technical Hierarchy")
+        ),
+        research_fallback=(
+            _derived_link(NAVIGATION, "Declared Literature Navigation")
+            + " · "
+            + _derived_link(INDEX, "Direct Views Index")
+        ),
+    )
+    body.extend(
+        [
+            "This generated page is a navigation and inventory surface. It does not create "
+            "research authority, rank records, or infer scientific relationships.",
+            "",
+        ]
+    )
+    body.extend(_render_public_landscape(atlas))
+    body.extend(_render_private_landscape(snapshot, locators, private_records))
+    audit_label = "Declared Literature Navigation · Direct Reference Audit"
+    body.extend(
+        [
+            "## Declared-reference navigation and audit",
+            "",
+            f"- {_derived_link(NAVIGATION, audit_label)}",
+            f"- {_derived_link(INDEX, 'Direct Views Index')}",
+            "",
+            "These pages retain their existing deterministic navigation and audit contracts. "
+            "No paths or reference semantics are reconstructed here.",
+            "",
+            "## Technical and research navigation",
+            "",
+            f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}",
+            "- Existing W06 Component Research views:",
+        ]
+    )
+    for subject_id, paths in sorted(
+        COMPONENT_HUB_PATHS.items(),
+        key=lambda item: (atlas.entities[item[0]].name.casefold(), item[0]),
+    ):
+        subject = atlas.entities[subject_id]
+        if subject.type != "Component":
+            raise ProjectionError("W06 Landscape entry does not identify a Component")
+        body.append(f"  - {_derived_link(paths.research, subject.name)} · Component `{subject.id}`")
+    body.extend(
+        [
+            "",
+            "These are entry links to existing views. They add no technical attachment or "
+            "parent, Domain, member, or role-based research relevance.",
+            "",
+            "## Empty-state meaning",
+            "",
+            "An empty class or relationship section describes this generated snapshot only. "
+            "It does not state research absence, a gap, novelty, completeness, saturation, "
+            "maturity, priority, confidence, or scientific quality.",
+            "",
+            "## Return navigation",
+            "",
+            f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
+            f"- {_technical_surface_link(TECHNICAL_ANATOMY, 'Agent Anatomy')}",
+            "",
+        ]
+    )
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+
+
 def render_k3_home(commit: str, atlas: Atlas) -> bytes:
     for identity in COMPONENT_HUB_PATHS:
         _component_hub_model(atlas, identity)
@@ -1553,6 +1860,11 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
         [
             "Maintained workspace entry. Agent Anatomy is the primary rich visual surface; "
             "the Domain slice provides one scoped drill-down.",
+            "",
+            "## Research Landscape",
+            "",
+            f"- {_derived_link(RESEARCH_LANDSCAPE, 'Open the Global Research Landscape')}",
+            "A direct research entry point independent of Component Hub navigation.",
             "",
             "## Agent Anatomy",
             "",
@@ -1817,6 +2129,10 @@ class ManifestV24(ManifestV21):
     view_schema_version: Literal["2.4"]
 
 
+class ManifestV25(ManifestV21):
+    view_schema_version: Literal["2.5"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -1945,12 +2261,16 @@ def reference_views_tree(
     locators: dict[str, PurePosixPath],
     snapshot: Snapshot,
     source_projection_present: bool,
+    private_records: tuple[EpistemicRecord, ...] = (),
 ) -> dict[PurePosixPath, bytes]:
     tree = views_tree(commit, public_base, direct_base)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)
     tree[K3_HOME] = render_k3_home(commit, atlas)
+    tree[RESEARCH_LANDSCAPE] = render_research_landscape(
+        commit, atlas, snapshot, locators, private_records
+    )
     hubs = {
         subject_id: _component_hub_model(atlas, subject_id) for subject_id in COMPONENT_HUB_PATHS
     }
@@ -1991,6 +2311,7 @@ def reference_views_tree(
         text
         + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
         + f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}\n"
+        + f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}\n"
         + f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}\n"
     ).encode()
     data = old.model_dump()
@@ -2006,18 +2327,20 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.4",
+        view_schema_version="2.5",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV24.model_validate(data).model_dump(exclude_none=True)
+        ManifestV25.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
 
-def authored_snapshot(vault: Path, atlas: Atlas) -> tuple[Snapshot, dict[str, PurePosixPath]]:
+def authored_snapshot(
+    vault: Path, atlas: Atlas
+) -> tuple[Snapshot, dict[str, PurePosixPath], tuple[EpistemicRecord, ...]]:
     """RA-1 discovery semantics, excluding all generated content; locators are not identity."""
     properties: list[dict] = []
     paths: list[PurePosixPath] = []
@@ -2057,8 +2380,9 @@ def authored_snapshot(vault: Path, atlas: Atlas) -> tuple[Snapshot, dict[str, Pu
     except (OSError, UnicodeError) as exc:
         raise ProjectionError("Cannot read authored Wiki snapshot") from exc
     snapshot = make_snapshot(properties, atlas)
+    private_records = landscape_private_records(properties, atlas)
     locators = {props["wiki_id"]: path for props, path in zip(properties, paths, strict=True)}
-    return snapshot, locators
+    return snapshot, locators, private_records
 
 
 def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
@@ -2081,6 +2405,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV23.model_validate(data)
         elif data.get("view_schema_version") == "2.4":
             manifest = ManifestV24.model_validate(data)
+        elif data.get("view_schema_version") == "2.5":
+            manifest = ManifestV25.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -2096,10 +2422,15 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
-                or (relative.parent == PurePosixPath("indexes") and relative.suffix == ".md")
+                or (
+                    relative.parent == PurePosixPath("indexes")
+                    and relative.suffix == ".md"
+                    and (relative not in W07_PAYLOADS or manifest.view_schema_version == "2.5")
+                    and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
+                )
             )
             or (
-                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4"}
+                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5"}
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -2108,16 +2439,26 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             )
             or (
                 manifest.view_schema_version in {"2.3", "2.4"}
+                and relative in (K3_PRE_W07_PAYLOADS | K3_PRIOR_PAYLOADS)
+            )
+            or (
+                manifest.view_schema_version == "2.5"
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
-            or (manifest.view_schema_version in {"2.2", "2.3", "2.4"} and relative == HIERARCHY)
             or (
-                manifest.view_schema_version in {"2.2", "2.3", "2.4"}
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5"}
+                and relative == HIERARCHY
+            )
+            or (
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
-            or (manifest.view_schema_version == "2.4" and relative in TECHNICAL_DETAIL_PAYLOADS)
+            or (
+                manifest.view_schema_version in {"2.4", "2.5"}
+                and relative in TECHNICAL_DETAIL_PAYLOADS
+            )
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         if isinstance(item, OwnedFileV21):
@@ -2169,7 +2510,7 @@ def project(
             "Direct-view sources are dirty; commit or resolve source changes first"
         )
     atlas = load_registry(repo / "docs/research-atlas")
-    snapshot, locators = authored_snapshot(vault, atlas)
+    snapshot, locators, private_records = authored_snapshot(vault, atlas)
     reference = build_index(atlas, snapshot, commit)
     tree = reference_views_tree(
         commit,
@@ -2180,6 +2521,7 @@ def project(
         locators,
         snapshot,
         (vault / PurePosixPath("_generated/zotero/manifest/projection.yaml")).is_file(),
+        private_records,
     )
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")

@@ -164,10 +164,18 @@ def manifest_owned_item(relative, data):
     return item
 
 
+def remove_w07_landscape_for_legacy_manifest(vault, manifest):
+    for item in list(manifest["owned_files"]):
+        if item["path"] == str(views.RESEARCH_LANDSCAPE):
+            (derived(vault) / item["path"]).unlink()
+            manifest["owned_files"].remove(item)
+
+
 def downgrade_manifest_to_v2(vault):
     path = derived(vault) / views.MANIFEST
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.0"
+    remove_w07_landscape_for_legacy_manifest(vault, manifest)
     # Reconstruct the old finite output set before testing a v2.0 migration.
     for item in list(manifest["owned_files"]):
         if (
@@ -188,6 +196,7 @@ def downgrade_manifest_to_v22(vault):
     path = derived(vault) / views.MANIFEST
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.2"
+    remove_w07_landscape_for_legacy_manifest(vault, manifest)
     for item in list(manifest["owned_files"]):
         if (
             PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS
@@ -202,6 +211,7 @@ def install_pre_w02_v21(vault):
     path = derived(vault) / views.MANIFEST
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.1"
+    remove_w07_landscape_for_legacy_manifest(vault, manifest)
     for item in list(manifest["owned_files"]):
         if (
             item["path"] == str(views.HIERARCHY)
@@ -280,7 +290,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.4"
+    assert manifest["view_schema_version"] == "2.5"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -449,7 +459,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.4"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.5"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -459,7 +469,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
     tree = views.project(repo, vault, sha)
     home = tree[views.K3_HOME].decode()
     home_props, _ = technical.markdown_parts(tree[views.K3_HOME].decode())
-    assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.5"
+    assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.6"
     assert "Component Hubs" in home
     assert "Overview and opens Technical or Research views of that same Component identity" in home
 
@@ -673,8 +683,36 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.4"
+    assert manifest["view_schema_version"] == "2.5"
     assert views.K3_PAYLOADS <= owned
+    assert outside_owned(vault) == authored_before
+    assert views.project(repo, vault, sha, check=True) == migrated
+
+
+def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    landscape = derived(vault) / views.RESEARCH_LANDSCAPE
+    landscape.unlink()
+
+    def downgrade(manifest):
+        manifest["view_schema_version"] = "2.4"
+        manifest["owned_files"] = [
+            item
+            for item in manifest["owned_files"]
+            if item["path"] != str(views.RESEARCH_LANDSCAPE)
+        ]
+
+    change_manifest(vault, downgrade)
+    authored_before = outside_owned(vault)
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    migrated = views.project(repo, vault, sha)
+    manifest = views.read_yaml(migrated[views.MANIFEST].decode())
+    assert manifest["view_schema_version"] == "2.5"
+    assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
 
@@ -747,7 +785,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.4"
+    assert manifest["view_schema_version"] == "2.5"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -836,7 +874,10 @@ def test_k3_manifest_ownership_and_check_are_deterministic(setup):
     workbench_owned = {
         PurePosixPath(path) for path in owned if PurePosixPath(path).is_relative_to("workbenches")
     }
-    assert workbench_owned == views.K3_PAYLOADS - {views.K3_HOME}
+    assert (
+        workbench_owned
+        == (views.K3_PRE_W07_PAYLOADS - {views.K3_HOME}) | views.TECHNICAL_DETAIL_PAYLOADS
+    )
     assert manifest["generated_by"] == views.OWNER
     before = filesystem_state(vault)
     assert views.project(repo, vault, sha, check=True) == tree
@@ -911,7 +952,14 @@ def test_symlink_boundary_or_descendant_rejected(setup, boundary):
     assert_no_mutation(setup, lambda: views.project(repo, target, sha), "Symlink")
 
 
-@pytest.mark.parametrize("unknown", ["unknown.md", "bases/Technical Atlas Views.base"])
+@pytest.mark.parametrize(
+    "unknown",
+    [
+        "unknown.md",
+        "bases/Technical Atlas Views.base",
+        "indexes/Research Landscape.md",
+    ],
+)
 def test_unknown_content_is_never_overwritten_or_deleted(setup, unknown):
     repo, vault, sha = setup
     path = derived(vault) / unknown
@@ -1040,7 +1088,7 @@ def test_cleanup_only_intact_manifest_owned_navigation(setup, suffix, edited):
     repo, vault, sha = setup
     views.project(repo, vault, sha)
     before = outside_owned(vault)
-    relative = ("bases/obsolete" if suffix == ".base" else "indexes/obsolete") + suffix
+    relative = "bases/obsolete.base" if suffix == ".base" else str(views.LEGACY_MEMORY_WORKBENCH)
     data = (
         views.BASE_OWNER + "views: []\n"
         if suffix == ".base"
@@ -1489,7 +1537,8 @@ def test_a14_a15_a16_structured_drift_body_and_locator(reference_setup):
     path.write_text(text + "\nPRIVATE-BODY-SECRET\n")
     assert views.project(repo, vault, sha, check=True) == original
     path.write_text(path.read_text().replace("title: Synthetic fixture", "title: PRIVATE-TITLE"))
-    assert views.project(repo, vault, sha, check=True) == original
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
     moved = path.with_name("renamed [reading]#.md")
     path.rename(moved)
     assert_no_mutation(
@@ -1499,10 +1548,10 @@ def test_a14_a15_a16_structured_drift_body_and_locator(reference_setup):
     assert relocated[views.REFERENCE_INDEX] == original[views.REFERENCE_INDEX]
     assert relocated[views.NAVIGATION] != original[views.NAVIGATION]
     assert b"renamed%20%5Breading%5D%23.md" in relocated[views.NAVIGATION]
-    assert all(
-        b"PRIVATE-BODY-SECRET" not in data and b"PRIVATE-TITLE" not in data
-        for data in relocated.values()
-    )
+    assert b"PRIVATE-TITLE" in relocated[views.RESEARCH_LANDSCAPE]
+    assert b"PRIVATE-BODY-SECRET" not in relocated[views.RESEARCH_LANDSCAPE]
+    assert b"PRIVATE-TITLE" not in relocated[views.REFERENCE_INDEX]
+    assert b"PRIVATE-TITLE" not in relocated[views.NAVIGATION]
     moved.write_text(moved.read_text().replace("WRQ-FIXTURE", "WRQ-MISSING"))
     assert_no_mutation(
         reference_setup, lambda: views.project(repo, vault, sha, check=True), "drift"
@@ -1556,7 +1605,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.4"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.5"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
@@ -1655,12 +1704,12 @@ def test_a26_scanner_parity_and_generated_exclusion(setup):
     (vault / "template.md").write_text("# Example\n```yaml\nwiki_id: WPAPER-FAKE\n```\n")
     (vault / "authored/alias.md").symlink_to(vault / "authored/ra2.md")
     (vault / "alias-dir").symlink_to(vault / "authored", target_is_directory=True)
-    snapshot, locators = views.authored_snapshot(vault, atlas)
+    snapshot, locators, landscape_records = views.authored_snapshot(vault, atlas)
     assert snapshot == make_snapshot(
         technical.authored_properties(vault, vault / technical.OWNED_ROOT), atlas
     )
     write_note(vault / "_generated/other-tool/fake.md", props("paper"))
-    assert views.authored_snapshot(vault, atlas) == (snapshot, locators)
+    assert views.authored_snapshot(vault, atlas) == (snapshot, locators, landscape_records)
     assert set(locators) == {"PROC-SYNTHETIC-001", "PROC-FIXTURE", "WPAPER-FIXTURE"}
 
 
