@@ -244,11 +244,12 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
     manifest_path = derived_root / views.MANIFEST
     prior = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
     detail_paths = set(views.TECHNICAL_DETAIL_PAYLOADS)
-    for relative in detail_paths:
+    old_paths = detail_paths | {views.RESEARCH_LANDSCAPE}
+    for relative in old_paths:
         (derived_root / relative).unlink()
     prior["view_schema_version"] = "2.3"
     prior["owned_files"] = [
-        item for item in prior["owned_files"] if Path(item["path"]) not in detail_paths
+        item for item in prior["owned_files"] if Path(item["path"]) not in old_paths
     ]
     manifest_path.write_bytes(views.yaml_text(prior).encode())
 
@@ -264,7 +265,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
 
     views.project(repo, vault, source_commit)
     current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
-    assert current["view_schema_version"] == "2.4"
+    assert current["view_schema_version"] == "2.5"
     current_details = {
         Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
     }
