@@ -85,6 +85,7 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
             str(views.REFERENCE_INDEX),
         }
         | {str(path) for path in views.K3_PAYLOADS}
+        | {str(path) for path in views.W10_PAYLOADS}
         | {str(path) for path in views.TECHNICAL_DETAIL_PAYLOADS}
         | {
             str(path)

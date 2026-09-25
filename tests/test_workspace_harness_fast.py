@@ -150,6 +150,85 @@ def component_research_tree(atlas, records=None, *, locators=None):
     )
 
 
+def w10_private_fixtures():
+    records = []
+    for index in range(25):
+        paper_id = f"WPAPER-W10-{index:02d}"
+        reading_id = f"READ-W10-{index:02d}"
+        paper_fields = {
+            "wiki_id": paper_id,
+            "title": f"Synthetic W10 Paper {index:02d}",
+            "record_version": 2,
+            "document_maturity": "archived" if index == 1 else "in_review",
+            "source_refs": [f"zsrc-synthetic-{index:02d}"],
+            "authors": ["Synthetic Author"],
+            "publication_year": 2024,
+            "venue": "Synthetic Venue",
+            "reading_note_refs": [reading_id],
+            "related_version_refs": [f"zsv-synthetic-{index:02d}"],
+            "research_direct_subject_refs": ["CMP-CORTEX"],
+            "research_method_or_baseline_refs": ["CMP-CORTEX"],
+            "research_measurement_relevance_refs": ["CMP-MEMORY"],
+            "research_project_transfer_refs": ["CMP-BODY"],
+            "research_adjacent_context_refs": ["CMP-SKILL-TRAINER"],
+        }
+        if index == 0:
+            paper_fields.update(doi="10.9999/synthetic.00", url="https://example.invalid/w10")
+        records.append(wiki_props("paper", **paper_fields))
+        records.append(
+            wiki_props(
+                "reading_note",
+                wiki_id=reading_id,
+                title=f"Synthetic W10 ReadingNote {index:02d}",
+                record_version=3,
+                document_maturity="in_review",
+                paper_refs=[paper_id],
+                version_read=f"zsv-synthetic-{index:02d}",
+                read_date="2026-09-25",
+                reading_depth="methods_checked",
+                checked_sections=["methods"],
+                finding_refs=[f"WFIND-W10-{index:02d}"],
+                search_refs=[f"SEARCH-W10-{index:02d}"],
+                rq_refs=[f"WRQ-W10-{index:02d}"],
+                research_measurement_relevance_refs=["CMP-CORTEX"],
+            )
+        )
+    records.append(wiki_props("finding", wiki_id="WFIND-W10-EXCLUDED"))
+    records.append(
+        {
+            "wiki_schema_version": "0.1",
+            "wiki_id": "PROC-W10-LEGACY",
+            "doc_type": "process",
+            "privacy": "private",
+            "export_policy": "deny",
+            "atlas_refs": [],
+        }
+    )
+    return records
+
+
+def w10_reference_tree(atlas, records):
+    snapshot = make_snapshot(records, atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    private_records = views.landscape_private_records(records, atlas)
+    locators = {
+        record["wiki_id"]: PurePosixPath("authored") / f"{record['wiki_id']}.md"
+        for record in records
+    }
+    tree = views.reference_views_tree(
+        SOURCE_COMMIT,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        locators,
+        snapshot,
+        False,
+        private_records,
+    )
+    return tree, snapshot, reference, locators
+
+
 @pytest.fixture
 def context(tmp_path: Path) -> workspace.WorkspaceContext:
     repo = tmp_path / "repo"
@@ -395,7 +474,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -800,6 +879,103 @@ def test_w07_landscape_keeps_public_and_navigation_sections_useful_when_private_
     assert "No current RA-2 records are present" in process_section
 
 
+def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
+    records = w10_private_fixtures()
+    tree, _, _, locators = w10_reference_tree(atlas, records)
+    page = tree[views.LITERATURE_INSPECTION].decode()
+    landscape = tree[views.RESEARCH_LANDSCAPE].decode()
+
+    assert page.startswith("---\ngenerated_by: research-wiki-derived\n")
+    assert "# Literature Inspection" in page
+    assert "Generated, derived navigation projection" in page
+    assert "Open Literature Inspection" in landscape
+    assert "Paper/source records" in page and "ReadingNote records" in page
+    assert "No current matching records are present in this snapshot." not in page
+    assert "Record class: `paper`" in page and "Record class: `reading_note`" in page
+    assert "Record version: `2`" in page and "Record version: `3`" in page
+    assert "Document maturity: `archived`" in page
+    assert "Profile: `RA-2`" in page and "Epistemic schema version" in page
+    assert "[Synthetic W10 Paper 00](../../../authored/WPAPER-W10-00.md)" in page
+    assert "[Synthetic W10 ReadingNote 00](../../../authored/READ-W10-00.md)" in page
+    assert '`source_refs`: ` ["zsrc-synthetic-00"] `' in page
+    assert '`doi`: ` "10.9999/synthetic.00" `' in page
+    assert '`authors`: ` ["Synthetic Author"] `' in page
+    assert "`publication_year`: ` 2024 `" in page
+    assert '`venue`: ` "Synthetic Venue" `' in page
+    assert '`reading_note_refs`: ` ["READ-W10-00"] `' in page
+    assert '`related_version_refs`: ` ["zsv-synthetic-00"] `' in page
+    assert '`paper_refs`: ` ["WPAPER-W10-00"] `' in page
+    assert '`version_read`: ` "zsv-synthetic-00" `' in page
+    assert '`read_date`: ` "2026-09-25" `' in page
+    assert '`reading_depth`: ` "methods_checked" `' in page
+    assert '`checked_sections`: ` ["methods"] `' in page
+    assert '`finding_refs`: ` ["WFIND-W10-00"] `' in page
+    assert '`search_refs`: ` ["SEARCH-W10-00"] `' in page
+    assert '`rq_refs`: ` ["WRQ-W10-00"] `' in page
+    assert '`research_direct_subject_refs`: ` ["CMP-CORTEX"] `' in page
+    assert '`research_method_or_baseline_refs`: ` ["CMP-CORTEX"] `' in page
+    assert '`research_measurement_relevance_refs`: ` ["CMP-MEMORY"] `' in page
+    assert '`research_project_transfer_refs`: ` ["CMP-BODY"] `' in page
+    assert '`research_adjacent_context_refs`: ` ["CMP-SKILL-TRAINER"] `' in page
+    assert '`research_measurement_relevance_refs`: ` ["CMP-CORTEX"] `' in page
+    assert '`url`: ` "https://example.invalid/w10" `' in page
+    assert "](https://example.invalid/w10)" not in page
+    assert (
+        "`url`:"
+        not in page.split("Synthetic W10 Paper 01", 1)[1].split("## ReadingNote records", 1)[0]
+    )
+
+    for index in range(25):
+        assert f"Synthetic W10 Paper {index:02d}" in page
+        assert f"WPAPER-W10-{index:02d}" in page
+        assert f"Synthetic W10 ReadingNote {index:02d}" in page
+        assert f"READ-W10-{index:02d}" in page
+    assert "Synthetic view fixture" not in page
+    assert "WFIND-W10-EXCLUDED" not in page
+    assert "PROC-W10-LEGACY" not in page
+    assert "does not read ReadingNote bodies" in page and "SYNTHETIC-PRIVATE" not in page
+    assert "curated excerpt" not in page.lower()
+    assert "summary" not in page.lower()
+    assert "resolved-private" not in page
+    assert "source-family" not in page.lower()
+    assert "Open Direct Reference Audit" in page
+    assert "Declared Literature Navigation" in page
+    assert "Direct Views Index" in page
+    assert "Research Landscape" in page
+    assert "Research Knowledge Home" in page
+    assert "https://example.invalid/w10" in page
+
+    shuffled_atlas = replace(
+        atlas,
+        entities=dict(reversed(tuple(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
+    assert tree == shuffled_tree
+    manifest = views.read_yaml(tree[views.MANIFEST].decode())
+    assert manifest["view_schema_version"] == "2.6"
+    owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
+    assert views.LITERATURE_INSPECTION in owned
+    assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
+    assert "example.invalid" not in tree[views.NAVIGATION].decode()
+    assert set(locators) == {record["wiki_id"] for record in records}
+    assert all(b"/Users/" not in content and b"C:\\" not in content for content in tree.values())
+
+
+def test_w10_empty_inspection_keeps_navigation_and_uses_neutral_state(atlas):
+    tree, _, _, _ = w10_reference_tree(atlas, [])
+    page = tree[views.LITERATURE_INSPECTION].decode()
+    assert page.count("No current matching records are present in this snapshot.") == 2
+    assert "Declared Literature Navigation" in page
+    assert "Direct Reference Audit" in page
+    assert "Direct Views Index" in page
+    assert "Research Landscape" in page and "Research Knowledge Home" in page
+    assert "no research exists" not in page.lower()
+    assert "research gap" not in page.lower()
+    assert "novelty" in page.lower()
+    assert "coverage" in page.lower() and "priority" in page.lower()
+
+
 def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas):
     records = component_research_fixture_records()
     current_tree, _, _, _ = component_research_tree(atlas, records)
@@ -818,7 +994,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -870,8 +1046,13 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
         views.validate_prior(root)
     write_manifest("2.5", [views.RESEARCH_LANDSCAPE])
     assert set(views.validate_prior(root)) == {views.RESEARCH_LANDSCAPE}
+    write_manifest("2.5", [views.LITERATURE_INSPECTION])
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
+    write_manifest("2.6", [views.LITERATURE_INSPECTION])
+    assert set(views.validate_prior(root)) == {views.LITERATURE_INSPECTION}
     unknown_index = PurePosixPath("indexes/Unowned Landscape.md")
-    write_manifest("2.5", [unknown_index])
+    write_manifest("2.6", [unknown_index])
     with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
         views.validate_prior(root)
 
@@ -886,6 +1067,7 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
         ("2.3", (views.MEMORY_HUB_TECHNICAL,)),
         ("2.4", (views.technical_detail_paths("IF-MEM-CORTEX")[1],)),
         ("2.5", (views.RESEARCH_LANDSCAPE,)),
+        ("2.6", (views.LITERATURE_INSPECTION,)),
     ],
 )
 def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version, paths):
@@ -908,7 +1090,7 @@ def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version,
                 "sha256": "c" * 64,
                 **(
                     {"ownership": views.STRICT_OWNERSHIP}
-                    if version in {"2.1", "2.2", "2.3", "2.4", "2.5"}
+                    if version in {"2.1", "2.2", "2.3", "2.4", "2.5", "2.6"}
                     else {}
                 ),
             }
