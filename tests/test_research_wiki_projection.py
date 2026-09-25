@@ -256,6 +256,37 @@ def test_malicious_manifest_never_escapes_cleanup(setup, bad_path):
 
 
 @pytest.mark.parametrize(
+    "bad_path",
+    [
+        "indexes/CON.md",
+        "indexes/aux.txt",
+        "indexes/Trailing dot./note.md",
+        "indexes/trailing-space /note.md",
+        "indexes/Bad:Name.md",
+        "indexes/Bad*Name.md",
+        "indexes/Cafe\u0301.md",
+        "C:relative-drive.md",
+        "indexes\\windows-separator.md",
+    ],
+)
+def test_output_paths_reject_nonportable_filename_components(tmp_path, bad_path):
+    with pytest.raises(projection.ProjectionError, match="Unsafe|Non-portable"):
+        projection.target_path(tmp_path, bad_path)
+
+
+@pytest.mark.parametrize(
+    "paths",
+    [
+        ("indexes/Research.md", "indexes/research.md"),
+        ("indexes/Straße.md", "indexes/STRASSE.md"),
+    ],
+)
+def test_generated_path_sets_reject_casefold_collisions(paths):
+    with pytest.raises(projection.ProjectionError, match="collision"):
+        projection.validate_portable_paths(PurePosixPath(path) for path in paths)
+
+
+@pytest.mark.parametrize(
     "location", ["unknown.md", "records/CMP-CORTEX.md", "unknown/deep/private.bin"]
 )
 def test_unowned_files_not_overwritten_or_deleted(setup, location):

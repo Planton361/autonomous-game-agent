@@ -8,6 +8,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import unicodedata
+from collections.abc import Iterable
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated, Literal
 
@@ -40,6 +42,11 @@ DOMAIN_SLICE = PurePosixPath("domain-maps/Evidence, Memory & Retrieval.excalidra
 K3_HOME_TARGET = PurePosixPath("_generated/derived/indexes/Research Knowledge Home.md")
 REGISTRY_FILES = ("nodes.yaml", "relationships.yaml", "evidence.yaml")
 SOURCE_PATHS = ("docs/research-atlas/registry", "src/fh_agent/research_atlas")
+WINDOWS_RESERVED_NAMES = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"com{suffix}" for suffix in (*"123456789", "¹", "²", "³")}
+    | {f"lpt{suffix}" for suffix in (*"123456789", "¹", "²", "³")}
+)
 SHA256 = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
 COMMIT = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{40}$")]
 
@@ -260,6 +267,7 @@ def projection_tree(
         owned_files=sorted(owned, key=lambda item: item["path"]),
     )
     tree[MANIFEST] = yaml_text(manifest.model_dump(exclude_none=True)).encode()
+    validate_portable_paths(OWNED_ROOT / path for path in tree)
     return tree
 
 
@@ -295,7 +303,7 @@ def no_symlink_boundary(path: Path) -> None:
         raise ProjectionError("Symlink boundary rejected; use physical directories")
 
 
-def target_path(root: Path, relative: str | PurePosixPath) -> Path:
+def _portable_relative_path(relative: str | PurePosixPath) -> PurePosixPath:
     raw = str(relative)
     path = PurePosixPath(raw)
     if (
@@ -308,6 +316,37 @@ def target_path(root: Path, relative: str | PurePosixPath) -> Path:
         or raw in {"", "."}
     ):
         raise ProjectionError("Unsafe manifest/output path; require normalized relative paths")
+    for component in path.parts:
+        if (
+            component.endswith((" ", "."))
+            or unicodedata.normalize("NFC", component) != component
+            or any(
+                character in '<>:"|?*'
+                or unicodedata.category(character) in {"Cc", "Cf", "Cs", "Zl", "Zp"}
+                for character in component
+            )
+            or component.split(".", 1)[0].rstrip(" .").casefold() in WINDOWS_RESERVED_NAMES
+        ):
+            raise ProjectionError("Non-portable manifest/output path component")
+    return path
+
+
+def validate_portable_paths(paths: Iterable[str | PurePosixPath]) -> None:
+    """Reject generated path sets unsafe on Windows or ambiguous on macOS."""
+    seen: dict[str, PurePosixPath] = {}
+    for relative in paths:
+        path = _portable_relative_path(relative)
+        key = unicodedata.normalize("NFD", path.as_posix()).casefold()
+        previous = seen.get(key)
+        if previous is not None:
+            if previous == path:
+                raise ProjectionError("Duplicate generated path")
+            raise ProjectionError("Case-insensitive or Unicode-normalization path collision")
+        seen[key] = path
+
+
+def target_path(root: Path, relative: str | PurePosixPath) -> Path:
+    path = _portable_relative_path(relative)
     target = root / path
     no_symlink_boundary(target)
     if not target.resolve().is_relative_to(root) or target.resolve() == root:
@@ -465,8 +504,15 @@ def validate_private_vault(vault_root: Path, repo_root: Path) -> Path:
 
 
 def project(
-    repo_root: Path, vault_root: Path, source_ref: str, *, check: bool = False
+    repo_root: Path,
+    vault_root: Path,
+    source_ref: str,
+    *,
+    check: bool = False,
+    preflight: bool = False,
 ) -> dict[PurePosixPath, bytes]:
+    if check and preflight:
+        raise ProjectionError("Preflight and exact check are separate modes")
     repo = repo_root.resolve()
     vault = validate_private_vault(vault_root, repo)
     root = vault / OWNED_ROOT
@@ -491,6 +537,7 @@ def project(
         name: digest((repo / SOURCE_PATHS[0] / name).read_bytes()) for name in REGISTRY_FILES
     }
     tree = projection_tree(atlas, commit, registry_digests)
+    validate_portable_paths(OWNED_ROOT / path for path in tree.keys() | prior.keys())
     unknown = actual - prior.keys() - {MANIFEST}
     if unknown:
         raise ProjectionError(
@@ -518,6 +565,8 @@ def project(
             raise ProjectionError("Prior-owned file identity changed; restore or move it")
         if relative not in tree and digest(data) != item.sha256:
             raise ProjectionError("Obsolete owned file was edited; preserve edits before cleanup")
+    if preflight:
+        return tree
     if check:
         if actual != tree.keys() or any(
             target_path(root, p).read_bytes() != data for p, data in tree.items()

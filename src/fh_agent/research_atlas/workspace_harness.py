@@ -213,10 +213,17 @@ def _run_projector(
     context: WorkspaceContext,
     *,
     check: bool,
+    preflight: bool = False,
     restore_point: Path | None,
 ) -> None:
     try:
-        projector(context.repo_root, context.vault_root, context.source_commit, check=check)
+        projector(
+            context.repo_root,
+            context.vault_root,
+            context.source_commit,
+            check=check,
+            preflight=preflight,
+        )
     except (OSError, UnicodeError, ProjectionError) as exc:
         message = f"{stage} failed: {exc}"
         if restore_point is not None:
@@ -229,8 +236,24 @@ def apply(
     vault_root: Path | None = None,
     restore_root: Path | None = None,
 ) -> WorkspaceResult:
-    """Create a restore point, then apply both projections and both zero-write checks."""
+    """Preflight both roots, then apply both projections and both zero-write checks."""
     context = resolve_context(repo_root, vault_root)
+    _run_projector(
+        "technical projection preflight",
+        technical_project,
+        context,
+        check=False,
+        preflight=True,
+        restore_point=None,
+    )
+    _run_projector(
+        "direct views preflight",
+        views_project,
+        context,
+        check=False,
+        preflight=True,
+        restore_point=None,
+    )
     restore_point = create_restore_point(context, restore_root)
     _run_projector(
         "technical projection",
@@ -253,6 +276,8 @@ def apply(
     return WorkspaceResult(
         context.source_commit,
         (
+            "technical projection preflight",
+            "direct views preflight",
             "restore point",
             "technical projection",
             "direct views",
