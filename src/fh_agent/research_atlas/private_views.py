@@ -9,6 +9,7 @@ import re
 import sys
 import unicodedata
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Literal
 from urllib.parse import quote
@@ -68,7 +69,7 @@ from .private_reference_index import (
 )
 from .schema import Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, UniqueKeyLoader, load_registry
-from .wiki_schema import EpistemicRecord, validate_wiki_records
+from .wiki_schema import EpistemicRecord, Paper, ReadingNote, validate_wiki_records
 
 OWNER = "research-wiki-derived"
 OWNED_ROOT = PurePosixPath("_generated/derived")
@@ -90,6 +91,7 @@ OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE))
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
 RESEARCH_LANDSCAPE = PurePosixPath("indexes/Research Landscape.md")
+LITERATURE_INSPECTION = PurePosixPath("indexes/Literature Inspection.md")
 HIERARCHY = PurePosixPath("indexes/Technical Hierarchy.md")
 HIERARCHY_DIR = PurePosixPath("hierarchy")
 MEMORY_WORKBENCH = PurePosixPath("workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md")
@@ -120,6 +122,7 @@ K3_PRE_W07_PAYLOADS = frozenset(
     )
 )
 W07_PAYLOADS = frozenset((RESEARCH_LANDSCAPE,))
+W10_PAYLOADS = frozenset((LITERATURE_INSPECTION,))
 K3_PAYLOADS = K3_PRE_W07_PAYLOADS | W07_PAYLOADS
 K3_HUB_CHILD_PAYLOADS = frozenset(
     (
@@ -215,6 +218,38 @@ LANDSCAPE_PRIVATE_STATUS_FIELDS = {
     "decision_draft": ("decision_record_state",),
 }
 V25_INDEX_PAYLOADS = frozenset((INDEX, NAVIGATION, K3_HOME, RESEARCH_LANDSCAPE, HIERARCHY))
+V26_INDEX_PAYLOADS = V25_INDEX_PAYLOADS | W10_PAYLOADS
+
+LITERATURE_RESEARCH_ROLE_FIELDS = (
+    "research_direct_subject_refs",
+    "research_method_or_baseline_refs",
+    "research_measurement_relevance_refs",
+    "research_project_transfer_refs",
+    "research_adjacent_context_refs",
+)
+LITERATURE_PAPER_FIELDS = (
+    "source_refs",
+    "doi",
+    "url",
+    "authors",
+    "publication_year",
+    "venue",
+    "reading_note_refs",
+    "related_version_refs",
+    *LITERATURE_RESEARCH_ROLE_FIELDS,
+)
+LITERATURE_READING_NOTE_FIELDS = (
+    "paper_refs",
+    "source_refs",
+    "version_read",
+    "read_date",
+    "reading_depth",
+    "checked_sections",
+    "finding_refs",
+    "search_refs",
+    "rq_refs",
+    *LITERATURE_RESEARCH_ROLE_FIELDS,
+)
 
 
 def technical_detail_paths(identity: str) -> tuple[PurePosixPath, PurePosixPath]:
@@ -688,8 +723,14 @@ def _render_orientation_header(
     research_fallback: str,
     stable_id: str | None = None,
     presentation_context: str | None = None,
+    authority: str | None = None,
 ) -> list[str]:
     opened = surface if stable_id is None else f"{surface}; stable ID `{stable_id}`"
+    authority_text = authority or (
+        "Technical structure and status come from the Research Atlas. Current implementation "
+        "truth requires current code plus executable or CI evidence; authored private Research "
+        "remains separate."
+    )
     lines = [
         f"# {title}",
         "",
@@ -706,9 +747,7 @@ def _render_orientation_header(
             f"- **Research / fallback:** {research_fallback}",
             "- **View type:** Generated, derived navigation projection; not an independent source "
             "of truth.",
-            "- **Authority:** Technical structure and status come from the Research Atlas. Current "
-            "implementation truth requires current code plus executable or CI evidence; authored "
-            "private Research remains separate.",
+            f"- **Authority:** {authority_text}",
             "",
         ]
     )
@@ -1746,6 +1785,136 @@ def _render_private_landscape(
     return lines
 
 
+def _literature_literal(value: object) -> str:
+    """Render one accepted scalar/list losslessly inside a Markdown code span."""
+    if isinstance(value, date):
+        value = value.isoformat()
+    elif isinstance(value, tuple):
+        value = list(value)
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    runs = re.findall(r"`+", encoded)
+    fence = "`" * (max((len(run) for run in runs), default=0) + 1)
+    return f"{fence} {encoded} {fence}"
+
+
+def _render_literature_record(
+    record: Paper | ReadingNote,
+    fields: tuple[str, ...],
+    locators: dict[str, PurePosixPath],
+) -> list[str]:
+    authored = _landscape_authored_link(record, locators, OWNED_ROOT / LITERATURE_INSPECTION)
+    lines = [
+        f"- {authored}",
+        f"  - Record class: `{record.doc_type}` · Record version: `{record.record_version}`",
+        f"  - Document maturity: `{record.document_maturity}`",
+        "  - Profile: `RA-2` · Epistemic schema version: "
+        + _literature_literal(record.epistemic_schema_version),
+    ]
+    present_fields = []
+    model_fields = type(record).model_fields
+    for field in fields:
+        if field not in model_fields:
+            raise ProjectionError("Literature Inspection field is outside the accepted schema")
+        value = getattr(record, field)
+        if value is None or (isinstance(value, (list, tuple)) and not value):
+            continue
+        present_fields.append((field, value))
+    if present_fields:
+        lines.append("  - Existing accepted structured fields:")
+        for field, value in present_fields:
+            lines.append(f"    - `{field}`: {_literature_literal(value)}")
+    return lines
+
+
+def render_literature_inspection(
+    commit: str,
+    snapshot: Snapshot,
+    locators: dict[str, PurePosixPath],
+    records: tuple[EpistemicRecord, ...],
+) -> bytes:
+    """Render current accepted Paper and ReadingNote fields without reading note bodies."""
+    snapshot_records = {
+        record.wiki_id: record for record in snapshot.records if record.profile == "ra2"
+    }
+    if set(snapshot_records) != {record.wiki_id for record in records}:
+        raise ProjectionError("Literature Inspection records do not match the validated snapshot")
+
+    paper_records = sorted(
+        (record for record in records if isinstance(record, Paper)),
+        key=lambda record: (record.title.casefold(), record.wiki_id),
+    )
+    reading_records = sorted(
+        (record for record in records if isinstance(record, ReadingNote)),
+        key=lambda record: (record.title.casefold(), record.wiki_id),
+    )
+    props = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        inspection_schema_version="1.0",
+        inspection_surface="existing-literature-records",
+    )
+    body = _render_orientation_header(
+        title="Literature Inspection",
+        surface="Current accepted Paper and ReadingNote structured records",
+        home=_derived_link(RESEARCH_LANDSCAPE, "Research Landscape"),
+        broader_context=_derived_link(K3_HOME, "Research Knowledge Home"),
+        research_fallback=(
+            _derived_link(NAVIGATION, "Declared Literature Navigation")
+            + " · "
+            + _derived_link(INDEX, "Direct Views Index")
+        ),
+        authority=(
+            "Displayed values come from current authored private RA-2 records; this generated "
+            "view does not create source or scientific authority."
+        ),
+    )
+    body.extend(
+        [
+            "A generated inspection of accepted RA-2 Paper and ReadingNote records in this "
+            "snapshot. Structured values are displayed as stored. This page does not read "
+            "ReadingNote bodies, interpret prose, resolve source identities, or assess "
+            "research quality, evidence, coverage, relevance, novelty, or priority.",
+            "",
+            "## Paper/source records",
+            "",
+        ]
+    )
+    if not paper_records:
+        body.extend(["No current matching records are present in this snapshot.", ""])
+    else:
+        for record in paper_records:
+            body.extend(_render_literature_record(record, LITERATURE_PAPER_FIELDS, locators))
+        body.append("")
+    body.extend(["## ReadingNote records", ""])
+    if not reading_records:
+        body.extend(["No current matching records are present in this snapshot.", ""])
+    else:
+        for record in reading_records:
+            body.extend(_render_literature_record(record, LITERATURE_READING_NOTE_FIELDS, locators))
+        body.append("")
+    body.extend(
+        [
+            "## Existing reference navigation and audit",
+            "",
+            f"- {_derived_link(NAVIGATION, 'Declared Literature Navigation')}",
+            f"- [[{OWNED_ROOT / NAVIGATION.with_suffix('')}#Direct Reference Audit|"
+            "Open Direct Reference Audit]]",
+            f"- {_derived_link(INDEX, 'Direct Views Index')}",
+            "",
+            "These existing routes retain their current deterministic reference and audit "
+            "semantics. This page adds no source-resolution or reference-traversal behavior.",
+            "",
+            "## Return navigation",
+            "",
+            f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}",
+            f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
+            "",
+        ]
+    )
+    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+
+
 def render_research_landscape(
     commit: str,
     atlas: Atlas,
@@ -1780,6 +1949,12 @@ def render_research_landscape(
         [
             "This generated page is a navigation and inventory surface. It does not create "
             "research authority, rank records, or infer scientific relationships.",
+            "",
+            "## Literature Inspection",
+            "",
+            f"- {_derived_link(LITERATURE_INSPECTION, 'Open Literature Inspection')}",
+            "Inspect existing accepted Paper and ReadingNote structured fields and open their "
+            "authored records.",
             "",
         ]
     )
@@ -2133,6 +2308,10 @@ class ManifestV25(ManifestV21):
     view_schema_version: Literal["2.5"]
 
 
+class ManifestV26(ManifestV21):
+    view_schema_version: Literal["2.6"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -2271,6 +2450,9 @@ def reference_views_tree(
     tree[RESEARCH_LANDSCAPE] = render_research_landscape(
         commit, atlas, snapshot, locators, private_records
     )
+    tree[LITERATURE_INSPECTION] = render_literature_inspection(
+        commit, snapshot, locators, private_records
+    )
     hubs = {
         subject_id: _component_hub_model(atlas, subject_id) for subject_id in COMPONENT_HUB_PATHS
     }
@@ -2312,6 +2494,7 @@ def reference_views_tree(
         + f"\n- [[{OWNED_ROOT / NAVIGATION}|Declared Literature Navigation]]\n"
         + f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}\n"
         + f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}\n"
+        + f"- {_derived_link(LITERATURE_INSPECTION, 'Literature Inspection')}\n"
         + f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}\n"
     ).encode()
     data = old.model_dump()
@@ -2327,13 +2510,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.5",
+        view_schema_version="2.6",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV25.model_validate(data).model_dump(exclude_none=True)
+        ManifestV26.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -2407,6 +2590,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV24.model_validate(data)
         elif data.get("view_schema_version") == "2.5":
             manifest = ManifestV25.model_validate(data)
+        elif data.get("view_schema_version") == "2.6":
+            manifest = ManifestV26.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -2425,12 +2610,16 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 or (
                     relative.parent == PurePosixPath("indexes")
                     and relative.suffix == ".md"
-                    and (relative not in W07_PAYLOADS or manifest.view_schema_version == "2.5")
+                    and (
+                        relative not in W07_PAYLOADS
+                        or manifest.view_schema_version in {"2.5", "2.6"}
+                    )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
+                    and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
                 )
             )
             or (
-                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5"}
+                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6"}
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -2446,17 +2635,21 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5"}
+                manifest.view_schema_version == "2.6"
+                and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
+            )
+            or (
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6"}
                 and relative == HIERARCHY
             )
             or (
-                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5"}
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
             or (
-                manifest.view_schema_version in {"2.4", "2.5"}
+                manifest.view_schema_version in {"2.4", "2.5", "2.6"}
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
         ):

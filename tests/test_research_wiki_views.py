@@ -271,9 +271,9 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.REFERENCE_INDEX,
         views.NAVIGATION,
         views.HIERARCHY,
-    } | set(views.K3_PAYLOADS) | set(views.TECHNICAL_DETAIL_PAYLOADS) | set(
-        views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas"))
-    )
+    } | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(
+        views.TECHNICAL_DETAIL_PAYLOADS
+    ) | set(views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas")))
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
     assert outside_owned(vault) == before
     first = snapshot(derived(vault))
@@ -290,7 +290,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -459,7 +459,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.5"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.6"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -581,7 +581,7 @@ def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup
     }
     for path, data in (*technical_tree.items(), *derived_tree.items()):
         for raw in re.findall(r"\[\[([^\]]+)\]\]", data.decode()):
-            target = raw.replace(r"\|", "|").partition("|")[0]
+            target = raw.replace(r"\|", "|").partition("|")[0].partition("#")[0]
             assert target in targets, (path, target)
             assert (vault / target).is_file() or (vault / f"{target}.md").is_file(), (
                 path,
@@ -683,7 +683,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -711,10 +711,88 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
+
+
+def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths(setup):
+    from test_research_wiki_schema import props
+
+    repo, vault, sha = setup
+    paper_id = "WPAPER-W10-MIGRATION"
+    write_note(
+        vault / "authored/paper.md",
+        props("paper", wiki_id=paper_id, source_refs=["zsrc-synthetic-migration"]),
+    )
+    write_note(
+        vault / "authored/reading-note.md",
+        props("reading_note", wiki_id="READ-W10-MIGRATION", paper_refs=[paper_id]),
+    )
+    authored_before = outside_owned(vault)
+    current = views.project(repo, vault, sha)
+    old_tree = {path: data for path, data in current.items() if path != views.LITERATURE_INSPECTION}
+
+    landscape_section = (
+        "## Literature Inspection\n\n"
+        f"- {views._derived_link(views.LITERATURE_INSPECTION, 'Open Literature Inspection')}\n"
+        "Inspect existing accepted Paper and ReadingNote structured fields and open their "
+        "authored records.\n\n"
+    )
+    landscape = old_tree[views.RESEARCH_LANDSCAPE].decode()
+    assert landscape_section in landscape
+    old_tree[views.RESEARCH_LANDSCAPE] = landscape.replace(landscape_section, "", 1).encode()
+    index_route = f"- {views._derived_link(views.LITERATURE_INSPECTION, 'Literature Inspection')}\n"
+    direct_index = old_tree[views.INDEX].decode()
+    assert index_route in direct_index
+    old_tree[views.INDEX] = direct_index.replace(index_route, "", 1).encode()
+
+    manifest = views.read_yaml(old_tree[views.MANIFEST].decode())
+    manifest["view_schema_version"] = "2.5"
+    manifest["owned_files"] = [
+        item for item in manifest["owned_files"] if item["path"] != str(views.LITERATURE_INSPECTION)
+    ]
+    for item in manifest["owned_files"]:
+        path = PurePosixPath(item["path"])
+        item["sha256"] = technical.digest(old_tree[path])
+        if path.suffix == ".base":
+            item["semantic_sha256"] = views._base_semantic_digest(old_tree[path])
+    old_tree[views.MANIFEST] = technical.yaml_text(manifest).encode()
+
+    root = derived(vault)
+    target = root / views.LITERATURE_INSPECTION
+    target.unlink()
+    for relative, data in old_tree.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    before_check = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before_check
+
+    target.write_text("Unowned synthetic content\n")
+    before_block = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before_block
+    target.unlink()
+
+    migrated = views.project(repo, vault, sha)
+    migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
+    assert migrated_manifest["view_schema_version"] == "2.6"
+    assert str(views.LITERATURE_INSPECTION) in {
+        item["path"] for item in migrated_manifest["owned_files"]
+    }
+    assert b"WPAPER-W10-MIGRATION" in migrated[views.LITERATURE_INSPECTION]
+    assert b"READ-W10-MIGRATION" in migrated[views.LITERATURE_INSPECTION]
+    assert b"SYNTHETIC-PRIVATE-SECRET-RA1" not in migrated[views.LITERATURE_INSPECTION]
+    assert outside_owned(vault) == authored_before
+    after_migration = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == migrated
+    assert filesystem_state(vault) == after_migration
 
 
 def test_w04_hub_rendering_is_registry_order_independent():
@@ -785,7 +863,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.5"
+    assert manifest["view_schema_version"] == "2.6"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -1605,7 +1683,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.5"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.6"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
