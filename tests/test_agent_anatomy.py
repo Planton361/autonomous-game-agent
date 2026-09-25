@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from fh_agent.research_atlas import private_projection
 from fh_agent.research_atlas.anatomy import (
     ANATOMY_RECORD_IDS,
     ANATOMY_REGIONS,
@@ -16,6 +17,8 @@ from fh_agent.research_atlas.anatomy import (
     DOMAIN_RELATION_KEYS,
     FLOW_KEYS,
 )
+from fh_agent.research_atlas.private_views import MEMORY_WORKBENCH
+from fh_agent.research_atlas.private_views import OWNED_ROOT as DERIVED_ROOT
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.workspace import (
     ANATOMY_PATH,
@@ -121,14 +124,14 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
     for identity in ("CMP-SKILL-TRAINER", "DAT-CANDIDATE-BODY-VERSION", "CMP-BODY-CERTIFICATION"):
         assert inside(records[identity], boundaries["between-runs"])
         assert not inside(records[identity], boundaries["in-run"])
-    assert "Life Episode restart does not refresh weights" in tree[ANATOMY_PATH]
-    assert "Cortex proposes goals and constraints" in tree[ANATOMY_PATH]
-    assert "does not control" in tree[ANATOMY_PATH]
-    assert "Manager validates proposals" in tree[ANATOMY_PATH]
-    assert "active contract" in tree[ANATOMY_PATH]
+    assert "frozen Body version, including Life Episode restarts" in tree[ANATOMY_PATH]
+    assert (
+        "Cortex proposes · Manager contracts · Body/Reflex (active contract)" in tree[ANATOMY_PATH]
+    )
+    assert "SafetyFilter → InputExecutor" in tree[ANATOMY_PATH]
     assert "Independent Verifier" in tree[ANATOMY_PATH]
     assert "outside cortex decision authority" in tree[ANATOMY_PATH].lower()
-    assert "Verified outcome" in tree[ANATOMY_PATH]
+    assert "outcome before replay" in tree[ANATOMY_PATH]
 
     bridge = records["CMP-VISIBLE-STATE-BRIDGE"]
     firewall = records["CMP-NO-SPOILER-FIREWALL"]
@@ -164,6 +167,50 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
         for edge in technical_edges(value)
     )
     assert technical_edges(value) == set(BETWEEN_RUN_RELATION_KEYS)
+
+
+def test_z2_exploded_home_is_one_system_with_distinct_assemblies(atlas):
+    value = scene(workspace_tree(atlas)[ANATOMY_PATH])
+    elements = value["elements"]
+    regions = [
+        element for element in elements if "functional_region" in element.get("customData", {})
+    ]
+    assert len(regions) == len(ANATOMY_REGIONS) == 7
+    assert {element["type"] for element in regions} >= {"ellipse", "diamond", "rectangle"}
+    assert sum(element["type"] == "rectangle" for element in regions) == 1
+    assert {element["customData"]["functional_region"] for element in regions} == {
+        key for key, *_ in ANATOMY_REGIONS
+    }
+    assert all(element["customData"]["presentation_only"] is True for element in regions)
+    assert {
+        element["customData"]["presentation_structure"]
+        for element in elements
+        if "presentation_structure" in element.get("customData", {})
+    } >= {"shared-chassis", "shared-backplane", "independent-verifier-pod"}
+    records = record_elements(value)
+    assert all(
+        element["customData"]["atlas_landmarks"] == list(identities)
+        for element in regions
+        for key, _, _, identities in ANATOMY_REGIONS
+        if element["customData"]["functional_region"] == key
+    )
+    assert all(
+        records[identity]["customData"]["visual_role"] == "technical-landmark-port"
+        for _, _, _, identities in ANATOMY_REGIONS
+        for identity in identities
+    )
+    assert all(" · CMP-" not in element.get("text", "") for element in elements)
+    assert any(
+        element.get("customData", {}).get("outside_decision_authority") is True
+        for element in elements
+    )
+    assert "BETWEEN MISSION RUNS ONLY" in scene_text(elements)
+    assert "optional visible-state bridge" in scene_text(elements)
+    assert "Dashed arrows: orientation only" in scene_text(elements)
+
+
+def scene_text(elements):
+    return "\n".join(element.get("text", "") for element in elements)
 
 
 def test_domain_slice_separates_presentation_membership_from_technical_edges(atlas):
@@ -213,6 +260,32 @@ def test_domain_slice_separates_presentation_membership_from_technical_edges(atl
     )
 
 
+def test_z2_scoped_memory_action_reaches_existing_component_hub(atlas):
+    public = scene(workspace_tree(atlas)[DOMAIN_SLICE_PATH])
+    public_action = next(
+        element
+        for element in public["elements"]
+        if element.get("customData", {}).get("navigation") == "memory-retrieval-overview"
+    )
+    assert (
+        public_action["link"].split("|", 1)[0]
+        == note_link(atlas.entities["CMP-MEM-RETRIEVAL"]).split("|", 1)[0]
+    )
+    digests = {name: "a" * 64 for name in private_projection.REGISTRY_FILES}
+    private_tree = private_projection.projection_tree(atlas, "b" * 40, digests)
+    projected = scene(private_tree[private_projection.DOMAIN_SLICE].decode())
+    private_action = next(
+        element
+        for element in projected["elements"]
+        if element.get("customData", {}).get("navigation") == "memory-retrieval-overview"
+    )
+    assert private_action["link"] == (
+        f"[[{(DERIVED_ROOT / MEMORY_WORKBENCH).with_suffix('')}|Memory Retrieval → Overview]]"
+    )
+    assert private_projection.MEMORY_HUB_TARGET == (DERIVED_ROOT / MEMORY_WORKBENCH)
+    assert technical_edges(projected) == set(DOMAIN_RELATION_KEYS)
+
+
 def test_w03_generation_is_byte_deterministic_and_registry_order_independent(atlas):
     first = workspace_tree(atlas)
     second = workspace_tree(atlas)
@@ -247,4 +320,33 @@ def test_generated_visual_validation_rejects_unsupported_domain_edge_targets(atl
     relation_element["customData"]["atlas_relation"]["target"] = "DOM-EVIDENCE-MEMORY"
     tree[DOMAIN_SLICE_PATH] = rewrite_scene(tree[DOMAIN_SLICE_PATH], value)
     with pytest.raises(ValueError, match="unsupported Registry relation"):
+        validate_workspace_tree(atlas, tree)
+
+
+def test_z2_home_rejects_fabricated_registry_edge(atlas):
+    tree = workspace_tree(atlas)
+    value = scene(tree[ANATOMY_PATH])
+    relation = next(
+        element
+        for element in value["elements"]
+        if "atlas_relation" in element.get("customData", {})
+    )
+    relation["customData"]["atlas_relation"]["target"] = "CMP-CORTEX"
+    tree[ANATOMY_PATH] = rewrite_scene(tree[ANATOMY_PATH], value)
+    with pytest.raises(ValueError, match="unsupported Registry relation"):
+        validate_workspace_tree(atlas, tree)
+
+
+def test_z2_home_rejects_duplicate_presentation_assembly(atlas):
+    tree = workspace_tree(atlas)
+    value = scene(tree[ANATOMY_PATH])
+    region = next(
+        element
+        for element in value["elements"]
+        if element.get("customData", {}).get("functional_region") == "cognition"
+    )
+    duplicate = dict(region, id="abcdef12")
+    value["elements"].append(duplicate)
+    tree[ANATOMY_PATH] = rewrite_scene(tree[ANATOMY_PATH], value)
+    with pytest.raises(ValueError, match="functional-region coverage mismatch"):
         validate_workspace_tree(atlas, tree)

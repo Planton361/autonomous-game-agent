@@ -569,6 +569,10 @@ def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup
     assert "Technical Hierarchy" in home
     assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in home
     assert "Markdown fallback" in home and "comparison and rollback" in home
+    assert (
+        f"[[{(views.OWNED_ROOT / views.MEMORY_WORKBENCH).with_suffix('')}|"
+        "Memory Retrieval → Overview]]"
+    ) in technical_tree[technical.DOMAIN_SLICE].decode()
 
     targets = {
         str(technical.OWNED_ROOT / candidate)

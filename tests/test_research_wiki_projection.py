@@ -256,7 +256,13 @@ def test_malicious_manifest_never_escapes_cleanup(setup, bad_path):
 
 
 @pytest.mark.parametrize(
-    "location", ["unknown.md", "records/CMP-CORTEX.md", "unknown/deep/private.bin"]
+    "location",
+    [
+        "unknown.md",
+        "records/CMP-CORTEX.md",
+        "unknown/deep/private.bin",
+        "system-map/Unowned.excalidraw.md",
+    ],
 )
 def test_unowned_files_not_overwritten_or_deleted(setup, location):
     _, vault, _ = setup
@@ -435,10 +441,13 @@ def test_display_rename_keeps_private_path_and_resolver_links(setup, display_nam
     assert index["entries"]["CMP-CORTEX"]["path"] == "records/CMP-CORTEX.md"
     targets = {str(projection.OWNED_ROOT / p.with_suffix("")) for p in tree if p.suffix == ".md"}
     targets.add(str(projection.K3_HOME_TARGET.with_suffix("")))
+    hub_target = str(projection.MEMORY_HUB_TARGET.with_suffix(""))
+    targets.add(hub_target)
     for data in tree.values():
         for target in re.findall(r"\[\[([^|\]]+)\|", data.decode()):
             assert target in targets
-            assert " — " not in target
+            if target != hub_target:
+                assert " — " not in target
 
 
 def scene(text):

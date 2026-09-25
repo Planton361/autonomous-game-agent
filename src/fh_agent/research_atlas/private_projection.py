@@ -38,6 +38,9 @@ MAP = PurePosixPath("system-map/System Anatomy.excalidraw.md")
 ANATOMY = PurePosixPath("system-map/Agent Anatomy.excalidraw.md")
 DOMAIN_SLICE = PurePosixPath("domain-maps/Evidence, Memory & Retrieval.excalidraw.md")
 K3_HOME_TARGET = PurePosixPath("_generated/derived/indexes/Research Knowledge Home.md")
+MEMORY_HUB_TARGET = PurePosixPath(
+    "_generated/derived/workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md"
+)
 REGISTRY_FILES = ("nodes.yaml", "relationships.yaml", "evidence.yaml")
 SOURCE_PATHS = ("docs/research-atlas/registry", "src/fh_agent/research_atlas")
 SHA256 = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
@@ -143,12 +146,29 @@ def projection_tree(
     # Complete workspace apply generates this W01/W02 landing page in the second projection.
     map_targets[str(HOME_PATH.with_suffix(""))] = K3_HOME_TARGET.with_suffix("")
 
-    def rewrite(text: str, link_targets: dict[str, PurePosixPath]) -> str:
+    memory_record = atlas.entities["CMP-MEM-RETRIEVAL"]
+    memory_public_target = str(
+        note_path_for(memory_record.id, memory_record.type, memory_record.name).with_suffix("")
+    )
+
+    def rewrite(
+        text: str, link_targets: dict[str, PurePosixPath], *, scoped_hub: bool = False
+    ) -> str:
         def link(match: re.Match) -> str:
             target, _, alias = match[1].partition("|")
             if target not in link_targets:
                 raise ProjectionError("Public renderer emitted an unresolved technical link")
-            return f"[[{link_targets[target]}|{alias or target}]]"
+            destination = link_targets[target]
+            # One finite W03/W04 transition: the public scoped view opens the
+            # exact record; its private Workspace projection opens the existing
+            # Component Hub Overview for the same Registry identity.
+            if (
+                scoped_hub
+                and target == memory_public_target
+                and alias == "Memory Retrieval → Overview"
+            ):
+                destination = MEMORY_HUB_TARGET.with_suffix("")
+            return f"[[{destination}|{alias or target}]]"
 
         return re.sub(r"\[\[([^\]]+)\]\]", link, text)
 
@@ -165,6 +185,8 @@ def projection_tree(
         text: str,
         source_digest: str,
         link_targets: dict[str, PurePosixPath] = targets,
+        *,
+        scoped_hub: bool = False,
     ) -> bytes:
         props, body = markdown_parts(text)
         # Parse YAML first so folded public links become complete strings before rewriting.
@@ -179,7 +201,7 @@ def projection_tree(
             "---\n"
             + yaml_text(rewrite_properties(props, link_targets))
             + "---\n"
-            + rewrite(body, link_targets)
+            + rewrite(body, link_targets, scoped_hub=scoped_hub)
         ).encode()
 
     tree: dict[PurePosixPath, bytes] = {}
@@ -206,7 +228,7 @@ def projection_tree(
     tree[ANATOMY] = note(public_anatomy, digest(public_anatomy.encode()), map_targets)
     public_domain_slice = render_domain_slice(atlas)
     tree[DOMAIN_SLICE] = note(
-        public_domain_slice, digest(public_domain_slice.encode()), map_targets
+        public_domain_slice, digest(public_domain_slice.encode()), map_targets, scoped_hub=True
     )
     tree[INDEX] = yaml_text(
         dict(index_schema_version="1.0", generated_by=OWNER, source_commit=commit, entries=entries)

@@ -131,6 +131,8 @@ Component · CMP-MEM-RETRIEVAL ^a8a86a8d
 
 Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records ^ce6229d7
 
+Memory Retrieval → Overview ^9906f8c9
+
 If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records. ^a0119704
 
 ## Element Links
@@ -232,6 +234,10 @@ a8a86a8d: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL 
 c64e6537: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
 
 ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
+
+d1b5d1cd: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval → Overview]]
+
+9906f8c9: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval → Overview]]
 
 ## Drawing
 ```json
@@ -2892,6 +2898,75 @@ ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Comp
       "verticalAlign": "top",
       "width": 1126,
       "x": 512,
+      "y": 1260
+    },
+    {
+      "angle": 0,
+      "backgroundColor": "#ffffff",
+      "boundElements": null,
+      "customData": {
+        "navigation": "memory-retrieval-overview"
+      },
+      "fillStyle": "solid",
+      "frameId": null,
+      "groupIds": [],
+      "height": 64,
+      "id": "d1b5d1cd",
+      "isDeleted": false,
+      "link": "[[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval → Overview]]",
+      "locked": false,
+      "opacity": 100,
+      "roughness": 0,
+      "roundness": {
+        "type": 3
+      },
+      "seed": 1370870221,
+      "strokeColor": "#526477",
+      "strokeStyle": "solid",
+      "strokeWidth": 1.4,
+      "type": "rectangle",
+      "updated": 0,
+      "version": 1,
+      "versionNonce": 1,
+      "width": 910,
+      "x": 1720,
+      "y": 1240
+    },
+    {
+      "angle": 0,
+      "autoResize": false,
+      "backgroundColor": "transparent",
+      "boundElements": null,
+      "containerId": null,
+      "fillStyle": "solid",
+      "fontFamily": 2,
+      "fontSize": 14,
+      "frameId": null,
+      "groupIds": [],
+      "height": 17,
+      "id": "9906f8c9",
+      "isDeleted": false,
+      "lineHeight": 1.25,
+      "link": "[[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval → Overview]]",
+      "locked": false,
+      "opacity": 100,
+      "originalText": "Memory Retrieval → Overview",
+      "rawText": "Memory Retrieval → Overview",
+      "roughness": 0,
+      "roundness": null,
+      "seed": 419887305,
+      "strokeColor": "#26384b",
+      "strokeStyle": "solid",
+      "strokeWidth": 1,
+      "text": "Memory Retrieval → Overview",
+      "textAlign": "left",
+      "type": "text",
+      "updated": 0,
+      "version": 1,
+      "versionNonce": 1,
+      "verticalAlign": "top",
+      "width": 886,
+      "x": 1732,
       "y": 1260
     },
     {
