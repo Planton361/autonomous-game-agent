@@ -89,6 +89,8 @@ def setup(tmp_path):
     package = repo / "src/fh_agent/research_atlas"
     package.mkdir(parents=True)
     (package / "fixture.py").write_text("# Synthetic clean source\n")
+    (package / "assets").mkdir()
+    shutil.copyfile(ROOT / projection.HERO_SOURCE, package / "assets/agent_anatomy_hero.svg")
     git(repo, "init", "--quiet")
     head = commit(repo)
     vault = tmp_path / "private"
@@ -140,6 +142,7 @@ def test_authored_tree_invariance_determinism_and_provenance(setup):
     }
     for item in manifest["owned_files"]:
         assert item["sha256"] == hashlib.sha256(first[PurePosixPath(item["path"])]).hexdigest()
+    assert first[projection.HERO_ASSET] == (repo / projection.HERO_SOURCE).read_bytes()
     index = yaml.safe_load(first[projection.INDEX])
     assert index["source_commit"] == head
     assert list(index["entries"]) == sorted(atlas.entities)
@@ -161,6 +164,26 @@ def test_authored_tree_invariance_determinism_and_provenance(setup):
         for content in first.values()
     )
     assert not {p.name for p in first} & set(projection.REGISTRY_FILES)
+
+
+def test_illustration_source_and_owned_copy_fail_closed(setup):
+    repo, vault, head = setup
+    generate(setup)
+    asset = vault / projection.OWNED_ROOT / projection.HERO_ASSET
+    asset.write_bytes(asset.read_bytes() + b"\n<!-- synthetic edit -->\n")
+    before = filesystem_state(vault)
+    with pytest.raises(projection.ProjectionError, match="illustration was edited"):
+        projection.project(repo, vault, head, check=True)
+    assert filesystem_state(vault) == before
+
+    asset.write_bytes((repo / projection.HERO_SOURCE).read_bytes())
+    source = repo / projection.HERO_SOURCE
+    source.write_bytes(source.read_bytes() + b"\n<!-- synthetic source change -->\n")
+    head = commit(repo)
+    before = filesystem_state(vault)
+    with pytest.raises(projection.ProjectionError, match="Illustration source differs"):
+        projection.project(repo, vault, head, check=True)
+    assert filesystem_state(vault) == before
 
 
 @pytest.mark.parametrize("topology", ["same", "vault-in-repo", "repo-in-vault"])
@@ -256,7 +279,13 @@ def test_malicious_manifest_never_escapes_cleanup(setup, bad_path):
 
 
 @pytest.mark.parametrize(
-    "location", ["unknown.md", "records/CMP-CORTEX.md", "unknown/deep/private.bin"]
+    "location",
+    [
+        "unknown.md",
+        "records/CMP-CORTEX.md",
+        "unknown/deep/private.bin",
+        "system-map/Unowned.excalidraw.md",
+    ],
 )
 def test_unowned_files_not_overwritten_or_deleted(setup, location):
     _, vault, _ = setup
@@ -435,10 +464,14 @@ def test_display_rename_keeps_private_path_and_resolver_links(setup, display_nam
     assert index["entries"]["CMP-CORTEX"]["path"] == "records/CMP-CORTEX.md"
     targets = {str(projection.OWNED_ROOT / p.with_suffix("")) for p in tree if p.suffix == ".md"}
     targets.add(str(projection.K3_HOME_TARGET.with_suffix("")))
+    hub_target = str(projection.MEMORY_HUB_TARGET.with_suffix(""))
+    verifier_hub_target = str(projection.VERIFIER_HUB_TARGET.with_suffix(""))
+    targets.update({hub_target, verifier_hub_target})
     for data in tree.values():
         for target in re.findall(r"\[\[([^|\]]+)\|", data.decode()):
             assert target in targets
-            assert " — " not in target
+            if target not in {hub_target, verifier_hub_target}:
+                assert " — " not in target
 
 
 def scene(text):
@@ -470,7 +503,7 @@ def test_w03_v10_projection_manifest_migrates_finite_visual_outputs(setup):
     manifest = yaml.safe_load(manifest_path.read_text())
     legacy_map = current_tree[projection.MAP]
     for item in list(manifest["owned_files"]):
-        if item["kind"] in {"agent_anatomy", "domain_slice"}:
+        if item["kind"] in {"agent_anatomy", "anatomy_hero_asset", "domain_slice"}:
             (root / item["path"]).unlink()
             manifest["owned_files"].remove(item)
     manifest["projection_schema_version"] = "1.0"
@@ -484,15 +517,16 @@ def test_w03_v10_projection_manifest_migrates_finite_visual_outputs(setup):
     final_manifest = yaml.safe_load(migrated[projection.MANIFEST])
     assert final_manifest["projection_schema_version"] == "1.1"
     assert migrated[projection.MAP] == legacy_map
-    assert projection.ANATOMY in migrated and projection.DOMAIN_SLICE in migrated
+    assert {projection.ANATOMY, projection.HERO_ASSET, projection.DOMAIN_SLICE} <= migrated.keys()
     owned_visuals = {
         item["kind"]: item["path"]
         for item in final_manifest["owned_files"]
-        if item["kind"] in {"system_map", "agent_anatomy", "domain_slice"}
+        if item["kind"] in {"system_map", "agent_anatomy", "anatomy_hero_asset", "domain_slice"}
     }
     assert owned_visuals == {
         "system_map": str(projection.MAP),
         "agent_anatomy": str(projection.ANATOMY),
+        "anatomy_hero_asset": str(projection.HERO_ASSET),
         "domain_slice": str(projection.DOMAIN_SLICE),
     }
     assert snapshot(vault, authored=True) == authored

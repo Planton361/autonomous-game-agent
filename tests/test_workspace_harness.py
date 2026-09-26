@@ -50,6 +50,9 @@ def setup(tmp_path: Path) -> tuple[Path, Path, str]:
     source = repo / "src/fh_agent/research_atlas/source.py"
     source.parent.mkdir(parents=True)
     source.write_text("# synthetic committed source\n", encoding="utf-8")
+    asset = repo / technical.HERO_SOURCE
+    asset.parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / technical.HERO_SOURCE, asset)
     git(repo, "init", "--quiet")
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     source_commit = commit(repo)

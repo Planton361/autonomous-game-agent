@@ -101,6 +101,9 @@ def setup(tmp_path):
     code = repo / "src/fh_agent/research_atlas/source.py"
     code.parent.mkdir(parents=True)
     code.write_text("# synthetic tracked source\n")
+    asset = repo / technical.HERO_SOURCE
+    asset.parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / technical.HERO_SOURCE, asset)
     git(repo, "init", "--quiet")
     sha = commit(repo)
     vault = tmp_path / "private"
@@ -569,6 +572,10 @@ def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup
     assert "Technical Hierarchy" in home
     assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in home
     assert "Markdown fallback" in home and "comparison and rollback" in home
+    assert (
+        f"[[{(views.OWNED_ROOT / views.MEMORY_WORKBENCH).with_suffix('')}|"
+        "Memory Retrieval → Overview]]"
+    ) in technical_tree[technical.DOMAIN_SLICE].decode()
 
     targets = {
         str(technical.OWNED_ROOT / candidate)
