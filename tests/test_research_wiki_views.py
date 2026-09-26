@@ -101,6 +101,9 @@ def setup(tmp_path):
     code = repo / "src/fh_agent/research_atlas/source.py"
     code.parent.mkdir(parents=True)
     code.write_text("# synthetic tracked source\n")
+    asset = repo / technical.HERO_SOURCE
+    asset.parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / technical.HERO_SOURCE, asset)
     git(repo, "init", "--quiet")
     sha = commit(repo)
     vault = tmp_path / "private"

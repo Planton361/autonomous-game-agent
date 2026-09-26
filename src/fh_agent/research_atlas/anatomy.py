@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import re
 from collections.abc import Mapping
@@ -13,10 +15,12 @@ from .workspace import (
     ANATOMY_PATH,
     DOMAIN_SLICE_PATH,
     GENERATED_NOTICE,
+    HERO_ASSET_PATH,
     HOME_PATH,
     MAP_PATH,
     _element,
     _text,
+    anatomy_hero_svg,
     frontmatter,
     map_record_ids,
     note_link,
@@ -125,41 +129,23 @@ FLOW_KEYS = (
     ("action-safety", "verification"),
 )
 
-_REGION_BOXES: Mapping[str, tuple[int, int, int, int]] = {
-    "environment": (105, 310, 300, 245),
-    "observation": (440, 285, 310, 255),
-    "evidence-memory": (610, 605, 330, 260),
-    "cognition": (925, 255, 340, 275),
-    "executive": (1330, 280, 310, 255),
-    "action-safety": (1115, 650, 400, 235),
-    "verification": (1640, 610, 350, 265),
+_REGION_HOTSPOTS: Mapping[str, tuple[int, int, int, int]] = {
+    "environment": (578, 300, 212, 176),
+    "observation": (795, 318, 286, 168),
+    "evidence-memory": (705, 536, 338, 276),
+    "cognition": (1080, 222, 212, 150),
+    "executive": (1050, 505, 228, 209),
+    "action-safety": (940, 715, 398, 246),
+    "verification": (1636, 419, 305, 346),
 }
-_REGION_COLORS: Mapping[str, str] = {
-    "environment": "#d8edf2",
-    "observation": "#e9e5f6",
-    "evidence-memory": "#dcebdd",
-    "cognition": "#ffe6ba",
-    "executive": "#f8d9c9",
-    "action-safety": "#dce5f5",
-    "verification": "#f0dfec",
-}
-_REGION_SHAPES: Mapping[str, str] = {
-    "environment": "rectangle",
-    "observation": "rectangle",
-    "evidence-memory": "rectangle",
-    "cognition": "ellipse",
-    "executive": "rectangle",
-    "action-safety": "rectangle",
-    "verification": "ellipse",
-}
-_REGION_LABELS: Mapping[str, str] = {
-    "environment": "ACQUIRE\nsensor intake",
-    "observation": "OBSERVE\nperception scanner",
-    "evidence-memory": "RETAIN / RETRIEVE\nmemory chamber",
-    "cognition": "REASON\nCortex core",
-    "executive": "CONTRACT\nManager gate",
-    "action-safety": "ACT\nBody + safety",
-    "verification": "VERIFY\nindependent pod",
+_REGION_CALLOUTS: Mapping[str, tuple[str, str, int, int, int]] = {
+    "environment": ("ACQUIRE", "Sensor intake", 85, 260, 420),
+    "observation": ("OBSERVE", "Optional bridge · no-spoiler perception", 85, 449, 420),
+    "evidence-memory": ("RETAIN / RETRIEVE", "Evidence and bounded context", 85, 685, 420),
+    "cognition": ("REASON", "Cortex proposes", 1375, 235, 240),
+    "executive": ("CONTRACT", "Manager grounds contracts", 1375, 483, 245),
+    "action-safety": ("ACT", "Body acts within contract", 85, 830, 440),
+    "verification": ("VERIFY", "Outside Cortex decision authority", 1635, 236, 405),
 }
 _NODE_CARD = "#ffffff"
 _INK = "#26384b"
@@ -324,237 +310,103 @@ def _element_for_record(
     return [shape, title_element, detail_element]
 
 
-def _trace(
-    identity: str,
-    points: tuple[tuple[int, int], ...],
-    *,
-    color: str = _INK,
-    width: float = 2,
-    dashed: bool = False,
-    custom_data: dict | None = None,
-) -> dict:
-    left = min(x for x, _ in points)
-    top = min(y for _, y in points)
-    item = _element(
-        "w03:" + identity,
-        "line",
-        (left, top, max(x for x, _ in points) - left, max(y for _, y in points) - top),
+def _hero_image() -> tuple[dict, dict]:
+    source = anatomy_hero_svg().encode("utf-8")
+    source_sha256 = hashlib.sha256(source).hexdigest()
+    file_id = source_sha256[:32]
+    image = _element("w03:hero-image", "image", (0, 0, *_CANVAS_SIZE))
+    image.update(
+        fileId=file_id,
+        status="saved",
+        scale=[1, 1],
+        customData={
+            "illustration_source": str(HERO_ASSET_PATH),
+            "illustration_sha256": source_sha256,
+            "presentation_structure": "shared-agent-silhouette",
+            "presentation_only": True,
+        },
     )
-    item.update(
-        points=[[x - left, y - top] for x, y in points],
-        strokeColor=color,
-        strokeWidth=width,
-        strokeStyle="dashed" if dashed else "solid",
-    )
-    if custom_data:
-        item["customData"] = custom_data
-    return item
+    file = {
+        "id": file_id,
+        "mimeType": "image/svg+xml",
+        "dataURL": "data:image/svg+xml;base64," + base64.b64encode(source).decode("ascii"),
+        "created": 0,
+        "lastRetrieved": 0,
+    }
+    return image, {file_id: file}
 
 
-def _region(
-    atlas: Atlas, key: str, title: str, subtitle: str, identities: tuple[str, ...]
+def _illustrated_region(
+    atlas: Atlas, key: str, subtitle: str, identities: tuple[str, ...]
 ) -> list[dict]:
-    x, y, width, height = _REGION_BOXES[key]
+    title, short_subtitle, x, y, width = _REGION_CALLOUTS[key]
+    assert subtitle
     if key == "evidence-memory":
         anchor = f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|Evidence, Memory & Retrieval]]"
-        custom = {
-            "functional_region": key,
-            "domain_slice": "DOM-EVIDENCE-MEMORY",
-            "atlas_landmarks": list(identities),
-            "presentation_only": True,
-        }
+    elif key == "verification":
+        node = atlas.entities[identities[0]]
+        target = note_path_for(node.id, node.type, node.name)
+        anchor = f"[[{target.with_suffix('')}|Independent Verifier → Overview]]"
     else:
         anchor = note_link(atlas.entities[identities[0]])
-        custom = {
-            "functional_region": key,
-            "atlas_landmarks": list(identities),
-            "presentation_only": True,
-        }
-    custom.update(
-        presentation_title=title,
-        presentation_summary=subtitle,
-        landmark_links={identity: note_link(atlas.entities[identity]) for identity in identities},
-    )
-    core = {
-        "environment": (45, 56, 210, 130),
-        "observation": (35, 55, 240, 145),
-        "evidence-memory": (50, 34, 230, 175),
-        "cognition": (35, 26, 270, 180),
-        "executive": (55, 39, 200, 165),
-        "action-safety": (132, 17, 138, 154),
-        "verification": (68, 24, 212, 175),
-    }[key]
-    cx, cy, cw, ch = core
-
-    def data(name: str) -> dict:
-        return {
-            "presentation_assembly": key,
-            "figurative_part": name,
-            "presentation_only": True,
-        }
-
-    def piece(
-        name: str,
-        box: tuple[int, int, int, int],
-        *,
-        kind: str = "rectangle",
-        fill: str = "#ffffff",
-        stroke: str = "#496073",
-        stroke_width: float = 2,
-    ) -> dict:
-        px, py, pw, ph = box
-        return _shape(
-            f"assembly:{key}:{name}",
-            (x + px, y + py, pw, ph),
-            kind=kind,
-            background=fill,
-            stroke=stroke,
-            stroke_width=stroke_width,
-            custom_data=data(name),
-        )
-
-    def line(name: str, *points: tuple[int, int], color: str = "#496073", thick: float = 2) -> dict:
-        return _trace(
-            f"assembly:{key}:{name}",
-            tuple((x + px, y + py) for px, py in points),
-            color=color,
-            width=thick,
-            custom_data=data(name),
-        )
-
+    custom = {
+        "functional_region": key,
+        "atlas_landmarks": list(identities),
+        "landmark_links": {
+            identity: note_link(atlas.entities[identity]) for identity in identities
+        },
+        "presentation_title": title,
+        "presentation_summary": subtitle,
+        "presentation_only": True,
+        "visual_grammar": "figurative-machine-assembly",
+        "navigation_target": anchor,
+    }
+    if key == "evidence-memory":
+        custom["domain_slice"] = "DOM-EVIDENCE-MEMORY"
+    if key == "verification":
+        custom["outside_decision_authority"] = True
+        custom["presentation_structure"] = "independent-verifier-pod"
     elements = [
         _shape(
             "region:" + key,
-            (x + cx, y + cy, cw, ch),
-            background=_REGION_COLORS[key],
-            stroke="#496073",
-            stroke_width=3,
+            _REGION_HOTSPOTS[key],
+            stroke="transparent",
+            stroke_width=0,
             link=anchor,
             custom_data=custom,
-            kind=_REGION_SHAPES[key],
-        )
+        ),
+        _text_item(f"callout-title:{key}", title, x, y, width, size=22),
+        _text_item(
+            f"callout-subtitle:{key}", short_subtitle, x, y + 30, width, size=15, color=_MUTED
+        ),
     ]
-    if key == "environment":
-        elements += [
-            piece("sensor-hood", (21, 81, 34, 77), fill="#bed8e0"),
-            line("intake-mouth", (10, 91), (28, 104), (28, 137), (10, 150)),
-            piece("optic-bezel", (106, 72, 88, 88), kind="ellipse", fill="#ffffff"),
-            piece("optic-glass", (121, 87, 58, 58), kind="ellipse", fill="#638fa0"),
-            piece("optic-pupil", (142, 108, 16, 16), kind="ellipse", fill="#233f53"),
-            piece("antenna-joint", (78, 37, 16, 16), kind="ellipse"),
-            line("antenna", (86, 55), (86, 27), (68, 10)),
-            line("upper-fin", (199, 58), (247, 32), (257, 49)),
-            line("lower-fin", (199, 181), (246, 204), (256, 186)),
-            line("sensor-grill", (63, 165), (92, 165), (100, 176)),
-        ]
-    elif key == "observation":
-        elements += [
-            piece("visor", (51, 72, 208, 86), fill="#5a718b"),
-            piece("scan-window", (66, 87, 178, 56), fill="#c5e9ec", stroke="#698b9c"),
-            line(
-                "scan-sweep", (69, 137), (118, 89), (155, 137), (207, 91), color="#508c9e", thick=3
-            ),
-            piece("left-eye", (85, 103, 14, 14), kind="ellipse", fill="#ffffff"),
-            piece("right-eye", (214, 103, 14, 14), kind="ellipse", fill="#ffffff"),
-            piece("inspection-lamp", (120, 38, 69, 15), fill="#e2f1ee"),
-            line("shield-left", (34, 79), (18, 105), (18, 155), (35, 177)),
-            line("shield-right", (275, 79), (292, 105), (292, 155), (275, 177)),
-        ]
-        bridge = atlas.entities["CMP-VISIBLE-STATE-BRIDGE"]
+    for index, identity in enumerate(identities):
+        node = atlas.entities[identity]
         elements.append(
-            _shape(
-                "record:CMP-VISIBLE-STATE-BRIDGE",
-                (x + 225, y + 165, 31, 25),
-                background="#ffffff",
-                stroke="#514a70",
-                stroke_style="dashed",
-                stroke_width=2,
-                link=note_link(bridge),
-                custom_data={
-                    "atlas_id": bridge.id,
-                    "atlas_name": bridge.name,
-                    "path_style": "optional",
-                    "visual_role": "optional-visible-state-bridge",
-                },
+            _text_item(
+                f"landmark:{key}:{identity}",
+                node.name,
+                x + 1,
+                y + 59 + 19 * index,
+                width - 2,
+                size=14,
+                color="#9b625e" if node.type == "Contract" else _MUTED,
+                custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
-    elif key == "evidence-memory":
-        elements += [
-            piece("archive-cap", (67, 17, 196, 26), fill="#c5dfc7"),
-            piece("ledger", (67, 51, 58, 132), fill="#ffffff"),
-            piece("memory-cells", (136, 53, 74, 128), fill="#eef8ee"),
-            piece("retrieval-drawer", (219, 53, 55, 128), fill="#ffffff"),
-            line("ledger-pages", (78, 77), (111, 77), (111, 91), (78, 91)),
-            line("memory-row-1", (148, 73), (198, 73)),
-            line("memory-row-2", (148, 101), (198, 101)),
-            line("memory-row-3", (148, 129), (198, 129)),
-            piece("retrieval-handle", (232, 101, 27, 24), fill="#c5dfc7"),
-            line("archive-foot-left", (83, 210), (83, 223), (120, 223)),
-            line("archive-foot-right", (218, 223), (255, 223), (255, 210)),
-        ]
-    elif key == "cognition":
-        elements += [
-            piece("left-lobe", (57, 44, 115, 119), kind="ellipse", fill="#fff5de"),
-            piece("right-lobe", (165, 44, 115, 119), kind="ellipse", fill="#fff5de"),
-            line("left-fold-1", (83, 71), (111, 57), (135, 75), (123, 98), (146, 119)),
-            line("left-fold-2", (78, 119), (100, 138), (123, 123)),
-            line("right-fold-1", (249, 70), (220, 57), (196, 78), (212, 99), (189, 120)),
-            line("right-fold-2", (252, 120), (226, 141), (207, 124)),
-            piece("thought-core", (153, 90, 34, 34), kind="ellipse", fill="#f6c27d"),
-            piece("neck", (145, 200, 50, 34), fill="#d2dde0"),
-            line("cortex-circuit", (170, 204), (170, 233), (194, 242)),
-        ]
-    elif key == "executive":
-        elements += [
-            piece("left-relay", (72, 59, 60, 115), fill="#ffffff"),
-            piece("right-relay", (178, 59, 60, 115), fill="#ffffff"),
-            piece("gate-lock", (130, 76, 50, 66), fill="#eab79c"),
-            piece("gate-keyhole", (147, 95, 16, 16), kind="ellipse", fill="#704f51"),
-            line("route-in", (81, 96), (108, 96), (128, 115)),
-            line("route-out", (181, 115), (201, 96), (228, 96)),
-            piece("contract-slot", (123, 157, 67, 24), fill="#fff5eb"),
-            line("lever-left", (59, 77), (38, 54), (38, 38)),
-            line("lever-right", (252, 77), (272, 54), (272, 38)),
-        ]
-    elif key == "action-safety":
-        elements += [
-            piece("chest-guard", (149, 32, 104, 91), fill="#ffffff"),
-            piece("contract-socket", (181, 54, 39, 39), kind="diamond", fill="#d5e5f4"),
-            line("left-upper-arm", (130, 49), (82, 73), (56, 119)),
-            line("left-forearm", (56, 119), (27, 133), (16, 153)),
-            line("right-upper-arm", (271, 49), (319, 73), (345, 119)),
-            line("right-forearm", (345, 119), (375, 133), (386, 153)),
-            piece("left-elbow", (42, 105, 27, 27), kind="ellipse", fill="#b8ccdf"),
-            piece("right-elbow", (331, 105, 27, 27), kind="ellipse", fill="#b8ccdf"),
-            line("left-gripper", (16, 153), (4, 142), (4, 163)),
-            line("right-gripper", (386, 153), (397, 142), (397, 163)),
-            line("left-leg", (166, 171), (149, 190), (121, 190)),
-            line("right-leg", (235, 171), (252, 190), (280, 190)),
-        ]
-    elif key == "verification":
-        elements += [
-            piece("inspection-lens", (99, 49, 149, 126), kind="ellipse", fill="#ffffff"),
-            piece("verdict-window", (121, 70, 105, 85), kind="ellipse", fill="#f7e8f3"),
-            line("verdict-check", (145, 111), (164, 130), (205, 86), color="#7b4e72", thick=5),
-            line("probe-handle", (234, 153), (272, 190), (300, 192), color="#805b77", thick=8),
-            piece("replay-reel", (44, 70, 48, 48), kind="ellipse", fill="#ffffff"),
-            piece("replay-hub", (60, 86, 16, 16), kind="ellipse", fill="#bc9db5"),
-            line("pod-stand", (173, 198), (173, 218), (122, 218), (223, 218)),
-        ]
-    stage, name = _REGION_LABELS[key].split("\n", 1)
-    elements.extend(
-        [
-            _text_item(f"region-stage:{key}", stage, x + 20, y + height - 44, width - 40, size=19),
-            _text_item(
-                f"region-name:{key}",
-                name,
-                x + 20,
-                y + height - 19,
-                width - 40,
-                size=14,
-                color=_MUTED,
-            ),
-        ]
+    nav_y = y + 64 + len(identities) * 19
+    elements.append(
+        _text_item(
+            f"navigation:{key}",
+            "OPEN ASSEMBLY  →",
+            x,
+            nav_y,
+            width,
+            size=13,
+            color="#426f7d",
+            link=anchor,
+            custom_data={"navigation": key, "navigation_target": anchor},
+        )
     )
     return elements
 
@@ -591,14 +443,22 @@ def _navigation_button(
     ]
 
 
-def _encode_scene(elements: list[dict], *, surface: str, width: int, height: int) -> str:
+def _encode_scene(
+    elements: list[dict],
+    *,
+    surface: str,
+    width: int,
+    height: int,
+    files: dict | None = None,
+    embedded_files: Mapping[str, PurePosixPath] | None = None,
+) -> str:
     scene = {
         "type": "excalidraw",
         "version": 2,
         "source": "research-atlas",
         "elements": elements,
         "appState": {"viewBackgroundColor": "#fbfaf7", "gridSize": None},
-        "files": {},
+        "files": files or {},
     }
     lines = [
         frontmatter(
@@ -631,6 +491,9 @@ def _encode_scene(elements: list[dict], *, surface: str, width: int, height: int
     lines += [
         f"{element['id']}: {element['link']}\n" for element in elements if element.get("link")
     ]
+    if embedded_files:
+        lines += ["## Embedded Files", ""]
+        lines += [f"{file_id}: [[{path}]]\n" for file_id, path in sorted(embedded_files.items())]
     lines += [
         "## Drawing",
         "```json",
@@ -643,372 +506,231 @@ def _encode_scene(elements: list[dict], *, surface: str, width: int, height: int
 
 
 def render_agent_anatomy(atlas: Atlas) -> str:
-    """Render one exploded system with Registry-grounded linked landmarks."""
+    """Render the accepted illustrated anatomy with Registry-grounded hotspots."""
     _require_records(atlas, ANATOMY_RECORD_IDS)
+    hero, files = _hero_image()
     elements = [
-        _text_item("anatomy-title", "AGENT ANATOMY", 70, 27, 1090, size=42),
+        hero,
+        _text_item("anatomy-title", "AGENT ANATOMY", 76, 27, 1000, size=42),
         _text_item(
             "anatomy-subtitle",
-            "An exploded view of one autonomous agent",
-            74,
-            105,
-            1120,
-            size=20,
+            "One agent, opened for inspection",
+            80,
+            91,
+            980,
+            size=19,
             color=_MUTED,
         ),
         _text_item(
             "runtime-boundary-title",
-            "MISSION RUN  /  frozen Body version, including Life Episode restarts",
-            88,
-            198,
-            1800,
-            size=20,
+            "MISSION RUN  /  frozen Body version through Life Episode restarts",
+            83,
+            190,
+            1640,
+            size=17,
+        ),
+        _shape(
+            "in-run-boundary",
+            (61, 216, 1977, 788),
+            stroke="#b4c0bd",
+            stroke_style="dashed",
+            stroke_width=1.2,
+            link=note_link(atlas.entities["SYS-AGA"]),
+            custom_data={"atlas_id": "SYS-AGA", "presentation_boundary": "in-run"},
+        ),
+        _text_item(
+            "navigation:home",
+            "←  MARKDOWN HOME / FALLBACK",
+            80,
+            137,
+            430,
+            size=14,
+            color="#426f7d",
+            link=f"[[{HOME_PATH.with_suffix('')}|Markdown Home / fallback]]",
+            custom_data={"navigation": "research-home"},
         ),
     ]
-    # Exposed spine, jointed rails, and an offset inspection pod are presentation
-    # structure. They assert no Registry part_of or control relation.
-    elements.extend(
-        [
-            _shape(
-                "in-run-boundary",
-                (45, 180, 2010, 805),
-                stroke="#6f8191",
-                stroke_style="dashed",
-                stroke_width=2,
-                link=note_link(atlas.entities["SYS-AGA"]),
-                custom_data={"atlas_id": "SYS-AGA", "presentation_boundary": "in-run"},
-            ),
-            _shape(
-                "chassis-spine",
-                (1258, 470, 42, 388),
-                background="#b4cad0",
-                stroke="#627b88",
-                stroke_width=3,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-            _shape(
-                "chassis-shoulder",
-                (385, 548, 1268, 28),
-                background="#a5bdc4",
-                stroke="#627b88",
-                stroke_width=2,
-                custom_data={"presentation_structure": "shared-backplane"},
-            ),
-            _shape(
-                "chassis-hip",
-                (760, 889, 835, 25),
-                background="#a5bdc4",
-                stroke="#627b88",
-                stroke_width=2,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-            _shape(
-                "verifier-offset",
-                (1594, 577, 417, 314),
-                kind="ellipse",
-                background="#f9f4f8",
-                stroke="#9a718e",
-                stroke_width=2.5,
-                custom_data={
-                    "presentation_structure": "independent-verifier-pod",
-                    "outside_decision_authority": True,
-                },
-            ),
-            _trace(
-                "chassis-left-arm",
-                ((385, 561), (472, 586), (610, 590)),
-                color="#627b88",
-                width=7,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-            _trace(
-                "chassis-right-arm",
-                ((1510, 561), (1606, 590), (1660, 636)),
-                color="#627b88",
-                width=7,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-            _shape(
-                "chassis-left-joint",
-                (741, 533, 57, 57),
-                kind="ellipse",
-                background="#e5eff0",
-                stroke="#627b88",
-                stroke_width=3,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-            _shape(
-                "chassis-center-joint",
-                (1245, 533, 57, 57),
-                kind="ellipse",
-                background="#e5eff0",
-                stroke="#627b88",
-                stroke_width=3,
-                custom_data={"presentation_structure": "shared-chassis"},
-            ),
-        ]
-    )
-    # Dashed arrows are operator orientation, never technical Registry edges.
+    # Short, faint process cues orient the reader. Only the separate workshop
+    # carries selected exact Registry arrows; neither cue invents an edge.
+    flow_segments = {
+        ("environment", "observation"): ((787, 394), (813, 394)),
+        ("observation", "evidence-memory"): ((899, 478), (899, 531)),
+        ("evidence-memory", "cognition"): ((1023, 558), (1092, 467)),
+        ("cognition", "executive"): ((1132, 377), (1132, 495)),
+        ("executive", "action-safety"): ((1125, 714), (1125, 751)),
+        ("action-safety", "verification"): ((1566, 743), (1630, 665)),
+    }
     for source_key, target_key in FLOW_KEYS:
-        sx, sy, sw, sh = _REGION_BOXES[source_key]
-        tx, ty, tw, th = _REGION_BOXES[target_key]
-        if source_key == "cognition":
-            start, end = (sx + sw // 2, sy + sh), (tx + tw // 2, ty)
-        elif source_key in {"executive", "action-safety"}:
-            start, end = (sx, sy + sh // 2), (tx + tw, ty + th // 2)
-        else:
-            start, end = (sx + sw, sy + sh // 2), (tx, ty + th // 2)
+        start, end = flow_segments[source_key, target_key]
+        arrow = _arrow(
+            f"runtime-flow:{source_key}:{target_key}",
+            start,
+            end,
+            presentation_flow=(source_key, target_key),
+        )
+        arrow["opacity"] = 45
+        elements.append(arrow)
+    for key, _, subtitle, identities in ANATOMY_REGIONS:
+        elements.extend(_illustrated_region(atlas, key, subtitle, identities))
+    # The ghosted optional bridge is a qualified observation path. The five
+    # paper shapes in the SVG are typed as Contract/DataArtifact tokens here.
+    bridge = atlas.entities["CMP-VISIBLE-STATE-BRIDGE"]
+    elements.append(
+        _shape(
+            "record:CMP-VISIBLE-STATE-BRIDGE",
+            (760, 437, 38, 28),
+            stroke="#8f82ac",
+            stroke_style="dashed",
+            stroke_width=1.5,
+            link=note_link(bridge),
+            custom_data={
+                "atlas_id": bridge.id,
+                "atlas_name": bridge.name,
+                "path_style": "optional",
+                "visual_role": "optional-visible-state-bridge",
+                "visual_grammar": "ghosted-path",
+            },
+        )
+    )
+    token_boxes = {
+        "DAT-OBSERVATION": (850, 490, 85, 59),
+        "CON-PLANNER-OUTPUT": (1288, 295, 86, 70),
+        "CON-SKILL-CONTRACT": (1190, 586, 92, 80),
+        "DAT-VISIBLE-OUTCOME": (1660, 777, 91, 70),
+        "CON-MEMORY-UPDATE-REQUEST": (1782, 786, 96, 73),
+    }
+    for identity, box in token_boxes.items():
+        node = atlas.entities[identity]
         elements.append(
-            _arrow(
-                f"runtime-flow:{source_key}:{target_key}",
-                start,
-                end,
-                presentation_flow=(source_key, target_key),
+            _shape(
+                "token:" + identity,
+                box,
+                stroke="transparent",
+                stroke_width=0,
+                custom_data={
+                    "atlas_id": identity,
+                    "atlas_type": node.type,
+                    "visual_grammar": "contract-token" if node.type == "Contract" else "data-card",
+                    "proposal_only": identity == "CON-MEMORY-UPDATE-REQUEST",
+                    "presentation_only": True,
+                },
             )
         )
-    for key, title, subtitle, identities in ANATOMY_REGIONS:
-        elements.extend(_region(atlas, key, title, subtitle, identities))
     elements.extend(
         [
             _text_item(
-                "bridge-note",
-                "Optional visible-state bridge · no-spoiler boundary",
-                84,
-                596,
-                520,
-                size=16,
-                color="#514a70",
-            ),
-            _text_item(
-                "authority-note-planning",
-                "Cortex proposes · Manager contracts",
-                930,
-                922,
-                660,
-                size=16,
+                "presentation-legend",
+                "Dashed cues: orientation / optional path · Solid bay arrows: Registry relations",
+                1367,
+                954,
+                630,
+                size=12,
                 color=_MUTED,
-                custom_data={"presentation_only": "authority-orientation"},
             ),
             _text_item(
-                "authority-note-action",
-                "Body/Reflex (active contract) → SafetyFilter → InputExecutor",
-                930,
-                948,
-                660,
+                "between-boundary-title",
+                "BETWEEN MISSION RUNS",
+                91,
+                1020,
+                650,
+                size=22,
+            ),
+            _text_item(
+                "between-boundary-subtitle",
+                "Train candidate · certify · activate only in a future Mission Run",
+                505,
+                1026,
+                1070,
                 size=16,
-                color=_MUTED,
-                custom_data={"presentation_only": "authority-orientation"},
-            ),
-            _text_item(
-                "verifier-note-boundary",
-                "Verifier outside Cortex decision authority",
-                1620,
-                900,
-                390,
-                size=14,
-                color="#674760",
-            ),
-            _text_item(
-                "verifier-note-outcome",
-                "Outcome before replay",
-                1620,
-                926,
-                390,
-                size=14,
-                color="#674760",
-            ),
-            _text_item(
-                "anatomy-legend",
-                "Dashed arrows: orientation only  ·  Solid arrows: Registry relations",
-                84,
-                991,
-                1300,
-                size=15,
                 color=_MUTED,
             ),
             _shape(
                 "between-runs-boundary",
-                (45, 1034, 2010, 210),
-                background="#f6f0e8",
-                stroke="#a87955",
-                stroke_style="dashed",
-                stroke_width=3,
-                custom_data={"presentation_boundary": "between-runs"},
-            ),
-            _shape(
-                "workshop-bench",
-                (91, 1205, 1918, 17),
-                background="#d7bd9f",
-                stroke="#a87955",
-                stroke_width=2,
-                custom_data={"presentation_structure": "between-run-workshop"},
-            ),
-            _text_item(
-                "between-boundary-title",
-                "BETWEEN MISSION RUNS ONLY  /  train candidate · certify · "
-                "activate in a future Mission Run",
-                84,
-                1049,
-                1870,
-                size=20,
-                custom_data={"presentation_only": "between-run-lifecycle"},
+                (77, 1060, 1941, 170),
+                stroke="transparent",
+                stroke_width=0,
+                custom_data={
+                    "presentation_boundary": "between-runs",
+                    "presentation_structure": "separate-service-bay",
+                },
             ),
         ]
     )
     between_boxes = {
-        "CMP-SKILL-TRAINER": (103, 1095, 460, 105),
-        "DAT-CANDIDATE-BODY-VERSION": (817, 1095, 460, 105),
-        "CMP-BODY-CERTIFICATION": (1531, 1095, 460, 105),
+        "CMP-SKILL-TRAINER": (317, 1094, 145, 88),
+        "DAT-CANDIDATE-BODY-VERSION": (965, 1098, 146, 78),
+        "CMP-BODY-CERTIFICATION": (1611, 1089, 108, 93),
     }
-    for identity, box in between_boxes.items():
+    stage_labels = {
+        "CMP-SKILL-TRAINER": (184, 1116, 125),
+        "DAT-CANDIDATE-BODY-VERSION": (1118, 1116, 225),
+        "CMP-BODY-CERTIFICATION": (1727, 1115, 263),
+    }
+    for identity in BETWEEN_RUN_IDS:
         node = atlas.entities[identity]
-        x, y, width, height = box
-        elements.extend(
-            [
-                _shape(
-                    "record:" + identity,
-                    box,
-                    background="#fffaf3",
-                    stroke="#a87955",
-                    stroke_width=2.5,
-                    link=note_link(node),
-                    custom_data={"atlas_id": identity, "visual_role": "between-run-stage"},
-                ),
-                _text_item(
-                    "record-name:" + identity,
-                    node.name,
-                    x + 110,
-                    y + 38,
-                    width - 125,
-                    size=18,
-                ),
-            ]
+        grammar = "data-card" if node.type == "DataArtifact" else "figurative-machine-assembly"
+        elements.append(
+            _shape(
+                "record:" + identity,
+                between_boxes[identity],
+                stroke="transparent",
+                stroke_width=0,
+                link=note_link(node),
+                custom_data={
+                    "atlas_id": identity,
+                    "visual_role": "between-run-stage",
+                    "visual_grammar": grammar,
+                },
+            )
         )
-        if identity == "CMP-SKILL-TRAINER":
-            elements.extend(
-                [
-                    _shape(
-                        "workshop:tool-pivot",
-                        (x + 37, y + 35, 36, 36),
-                        kind="ellipse",
-                        background="#d7bd9f",
-                    ),
-                    _trace(
-                        "workshop:tool-arm",
-                        ((x + 55, y + 52), (x + 77, y + 25), (x + 89, y + 33)),
-                        color="#9b6d49",
-                        width=6,
-                    ),
-                    _trace(
-                        "workshop:tool-clamp",
-                        ((x + 76, y + 24), (x + 73, y + 11), (x + 88, y + 21), (x + 98, y + 13)),
-                        color="#9b6d49",
-                        width=4,
-                    ),
-                ]
+        x, y, width = stage_labels[identity]
+        elements.append(
+            _text_item(
+                "stage-name:" + identity,
+                node.name,
+                x,
+                y,
+                width,
+                size=14,
+                color="#7b604d",
+                custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
-        elif identity == "DAT-CANDIDATE-BODY-VERSION":
-            elements.extend(
-                [
-                    _shape(
-                        "workshop:cassette",
-                        (x + 32, y + 24, 63, 57),
-                        background="#ead5bc",
-                        stroke="#9b6d49",
-                        stroke_width=2,
-                    ),
-                    _shape(
-                        "workshop:cassette-core",
-                        (x + 51, y + 41, 25, 24),
-                        kind="diamond",
-                        background="#fffaf3",
-                        stroke="#9b6d49",
-                    ),
-                    _trace(
-                        "workshop:cassette-pins",
-                        ((x + 26, y + 87), (x + 101, y + 87)),
-                        color="#9b6d49",
-                        width=3,
-                    ),
-                ]
-            )
-        else:
-            elements.extend(
-                [
-                    _shape(
-                        "workshop:seal",
-                        (x + 36, y + 23, 62, 62),
-                        kind="ellipse",
-                        background="#ead5bc",
-                        stroke="#9b6d49",
-                        stroke_width=3,
-                    ),
-                    _trace(
-                        "workshop:seal-check",
-                        ((x + 51, y + 55), (x + 62, y + 66), (x + 85, y + 39)),
-                        color="#805d43",
-                        width=5,
-                    ),
-                    _trace(
-                        "workshop:seal-ribbon",
-                        (
-                            (x + 54, y + 81),
-                            (x + 46, y + 98),
-                            (x + 68, y + 88),
-                            (x + 88, y + 98),
-                            (x + 80, y + 81),
-                        ),
-                        color="#9b6d49",
-                        width=2,
-                    ),
-                ]
-            )
-    for key in BETWEEN_RUN_RELATION_KEYS:
+        )
+    for key, start, end, label_x in (
+        (BETWEEN_RUN_RELATION_KEYS[0], (469, 1084), (957, 1084), 637),
+        (BETWEEN_RUN_RELATION_KEYS[1], (1603, 1084), (1117, 1084), 1370),
+    ):
         edge = _registry_relation(atlas, key)
-        sx, sy, sw, sh = between_boxes[edge.source]
-        tx, ty, tw, th = between_boxes[edge.target]
-        if key[1] == "supplies":
-            start, end = (sx + sw, sy + sh // 2), (tx, ty + th // 2)
-            label_x = (start[0] + end[0]) // 2 - 42
-        else:
-            start, end = (sx, sy + sh // 2), (tx + tw, ty + th // 2)
-            label_x = (start[0] + end[0]) // 2 - 42
-        elements.extend(
-            [
-                _arrow(
-                    f"registry:{edge.source}:{edge.relation}:{edge.target}",
-                    start,
-                    end,
-                    relation=edge,
-                ),
-                _text_item(
-                    f"registry-label:{edge.source}:{edge.relation}:{edge.target}",
-                    edge.relation,
-                    label_x,
-                    sy + 67,
-                    100,
-                    size=13,
-                    color=_MUTED,
-                ),
-            ]
+        elements.append(
+            _arrow(
+                f"registry:{edge.source}:{edge.relation}:{edge.target}",
+                start,
+                end,
+                relation=edge,
+            )
         )
-
-    elements.extend(
-        _navigation_button(
-            "research-home",
-            "Home / fallback",
-            HOME_PATH,
-            (76, 917, 360, 56),
-            link_label=False,
+        elements.append(
+            _text_item(
+                f"registry-label:{edge.source}:{edge.relation}:{edge.target}",
+                edge.relation,
+                label_x,
+                1065,
+                110,
+                size=12,
+                color="#7b604d",
+            )
         )
-    )
-    elements.extend(
-        _navigation_button(
-            "domain-slice",
-            "Open memory assembly →",
-            DOMAIN_SLICE_PATH,
-            (457, 917, 435, 56),
-            link_label=False,
+    elements.append(
+        _text_item(
+            "navigation:workshop",
+            "OPEN TRAINING RECORD  →",
+            1685,
+            1027,
+            320,
+            size=13,
+            color="#7b604d",
+            link=note_link(atlas.entities["CMP-SKILL-TRAINER"]),
+            custom_data={"navigation": "between-runs"},
         )
     )
     return _encode_scene(
@@ -1016,6 +738,8 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         surface="agent-anatomy",
         width=_CANVAS_SIZE[0],
         height=_CANVAS_SIZE[1],
+        files=files,
+        embedded_files={next(iter(files)): HERO_ASSET_PATH},
     )
 
 
@@ -1265,18 +989,31 @@ def _parse_scene(markdown: str, path: PurePosixPath) -> dict:
     if not match:
         raise ValueError(f"{path} requires an uncompressed JSON Drawing section")
     scene = json.loads(match.group(1))
-    if scene.get("type") != "excalidraw" or scene.get("version") != 2 or scene.get("files"):
+    if scene.get("type") != "excalidraw" or scene.get("version") != 2:
         raise ValueError(f"{path} is not a supported Excalidraw scene")
+    if path == ANATOMY_PATH:
+        image, expected_files = _hero_image()
+        if scene.get("files") != expected_files or (
+            f"## Embedded Files\n\n{image['fileId']}: [[{HERO_ASSET_PATH}]]" not in markdown
+        ):
+            raise ValueError("Agent Anatomy must embed the exact curated public illustration")
+    elif scene.get("files"):
+        raise ValueError(f"{path} cannot embed an illustration")
     elements = scene.get("elements")
     if not isinstance(elements, list) or len({el.get("id") for el in elements}) != len(elements):
         raise ValueError(f"{path} has missing or duplicate Excalidraw element IDs")
     for element in elements:
-        if element.get("type") not in {"rectangle", "ellipse", "diamond", "text", "arrow", "line"}:
+        allowed = {"rectangle", "ellipse", "diamond", "text", "arrow", "line"}
+        if path == ANATOMY_PATH:
+            allowed.add("image")
+        if element.get("type") not in allowed:
             raise ValueError(f"{path} contains an unsupported Excalidraw element type")
         if not re.fullmatch(r"[a-f0-9]{8}", element.get("id", "")):
             raise ValueError(f"{path} has a non-deterministic Excalidraw element ID")
         if element.get("type") == "text" and element.get("rawText") != element.get("text"):
             raise ValueError(f"{path} has non-reconstructable text content")
+    if path == ANATOMY_PATH and [el for el in elements if el["type"] == "image"] != [image]:
+        raise ValueError("Agent Anatomy image placement or ownership metadata differs")
     return scene
 
 
@@ -1350,15 +1087,26 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
 
     anatomy = scenes[ANATOMY_PATH]
     anatomy_elements = anatomy["elements"]
+    if tree.get(HERO_ASSET_PATH) != anatomy_hero_svg():
+        raise ValueError("Generated Agent Anatomy asset differs from curated source")
+    if {path for path in tree if path.suffix == ".svg"} != {HERO_ASSET_PATH}:
+        raise ValueError("Agent Anatomy must own exactly one generated SVG")
     record_elements = [
         element
         for element in anatomy_elements
         if element.get("customData", {}).get("atlas_id") is not None
     ]
+    token_ids = {
+        "DAT-OBSERVATION",
+        "CON-PLANNER-OUTPUT",
+        "CON-SKILL-CONTRACT",
+        "DAT-VISIBLE-OUTCOME",
+        "CON-MEMORY-UPDATE-REQUEST",
+    }
+    direct_records = {"SYS-AGA", "CMP-VISIBLE-STATE-BRIDGE", *token_ids, *BETWEEN_RUN_IDS}
     anatomy_records = {element["customData"]["atlas_id"] for element in record_elements}
-    direct_records = {"SYS-AGA", "CMP-VISIBLE-STATE-BRIDGE", *BETWEEN_RUN_IDS}
     if anatomy_records != direct_records or len(record_elements) != len(anatomy_records):
-        raise ValueError("Agent Anatomy landmark coverage mismatch")
+        raise ValueError("Agent Anatomy illustrated landmark coverage mismatch")
     region_elements = [
         element
         for element in anatomy_elements
@@ -1369,66 +1117,89 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         key for key, *_ in ANATOMY_REGIONS
     }:
         raise ValueError("Agent Anatomy functional-region coverage mismatch")
-    for key, _, _, identities in ANATOMY_REGIONS:
+    for key, _, subtitle, identities in ANATOMY_REGIONS:
         region = regions[key]
+        custom = region["customData"]
+        labels = [
+            item
+            for item in anatomy_elements
+            if item.get("customData", {}).get("landmark_identity") in identities
+            and item.get("id") != region["id"]
+        ]
         if (
-            region.get("type") != _REGION_SHAPES[key]
-            or region["customData"].get("atlas_landmarks") != list(identities)
-            or region["customData"].get("landmark_links")
+            region.get("type") != "rectangle"
+            or (region["x"], region["y"], region["width"], region["height"])
+            != _REGION_HOTSPOTS[key]
+            or region.get("strokeColor") != "transparent"
+            or custom.get("atlas_landmarks") != list(identities)
+            or custom.get("landmark_links")
             != {identity: note_link(atlas.entities[identity]) for identity in identities}
-            or region["customData"].get("presentation_only") is not True
+            or custom.get("presentation_summary") != subtitle
+            or custom.get("presentation_only") is not True
+            or custom.get("visual_grammar") != "figurative-machine-assembly"
+            or custom.get("navigation_target") != region.get("link")
+            or len(labels) != len(identities)
         ):
-            raise ValueError("Agent Anatomy presentation grouping changed technical landmarks")
-    illustrated = {
-        key: {
-            element.get("customData", {}).get("figurative_part")
-            for element in anatomy_elements
-            if element.get("customData", {}).get("presentation_assembly") == key
-        }
-        for key, *_ in ANATOMY_REGIONS
-    }
-    required_parts = {
-        "environment": {"optic-glass", "antenna", "intake-mouth"},
-        "observation": {"visor", "scan-sweep", "inspection-lamp"},
-        "evidence-memory": {"ledger", "memory-cells", "retrieval-drawer"},
-        "cognition": {"left-lobe", "right-lobe", "thought-core"},
-        "executive": {"left-relay", "right-relay", "gate-lock"},
-        "action-safety": {"chest-guard", "left-upper-arm", "right-upper-arm"},
-        "verification": {"inspection-lens", "verdict-check", "replay-reel"},
-    }
-    if any(not parts <= illustrated[key] for key, parts in required_parts.items()):
-        raise ValueError("Agent Anatomy lost a figurative assembly")
-    structures = {
-        element.get("customData", {}).get("presentation_structure") for element in anatomy_elements
-    }
-    if not {"shared-chassis", "shared-backplane", "independent-verifier-pod"} <= structures:
-        raise ValueError("Agent Anatomy lost its shared chassis or independent Verifier pod")
-    verifier_pods = [
-        element
-        for element in anatomy_elements
-        if element.get("customData", {}).get("outside_decision_authority") is True
-    ]
+            raise ValueError("Agent Anatomy callout or hotspot changed accepted landmarks")
+        for identity in identities:
+            label = next(
+                item for item in labels if item["customData"]["landmark_identity"] == identity
+            )
+            if (
+                label["text"].replace("\n", " ") != atlas.entities[identity].name
+                or label["customData"].get("landmark_type") != atlas.entities[identity].type
+            ):
+                raise ValueError("Agent Anatomy technical landmark label drift")
+        nav = [
+            item for item in anatomy_elements if item.get("customData", {}).get("navigation") == key
+        ]
+        if len(nav) != 1 or nav[0].get("link") != region.get("link"):
+            raise ValueError("Agent Anatomy assembly navigation changed")
     if (
-        len(verifier_pods) != 1
-        or verifier_pods[0].get("customData", {}).get("presentation_structure")
+        regions["verification"]["customData"].get("outside_decision_authority") is not True
+        or regions["verification"]["customData"].get("presentation_structure")
         != "independent-verifier-pod"
     ):
-        raise ValueError("Agent Anatomy Verifier independence metadata mismatch")
+        raise ValueError("Independent Verifier lost its external decision boundary")
+    image = next(item for item in anatomy_elements if item["type"] == "image")
+    if image["customData"].get("presentation_structure") != "shared-agent-silhouette":
+        raise ValueError("Agent Anatomy lost its coherent illustrated body")
+    tokens = {
+        item["customData"]["atlas_id"]: item
+        for item in record_elements
+        if item["customData"]["atlas_id"] in token_ids
+    }
+    for identity, token in tokens.items():
+        node = atlas.entities[identity]
+        grammar = "contract-token" if node.type == "Contract" else "data-card"
+        if (
+            token["customData"].get("atlas_type") != node.type
+            or token["customData"].get("visual_grammar") != grammar
+            or token.get("link") is not None
+        ):
+            raise ValueError("Component and Contract/DataArtifact grammar became ambiguous")
+    if tokens["CON-MEMORY-UPDATE-REQUEST"]["customData"].get("proposal_only") is not True:
+        raise ValueError("Memory update request must remain a proposal")
     boundaries = {
-        element.get("customData", {}).get("presentation_boundary"): element
-        for element in anatomy_elements
-        if element.get("customData", {}).get("presentation_boundary") is not None
+        item["customData"]["presentation_boundary"]: item
+        for item in anatomy_elements
+        if "presentation_boundary" in item.get("customData", {})
     }
     if set(boundaries) != {"in-run", "between-runs"}:
         raise ValueError("Agent Anatomy run boundaries are incomplete")
     bay = boundaries["between-runs"]
     runtime = boundaries["in-run"]
     for identity in BETWEEN_RUN_IDS:
-        element = next(
-            element for element in record_elements if element["customData"]["atlas_id"] == identity
+        stage = next(item for item in record_elements if item["customData"]["atlas_id"] == identity)
+        if not _inside(stage, bay) or _inside(stage, runtime):
+            raise ValueError("Between-run stage is not separated from the Mission Run")
+        expected_grammar = (
+            "data-card"
+            if atlas.entities[identity].type == "DataArtifact"
+            else "figurative-machine-assembly"
         )
-        if not _inside(element, bay) or _inside(element, runtime):
-            raise ValueError("Between-run stage is not visually separated from the Mission Run")
+        if stage["customData"].get("visual_grammar") != expected_grammar:
+            raise ValueError("Between-run stage visual grammar mismatch")
     anatomy_flows = _validate_edges(atlas, anatomy, ANATOMY_PATH)
     if anatomy_flows != set(BETWEEN_RUN_RELATION_KEYS):
         raise ValueError("Agent Anatomy must retain only the selected between-run Registry edges")
@@ -1443,13 +1214,14 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
     if actual_flows != set(FLOW_KEYS):
         raise ValueError("Agent Anatomy runtime orientation path is incomplete or expanded")
     optional = [
-        element
-        for element in anatomy_elements
-        if element.get("customData", {}).get("path_style") == "optional"
+        item
+        for item in anatomy_elements
+        if item.get("customData", {}).get("path_style") == "optional"
     ]
     if (
         len(optional) != 1
-        or optional[0].get("customData", {}).get("atlas_id") != "CMP-VISIBLE-STATE-BRIDGE"
+        or optional[0]["customData"].get("atlas_id") != "CMP-VISIBLE-STATE-BRIDGE"
+        or optional[0].get("strokeStyle") != "dashed"
     ):
         raise ValueError("Agent Anatomy optional bridge styling mismatch")
 
@@ -1499,8 +1271,11 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         for element in scene["elements"]:
             identity = element.get("customData", {}).get("atlas_id")
             if identity is not None:
-                if identity not in atlas.entities or element.get("link") != note_link(
-                    atlas.entities[identity]
+                token = path == ANATOMY_PATH and identity in token_ids
+                if (
+                    identity not in atlas.entities
+                    or (token and element.get("link") is not None)
+                    or (not token and element.get("link") != note_link(atlas.entities[identity]))
                 ):
                     raise ValueError(
                         f"{path} has an invalid technical-record destination: {identity}"

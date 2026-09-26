@@ -21,7 +21,9 @@ from .wiki_schema import validate_wiki_records
 from .workspace import (
     ANATOMY_PATH,
     DOMAIN_SLICE_PATH,
+    HERO_ASSET_PATH,
     HOME_PATH,
+    anatomy_hero_svg,
     frontmatter,
     note_path_for,
     render_map,
@@ -36,13 +38,18 @@ INDEX = PurePosixPath("indexes/atlas-id-index.yaml")
 HOME = PurePosixPath("indexes/Technical Atlas Index.md")
 MAP = PurePosixPath("system-map/System Anatomy.excalidraw.md")
 ANATOMY = PurePosixPath("system-map/Agent Anatomy.excalidraw.md")
+HERO_ASSET = PurePosixPath("system-map/Agent Anatomy Hero.svg")
 DOMAIN_SLICE = PurePosixPath("domain-maps/Evidence, Memory & Retrieval.excalidraw.md")
 K3_HOME_TARGET = PurePosixPath("_generated/derived/indexes/Research Knowledge Home.md")
 MEMORY_HUB_TARGET = PurePosixPath(
     "_generated/derived/workbenches/Memory Retrieval — CMP-MEM-RETRIEVAL.md"
 )
+VERIFIER_HUB_TARGET = PurePosixPath(
+    "_generated/derived/workbenches/Independent Verifier — CMP-INDEPENDENT-VERIFIER.md"
+)
 REGISTRY_FILES = ("nodes.yaml", "relationships.yaml", "evidence.yaml")
 SOURCE_PATHS = ("docs/research-atlas/registry", "src/fh_agent/research_atlas")
+HERO_SOURCE = "src/fh_agent/research_atlas/assets/agent_anatomy_hero.svg"
 SHA256 = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
 COMMIT = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{40}$")]
 
@@ -59,6 +66,7 @@ class OwnedFile(BaseModel):
         "evidence",
         "system_map",
         "agent_anatomy",
+        "anatomy_hero_asset",
         "domain_slice",
         "id_index",
         "index",
@@ -141,6 +149,7 @@ def projection_tree(
     }
     targets[str(HOME_PATH.with_suffix(""))] = OWNED_ROOT / HOME.with_suffix("")
     targets[str(ANATOMY_PATH.with_suffix(""))] = OWNED_ROOT / ANATOMY.with_suffix("")
+    targets[str(HERO_ASSET_PATH)] = OWNED_ROOT / HERO_ASSET
     targets[str(DOMAIN_SLICE_PATH.with_suffix(""))] = OWNED_ROOT / DOMAIN_SLICE.with_suffix("")
     map_targets = dict(targets)
     # Complete workspace apply generates this W01/W02 landing page in the second projection.
@@ -150,9 +159,19 @@ def projection_tree(
     memory_public_target = str(
         note_path_for(memory_record.id, memory_record.type, memory_record.name).with_suffix("")
     )
+    verifier_record = atlas.entities["CMP-INDEPENDENT-VERIFIER"]
+    verifier_public_target = str(
+        note_path_for(verifier_record.id, verifier_record.type, verifier_record.name).with_suffix(
+            ""
+        )
+    )
 
     def rewrite(
-        text: str, link_targets: dict[str, PurePosixPath], *, scoped_hub: bool = False
+        text: str,
+        link_targets: dict[str, PurePosixPath],
+        *,
+        scoped_hub: bool = False,
+        home_hub: bool = False,
     ) -> str:
         def link(match: re.Match) -> str:
             target, _, alias = match[1].partition("|")
@@ -168,6 +187,14 @@ def projection_tree(
                 and alias == "Memory Retrieval → Overview"
             ):
                 destination = MEMORY_HUB_TARGET.with_suffix("")
+            if (
+                home_hub
+                and target == verifier_public_target
+                and alias == "Independent Verifier → Overview"
+            ):
+                destination = VERIFIER_HUB_TARGET.with_suffix("")
+            if target == str(HERO_ASSET_PATH):
+                return f"[[{destination}]]"
             return f"[[{destination}|{alias or target}]]"
 
         return re.sub(r"\[\[([^\]]+)\]\]", link, text)
@@ -187,6 +214,7 @@ def projection_tree(
         link_targets: dict[str, PurePosixPath] = targets,
         *,
         scoped_hub: bool = False,
+        home_hub: bool = False,
     ) -> bytes:
         props, body = markdown_parts(text)
         # Parse YAML first so folded public links become complete strings before rewriting.
@@ -201,7 +229,7 @@ def projection_tree(
             "---\n"
             + yaml_text(rewrite_properties(props, link_targets))
             + "---\n"
-            + rewrite(body, link_targets, scoped_hub=scoped_hub)
+            + rewrite(body, link_targets, scoped_hub=scoped_hub, home_hub=home_hub)
         ).encode()
 
     tree: dict[PurePosixPath, bytes] = {}
@@ -225,7 +253,10 @@ def projection_tree(
     public_map = render_map(atlas)
     tree[MAP] = note(public_map, digest(public_map.encode()))
     public_anatomy = render_agent_anatomy(atlas)
-    tree[ANATOMY] = note(public_anatomy, digest(public_anatomy.encode()), map_targets)
+    tree[ANATOMY] = note(
+        public_anatomy, digest(public_anatomy.encode()), map_targets, home_hub=True
+    )
+    tree[HERO_ASSET] = anatomy_hero_svg().encode("utf-8")
     public_domain_slice = render_domain_slice(atlas)
     tree[DOMAIN_SLICE] = note(
         public_domain_slice, digest(public_domain_slice.encode()), map_targets, scoped_hub=True
@@ -265,6 +296,7 @@ def projection_tree(
     for path, kind in (
         (MAP, "system_map"),
         (ANATOMY, "agent_anatomy"),
+        (HERO_ASSET, "anatomy_hero_asset"),
         (DOMAIN_SLICE, "domain_slice"),
         (INDEX, "id_index"),
         (HOME, "index"),
@@ -381,10 +413,12 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
     visual_paths = {
         "system_map": MAP,
         "agent_anatomy": ANATOMY,
+        "anatomy_hero_asset": HERO_ASSET,
         "domain_slice": DOMAIN_SLICE,
     }
     if manifest.projection_schema_version == "1.0" and any(
-        item.kind in {"agent_anatomy", "domain_slice"} for item in manifest.owned_files
+        item.kind in {"agent_anatomy", "anatomy_hero_asset", "domain_slice"}
+        for item in manifest.owned_files
     ):
         raise ProjectionError("Projection schema 1.0 cannot own W03 visual assets")
     owned = {}
@@ -496,6 +530,11 @@ def project(
     commit = source_state(repo, source_ref)
     for source in SOURCE_PATHS:
         no_symlink_boundary(repo / source)
+    no_symlink_boundary(repo / HERO_SOURCE)
+    if not (repo / HERO_SOURCE).is_file() or (
+        repo / HERO_SOURCE
+    ).read_bytes() != anatomy_hero_svg().encode("utf-8"):
+        raise ProjectionError("Illustration source differs from the checked-out renderer")
     for filename in REGISTRY_FILES:
         no_symlink_boundary(repo / SOURCE_PATHS[0] / filename)
     prior = validate_prior(root)
@@ -531,6 +570,12 @@ def project(
         if relative not in actual:
             continue
         data = target_path(root, relative).read_bytes()
+        if item.kind == "anatomy_hero_asset":
+            if digest(data) != item.sha256:
+                raise ProjectionError(
+                    "Prior-owned illustration was edited; preserve it before cleanup"
+                )
+            continue
         props = markdown_parts(utf8(data))[0] if relative.suffix == ".md" else read_yaml(utf8(data))
         if props.get("generated_by") != OWNER:
             raise ProjectionError(

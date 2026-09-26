@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2100" height="1270" viewBox="0 0 2100 1270">
+  <title>Exploded anatomy of one autonomous agent</title>
+  <desc>Public-safe editorial illustration. The drawing carries no Registry or navigation authority; generated Excalidraw hotspots provide that data.</desc>
+  <g fill="none" stroke="#34485b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- A faint whole-body contour keeps the separated pieces in one silhouette. -->
+    <path d="M785 296 Q810 234 895 223 L1194 220 Q1316 230 1352 328 L1340 487 Q1377 525 1430 565 L1518 701 Q1525 755 1473 783 L1365 752 L1330 899 Q1300 952 1229 961 L899 961 Q834 950 816 897 L783 758 L665 790 Q603 785 593 728 L663 567 Q716 509 786 482 Z" fill="#f3f5f2" stroke="#9badb1" stroke-width="3" stroke-dasharray="12 15"/>
+    <!-- Head shell and the open brain compartment. -->
+    <path d="M837 310 Q855 254 918 242 L1191 240 Q1290 245 1314 326 L1304 453 Q1270 501 1200 511 L927 511 Q862 505 835 457 Z" fill="#fff9ed"/>
+    <path d="M1080 246 Q1103 220 1145 224 L1237 237 Q1281 247 1292 283 L1283 365 L1078 365 Z" fill="#f9e0ba"/>
+    <path d="M1098 311 Q1088 272 1121 259 Q1152 248 1170 275 Q1200 242 1230 267 Q1264 271 1263 314 Q1251 349 1215 349 L1129 348 Q1101 347 1098 311 Z" fill="#f5bd9c" stroke-width="4"/>
+    <path d="M1168 275 Q1149 290 1163 307 Q1177 325 1156 342 M1217 268 Q1199 286 1219 304 Q1235 318 1212 345" stroke="#a9636d" stroke-width="3"/>
+    <circle cx="1176" cy="304" r="12" fill="#fff9ed" stroke-width="3"/>
+    <path d="M1078 366 L1284 366" stroke="#a97465" stroke-width="3"/>
+    <!-- Observe is a translucent visor wrapped around, and behind, the sensor front. -->
+    <path d="M800 336 Q825 314 863 313 L1079 319 L1077 445 Q1054 476 1012 479 L850 465 Q812 458 798 425 Z" fill="#dedcf1"/>
+    <path d="M819 352 Q846 335 874 335 L1054 340 L1050 432 Q1036 451 1007 454 L858 443 Q832 435 821 414 Z" fill="#d6edf0" stroke="#7695a5" stroke-width="3"/>
+    <path d="M851 421 Q921 389 984 413 Q1017 419 1043 402" stroke="#83aab4" stroke-width="3"/>
+    <path d="M790 358 L762 350 L762 425 L792 416 M1081 342 L1104 353 L1097 432 L1075 439" fill="#d9d8ef" stroke-width="3"/>
+    <!-- A detached binocular sensor is aligned with the face. -->
+    <path d="M590 344 Q612 318 651 318 L747 320 Q775 325 785 351 L783 439 Q773 467 743 468 L621 465 Q587 453 584 424 Z" fill="#c4e4df"/>
+    <circle cx="650" cy="394" r="50" fill="#f5fbfa"/>
+    <circle cx="650" cy="394" r="31" fill="#79aeb3" stroke-width="4"/>
+    <circle cx="650" cy="394" r="12" fill="#34485b" stroke-width="3"/>
+    <circle cx="728" cy="397" r="23" fill="#e9f7f4" stroke-width="4"/>
+    <path d="M616 318 L607 293 L580 277 M751 321 L762 293 L778 289" stroke-width="4"/>
+    <path d="M781 378 L817 378 M783 408 L820 408" stroke="#7a9ba3" stroke-width="3" stroke-dasharray="8 8"/>
+    <!-- An observation packet is a card, not another machine component. -->
+    <path d="M852 492 L916 492 L933 508 L933 548 L852 548 Z" fill="#fffdf8" stroke-width="3"/>
+    <path d="M916 492 L916 508 L933 508 M865 520 L915 520 M865 532 L901 532" stroke="#8e9aa6" stroke-width="2"/>
+    <!-- Planner output is a distinct contract token leaving the brain. -->
+    <path d="M1290 297 L1355 297 L1371 312 L1371 361 L1290 361 Z" fill="#fff8eb" stroke="#b5786c" stroke-width="3"/>
+    <path d="M1355 297 L1355 313 L1371 313 M1306 326 L1346 326 M1306 340 L1357 340" stroke="#b5786c" stroke-width="2"/>
+    <!-- Neck and central Manager gate stay on the control spine. -->
+    <path d="M1028 507 L1228 507 L1216 564 L1040 564 Z" fill="#e8d2c5"/>
+    <path d="M1071 526 L1179 526 L1198 709 L1054 709 Z" fill="#f3cfc0"/>
+    <path d="M1096 547 L1154 547 L1154 660 L1096 660 Z" fill="#fff8f0" stroke-width="3"/>
+    <path d="M1110 571 L1140 571 M1110 591 L1140 591 M1110 611 L1140 611" stroke="#b47670" stroke-width="3"/>
+    <circle cx="1125" cy="645" r="13" fill="#d78273" stroke-width="3"/>
+    <path d="M1089 680 L1160 680 M1125 710 L1125 759" stroke="#a96f6d" stroke-width="4"/>
+    <!-- Skill Contract hangs as a small card beside the gate. -->
+    <path d="M1192 589 L1263 589 L1278 604 L1278 663 L1192 663 Z" fill="#fff8ef" stroke="#b5786c" stroke-width="3"/>
+    <path d="M1263 589 L1263 604 L1278 604 M1206 621 L1256 621 M1206 638 L1251 638" stroke="#b5786c" stroke-width="2"/>
+    <!-- Upper torso holds a pulled-out three-chamber memory cartridge. -->
+    <path d="M790 563 Q808 539 850 539 L1011 540 L1037 567 L1037 784 Q1019 806 989 811 L820 808 Q790 799 783 769 Z" fill="#d1e7d0"/>
+    <path d="M728 582 L789 582 L791 760 L728 760 Q707 749 707 724 L707 620 Q707 593 728 582 Z" fill="#edf5e9" stroke-width="4"/>
+    <path d="M819 583 L997 583 L997 763 L819 763 Z" fill="#eff8ea" stroke-width="3"/>
+    <path d="M845 606 L886 606 L886 738 L845 738 Z M897 606 L938 606 L938 738 L897 738 Z M949 606 L987 606 L987 738 L949 738 Z" fill="#c6dfc6" stroke-width="3"/>
+    <path d="M859 630 L873 630 M911 630 L925 630 M963 630 L975 630 M859 671 L873 671 M911 671 L925 671 M963 671 L975 671" stroke="#70967f" stroke-width="3"/>
+    <path d="M713 627 L741 627 M712 672 L740 672 M713 717 L741 717" stroke="#70967f" stroke-width="3"/>
+    <path d="M690 632 L704 632 M690 710 L704 710" stroke="#759c83" stroke-width="3" stroke-dasharray="6 6"/>
+    <!-- The torso shell joins the memory chamber and the execution core. -->
+    <path d="M1017 718 Q1053 698 1118 709 Q1212 693 1275 724 L1318 807 L1271 880 Q1237 913 1182 915 L997 913 Q943 908 926 872 L964 796 Z" fill="#cfddf0"/>
+    <path d="M1020 764 Q1085 736 1166 753 L1243 790 L1224 871 L1036 872 L1001 824 Z" fill="#e5ecf9" stroke-width="4"/>
+    <circle cx="1127" cy="816" r="58" fill="#f9fcfc" stroke-width="4"/>
+    <circle cx="1127" cy="816" r="34" fill="#a9c4dc" stroke-width="4"/>
+    <path d="M1111 817 L1124 831 L1146 801" stroke="#4f7896" stroke-width="6"/>
+    <!-- Jointed arms and legs make the Body visibly embodied. -->
+    <path d="M1000 746 L889 737 L763 791 L692 859" stroke="#a9c4dc" stroke-width="39"/>
+    <path d="M1000 746 L889 737 L763 791 L692 859" stroke-width="5"/>
+    <circle cx="885" cy="739" r="30" fill="#d8e6f2"/>
+    <circle cx="763" cy="791" r="25" fill="#d8e6f2"/>
+    <path d="M692 858 L647 850 L637 883 M692 858 L668 901" stroke-width="14"/>
+    <path d="M1255 748 L1368 737 L1459 791 L1527 858" stroke="#a9c4dc" stroke-width="39"/>
+    <path d="M1255 748 L1368 737 L1459 791 L1527 858" stroke-width="5"/>
+    <circle cx="1368" cy="737" r="30" fill="#d8e6f2"/>
+    <circle cx="1459" cy="791" r="25" fill="#d8e6f2"/>
+    <path d="M1527 858 L1567 850 L1575 882 M1527 858 L1553 901" stroke-width="14"/>
+    <path d="M1063 910 L1032 960 L956 962 M1191 910 L1226 960 L1299 962" stroke="#a9c4dc" stroke-width="36"/>
+    <path d="M1063 910 L1032 960 L956 962 M1191 910 L1226 960 L1299 962" stroke-width="5"/>
+    <!-- Independent Verifier is a separate inspection drone, beyond the body. -->
+    <path d="M1664 462 Q1703 422 1773 423 L1851 435 Q1907 451 1920 510 L1907 657 Q1883 720 1820 730 L1715 720 Q1663 701 1645 643 L1644 523 Q1648 484 1664 462 Z" fill="#ead5e6" stroke="#865b81"/>
+    <circle cx="1785" cy="548" r="91" fill="#fffafb" stroke="#865b81"/>
+    <circle cx="1785" cy="548" r="60" fill="#f4e8f0" stroke="#865b81" stroke-width="4"/>
+    <path d="M1750 549 L1777 577 L1826 523" stroke="#94628b" stroke-width="10"/>
+    <path d="M1848 613 L1907 676 L1933 675" stroke="#865b81" stroke-width="19"/>
+    <circle cx="1680" cy="567" r="24" fill="#fdf9fc" stroke="#865b81" stroke-width="4"/>
+    <path d="M1754 729 L1747 761 M1836 729 L1843 761" stroke="#865b81" stroke-width="5"/>
+    <!-- Outcome data and proposed memory update remain loose cards, not limbs. -->
+    <path d="M1662 779 L1734 779 L1748 794 L1748 846 L1662 846 Z" fill="#fffafc" stroke="#94628b" stroke-width="3"/>
+    <path d="M1734 779 L1734 794 L1748 794 M1676 809 L1728 809 M1676 826 L1719 826" stroke="#94628b" stroke-width="2"/>
+    <path d="M1785 789 L1861 789 L1876 804 L1876 856 L1785 856 Z" fill="#fffafc" stroke="#94628b" stroke-width="3" stroke-dasharray="7 6"/>
+    <path d="M1861 789 L1861 804 L1876 804 M1799 818 L1853 818 M1799 837 L1840 837" stroke="#94628b" stroke-width="2"/>
+    <!-- A deliberately separate service bay. No line returns to the active body. -->
+    <path d="M77 1060 L2018 1060 L2018 1230 L77 1230 Z" fill="#fbf2e6" stroke="#b58a69" stroke-width="3" stroke-dasharray="12 12"/>
+    <path d="M203 1188 L1903 1188 L1903 1210 L203 1210 Z" fill="#d7bd9f" stroke="#9c795f"/>
+    <path d="M336 1101 L364 1101 L373 1139 L350 1169 L324 1139 Z" fill="#f0d3b1"/>
+    <circle cx="350" cy="1139" r="15" fill="#fff9ec" stroke-width="3"/>
+    <path d="M359 1129 L411 1104 L435 1113 M410 1104 L417 1085 M435 1113 L447 1098" stroke="#9c795f" stroke-width="9"/>
+    <path d="M980 1104 L1091 1104 L1104 1170 L967 1170 Z" fill="#f3dcbf"/>
+    <path d="M997 1120 L1076 1120 L1076 1152 L997 1152 Z" fill="#fff9ed" stroke-width="3"/>
+    <path d="M1010 1136 L1024 1136 M1034 1136 L1048 1136 M1058 1136 L1069 1136" stroke="#9c795f" stroke-width="3"/>
+    <path d="M1618 1109 Q1638 1083 1673 1094 Q1709 1103 1708 1138 Q1703 1170 1668 1177 Q1634 1179 1618 1149 Z" fill="#f2d6b6"/>
+    <path d="M1640 1135 L1658 1152 L1688 1119" stroke="#996e5d" stroke-width="8"/>
+    <path d="M1647 1174 L1639 1191 M1685 1172 L1693 1191" stroke="#996e5d" stroke-width="5"/>
+  </g>
+</svg>

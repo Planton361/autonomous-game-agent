@@ -1,5 +1,6 @@
 """W03 public-safe visual surfaces; no private vault or game access."""
 
+import base64
 import hashlib
 import json
 import re
@@ -23,6 +24,7 @@ from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.workspace import (
     ANATOMY_PATH,
     DOMAIN_SLICE_PATH,
+    HERO_ASSET_PATH,
     HOME_PATH,
     MAP_PATH,
     note_link,
@@ -87,7 +89,7 @@ def inside(inner, outer):
 
 def test_w03_assets_are_finite_generated_and_navigable(atlas):
     tree = workspace_tree(atlas)
-    assert {MAP_PATH, ANATOMY_PATH, DOMAIN_SLICE_PATH} <= tree.keys()
+    assert {MAP_PATH, ANATOMY_PATH, DOMAIN_SLICE_PATH, HERO_ASSET_PATH} <= tree.keys()
     assert parse_frontmatter(tree[ANATOMY_PATH])["atlas_workspace_generated"] is True
     assert parse_frontmatter(tree[DOMAIN_SLICE_PATH])["atlas_workspace_generated"] is True
     assert parse_frontmatter(tree[ANATOMY_PATH])["atlas_visual_surface"] == "agent-anatomy"
@@ -110,6 +112,11 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
     assert set(records) == {
         "SYS-AGA",
         "CMP-VISIBLE-STATE-BRIDGE",
+        "DAT-OBSERVATION",
+        "CON-PLANNER-OUTPUT",
+        "CON-SKILL-CONTRACT",
+        "DAT-VISIBLE-OUTCOME",
+        "CON-MEMORY-UPDATE-REQUEST",
         "CMP-SKILL-TRAINER",
         "DAT-CANDIDATE-BODY-VERSION",
         "CMP-BODY-CERTIFICATION",
@@ -120,7 +127,12 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
         if "functional_region" in element.get("customData", {})
     }
     assert set(regions) == {key for key, *_ in ANATOMY_REGIONS}
-
+    assert all(region["customData"]["presentation_only"] is True for region in regions.values())
+    assert all(
+        region["customData"]["atlas_landmarks"] == list(identities)
+        for key, _, _, identities in ANATOMY_REGIONS
+        for region in [regions[key]]
+    )
     boundaries = {
         element["customData"]["presentation_boundary"]: element
         for element in elements
@@ -130,19 +142,14 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
     for identity in ("CMP-SKILL-TRAINER", "DAT-CANDIDATE-BODY-VERSION", "CMP-BODY-CERTIFICATION"):
         assert inside(records[identity], boundaries["between-runs"])
         assert not inside(records[identity], boundaries["in-run"])
-    assert "frozen Body version, including Life Episode restarts" in tree[ANATOMY_PATH]
-    assert "Cortex proposes · Manager contracts" in tree[ANATOMY_PATH]
-    assert "Body/Reflex (active contract)" in tree[ANATOMY_PATH]
-    assert "SafetyFilter → InputExecutor" in tree[ANATOMY_PATH]
-    assert "Independent Verifier" in tree[ANATOMY_PATH]
-    assert "outside cortex decision authority" in tree[ANATOMY_PATH].lower()
-    assert "Outcome before replay" in tree[ANATOMY_PATH]
-
-    bridge = records["CMP-VISIBLE-STATE-BRIDGE"]
-    assert inside(bridge, regions["observation"])
-    assert "CMP-NO-SPOILER-FIREWALL" in regions["observation"]["customData"]["atlas_landmarks"]
-    assert bridge["strokeStyle"] == "dashed"
-    assert bridge["customData"]["path_style"] == "optional"
+    assert "frozen Body version through Life Episode restarts" in tree[ANATOMY_PATH]
+    assert "Cortex proposes" in tree[ANATOMY_PATH]
+    assert "Manager grounds contracts" in tree[ANATOMY_PATH]
+    assert "Body acts within contract" in tree[ANATOMY_PATH]
+    assert "Outside Cortex decision authority" in tree[ANATOMY_PATH]
+    assert "Optional bridge · no-spoiler perception" in tree[ANATOMY_PATH]
+    assert records["CMP-VISIBLE-STATE-BRIDGE"]["strokeStyle"] == "dashed"
+    assert records["CMP-VISIBLE-STATE-BRIDGE"]["customData"]["path_style"] == "optional"
     assert not any(
         relation[0] in {"CMP-VISIBLE-STATE-BRIDGE", "CMP-NO-SPOILER-FIREWALL"}
         or relation[2] in {"CMP-VISIBLE-STATE-BRIDGE", "CMP-NO-SPOILER-FIREWALL"}
@@ -154,18 +161,7 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
     assert len(flow_arrows) == len(FLOW_KEYS)
     assert all(element["strokeStyle"] == "dashed" for element in flow_arrows)
     assert all("atlas_relation" not in element.get("customData", {}) for element in flow_arrows)
-    assert all(
-        element.get("link")
-        for element in elements
-        if set(element.get("customData", {})) & {"atlas_id", "functional_region", "navigation"}
-    )
-
-    verifier = regions["verification"]
-    cortex = regions["cognition"]
-    assert (
-        verifier["x"] > cortex["x"] + cortex["width"]
-        or cortex["x"] > verifier["x"] + verifier["width"]
-    )
+    assert regions["verification"]["customData"]["outside_decision_authority"] is True
     assert not any(
         edge[0] == "CMP-CORTEX" and edge[2] == "CMP-INDEPENDENT-VERIFIER"
         for edge in technical_edges(value)
@@ -173,68 +169,44 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
     assert technical_edges(value) == set(BETWEEN_RUN_RELATION_KEYS)
 
 
-def test_z2_exploded_home_is_one_system_with_distinct_assemblies(atlas):
-    value = scene(workspace_tree(atlas)[ANATOMY_PATH])
+def test_z2_illustrated_home_is_one_system_with_distinct_visual_grammar(atlas):
+    tree = workspace_tree(atlas)
+    value = scene(tree[ANATOMY_PATH])
     elements = value["elements"]
-    regions = [
-        element for element in elements if "functional_region" in element.get("customData", {})
-    ]
-    assert len(regions) == len(ANATOMY_REGIONS) == 7
-    assert {element["type"] for element in regions} == {"ellipse", "rectangle"}
-    assert {element["customData"]["functional_region"] for element in regions} == {
-        key for key, *_ in ANATOMY_REGIONS
-    }
-    assert all(element["customData"]["presentation_only"] is True for element in regions)
-    assert {
-        element["customData"]["presentation_structure"]
-        for element in elements
-        if "presentation_structure" in element.get("customData", {})
-    } >= {"shared-chassis", "shared-backplane", "independent-verifier-pod"}
-    assert all(
-        element["customData"]["atlas_landmarks"] == list(identities)
-        for element in regions
-        for key, _, _, identities in ANATOMY_REGIONS
-        if element["customData"]["functional_region"] == key
+    images = [element for element in elements if element["type"] == "image"]
+    assert len(images) == 1
+    image = images[0]
+    assert image["customData"]["presentation_structure"] == "shared-agent-silhouette"
+    assert image["customData"]["illustration_source"] == str(HERO_ASSET_PATH)
+    asset_bytes = tree[HERO_ASSET_PATH].encode()
+    file_id = hashlib.sha256(asset_bytes).hexdigest()[:32]
+    assert image["fileId"] == file_id
+    assert len(value["files"]) == 1
+    assert value["files"][file_id]["dataURL"] == (
+        "data:image/svg+xml;base64," + base64.b64encode(asset_bytes).decode()
     )
-    assert all(
-        element["customData"]["landmark_links"]
-        == {identity: note_link(atlas.entities[identity]) for identity in identities}
-        for element in regions
-        for key, _, _, identities in ANATOMY_REGIONS
-        if element["customData"]["functional_region"] == key
-    )
+    assert f"{file_id}: [[{HERO_ASSET_PATH}]]" in tree[ANATOMY_PATH]
+    assert "<script" not in tree[HERO_ASSET_PATH]
+    assert "href=" not in tree[HERO_ASSET_PATH]
+    assert "url(" not in tree[HERO_ASSET_PATH]
+    assert "file:" not in tree[HERO_ASSET_PATH]
+    assert len([element for element in elements if element["type"] in {"ellipse", "diamond"}]) == 0
     assert {identity for _, _, _, identities in ANATOMY_REGIONS for identity in identities} <= (
         ANATOMY_RECORD_IDS
     )
-    parts = {
-        key: {
-            element["customData"]["figurative_part"]
-            for element in elements
-            if element.get("customData", {}).get("presentation_assembly") == key
-        }
-        for key, *_ in ANATOMY_REGIONS
+    tokens = {
+        element["customData"]["atlas_id"]: element["customData"]
+        for element in elements
+        if element.get("customData", {}).get("visual_grammar") in {"contract-token", "data-card"}
     }
-    assert all(len(value) >= 7 for value in parts.values())
-    assert {"optic-glass", "antenna", "intake-mouth"} <= parts["environment"]
-    assert {"visor", "scan-sweep", "inspection-lamp"} <= parts["observation"]
-    assert {"ledger", "memory-cells", "retrieval-drawer"} <= parts["evidence-memory"]
-    assert {"left-lobe", "right-lobe", "thought-core"} <= parts["cognition"]
-    assert {"gate-lock", "left-relay", "right-relay"} <= parts["executive"]
-    assert {"chest-guard", "left-upper-arm", "right-upper-arm"} <= parts["action-safety"]
-    assert {"inspection-lens", "verdict-check", "replay-reel"} <= parts["verification"]
-    assert any(
-        element.get("customData", {}).get("presentation_structure") == "between-run-workshop"
-        for element in elements
-    )
-    assert len([element for element in elements if element.get("link")]) <= 14
-    assert all(" · CMP-" not in element.get("text", "") for element in elements)
-    assert any(
-        element.get("customData", {}).get("outside_decision_authority") is True
-        for element in elements
-    )
-    assert "BETWEEN MISSION RUNS ONLY" in scene_text(elements)
-    assert "optional visible-state bridge" in scene_text(elements).lower()
-    assert "Dashed arrows: orientation only" in scene_text(elements)
+    assert tokens["CON-PLANNER-OUTPUT"]["visual_grammar"] == "contract-token"
+    assert tokens["CON-SKILL-CONTRACT"]["visual_grammar"] == "contract-token"
+    assert tokens["DAT-OBSERVATION"]["visual_grammar"] == "data-card"
+    assert tokens["DAT-VISIBLE-OUTCOME"]["visual_grammar"] == "data-card"
+    assert tokens["DAT-CANDIDATE-BODY-VERSION"]["visual_grammar"] == "data-card"
+    assert tokens["CON-MEMORY-UPDATE-REQUEST"]["proposal_only"] is True
+    assert "BETWEEN MISSION RUNS" in scene_text(elements)
+    assert "Dashed cues: orientation / optional path" in scene_text(elements)
 
 
 def scene_text(elements):
@@ -289,6 +261,13 @@ def test_domain_slice_separates_presentation_membership_from_technical_edges(atl
 
 
 def test_z2_scoped_memory_action_reaches_existing_component_hub(atlas):
+    public_home = scene(workspace_tree(atlas)[ANATOMY_PATH])
+    memory_region = next(
+        element
+        for element in public_home["elements"]
+        if element.get("customData", {}).get("functional_region") == "evidence-memory"
+    )
+    assert memory_region["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
     public = scene(workspace_tree(atlas)[DOMAIN_SLICE_PATH])
     public_action = next(
         element
@@ -312,6 +291,40 @@ def test_z2_scoped_memory_action_reaches_existing_component_hub(atlas):
     )
     assert private_projection.MEMORY_HUB_TARGET == (DERIVED_ROOT / MEMORY_WORKBENCH)
     assert technical_edges(projected) == set(DOMAIN_RELATION_KEYS)
+
+
+def test_z2_verifier_home_action_reaches_existing_component_hub(atlas):
+    public = scene(workspace_tree(atlas)[ANATOMY_PATH])
+    public_verifier = next(
+        element
+        for element in public["elements"]
+        if element.get("customData", {}).get("functional_region") == "verification"
+    )
+    assert (
+        public_verifier["link"].split("|", 1)[0]
+        == note_link(atlas.entities["CMP-INDEPENDENT-VERIFIER"]).split("|", 1)[0]
+    )
+    assert public_verifier["link"].endswith("|Independent Verifier → Overview]]")
+    digests = {name: "a" * 64 for name in private_projection.REGISTRY_FILES}
+    projected_tree = private_projection.projection_tree(atlas, "b" * 40, digests)
+    private = scene(projected_tree[private_projection.ANATOMY].decode())
+    private_verifier = next(
+        element
+        for element in private["elements"]
+        if element.get("customData", {}).get("functional_region") == "verification"
+    )
+    assert private_verifier["link"] == (
+        f"[[{private_projection.VERIFIER_HUB_TARGET.with_suffix('')}|"
+        "Independent Verifier → Overview]]"
+    )
+    assert (
+        projected_tree[private_projection.HERO_ASSET]
+        == workspace_tree(atlas)[HERO_ASSET_PATH].encode()
+    )
+    assert (
+        f"[[{private_projection.OWNED_ROOT / private_projection.HERO_ASSET}]]"
+        in projected_tree[private_projection.ANATOMY].decode()
+    )
 
 
 def test_w03_generation_is_byte_deterministic_and_registry_order_independent(atlas):
