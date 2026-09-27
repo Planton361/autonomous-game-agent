@@ -6,8 +6,10 @@ import json
 import re
 import textwrap
 from collections.abc import Mapping
+from importlib.resources import files
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
+from xml.etree import ElementTree
 
 import yaml
 
@@ -39,10 +41,37 @@ HOME_PATH = PurePosixPath("Home/Research Atlas.md")
 BASE_PATH = PurePosixPath("Generated/Atlas Views.base")
 MAP_PATH = PurePosixPath("Assets/Excalidraw/System Anatomy.excalidraw.md")
 ANATOMY_PATH = PurePosixPath("Assets/Excalidraw/Agent Anatomy.excalidraw.md")
+HERO_ASSET_PATH = PurePosixPath("Assets/Excalidraw/Agent Anatomy Hero.svg")
 DOMAIN_SLICE_PATH = PurePosixPath(
     "Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw.md"
 )
 WIKILINK = re.compile(r"\[\[([^\]\n]+)\]\]")
+
+
+def anatomy_hero_svg() -> str:
+    """Read the curated, public-safe illustration packaged with the renderer."""
+    source = (
+        files("fh_agent.research_atlas")
+        .joinpath("assets/agent_anatomy_hero.svg")
+        .read_text(encoding="utf-8")
+    )
+    root = ElementTree.fromstring(source)
+    if root.tag != "{http://www.w3.org/2000/svg}svg" or root.attrib.get("viewBox") != (
+        "0 0 2100 1270"
+    ):
+        raise ValueError("Agent Anatomy requires the curated, fixed-size SVG source")
+    allowed = {"svg", "title", "desc", "g", "path", "circle"}
+    for element in root.iter():
+        if element.tag.rsplit("}", 1)[-1] not in allowed:
+            raise ValueError("Agent Anatomy SVG has an unsupported element")
+        if any(
+            attribute.rsplit("}", 1)[-1].lower().startswith("on")
+            or "href" in attribute.lower()
+            or any(marker in value.lower() for marker in ("url(", "javascript:", "file:", "data:"))
+            for attribute, value in element.attrib.items()
+        ):
+            raise ValueError("Agent Anatomy SVG cannot reference executable or external content")
+    return source
 
 
 def note_path_for(stable_id: str, node_type: str, current_name: str) -> PurePosixPath:
@@ -798,6 +827,7 @@ def workspace_tree(atlas: Atlas) -> dict[PurePosixPath, str]:
             BASE_PATH: render_base(),
             MAP_PATH: render_map(atlas),
             ANATOMY_PATH: render_agent_anatomy(atlas),
+            HERO_ASSET_PATH: anatomy_hero_svg(),
             DOMAIN_SLICE_PATH: render_domain_slice(atlas),
             PurePosixPath("overview.md"): render_overview(atlas),
         }
@@ -891,12 +921,18 @@ def validate_workspace(atlas: Atlas, root: Path) -> None:
     # This public-safe copy source is not another generated public workspace Base.
     bases.discard(PurePosixPath("Wiki Views/Research Wiki Direct Views.base"))
     maps = {PurePosixPath(p.relative_to(root).as_posix()) for p in root.rglob("*.excalidraw.md")}
+    svg_assets = {
+        PurePosixPath(p.relative_to(root).as_posix())
+        for p in (root / "Assets" / "Excalidraw").glob("*.svg")
+    }
     if bases != {BASE_PATH}:
         raise ValueError("Exactly one central Base required")
     if maps != {MAP_PATH, ANATOMY_PATH, DOMAIN_SLICE_PATH}:
         raise ValueError(
             "Generated workspace visual ownership differs from the finite W03 output set"
         )
+    if svg_assets != {HERO_ASSET_PATH}:
+        raise ValueError("Generated Agent Anatomy illustration ownership differs from finite set")
 
 
 def write_workspace(atlas: Atlas, root: Path) -> None:
