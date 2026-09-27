@@ -147,6 +147,15 @@ _REGION_CALLOUTS: Mapping[str, tuple[str, str, int, int, int]] = {
     "action-safety": ("ACT", "Body acts within contract", 85, 830, 440),
     "verification": ("VERIFY", "Outside Cortex decision authority", 1635, 236, 405),
 }
+_REGION_NAVIGATION_TARGETS: Mapping[str, str | PurePosixPath] = {
+    "environment": "CMP-SCREEN-CAPTURE",
+    "observation": "CMP-PERCEPTION",
+    "evidence-memory": DOMAIN_SLICE_PATH,
+    "cognition": "CMP-CORTEX",
+    "executive": "CMP-MANAGER",
+    "action-safety": "CMP-BODY",
+    "verification": "CMP-INDEPENDENT-VERIFIER",
+}
 _NODE_CARD = "#ffffff"
 _INK = "#26384b"
 _MUTED = "#526477"
@@ -336,19 +345,27 @@ def _hero_image() -> tuple[dict, dict]:
     return image, {file_id: file}
 
 
+def _region_navigation_link(atlas: Atlas, key: str, identities: tuple[str, ...]) -> str:
+    target = _REGION_NAVIGATION_TARGETS[key]
+    if isinstance(target, PurePosixPath):
+        if key != "evidence-memory" or target != DOMAIN_SLICE_PATH:
+            raise ValueError("Agent Anatomy has an unsupported scoped navigation target")
+        return f"[[{target.with_suffix('')}|Evidence, Memory & Retrieval]]"
+    if target not in identities:
+        raise ValueError("Agent Anatomy navigation target must be an accepted landmark")
+    node = atlas.entities[target]
+    if key == "verification":
+        path = note_path_for(node.id, node.type, node.name)
+        return f"[[{path.with_suffix('')}|Independent Verifier → Overview]]"
+    return note_link(node)
+
+
 def _illustrated_region(
     atlas: Atlas, key: str, subtitle: str, identities: tuple[str, ...]
 ) -> list[dict]:
     title, short_subtitle, x, y, width = _REGION_CALLOUTS[key]
     assert subtitle
-    if key == "evidence-memory":
-        anchor = f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|Evidence, Memory & Retrieval]]"
-    elif key == "verification":
-        node = atlas.entities[identities[0]]
-        target = note_path_for(node.id, node.type, node.name)
-        anchor = f"[[{target.with_suffix('')}|Independent Verifier → Overview]]"
-    else:
-        anchor = note_link(atlas.entities[identities[0]])
+    anchor = _region_navigation_link(atlas, key, identities)
     custom = {
         "functional_region": key,
         "atlas_landmarks": list(identities),
@@ -1120,6 +1137,7 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
     for key, _, subtitle, identities in ANATOMY_REGIONS:
         region = regions[key]
         custom = region["customData"]
+        expected_navigation = _region_navigation_link(atlas, key, identities)
         labels = [
             item
             for item in anatomy_elements
@@ -1138,6 +1156,7 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             or custom.get("presentation_only") is not True
             or custom.get("visual_grammar") != "figurative-machine-assembly"
             or custom.get("navigation_target") != region.get("link")
+            or region.get("link") != expected_navigation
             or len(labels) != len(identities)
         ):
             raise ValueError("Agent Anatomy callout or hotspot changed accepted landmarks")
@@ -1153,7 +1172,11 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         nav = [
             item for item in anatomy_elements if item.get("customData", {}).get("navigation") == key
         ]
-        if len(nav) != 1 or nav[0].get("link") != region.get("link"):
+        if (
+            len(nav) != 1
+            or nav[0].get("link") != expected_navigation
+            or nav[0].get("customData", {}).get("navigation_target") != expected_navigation
+        ):
             raise ValueError("Agent Anatomy assembly navigation changed")
     if (
         regions["verification"]["customData"].get("outside_decision_authority") is not True

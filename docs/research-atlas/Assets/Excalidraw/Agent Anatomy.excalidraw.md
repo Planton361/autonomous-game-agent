@@ -136,13 +136,13 @@ f4a83518: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · 
 
 1969d99a: [[Home/Research Atlas|Markdown Home / fallback]]
 
-25ba5238: [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
+25ba5238: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
-ba9f1541: [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
+ba9f1541: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
-854eb050: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
+854eb050: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
 
-2aff9526: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
+2aff9526: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
 
 041f47cd: [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval]]
 
@@ -717,7 +717,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
           "CMP-SCREEN-CAPTURE": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
           "ENV-GAME-INSTANCE": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]"
         },
-        "navigation_target": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]",
+        "navigation_target": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
         "presentation_only": true,
         "presentation_summary": "Visible play surface and capture entry",
         "presentation_title": "ACQUIRE",
@@ -729,7 +729,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 176,
       "id": "25ba5238",
       "isDeleted": false,
-      "link": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]",
+      "link": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -912,7 +912,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "containerId": null,
       "customData": {
         "navigation": "environment",
-        "navigation_target": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]"
+        "navigation_target": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]"
       },
       "fillStyle": "solid",
       "fontFamily": 2,
@@ -923,7 +923,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "ba9f1541",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]",
+      "link": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
       "locked": false,
       "opacity": 100,
       "originalText": "OPEN ASSEMBLY  →",
@@ -963,7 +963,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
           "CMP-VISIBLE-STATE-BRIDGE": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
           "DAT-OBSERVATION": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]"
         },
-        "navigation_target": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
+        "navigation_target": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
         "presentation_only": true,
         "presentation_summary": "All observation paths remain within the No-Spoiler Firewall",
         "presentation_title": "OBSERVE",
@@ -975,7 +975,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 168,
       "id": "854eb050",
       "isDeleted": false,
-      "link": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
+      "link": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1240,7 +1240,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "containerId": null,
       "customData": {
         "navigation": "observation",
-        "navigation_target": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]"
+        "navigation_target": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]"
       },
       "fillStyle": "solid",
       "fontFamily": 2,
@@ -1251,7 +1251,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "2aff9526",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
+      "link": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
       "locked": false,
       "opacity": 100,
       "originalText": "OPEN ASSEMBLY  →",

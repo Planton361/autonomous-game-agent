@@ -28,6 +28,7 @@ from fh_agent.research_atlas.workspace import (
     HOME_PATH,
     MAP_PATH,
     note_link,
+    note_path_for,
     parse_frontmatter,
     validate_links,
     validate_workspace_tree,
@@ -167,6 +168,61 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
         for edge in technical_edges(value)
     )
     assert technical_edges(value) == set(BETWEEN_RUN_RELATION_KEYS)
+
+
+def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
+    expected_targets = {
+        "environment": "CMP-SCREEN-CAPTURE",
+        "observation": "CMP-PERCEPTION",
+        "cognition": "CMP-CORTEX",
+        "executive": "CMP-MANAGER",
+        "action-safety": "CMP-BODY",
+    }
+    public = scene(workspace_tree(atlas)[ANATOMY_PATH])
+    digests = {name: "a" * 64 for name in private_projection.REGISTRY_FILES}
+    private_tree = private_projection.projection_tree(atlas, "b" * 40, digests)
+    projected = scene(private_tree[private_projection.ANATOMY].decode())
+    for value, is_private in ((public, False), (projected, True)):
+        elements = value["elements"]
+        for region_key, identity in expected_targets.items():
+            node = atlas.entities[identity]
+            expected = note_link(node)
+            if is_private:
+                destination = private_projection.OWNED_ROOT / private_projection.private_path(
+                    node
+                ).with_suffix("")
+                expected = expected.replace(
+                    str(note_path_for(node.id, node.type, node.name).with_suffix("")),
+                    str(destination),
+                )
+            region = next(
+                element
+                for element in elements
+                if element.get("customData", {}).get("functional_region") == region_key
+            )
+            action = next(
+                element
+                for element in elements
+                if element.get("customData", {}).get("navigation") == region_key
+            )
+            assert region["link"] == expected
+            assert region["customData"]["navigation_target"] == expected
+            assert action["link"] == expected
+            assert action["customData"]["navigation_target"] == expected
+    bridge = record_elements(public)["CMP-VISIBLE-STATE-BRIDGE"]
+    assert bridge["link"] == note_link(atlas.entities["CMP-VISIBLE-STATE-BRIDGE"])
+    assert bridge["customData"]["path_style"] == "optional"
+    observe = next(
+        element
+        for element in public["elements"]
+        if element.get("customData", {}).get("functional_region") == "observation"
+    )
+    assert observe["link"] != bridge["link"]
+    assert any(
+        element.get("customData", {}).get("navigation") == "research-home"
+        and element.get("link", "").startswith(f"[[{HOME_PATH.with_suffix('')}|")
+        for element in public["elements"]
+    )
 
 
 def test_z2_illustrated_home_is_one_system_with_distinct_visual_grammar(atlas):
