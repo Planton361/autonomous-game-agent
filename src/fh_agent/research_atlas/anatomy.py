@@ -21,6 +21,7 @@ from .workspace import (
     _element,
     _text,
     anatomy_hero_svg,
+    element_id,
     frontmatter,
     map_record_ids,
     note_link,
@@ -130,22 +131,58 @@ FLOW_KEYS = (
 )
 
 _REGION_HOTSPOTS: Mapping[str, tuple[int, int, int, int]] = {
-    "environment": (578, 300, 212, 176),
-    "observation": (795, 318, 286, 168),
-    "evidence-memory": (705, 536, 338, 276),
-    "cognition": (1080, 222, 212, 150),
-    "executive": (1050, 505, 228, 209),
-    "action-safety": (940, 715, 398, 246),
-    "verification": (1636, 419, 305, 346),
+    "environment": (660, 337, 149, 96),
+    "observation": (780, 438, 134, 107),
+    "evidence-memory": (743, 614, 143, 151),
+    "cognition": (1133, 295, 162, 120),
+    "executive": (1239, 519, 125, 135),
+    "action-safety": (1053, 784, 158, 115),
+    "verification": (1430, 616, 132, 159),
 }
-_REGION_CALLOUTS: Mapping[str, tuple[str, str, int, int, int]] = {
-    "environment": ("ACQUIRE", "Sensor intake", 85, 260, 420),
-    "observation": ("OBSERVE", "Optional bridge · no-spoiler perception", 85, 449, 420),
-    "evidence-memory": ("RETAIN / RETRIEVE", "Evidence and bounded context", 85, 685, 420),
-    "cognition": ("REASON", "Cortex proposes", 1375, 235, 240),
-    "executive": ("CONTRACT", "Manager grounds contracts", 1375, 483, 245),
-    "action-safety": ("ACT", "Body acts within contract", 85, 830, 440),
-    "verification": ("VERIFY", "Outside Cortex decision authority", 1635, 236, 405),
+_REGION_CARDS: Mapping[str, tuple[str, str, tuple[int, int, int, int]]] = {
+    "environment": ("ACQUIRE", "Environment + capture", (78, 242, 465, 170)),
+    "observation": ("OBSERVE", "Integrity + state", (78, 432, 465, 229)),
+    "evidence-memory": ("RETAIN / RETRIEVE", "Evidence + memory", (78, 681, 465, 195)),
+    "cognition": ("REASON", "Cognitive planning", (1572, 242, 465, 170)),
+    "executive": ("CONTRACT", "Executive control", (1572, 432, 465, 195)),
+    "action-safety": ("ACT", "Body + safe execution", (790, 902, 525, 129)),
+    "verification": ("VERIFY", "Independent outcome check", (1572, 647, 465, 229)),
+}
+_VISIBLE_LANDMARKS: Mapping[str, str] = {
+    "ENV-GAME-INSTANCE": "Game / Environment",
+    "CMP-SCREEN-CAPTURE": "Screen Capture",
+    "CMP-VISIBLE-STATE-BRIDGE": "Visible-State Bridge (optional)",
+    "CMP-NO-SPOILER-FIREWALL": "No-Spoiler Firewall",
+    "CMP-PERCEPTION": "Perception",
+    "DAT-OBSERVATION": "Observation",
+    "CMP-EVIDENCE-LEDGER": "Evidence Ledger",
+    "CMP-MEMORY": "Memory",
+    "CMP-MEM-RETRIEVAL": "Memory Retrieval",
+    "CMP-CORTEX": "Cortex",
+    "CON-PLANNER-OUTPUT": "Planner Output",
+    "CMP-MANAGER": "Manager",
+    "CMP-MANAGER-GROUNDING": "Manager Grounding",
+    "CON-SKILL-CONTRACT": "Skill Contract",
+    "CMP-BODY": "Body",
+    "CMP-BOUNDED-REFLEX": "Bounded Reflex",
+    "CMP-SAFETY-FILTER": "SafetyFilter",
+    "CMP-INPUT-EXECUTOR": "InputExecutor",
+    "CMP-INDEPENDENT-VERIFIER": "Independent Verifier",
+    "DAT-VISIBLE-OUTCOME": "Visible Outcome",
+    "CMP-REPLAY-BUFFER": "Replay Buffer",
+    "CON-MEMORY-UPDATE-REQUEST": "Memory Update Request",
+    "CMP-SKILL-TRAINER": "SkillTrainer",
+    "DAT-CANDIDATE-BODY-VERSION": "Candidate Body Version",
+    "CMP-BODY-CERTIFICATION": "Body Validation / Certification",
+}
+_REGION_ACTION_LABELS: Mapping[str, str] = {
+    "environment": "OPEN SCREEN CAPTURE  →",
+    "observation": "OPEN PERCEPTION  →",
+    "evidence-memory": "OPEN MEMORY VIEW  →",
+    "cognition": "OPEN CORTEX  →",
+    "executive": "OPEN MANAGER  →",
+    "action-safety": "OPEN BODY  →",
+    "verification": "OPEN VERIFIER OVERVIEW  →",
 }
 _REGION_NAVIGATION_TARGETS: Mapping[str, str | PurePosixPath] = {
     "environment": "CMP-SCREEN-CAPTURE",
@@ -246,6 +283,22 @@ def _arrow(
             }
         }
     return arrow
+
+
+def _callout_line(identity: str, start: tuple[int, int], end: tuple[int, int]) -> dict:
+    line = _element(
+        "w03:callout:" + identity,
+        "line",
+        (start[0], start[1], abs(end[0] - start[0]), abs(end[1] - start[1])),
+    )
+    line.update(
+        points=[[0, 0], [end[0] - start[0], end[1] - start[1]]],
+        strokeColor="#9faeb3",
+        strokeStyle="dashed",
+        strokeWidth=1.6,
+        customData={"presentation_connector": identity, "presentation_only": True},
+    )
+    return line
 
 
 def _registry_relation(atlas: Atlas, key: tuple[str, str, str]) -> Relationship:
@@ -363,7 +416,7 @@ def _region_navigation_link(atlas: Atlas, key: str, identities: tuple[str, ...])
 def _illustrated_region(
     atlas: Atlas, key: str, subtitle: str, identities: tuple[str, ...]
 ) -> list[dict]:
-    title, short_subtitle, x, y, width = _REGION_CALLOUTS[key]
+    title, short_subtitle, (x, y, width, height) = _REGION_CARDS[key]
     assert subtitle
     anchor = _region_navigation_link(atlas, key, identities)
     custom = {
@@ -373,6 +426,7 @@ def _illustrated_region(
             identity: note_link(atlas.entities[identity]) for identity in identities
         },
         "presentation_title": title,
+        "visible_landmarks": [_VISIBLE_LANDMARKS[identity] for identity in identities],
         "presentation_summary": subtitle,
         "presentation_only": True,
         "visual_grammar": "figurative-machine-assembly",
@@ -389,37 +443,83 @@ def _illustrated_region(
             _REGION_HOTSPOTS[key],
             stroke="transparent",
             stroke_width=0,
-            link=anchor,
             custom_data=custom,
         ),
-        _text_item(f"callout-title:{key}", title, x, y, width, size=22),
+        _shape(
+            "hub-card:" + key,
+            (x, y, width, height),
+            background="#fffdf9",
+            stroke="#aab9ba",
+            stroke_width=1.8,
+            custom_data={"presentation_card": key, "presentation_only": True},
+        ),
+        _text_item(f"callout-title:{key}", title, x + 20, y + 9, width - 40, size=25),
         _text_item(
-            f"callout-subtitle:{key}", short_subtitle, x, y + 30, width, size=15, color=_MUTED
+            f"callout-subtitle:{key}",
+            short_subtitle,
+            x + 20,
+            y + 42,
+            220 if key == "action-safety" else width - 40,
+            size=16 if key == "action-safety" else 18,
+            color=_MUTED,
         ),
     ]
     for index, identity in enumerate(identities):
         node = atlas.entities[identity]
+        if key == "action-safety":
+            label_x = x + 225 + (index % 2) * 150
+            label_y = y + 22 + (index // 2) * 29
+            label_width = 145
+        else:
+            label_x = x + 35
+            label_y = y + 72 + 27 * index
+            label_width = width - 55
+        color = (
+            "#9b625e"
+            if node.type == "Contract"
+            else "#657e99"
+            if node.type == "DataArtifact"
+            else _MUTED
+        )
+        if identity == "CMP-VISIBLE-STATE-BRIDGE":
+            color = "#887c9b"
+        marker = _shape(
+            f"landmark-marker:{key}:{identity}",
+            (label_x - 17, label_y + 6, 10, 10),
+            background=(
+                "#fff4ed"
+                if node.type == "Contract"
+                else "#e9f0f8"
+                if node.type == "DataArtifact"
+                else "#e3f0ec"
+            ),
+            stroke=color,
+            stroke_style="dashed" if identity == "CMP-VISIBLE-STATE-BRIDGE" else "solid",
+            stroke_width=1.2,
+            rounded=node.type == "Component",
+            custom_data={"presentation_marker_for": identity, "presentation_only": True},
+        )
+        elements.append(marker)
         elements.append(
             _text_item(
                 f"landmark:{key}:{identity}",
-                node.name,
-                x + 1,
-                y + 59 + 19 * index,
-                width - 2,
-                size=14,
-                color="#9b625e" if node.type == "Contract" else _MUTED,
+                _VISIBLE_LANDMARKS[identity],
+                label_x,
+                label_y,
+                label_width,
+                size=16 if key == "action-safety" else 18,
+                color=color,
                 custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
-    nav_y = y + 64 + len(identities) * 19
     elements.append(
         _text_item(
             f"navigation:{key}",
-            "OPEN ASSEMBLY  →",
-            x,
-            nav_y,
-            width,
-            size=13,
+            _REGION_ACTION_LABELS[key],
+            x + 20,
+            y + height - 32,
+            width - 40,
+            size=16,
             color="#426f7d",
             link=anchor,
             custom_data={"navigation": key, "navigation_target": anchor},
@@ -528,40 +628,39 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     hero, files = _hero_image()
     elements = [
         hero,
-        _text_item("anatomy-title", "AGENT ANATOMY", 76, 27, 1000, size=42),
+        _text_item("anatomy-title", "AGENT ANATOMY", 78, 34, 1000, size=45),
         _text_item(
             "anatomy-subtitle",
             "One agent, opened for inspection",
             80,
-            91,
+            105,
             980,
-            size=19,
+            size=21,
             color=_MUTED,
         ),
         _text_item(
             "runtime-boundary-title",
             "MISSION RUN  /  frozen Body version through Life Episode restarts",
-            83,
-            190,
+            82,
+            181,
             1640,
-            size=17,
+            size=18,
         ),
         _shape(
             "in-run-boundary",
-            (61, 216, 1977, 788),
+            (60, 211, 1978, 824),
             stroke="#b4c0bd",
             stroke_style="dashed",
             stroke_width=1.2,
-            link=note_link(atlas.entities["SYS-AGA"]),
             custom_data={"atlas_id": "SYS-AGA", "presentation_boundary": "in-run"},
         ),
         _text_item(
             "navigation:home",
             "←  MARKDOWN HOME / FALLBACK",
-            80,
-            137,
+            1600,
+            107,
             430,
-            size=14,
+            size=16,
             color="#426f7d",
             link=f"[[{HOME_PATH.with_suffix('')}|Markdown Home / fallback]]",
             custom_data={"navigation": "research-home"},
@@ -570,12 +669,12 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     # Short, faint process cues orient the reader. Only the separate workshop
     # carries selected exact Registry arrows; neither cue invents an edge.
     flow_segments = {
-        ("environment", "observation"): ((787, 394), (813, 394)),
-        ("observation", "evidence-memory"): ((899, 478), (899, 531)),
-        ("evidence-memory", "cognition"): ((1023, 558), (1092, 467)),
-        ("cognition", "executive"): ((1132, 377), (1132, 495)),
-        ("executive", "action-safety"): ((1125, 714), (1125, 751)),
-        ("action-safety", "verification"): ((1566, 743), (1630, 665)),
+        ("environment", "observation"): ((812, 418), (828, 439)),
+        ("observation", "evidence-memory"): ((857, 544), (858, 596)),
+        ("evidence-memory", "cognition"): ((1002, 601), (1043, 563)),
+        ("cognition", "executive"): ((1192, 421), (1192, 483)),
+        ("executive", "action-safety"): ((1174, 694), (1174, 736)),
+        ("action-safety", "verification"): ((1361, 794), (1412, 754)),
     }
     for source_key, target_key in FLOW_KEYS:
         start, end = flow_segments[source_key, target_key]
@@ -585,8 +684,19 @@ def render_agent_anatomy(atlas: Atlas) -> str:
             end,
             presentation_flow=(source_key, target_key),
         )
-        arrow["opacity"] = 45
+        arrow["opacity"] = 25
         elements.append(arrow)
+    callouts = {
+        "environment": ((543, 370), (654, 382)),
+        "observation": ((543, 512), (773, 493)),
+        "evidence-memory": ((543, 754), (717, 685)),
+        "cognition": ((1572, 324), (1361, 342)),
+        "executive": ((1572, 531), (1445, 586)),
+        "action-safety": ((1117, 902), (1120, 897)),
+        "verification": ((1572, 732), (1567, 709)),
+    }
+    for key, (start, end) in callouts.items():
+        elements.append(_callout_line(key, start, end))
     for key, _, subtitle, identities in ANATOMY_REGIONS:
         elements.extend(_illustrated_region(atlas, key, subtitle, identities))
     # The ghosted optional bridge is a qualified observation path. The five
@@ -595,11 +705,10 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     elements.append(
         _shape(
             "record:CMP-VISIBLE-STATE-BRIDGE",
-            (760, 437, 38, 28),
+            (789, 526, 27, 21),
             stroke="#8f82ac",
             stroke_style="dashed",
             stroke_width=1.5,
-            link=note_link(bridge),
             custom_data={
                 "atlas_id": bridge.id,
                 "atlas_name": bridge.name,
@@ -610,11 +719,11 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         )
     )
     token_boxes = {
-        "DAT-OBSERVATION": (850, 490, 85, 59),
-        "CON-PLANNER-OUTPUT": (1288, 295, 86, 70),
-        "CON-SKILL-CONTRACT": (1190, 586, 92, 80),
-        "DAT-VISIBLE-OUTCOME": (1660, 777, 91, 70),
-        "CON-MEMORY-UPDATE-REQUEST": (1782, 786, 96, 73),
+        "DAT-OBSERVATION": (913, 520, 53, 51),
+        "CON-PLANNER-OUTPUT": (1293, 312, 60, 55),
+        "CON-SKILL-CONTRACT": (1372, 587, 64, 59),
+        "DAT-VISIBLE-OUTCOME": (1409, 776, 65, 51),
+        "CON-MEMORY-UPDATE-REQUEST": (1491, 783, 64, 51),
     }
     for identity, box in token_boxes.items():
         node = atlas.entities[identity]
@@ -637,33 +746,33 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         [
             _text_item(
                 "presentation-legend",
-                "Dashed cues: orientation / optional path · Solid bay arrows: Registry relations",
-                1367,
-                954,
-                630,
-                size=12,
+                "Dashed guides: placement / optional · Solid bay arrows: Registry",
+                1495,
+                982,
+                510,
+                size=13,
                 color=_MUTED,
             ),
             _text_item(
                 "between-boundary-title",
                 "BETWEEN MISSION RUNS",
-                91,
-                1020,
+                100,
+                1073,
                 650,
-                size=22,
+                size=25,
             ),
             _text_item(
                 "between-boundary-subtitle",
-                "Train candidate · certify · activate only in a future Mission Run",
-                505,
-                1026,
-                1070,
-                size=16,
+                "Train → certify → future activation",
+                100,
+                1110,
+                500,
+                size=19,
                 color=_MUTED,
             ),
             _shape(
                 "between-runs-boundary",
-                (77, 1060, 1941, 170),
+                (77, 1061, 1946, 171),
                 stroke="transparent",
                 stroke_width=0,
                 custom_data={
@@ -674,14 +783,14 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         ]
     )
     between_boxes = {
-        "CMP-SKILL-TRAINER": (317, 1094, 145, 88),
-        "DAT-CANDIDATE-BODY-VERSION": (965, 1098, 146, 78),
-        "CMP-BODY-CERTIFICATION": (1611, 1089, 108, 93),
+        "CMP-SKILL-TRAINER": (634, 1122, 49, 59),
+        "DAT-CANDIDATE-BODY-VERSION": (1101, 1122, 115, 53),
+        "CMP-BODY-CERTIFICATION": (1687, 1116, 88, 68),
     }
     stage_labels = {
-        "CMP-SKILL-TRAINER": (184, 1116, 125),
-        "DAT-CANDIDATE-BODY-VERSION": (1118, 1116, 225),
-        "CMP-BODY-CERTIFICATION": (1727, 1115, 263),
+        "CMP-SKILL-TRAINER": (555, 1207, 270),
+        "DAT-CANDIDATE-BODY-VERSION": (1053, 1207, 350),
+        "CMP-BODY-CERTIFICATION": (1537, 1207, 455),
     }
     for identity in BETWEEN_RUN_IDS:
         node = atlas.entities[identity]
@@ -692,7 +801,6 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 between_boxes[identity],
                 stroke="transparent",
                 stroke_width=0,
-                link=note_link(node),
                 custom_data={
                     "atlas_id": identity,
                     "visual_role": "between-run-stage",
@@ -704,18 +812,18 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         elements.append(
             _text_item(
                 "stage-name:" + identity,
-                node.name,
+                _VISIBLE_LANDMARKS[identity],
                 x,
                 y,
                 width,
-                size=14,
+                size=18,
                 color="#7b604d",
                 custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
     for key, start, end, label_x in (
-        (BETWEEN_RUN_RELATION_KEYS[0], (469, 1084), (957, 1084), 637),
-        (BETWEEN_RUN_RELATION_KEYS[1], (1603, 1084), (1117, 1084), 1370),
+        (BETWEEN_RUN_RELATION_KEYS[0], (692, 1142), (1091, 1142), 838),
+        (BETWEEN_RUN_RELATION_KEYS[1], (1677, 1142), (1227, 1142), 1430),
     ):
         edge = _registry_relation(atlas, key)
         elements.append(
@@ -731,7 +839,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 f"registry-label:{edge.source}:{edge.relation}:{edge.target}",
                 edge.relation,
                 label_x,
-                1065,
+                1121,
                 110,
                 size=12,
                 color="#7b604d",
@@ -740,11 +848,11 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     elements.append(
         _text_item(
             "navigation:workshop",
-            "OPEN TRAINING RECORD  →",
-            1685,
-            1027,
-            320,
-            size=13,
+            "OPEN WORKSHOP  →",
+            1690,
+            1082,
+            300,
+            size=16,
             color="#7b604d",
             link=note_link(atlas.entities["CMP-SKILL-TRAINER"]),
             custom_data={"navigation": "between-runs"},
@@ -1134,10 +1242,20 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         key for key, *_ in ANATOMY_REGIONS
     }:
         raise ValueError("Agent Anatomy functional-region coverage mismatch")
+    card_elements = [
+        element
+        for element in anatomy_elements
+        if element.get("customData", {}).get("presentation_card") is not None
+    ]
+    cards = {element["customData"]["presentation_card"]: element for element in card_elements}
+    if len(card_elements) != len(regions) or set(cards) != set(regions):
+        raise ValueError("Agent Anatomy visible Hub cards are incomplete")
     for key, _, subtitle, identities in ANATOMY_REGIONS:
         region = regions[key]
         custom = region["customData"]
         expected_navigation = _region_navigation_link(atlas, key, identities)
+        title, short_subtitle, card_box = _REGION_CARDS[key]
+        card = cards[key]
         labels = [
             item
             for item in anatomy_elements
@@ -1153,19 +1271,42 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             or custom.get("landmark_links")
             != {identity: note_link(atlas.entities[identity]) for identity in identities}
             or custom.get("presentation_summary") != subtitle
+            or custom.get("presentation_title") != title
+            or custom.get("visible_landmarks")
+            != [_VISIBLE_LANDMARKS[identity] for identity in identities]
             or custom.get("presentation_only") is not True
             or custom.get("visual_grammar") != "figurative-machine-assembly"
-            or custom.get("navigation_target") != region.get("link")
-            or region.get("link") != expected_navigation
+            or custom.get("navigation_target") != expected_navigation
+            or region.get("link") is not None
+            or card.get("type") != "rectangle"
+            or (card["x"], card["y"], card["width"], card["height"]) != card_box
+            or card.get("link") is not None
             or len(labels) != len(identities)
         ):
             raise ValueError("Agent Anatomy callout or hotspot changed accepted landmarks")
+        title_labels = [
+            item
+            for item in anatomy_elements
+            if item.get("id") == element_id("w03:callout-title:" + key)
+        ]
+        subtitle_labels = [
+            item
+            for item in anatomy_elements
+            if item.get("id") == element_id("w03:callout-subtitle:" + key)
+        ]
+        if (
+            len(title_labels) != 1
+            or title_labels[0]["text"].replace("\n", " ") != title
+            or len(subtitle_labels) != 1
+            or subtitle_labels[0]["text"].replace("\n", " ") != short_subtitle
+        ):
+            raise ValueError("Agent Anatomy visible Hub heading drift")
         for identity in identities:
             label = next(
                 item for item in labels if item["customData"]["landmark_identity"] == identity
             )
             if (
-                label["text"].replace("\n", " ") != atlas.entities[identity].name
+                label["text"].replace("\n", " ") != _VISIBLE_LANDMARKS[identity]
                 or label["customData"].get("landmark_type") != atlas.entities[identity].type
             ):
                 raise ValueError("Agent Anatomy technical landmark label drift")
@@ -1176,6 +1317,7 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             len(nav) != 1
             or nav[0].get("link") != expected_navigation
             or nav[0].get("customData", {}).get("navigation_target") != expected_navigation
+            or sum(item.get("link") == expected_navigation for item in anatomy_elements) != 1
         ):
             raise ValueError("Agent Anatomy assembly navigation changed")
     if (
@@ -1223,6 +1365,13 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         )
         if stage["customData"].get("visual_grammar") != expected_grammar:
             raise ValueError("Between-run stage visual grammar mismatch")
+        stage_labels = [
+            item
+            for item in anatomy_elements
+            if item.get("customData", {}).get("landmark_identity") == identity
+        ]
+        if len(stage_labels) != 1 or stage_labels[0].get("text") != _VISIBLE_LANDMARKS[identity]:
+            raise ValueError("Between-run visible landmark label drift")
     anatomy_flows = _validate_edges(atlas, anatomy, ANATOMY_PATH)
     if anatomy_flows != set(BETWEEN_RUN_RELATION_KEYS):
         raise ValueError("Agent Anatomy must retain only the selected between-run Registry edges")
@@ -1289,16 +1438,19 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
     ):
         raise ValueError("Domain grouping cannot be rendered as a technical connector")
 
-    # All linked technical identities must be real and linked by their human-readable record path.
+    # Home module/stage metadata is inspectable without adding duplicate link markers.
     for path, scene in scenes.items():
         for element in scene["elements"]:
             identity = element.get("customData", {}).get("atlas_id")
             if identity is not None:
-                token = path == ANATOMY_PATH and identity in token_ids
+                presentation_record = path == ANATOMY_PATH
                 if (
                     identity not in atlas.entities
-                    or (token and element.get("link") is not None)
-                    or (not token and element.get("link") != note_link(atlas.entities[identity]))
+                    or (presentation_record and element.get("link") is not None)
+                    or (
+                        not presentation_record
+                        and element.get("link") != note_link(atlas.entities[identity])
+                    )
                 ):
                     raise ValueError(
                         f"{path} has an invalid technical-record destination: {identity}"

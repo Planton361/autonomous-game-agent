@@ -144,11 +144,11 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
         assert inside(records[identity], boundaries["between-runs"])
         assert not inside(records[identity], boundaries["in-run"])
     assert "frozen Body version through Life Episode restarts" in tree[ANATOMY_PATH]
-    assert "Cortex proposes" in tree[ANATOMY_PATH]
-    assert "Manager grounds contracts" in tree[ANATOMY_PATH]
-    assert "Body acts within contract" in tree[ANATOMY_PATH]
-    assert "Outside Cortex decision authority" in tree[ANATOMY_PATH]
-    assert "Optional bridge · no-spoiler perception" in tree[ANATOMY_PATH]
+    assert "Cortex proposes" in regions["cognition"]["customData"]["presentation_summary"]
+    assert "Manager validates" in regions["executive"]["customData"]["presentation_summary"]
+    assert "Body acts only" in regions["action-safety"]["customData"]["presentation_summary"]
+    assert regions["verification"]["customData"]["outside_decision_authority"] is True
+    assert "No-Spoiler Firewall" in regions["observation"]["customData"]["presentation_summary"]
     assert records["CMP-VISIBLE-STATE-BRIDGE"]["strokeStyle"] == "dashed"
     assert records["CMP-VISIBLE-STATE-BRIDGE"]["customData"]["path_style"] == "optional"
     assert not any(
@@ -205,19 +205,22 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
                 for element in elements
                 if element.get("customData", {}).get("navigation") == region_key
             )
-            assert region["link"] == expected
+            assert region["link"] is None
             assert region["customData"]["navigation_target"] == expected
             assert action["link"] == expected
             assert action["customData"]["navigation_target"] == expected
+            assert sum(element.get("link") == expected for element in elements) == 1
     bridge = record_elements(public)["CMP-VISIBLE-STATE-BRIDGE"]
-    assert bridge["link"] == note_link(atlas.entities["CMP-VISIBLE-STATE-BRIDGE"])
+    assert bridge["link"] is None
     assert bridge["customData"]["path_style"] == "optional"
     observe = next(
         element
         for element in public["elements"]
         if element.get("customData", {}).get("functional_region") == "observation"
     )
-    assert observe["link"] != bridge["link"]
+    assert observe["customData"]["navigation_target"] != note_link(
+        atlas.entities["CMP-VISIBLE-STATE-BRIDGE"]
+    )
     assert any(
         element.get("customData", {}).get("navigation") == "research-home"
         and element.get("link", "").startswith(f"[[{HOME_PATH.with_suffix('')}|")
@@ -262,7 +265,96 @@ def test_z2_illustrated_home_is_one_system_with_distinct_visual_grammar(atlas):
     assert tokens["DAT-CANDIDATE-BODY-VERSION"]["visual_grammar"] == "data-card"
     assert tokens["CON-MEMORY-UPDATE-REQUEST"]["proposal_only"] is True
     assert "BETWEEN MISSION RUNS" in scene_text(elements)
-    assert "Dashed cues: orientation / optional path" in scene_text(elements)
+    assert len(
+        [
+            element
+            for element in elements
+            if "presentation_connector" in element.get("customData", {})
+        ]
+    ) == len(ANATOMY_REGIONS)
+    assert not any(
+        "atlas_relation" in element.get("customData", {})
+        for element in elements
+        if "presentation_connector" in element.get("customData", {})
+    )
+
+
+def test_z2_frozen_obsidian_cards_show_exact_first_view_landmarks(atlas):
+    elements = scene(workspace_tree(atlas)[ANATOMY_PATH])["elements"]
+    expected = {
+        "environment": (
+            "ACQUIRE",
+            "Environment + capture",
+            ["Game / Environment", "Screen Capture"],
+        ),
+        "observation": (
+            "OBSERVE",
+            "Integrity + state",
+            ["Visible-State Bridge (optional)", "No-Spoiler Firewall", "Perception", "Observation"],
+        ),
+        "evidence-memory": (
+            "RETAIN / RETRIEVE",
+            "Evidence + memory",
+            ["Evidence Ledger", "Memory", "Memory Retrieval"],
+        ),
+        "cognition": ("REASON", "Cognitive planning", ["Cortex", "Planner Output"]),
+        "executive": (
+            "CONTRACT",
+            "Executive control",
+            ["Manager", "Manager Grounding", "Skill Contract"],
+        ),
+        "action-safety": (
+            "ACT",
+            "Body + safe execution",
+            ["Body", "Bounded Reflex", "SafetyFilter", "InputExecutor"],
+        ),
+        "verification": (
+            "VERIFY",
+            "Independent outcome check",
+            ["Independent Verifier", "Visible Outcome", "Replay Buffer", "Memory Update Request"],
+        ),
+    }
+    cards = {
+        element["customData"]["presentation_card"]: element
+        for element in elements
+        if "presentation_card" in element.get("customData", {})
+    }
+    regions = {
+        element["customData"]["functional_region"]: element
+        for element in elements
+        if "functional_region" in element.get("customData", {})
+    }
+    assert set(cards) == set(expected)
+    for key, (title, subtitle, landmarks) in expected.items():
+        assert regions[key]["customData"]["presentation_title"] == title
+        assert regions[key]["customData"]["visible_landmarks"] == landmarks
+        texts = [
+            element["text"].replace("\n", " ")
+            for element in elements
+            if element["type"] == "text"
+            and cards[key]["x"] <= element["x"] < cards[key]["x"] + cards[key]["width"]
+            and cards[key]["y"] <= element["y"] < cards[key]["y"] + cards[key]["height"]
+        ]
+        assert title in texts and subtitle in texts
+        assert all(landmark in texts for landmark in landmarks)
+    for key in ("environment", "observation", "evidence-memory"):
+        assert cards[key]["x"] < 600
+    for key in ("cognition", "executive", "verification"):
+        assert cards[key]["x"] > 1500
+    assert cards["action-safety"]["y"] > cards["verification"]["y"]
+    assert cards["action-safety"]["y"] + cards["action-safety"]["height"] < 1061
+    assert "CMP-TEMPORAL-STATE" not in scene_text(elements)
+    stage_names = {
+        element["text"]
+        for element in elements
+        if element.get("customData", {}).get("landmark_identity")
+        in {"CMP-SKILL-TRAINER", "DAT-CANDIDATE-BODY-VERSION", "CMP-BODY-CERTIFICATION"}
+    }
+    assert stage_names == {
+        "SkillTrainer",
+        "Candidate Body Version",
+        "Body Validation / Certification",
+    }
 
 
 def scene_text(elements):
@@ -318,12 +410,12 @@ def test_domain_slice_separates_presentation_membership_from_technical_edges(atl
 
 def test_z2_scoped_memory_action_reaches_existing_component_hub(atlas):
     public_home = scene(workspace_tree(atlas)[ANATOMY_PATH])
-    memory_region = next(
+    memory_action = next(
         element
         for element in public_home["elements"]
-        if element.get("customData", {}).get("functional_region") == "evidence-memory"
+        if element.get("customData", {}).get("navigation") == "evidence-memory"
     )
-    assert memory_region["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
+    assert memory_action["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
     public = scene(workspace_tree(atlas)[DOMAIN_SLICE_PATH])
     public_action = next(
         element
@@ -354,7 +446,7 @@ def test_z2_verifier_home_action_reaches_existing_component_hub(atlas):
     public_verifier = next(
         element
         for element in public["elements"]
-        if element.get("customData", {}).get("functional_region") == "verification"
+        if element.get("customData", {}).get("navigation") == "verification"
     )
     assert (
         public_verifier["link"].split("|", 1)[0]
@@ -367,7 +459,7 @@ def test_z2_verifier_home_action_reaches_existing_component_hub(atlas):
     private_verifier = next(
         element
         for element in private["elements"]
-        if element.get("customData", {}).get("functional_region") == "verification"
+        if element.get("customData", {}).get("navigation") == "verification"
     )
     assert private_verifier["link"] == (
         f"[[{private_projection.VERIFIER_HUB_TARGET.with_suffix('')}|"
