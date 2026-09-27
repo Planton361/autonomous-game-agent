@@ -628,12 +628,12 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     hero, files = _hero_image()
     elements = [
         hero,
-        _text_item("anatomy-title", "AGENT ANATOMY", 78, 34, 1000, size=45),
+        _text_item("anatomy-title", "AGENT ANATOMY", 78, 20, 1000, size=45),
         _text_item(
             "anatomy-subtitle",
             "One agent, opened for inspection",
             80,
-            105,
+            130,
             980,
             size=21,
             color=_MUTED,

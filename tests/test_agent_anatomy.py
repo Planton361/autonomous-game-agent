@@ -27,6 +27,7 @@ from fh_agent.research_atlas.workspace import (
     HERO_ASSET_PATH,
     HOME_PATH,
     MAP_PATH,
+    element_id,
     note_link,
     note_path_for,
     parse_frontmatter,
@@ -355,6 +356,22 @@ def test_z2_frozen_obsidian_cards_show_exact_first_view_landmarks(atlas):
         "Candidate Body Version",
         "Body Validation / Certification",
     }
+
+
+def test_z2_title_stack_has_clear_generated_vertical_spacing(atlas):
+    elements = scene(workspace_tree(atlas)[ANATOMY_PATH])["elements"]
+
+    def named(identity):
+        return next(item for item in elements if item["id"] == element_id("w03:" + identity))
+
+    title = named("anatomy-title")
+    subtitle = named("anatomy-subtitle")
+    mission = named("runtime-boundary-title")
+    boundary = named("in-run-boundary")
+
+    assert title["y"] + title["height"] + 48 <= subtitle["y"]
+    assert subtitle["y"] + subtitle["height"] + 24 <= mission["y"]
+    assert mission["y"] + mission["height"] + 6 <= boundary["y"]
 
 
 def scene_text(elements):

@@ -235,7 +235,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "verticalAlign": "top",
       "width": 1000,
       "x": 78,
-      "y": 34
+      "y": 20
     },
     {
       "angle": 0,
@@ -272,7 +272,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "verticalAlign": "top",
       "width": 980,
       "x": 80,
-      "y": 105
+      "y": 130
     },
     {
       "angle": 0,
