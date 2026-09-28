@@ -1,12 +1,14 @@
 """Direct views only, using synthetic Git checkouts/vaults; never real private data."""
 
 import copy
+import posixpath
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
+from urllib.parse import unquote
 
 import pytest
 import yaml
@@ -14,6 +16,7 @@ from test_research_wiki_projection import commit, filesystem_state, git, snapsho
 
 from fh_agent.research_atlas import private_projection as technical
 from fh_agent.research_atlas import private_views as views
+from fh_agent.research_atlas.assembly_scopes import PRIVATE_OBSERVE_SCOPE_PATH
 from fh_agent.research_atlas.schema import Relationship
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.wiki_schema import Process, validate_wiki_records
@@ -174,11 +177,27 @@ def remove_w07_landscape_for_legacy_manifest(vault, manifest):
             manifest["owned_files"].remove(item)
 
 
+def remove_observe_scope_for_legacy_manifest(vault, manifest):
+    for item in list(manifest["owned_files"]):
+        if item["path"] == str(views.OBSERVE_SCOPE):
+            (derived(vault) / item["path"]).unlink()
+            manifest["owned_files"].remove(item)
+
+
+def downgrade_manifest_to_v26(vault):
+    path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(path.read_text())
+    manifest["view_schema_version"] = "2.6"
+    remove_observe_scope_for_legacy_manifest(vault, manifest)
+    path.write_text(technical.yaml_text(manifest))
+
+
 def downgrade_manifest_to_v2(vault):
     path = derived(vault) / views.MANIFEST
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.0"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
+    remove_observe_scope_for_legacy_manifest(vault, manifest)
     # Reconstruct the old finite output set before testing a v2.0 migration.
     for item in list(manifest["owned_files"]):
         if (
@@ -200,6 +219,7 @@ def downgrade_manifest_to_v22(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.2"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
+    remove_observe_scope_for_legacy_manifest(vault, manifest)
     for item in list(manifest["owned_files"]):
         if (
             PurePosixPath(item["path"]) in views.K3_HUB_CHILD_PAYLOADS
@@ -215,6 +235,7 @@ def install_pre_w02_v21(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest["view_schema_version"] = "2.1"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
+    remove_observe_scope_for_legacy_manifest(vault, manifest)
     for item in list(manifest["owned_files"]):
         if (
             item["path"] == str(views.HIERARCHY)
@@ -274,7 +295,7 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.REFERENCE_INDEX,
         views.NAVIGATION,
         views.HIERARCHY,
-    } | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(
+    } | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(views.OBSERVE_SCOPE_PAYLOADS) | set(
         views.TECHNICAL_DETAIL_PAYLOADS
     ) | set(views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas")))
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
@@ -293,7 +314,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -321,6 +342,172 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     for p in (views.DIRECT_BASE, views.TECHNICAL_BASE):
         assert f"[[{views.OWNED_ROOT / p}|" in text
     assert sha in text and "Process%20Seeds" in text and "Capability%20Matrix.md" in text
+
+
+def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    authored_before = outside_owned(vault)
+    downgrade_manifest_to_v26(vault)
+    before = filesystem_state(vault)
+
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+
+    migrated = views.project(repo, vault, sha)
+    manifest = yaml.safe_load(migrated[views.MANIFEST])
+    assert manifest["view_schema_version"] == "2.7"
+    assert str(views.OBSERVE_SCOPE) in {item["path"] for item in manifest["owned_files"]}
+    assert outside_owned(vault) == authored_before
+    after = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == migrated
+    assert filesystem_state(vault) == after
+
+
+def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinations(setup):
+    repo, vault, sha = setup
+    atlas = load_registry(repo / "docs/research-atlas")
+    tree = views.project(repo, vault, sha)
+    scope = tree[views.OBSERVE_SCOPE].decode()
+    properties, body = technical.markdown_parts(scope)
+    generated_metadata = views._observe_scope_generated_metadata(scope)
+
+    assert views.OBSERVE_SCOPE == PurePosixPath("assembly-scopes/Observe.md")
+    assert PRIVATE_OBSERVE_SCOPE_PATH == views.OWNED_ROOT / views.OBSERVE_SCOPE
+    assert properties == {}
+    assert generated_metadata["generated_by"] == views.OWNER
+    assert generated_metadata["source_repository"] == views.REPOSITORY
+    assert generated_metadata["source_commit"] == sha
+    assert generated_metadata["source_registry_revision"].startswith("sha256:")
+    assert generated_metadata["observe_scope_view_schema_version"] == "1.0"
+    assert views.OBSERVE_SCOPE_METADATA_MARKER in scope
+    assert "**OBSERVE — Observation Integrity / State**" in body
+    assert "**Navigation location:** Agent Anatomy / Observe" in body
+    assert "## Authority, revision and limitations" in body
+
+    first_view = body.split("## Exact Registry relations\n", 1)[0]
+    assert len(first_view.splitlines()) <= 27
+    assert (
+        first_view.index("← Agent Anatomy")
+        < first_view.index("**OBSERVE — Observation Integrity / State**")
+        < first_view.index("Visible observation boundary")
+    )
+    assert (
+        first_view.index("Visible observation boundary")
+        < first_view.index("Presentation context")
+        < first_view.index("## Observe landmarks")
+    )
+    assert first_view.count("**Action:**") == 4
+
+    expected_actions = {
+        "CMP-VISIBLE-STATE-BRIDGE": "Open Visible-State Bridge",
+        "CMP-NO-SPOILER-FIREWALL": "Open No-Spoiler Firewall",
+        "CMP-PERCEPTION": "Open Perception",
+        "DAT-OBSERVATION": "Open Observation",
+    }
+    for identity, label in expected_actions.items():
+        action_link = technical.private_link(
+            technical.private_path(atlas.entities[identity]), label
+        )
+        assert action_link in body
+    card_section = body.split("## Observe landmarks\n", 1)[1].split(
+        "## Exact Registry relations\n", 1
+    )[0]
+    assert card_section.count("**Action:**") == 4
+    assert (
+        card_section.index("### No-Spoiler Firewall")
+        < card_section.index("> **Visible-State Bridge — OPTIONAL**")
+        < card_section.index("### Perception")
+        < card_section.index("### Observation")
+    )
+    assert "Type: `DataArtifact`" in card_section
+    assert "CMP-TEMPORAL-STATE" not in card_section
+
+    for identity in ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE"):
+        child = atlas.entities[identity]
+        parent = atlas.entities["CMP-PERCEPTION"]
+        child_link = technical.private_link(
+            technical.private_path(child), f"{child.name} · {identity}"
+        )
+        parent_link = technical.private_link(
+            technical.private_path(parent), f"{parent.name} · {parent.id}"
+        )
+        assert (f"| {child_link} | `part_of` | {parent_link} |") in body
+
+    detail_markdown, detail_canvas = views.technical_detail_paths("DAT-OBSERVATION")
+    assert views._derived_link(detail_markdown, "DAT-OBSERVATION · W05 Technical Detail") in body
+    assert views._canvas_link(detail_canvas, "DAT-OBSERVATION · W05 native Canvas") in body
+    assert detail_markdown in tree and detail_canvas in tree
+    assert "No directly related endpoint of this type" in body
+    assert "The Registry declares no Bridge → Firewall → Perception pipeline edge." in body
+
+    manifest = yaml.safe_load(tree[views.MANIFEST])
+    assert manifest["view_schema_version"] == "2.7"
+    owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
+    assert views.OBSERVE_SCOPE in owned
+    assert set(views.COMPONENT_HUB_PATHS) == {
+        "CMP-MEM-RETRIEVAL",
+        "CMP-INDEPENDENT-VERIFIER",
+    }
+    for hub_paths in views.COMPONENT_HUB_PATHS.values():
+        assert {hub_paths.overview, hub_paths.technical, hub_paths.research} <= tree.keys()
+
+    digests = {
+        name: technical.digest((repo / technical.SOURCE_PATHS[0] / name).read_bytes())
+        for name in technical.REGISTRY_FILES
+    }
+    anatomy = technical.projection_tree(atlas, sha, digests)[technical.ANATOMY].decode()
+    assert f"[[{PRIVATE_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]" in anatomy
+    expected_back_link = (
+        "[← Agent Anatomy](../../technical-atlas/system-map/Agent%20Anatomy.excalidraw.md)"
+    )
+    assert expected_back_link in body
+    target = unquote(expected_back_link.partition("](")[2].partition(")")[0])
+    resolved_target = PurePosixPath(
+        posixpath.normpath(
+            str((views.OWNED_ROOT / views.OBSERVE_SCOPE).parent / PurePosixPath(target))
+        )
+    )
+    assert resolved_target == technical.OWNED_ROOT / technical.ANATOMY
+    assert str(vault).encode() not in scope.encode()
+    assert b"SYNTHETIC-PRIVATE-VIEWS-SECRET" not in scope.encode()
+
+    before = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == tree
+    assert filesystem_state(vault) == before
+
+
+def test_observe_research_rows_end_only_at_selected_component_subjects(setup):
+    from test_research_wiki_schema import props
+
+    repo, vault, sha = setup
+    paper_id = "WPAPER-OBSERVE-SCOPE"
+    write_note(
+        vault / "authored/paper-observe.md",
+        props(
+            "paper",
+            wiki_id=paper_id,
+            title="Synthetic Observe path fixture",
+            source_refs=["synthetic-source-v1"],
+            research_direct_subject_refs=[
+                "CMP-CORTEX",
+                "CMP-PERCEPTION",
+                "DAT-OBSERVATION",
+            ],
+        ),
+    )
+    tree = views.project(repo, vault, sha)
+    scope = tree[views.OBSERVE_SCOPE].decode()
+    research = scope.split("### Eligible declared literature navigation\n", 1)[1].split(
+        "## Authority, revision and limitations\n", 1
+    )[0]
+    assert "Perception · `CMP-PERCEPTION` · path 1" in research
+    assert "WPAPER-OBSERVE-SCOPE" in research
+    assert "`N-C/K0/E9:forward`" in research
+    assert "Cortex · `CMP-CORTEX` · path" not in research
+    assert "Exact terminal subject" in research
+    assert "DAT-OBSERVATION` · path" not in research
 
 
 def test_different_vault_locations_produce_identical_complete_output(setup):
@@ -462,7 +649,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.6"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.7"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -690,7 +877,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -707,8 +894,9 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
         manifest["owned_files"] = [
             item
             for item in manifest["owned_files"]
-            if item["path"] != str(views.RESEARCH_LANDSCAPE)
+            if item["path"] not in {str(views.RESEARCH_LANDSCAPE), str(views.OBSERVE_SCOPE)}
         ]
+        (derived(vault) / views.OBSERVE_SCOPE).unlink()
 
     change_manifest(vault, downgrade)
     authored_before = outside_owned(vault)
@@ -718,7 +906,7 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -740,6 +928,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     authored_before = outside_owned(vault)
     current = views.project(repo, vault, sha)
     old_tree = {path: data for path, data in current.items() if path != views.LITERATURE_INSPECTION}
+    old_tree.pop(views.OBSERVE_SCOPE)
 
     landscape_section = (
         "## Literature Inspection\n\n"
@@ -758,7 +947,9 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     manifest = views.read_yaml(old_tree[views.MANIFEST].decode())
     manifest["view_schema_version"] = "2.5"
     manifest["owned_files"] = [
-        item for item in manifest["owned_files"] if item["path"] != str(views.LITERATURE_INSPECTION)
+        item
+        for item in manifest["owned_files"]
+        if item["path"] not in {str(views.LITERATURE_INSPECTION), str(views.OBSERVE_SCOPE)}
     ]
     for item in manifest["owned_files"]:
         path = PurePosixPath(item["path"])
@@ -770,6 +961,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     root = derived(vault)
     target = root / views.LITERATURE_INSPECTION
     target.unlink()
+    (root / views.OBSERVE_SCOPE).unlink()
     for relative, data in old_tree.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -789,7 +981,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert migrated_manifest["view_schema_version"] == "2.6"
+    assert migrated_manifest["view_schema_version"] == "2.7"
     assert str(views.LITERATURE_INSPECTION) in {
         item["path"] for item in migrated_manifest["owned_files"]
     }
@@ -870,7 +1062,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -1690,7 +1882,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.6"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.7"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 

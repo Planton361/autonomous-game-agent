@@ -18,6 +18,11 @@ from fh_agent.research_atlas.anatomy import (
     DOMAIN_RELATION_KEYS,
     FLOW_KEYS,
 )
+from fh_agent.research_atlas.assembly_scopes import (
+    OBSERVE_LANDMARK_IDS,
+    PRIVATE_OBSERVE_SCOPE_PATH,
+    PUBLIC_OBSERVE_SCOPE_PATH,
+)
 from fh_agent.research_atlas.private_views import MEMORY_WORKBENCH
 from fh_agent.research_atlas.private_views import OWNED_ROOT as DERIVED_ROOT
 from fh_agent.research_atlas.validator import Atlas, load_registry
@@ -174,7 +179,7 @@ def test_agent_anatomy_regions_keep_runtime_boundaries_clear(atlas):
 def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
     expected_targets = {
         "environment": "CMP-SCREEN-CAPTURE",
-        "observation": "CMP-PERCEPTION",
+        "observation": None,
         "cognition": "CMP-CORTEX",
         "executive": "CMP-MANAGER",
         "action-safety": "CMP-BODY",
@@ -186,16 +191,20 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
     for value, is_private in ((public, False), (projected, True)):
         elements = value["elements"]
         for region_key, identity in expected_targets.items():
-            node = atlas.entities[identity]
-            expected = note_link(node)
-            if is_private:
-                destination = private_projection.OWNED_ROOT / private_projection.private_path(
-                    node
-                ).with_suffix("")
-                expected = expected.replace(
-                    str(note_path_for(node.id, node.type, node.name).with_suffix("")),
-                    str(destination),
-                )
+            if region_key == "observation":
+                scope_path = PRIVATE_OBSERVE_SCOPE_PATH if is_private else PUBLIC_OBSERVE_SCOPE_PATH
+                expected = f"[[{scope_path.with_suffix('')}|Observe Assembly Scope]]"
+            else:
+                node = atlas.entities[identity]
+                expected = note_link(node)
+                if is_private:
+                    destination = private_projection.OWNED_ROOT / private_projection.private_path(
+                        node
+                    ).with_suffix("")
+                    expected = expected.replace(
+                        str(note_path_for(node.id, node.type, node.name).with_suffix("")),
+                        str(destination),
+                    )
             region = next(
                 element
                 for element in elements
@@ -222,11 +231,88 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
     assert observe["customData"]["navigation_target"] != note_link(
         atlas.entities["CMP-VISIBLE-STATE-BRIDGE"]
     )
+    observe_action = next(
+        element
+        for element in public["elements"]
+        if element.get("customData", {}).get("navigation") == "observation"
+    )
+    assert observe_action["text"] == "OPEN OBSERVE  →  Observe Assembly Scope"
     assert any(
         element.get("customData", {}).get("navigation") == "research-home"
         and element.get("link", "").startswith(f"[[{HOME_PATH.with_suffix('')}|")
         for element in public["elements"]
     )
+
+
+def test_observe_scope_has_exact_landmarks_relations_and_truthful_lanes(atlas):
+    tree = workspace_tree(atlas)
+    scope = tree[PUBLIC_OBSERVE_SCOPE_PATH]
+    validate_links(tree)
+    assert "**Navigation location:** Agent Anatomy / Observe" in scope
+    assert "**OBSERVE — Observation Integrity / State**" in scope
+    assert "Acquire · **Observe** · Retain / Retrieve" in scope
+    assert "Presentation-only navigation" in scope
+
+    cards = scope.split("## Observe landmarks\n", 1)[1].split("## Exact Registry relations\n", 1)[0]
+    ids = re.findall(r"Stable ID: `([A-Z0-9-]+)`", cards)
+    assert set(ids) == set(OBSERVE_LANDMARK_IDS)
+    assert len(ids) == 4
+    action_lines = [line for line in cards.splitlines() if "**Action:**" in line]
+    assert len(action_lines) == 4
+    assert all(action.count("[[") == 1 for action in action_lines)
+    assert "Type: `Component`" in cards
+    assert "Type: `DataArtifact`" in cards
+    assert (
+        cards.index("### No-Spoiler Firewall")
+        < cards.index("> **Visible-State Bridge — OPTIONAL**")
+        < cards.index("### Perception")
+        < cards.index("### Observation")
+    )
+    assert "screenshot-bound, allowlisted" in cards
+    assert "Reduced emphasis and proximity are presentation-only" in cards
+    assert "CMP-TEMPORAL-STATE" not in cards
+
+    relation_text = scope.split("## Exact Registry relations\n", 1)[1].split(
+        "## Technical endpoint lanes\n", 1
+    )[0]
+    triples = set()
+    for row in relation_text.splitlines():
+        if not row.startswith("| [["):
+            continue
+        links = re.findall(r"\[\[([^\]]+)\]\]", row)
+        predicate = re.search(r"`([^`]+)`", row)
+        assert len(links) == 2 and predicate
+        source = links[0].split("|", 1)[1].rsplit(" · ", 1)[1]
+        target = links[1].split("|", 1)[1].rsplit(" · ", 1)[1]
+        triples.add((source, predicate[1], target))
+    assert ("CMP-VISIBLE-STATE-BRIDGE", "observes", "ENV-GAME-INSTANCE") in triples
+    assert ("CMP-PERCEPTION", "consumes", "DAT-SCREEN-FRAME") in triples
+    assert ("CMP-PERCEPTION", "supplies", "DAT-OBSERVATION") in triples
+    assert ("CMP-OBSERVATION-BUILDER", "part_of", "CMP-PERCEPTION") in triples
+    assert ("CMP-PERCEPTION-UI-STATE", "part_of", "CMP-PERCEPTION") in triples
+    assert ("CMP-CORTEX", "consumes", "DAT-OBSERVATION") in triples
+    assert ("CMP-MEMORY", "consumes", "DAT-OBSERVATION") in triples
+    assert ("CMP-INDEPENDENT-VERIFIER", "consumes", "DAT-OBSERVATION") in triples
+    assert ("CMP-TEMPORAL-STATE", "consumes", "DAT-OBSERVATION") in triples
+    assert not any(
+        source == "CMP-VISIBLE-STATE-BRIDGE" and target == "CMP-NO-SPOILER-FIREWALL"
+        for source, _, target in triples
+    )
+    assert not any(
+        source == "CMP-NO-SPOILER-FIREWALL" and target == "CMP-PERCEPTION"
+        for source, _, target in triples
+    )
+
+    lanes = scope.split("## Technical endpoint lanes\n", 1)[1].split(
+        "## Existing W05 Observation detail\n", 1
+    )[0]
+    assert "### Interfaces" in lanes and "No directly related endpoint" in lanes
+    assert "### Contracts" in lanes and "No directly related endpoint" in lanes
+    assert "### DataArtifacts" in lanes
+    assert "DAT-SCREEN-FRAME" in lanes and "DAT-OBSERVATION" in lanes
+    assert "### MeasurementPoints" in lanes and "No directly related endpoint" in lanes
+    assert "DAT-RETRIEVAL-SNAPSHOT" not in lanes
+    assert "private authored" not in scope
 
 
 def test_z2_illustrated_home_is_one_system_with_distinct_visual_grammar(atlas):
@@ -513,6 +599,10 @@ def test_w03_generation_is_byte_deterministic_and_registry_order_independent(atl
             hashlib.sha256(first[path].encode()).digest()
             == hashlib.sha256(second[path].encode()).digest()
         )
+    assert (
+        hashlib.sha256(first[PUBLIC_OBSERVE_SCOPE_PATH].encode()).digest()
+        == hashlib.sha256(second[PUBLIC_OBSERVE_SCOPE_PATH].encode()).digest()
+    )
 
 
 def test_generated_visual_validation_rejects_unsupported_domain_edge_targets(atlas):

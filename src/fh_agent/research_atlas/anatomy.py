@@ -9,6 +9,7 @@ import re
 from collections.abc import Mapping
 from pathlib import PurePosixPath
 
+from .assembly_scopes import PUBLIC_OBSERVE_SCOPE_PATH
 from .schema import Relationship
 from .validator import Atlas
 from .workspace import (
@@ -177,7 +178,7 @@ _VISIBLE_LANDMARKS: Mapping[str, str] = {
 }
 _REGION_ACTION_LABELS: Mapping[str, str] = {
     "environment": "OPEN SCREEN CAPTURE  →",
-    "observation": "OPEN PERCEPTION  →",
+    "observation": "OPEN OBSERVE  →  Observe Assembly Scope",
     "evidence-memory": "OPEN MEMORY VIEW  →",
     "cognition": "OPEN CORTEX  →",
     "executive": "OPEN MANAGER  →",
@@ -186,7 +187,7 @@ _REGION_ACTION_LABELS: Mapping[str, str] = {
 }
 _REGION_NAVIGATION_TARGETS: Mapping[str, str | PurePosixPath] = {
     "environment": "CMP-SCREEN-CAPTURE",
-    "observation": "CMP-PERCEPTION",
+    "observation": PUBLIC_OBSERVE_SCOPE_PATH,
     "evidence-memory": DOMAIN_SLICE_PATH,
     "cognition": "CMP-CORTEX",
     "executive": "CMP-MANAGER",
@@ -401,9 +402,11 @@ def _hero_image() -> tuple[dict, dict]:
 def _region_navigation_link(atlas: Atlas, key: str, identities: tuple[str, ...]) -> str:
     target = _REGION_NAVIGATION_TARGETS[key]
     if isinstance(target, PurePosixPath):
-        if key != "evidence-memory" or target != DOMAIN_SLICE_PATH:
-            raise ValueError("Agent Anatomy has an unsupported scoped navigation target")
-        return f"[[{target.with_suffix('')}|Evidence, Memory & Retrieval]]"
+        if key == "evidence-memory" and target == DOMAIN_SLICE_PATH:
+            return f"[[{target.with_suffix('')}|Evidence, Memory & Retrieval]]"
+        if key == "observation" and target == PUBLIC_OBSERVE_SCOPE_PATH:
+            return f"[[{target.with_suffix('')}|Observe Assembly Scope]]"
+        raise ValueError("Agent Anatomy has an unsupported scoped navigation target")
     if target not in identities:
         raise ValueError("Agent Anatomy navigation target must be an accepted landmark")
     node = atlas.entities[target]

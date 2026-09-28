@@ -813,6 +813,7 @@ def render_map(atlas: Atlas) -> str:
 
 def workspace_tree(atlas: Atlas) -> dict[PurePosixPath, str]:
     from .anatomy import render_agent_anatomy, render_domain_slice
+    from .assembly_scopes import PUBLIC_OBSERVE_SCOPE_PATH, render_public_observe_scope
     from .render import render_overview
 
     tree = {
@@ -829,6 +830,7 @@ def workspace_tree(atlas: Atlas) -> dict[PurePosixPath, str]:
             ANATOMY_PATH: render_agent_anatomy(atlas),
             HERO_ASSET_PATH: anatomy_hero_svg(),
             DOMAIN_SLICE_PATH: render_domain_slice(atlas),
+            PUBLIC_OBSERVE_SCOPE_PATH: render_public_observe_scope(atlas),
             PurePosixPath("overview.md"): render_overview(atlas),
         }
     )
