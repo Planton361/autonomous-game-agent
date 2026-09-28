@@ -20,7 +20,7 @@ from fh_agent.research_atlas.private_reference_index import (
     component_navigation_rows,
     make_snapshot,
 )
-from fh_agent.research_atlas.schema import Relationship
+from fh_agent.research_atlas.schema import DataArtifact, Relationship
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.wiki_schema import WIKI_PREFIXES
 
@@ -148,6 +148,211 @@ def component_research_tree(atlas, records=None, *, locators=None):
         reference,
         locators,
     )
+
+
+def identity_page_tree(atlas, records=None):
+    """Build the finite identity-page slice with synthetic authored Research only."""
+    records = [] if records is None else records
+    snapshot = make_snapshot(records, atlas)
+    private_records = views.landscape_private_records(records, atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    locators = {
+        record["wiki_id"]: PurePosixPath("authored") / f"{record['wiki_id']}.md"
+        for record in records
+    }
+    tree = views.reference_views_tree(
+        SOURCE_COMMIT,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        locators,
+        snapshot,
+        False,
+        private_records,
+    )
+    return tree, snapshot, reference, locators
+
+
+def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
+    secret_title = "SYNTHETIC-PRIVATE-IDENTITY-PAGE-SECRET"
+    records = [
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-PERCEPTION",
+            title=secret_title,
+            research_direct_subject_refs=["CMP-PERCEPTION"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-OBSERVATION",
+            title=secret_title,
+            research_direct_subject_refs=["DAT-OBSERVATION"],
+        ),
+    ]
+    tree, _, reference, _ = identity_page_tree(atlas, records)
+    expected_types = {
+        "CMP-PERCEPTION": "Component",
+        "CMP-OBSERVATION-BUILDER": "Component",
+        "CMP-PERCEPTION-UI-STATE": "Component",
+        "DAT-OBSERVATION": "DataArtifact",
+    }
+    assert set(views.IDENTITY_PAGE_TYPES.items()) == set(expected_types.items())
+    assert set(views.IDENTITY_PAGE_PATHS) == set(expected_types)
+    assert views.IDENTITY_PAGE_PAYLOADS == frozenset(views.IDENTITY_PAGE_PATHS.values())
+
+    for identity, expected_type in expected_types.items():
+        path = views.IDENTITY_PAGE_PATHS[identity]
+        properties, body = views.markdown_parts(tree[path].decode())
+        subject = atlas.entities[identity]
+        assert properties["generated_by"] == views.OWNER
+        assert properties["identity_page_subject_id"] == identity
+        assert properties["identity_page_registry_type"] == expected_type
+        assert properties["private_input_fingerprint"] == reference.private_input_fingerprint
+        assert body.startswith(f"# {subject.name}\n\n**{expected_type}** · Stable ID `{identity}`")
+        assert [
+            body.index(f"## {section}")
+            for section in ("Overview", "Technical", "Research", "Evidence / Provenance")
+        ] == sorted(
+            body.index(f"## {section}")
+            for section in ("Overview", "Technical", "Research", "Evidence / Provenance")
+        )
+        assert "[[#Technical|Technical]]" in body
+        assert "[[#Research|Research]]" in body
+        assert views._derived_link(views.OBSERVE_SCOPE, "Observe Assembly Scope") in body
+        assert (
+            views.private_link(
+                technical_projection.private_path(subject), "Open raw Registry record"
+            )
+            in body
+        )
+        assert secret_title not in body
+
+    perception = tree[views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]].decode()
+    for child_id in ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE"):
+        child = atlas.entities[child_id]
+        route = views._derived_link(
+            views.IDENTITY_PAGE_PATHS[child_id], f"{child.name} · {child.id}"
+        )
+        assert route in perception
+        child_body = tree[views.IDENTITY_PAGE_PATHS[child_id]].decode()
+        parent_route = views._derived_link(
+            views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"], "Perception · CMP-PERCEPTION"
+        )
+        assert parent_route in child_body
+        assert "`part_of`" in child_body
+    parent_section = perception.split("### Technical parent(s)\n", 1)[1].split(
+        "### Direct Component subcomponents", 1
+    )[0]
+    assert "SYS-AGA" in parent_section
+    assert "DOM-OBS-INTEGRITY-STATE" not in parent_section
+    assert "Presentation grouping is navigation context, not technical parentage." in perception
+    assert "`consumes`" in perception and "`supplies`" in perception
+    assert "EVID-48-BUILDER" in perception
+
+    observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
+    detail_markdown, detail_canvas = views.technical_detail_paths("DAT-OBSERVATION")
+    assert "**DataArtifact** · Stable ID `DAT-OBSERVATION`" in observation
+    assert "Direct Component subcomponents" in observation
+    assert "DataArtifact, not a Component" in observation
+    assert views._derived_link(detail_markdown, "Observation · W05 Technical Detail") in observation
+    assert views._canvas_link(detail_canvas, "Observation · W05 native Canvas") in observation
+    assert detail_markdown in tree and detail_canvas in tree
+    assert "DataArtifact targeting is not implemented in this slice" in observation
+    assert "WPAPER-RM1-OBSERVATION" not in observation
+
+    observe = tree[views.OBSERVE_SCOPE].decode()
+    for identity, label in (
+        ("CMP-PERCEPTION", "Open Perception"),
+        ("DAT-OBSERVATION", "Open Observation"),
+    ):
+        assert views._derived_link(views.IDENTITY_PAGE_PATHS[identity], label) in observe
+    for identity, label in (
+        ("CMP-NO-SPOILER-FIREWALL", "Open No-Spoiler Firewall"),
+        ("CMP-VISIBLE-STATE-BRIDGE", "Open Visible-State Bridge"),
+    ):
+        assert (
+            technical_projection.private_link(
+                technical_projection.private_path(atlas.entities[identity]), label
+            )
+            in observe
+        )
+
+    manifest = views.read_yaml(tree[views.MANIFEST].decode())
+    owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
+    assert manifest["view_schema_version"] == "2.8"
+    assert views.IDENTITY_PAGE_PAYLOADS <= owned
+    assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
+
+
+def test_rm1_identity_pages_reject_wrong_types_parents_and_nonpilot_ids(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    with pytest.raises(ProjectionError, match="Unsupported Identity Page subject"):
+        views.identity_page_model(atlas, reference, "CMP-CORTEX")
+
+    entities = dict(atlas.entities)
+    perception_record = entities["CMP-PERCEPTION"].model_dump(mode="python")
+    perception_record["type"] = "DataArtifact"
+    entities["CMP-PERCEPTION"] = DataArtifact.model_validate(perception_record)
+    wrong_type_atlas = replace(atlas, entities=entities)
+    with pytest.raises(ProjectionError, match="wrong Registry type"):
+        views.identity_page_model(wrong_type_atlas, reference, "CMP-PERCEPTION")
+
+    wrong_parent = Relationship(
+        relation="part_of", source="CMP-OBSERVATION-BUILDER", target="DAT-OBSERVATION"
+    )
+    parent_atlas = replace(atlas, relationships=(*atlas.relationships, wrong_parent))
+    with pytest.raises(ProjectionError, match="parent is not a System or Component"):
+        views.identity_page_model(parent_atlas, reference, "CMP-OBSERVATION-BUILDER")
+
+    wrong_dataartifact_parent = Relationship(
+        relation="part_of", source="DAT-OBSERVATION", target="CMP-PERCEPTION"
+    )
+    dataartifact_atlas = replace(
+        atlas, relationships=(*atlas.relationships, wrong_dataartifact_parent)
+    )
+    with pytest.raises(ProjectionError, match="does not infer Component containment"):
+        views.identity_page_model(dataartifact_atlas, reference, "DAT-OBSERVATION")
+
+
+def test_rm1_identity_pages_are_deterministic_under_shuffled_inputs(atlas):
+    records = [
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-PERCEPTION",
+            research_direct_subject_refs=["CMP-PERCEPTION"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-OBSERVATION",
+            research_direct_subject_refs=["DAT-OBSERVATION"],
+        ),
+    ]
+    current_tree, _, _, _ = identity_page_tree(atlas, records)
+    shuffled_atlas = replace(atlas, relationships=tuple(reversed(atlas.relationships)))
+    shuffled_tree, _, _, _ = identity_page_tree(shuffled_atlas, list(reversed(records)))
+    assert current_tree == shuffled_tree
+
+
+def test_rm1_identity_page_ownership_is_finite(tmp_path, atlas):
+    tree, _, _, _ = identity_page_tree(atlas)
+    root = tmp_path / "derived"
+    manifest_path = root / views.MANIFEST
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(tree[views.MANIFEST])
+    prior = views.validate_prior(root)
+    assert set(prior).intersection(views.IDENTITY_PAGE_PAYLOADS) == views.IDENTITY_PAGE_PAYLOADS
+
+    manifest = views.read_yaml(manifest_path.read_text())
+    sample = next(
+        item
+        for item in manifest["owned_files"]
+        if item["path"] in map(str, views.IDENTITY_PAGE_PAYLOADS)
+    )
+    manifest["owned_files"].append({**sample, "path": "identity-pages/Unregistered.md"})
+    manifest_path.write_text(views.yaml_text(manifest))
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
 
 
 def w10_private_fixtures():
@@ -474,7 +679,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -953,7 +1158,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -994,7 +1199,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)

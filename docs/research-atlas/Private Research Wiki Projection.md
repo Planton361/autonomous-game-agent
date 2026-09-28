@@ -628,6 +628,50 @@ Candidate History and Decision Lineage remain deferred. No acceptance/status
 promotion, private-to-public export, scientific adjudication or Wiki-to-Agent
 Memory/Retrieval/Cortex path is introduced.
 
+## RM-1 universal Identity Page reference slice (manifest v2.8)
+
+RM-1 adds four compact pages under the existing `research-wiki-derived`
+`_generated/derived/` owner:
+
+```text
+identity-pages/Perception.md
+identity-pages/Observation Builder.md
+identity-pages/UI State Classification.md
+identity-pages/Observation.md
+```
+
+One exact ID-to-page resolver maps `CMP-PERCEPTION`,
+`CMP-OBSERVATION-BUILDER`, `CMP-PERCEPTION-UI-STATE` and `DAT-OBSERVATION`
+to those human-titled paths. Each page uses the same Overview, Technical,
+Research and Evidence / Provenance sections. The human Registry name is the
+heading; the exact type and stable ID remain visible beneath it. Existing
+ID-based raw Registry records remain available as inspection routes and are
+not renamed or copied into editable pages.
+
+Component parent and child links use only direct Registry `part_of` relations.
+`presented_in_domain` remains a separate presentation context. Technical
+inputs, outputs, typed endpoint lanes and selected historical implementation
+Evidence preserve exact Registry direction and type, with explicit empty
+states. The Observe actions for Perception and Observation open their Identity
+Pages; the other Observe landmarks retain their existing raw-record routes.
+Both Perception children return to the Perception page and all four pages link
+back to the existing Observe Assembly Scope.
+
+The Observation page links to the existing W05 Markdown detail and native
+Canvas; it creates neither a replacement detail nor an extra Canvas. Component
+Research navigation reuses exact eligible Component paths in the existing
+Declared Reference Index. DataArtifact research targeting is unavailable in
+this slice, and no attachment path or Research prose is inferred. The existing
+Memory Retrieval and Independent Verifier Hubs remain unchanged.
+
+Manifest v2.8 adds only these four exact page paths beyond the previously
+declared outputs. Prior v1.0–v2.7 ownership remains finite and readable; only a
+v2.8 manifest may own the four Identity Page paths. `--check` remains
+zero-write, unknown files still fail closed, and authored/private content
+remains outside these generated pages. This code change does not apply the
+projection to the actual private vault; exact-head CONTROL authorization is
+still required for G6.
+
 ## RA-4A fixture-only Zotero source projection
 
 RA-4A adds an independent offline PoC, with one explicit synthetic JSON fixture
