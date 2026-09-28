@@ -15,6 +15,10 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from .anatomy import render_agent_anatomy, render_domain_slice
+from .assembly_scopes import (
+    PRIVATE_OBSERVE_SCOPE_PATH,
+    PUBLIC_OBSERVE_SCOPE_PATH,
+)
 from .schema import PREFIXES, Entity
 from .validator import Atlas, UniqueKeyLoader, load_registry
 from .wiki_schema import validate_wiki_records
@@ -154,6 +158,9 @@ def projection_tree(
     map_targets = dict(targets)
     # Complete workspace apply generates this W01/W02 landing page in the second projection.
     map_targets[str(HOME_PATH.with_suffix(""))] = K3_HOME_TARGET.with_suffix("")
+    map_targets[str(PUBLIC_OBSERVE_SCOPE_PATH.with_suffix(""))] = (
+        PRIVATE_OBSERVE_SCOPE_PATH.with_suffix("")
+    )
 
     memory_record = atlas.entities["CMP-MEM-RETRIEVAL"]
     memory_public_target = str(

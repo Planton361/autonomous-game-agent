@@ -17,6 +17,12 @@ from urllib.parse import quote
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from .assembly_scopes import (
+    OBSERVE_COMPONENT_IDS,
+    OBSERVE_SCOPE_RELATIVE_PATH,
+    registry_content_revision,
+    render_observe_scope,
+)
 from .private_projection import ANATOMY as TECHNICAL_ANATOMY
 from .private_projection import (
     COMMIT,
@@ -123,6 +129,7 @@ K3_PRE_W07_PAYLOADS = frozenset(
 )
 W07_PAYLOADS = frozenset((RESEARCH_LANDSCAPE,))
 W10_PAYLOADS = frozenset((LITERATURE_INSPECTION,))
+OBSERVE_SCOPE_PAYLOADS = frozenset((OBSERVE_SCOPE_RELATIVE_PATH,))
 K3_PAYLOADS = K3_PRE_W07_PAYLOADS | W07_PAYLOADS
 K3_HUB_CHILD_PAYLOADS = frozenset(
     (
@@ -135,6 +142,7 @@ K3_HUB_CHILD_PAYLOADS = frozenset(
 LEGACY_K3_PAYLOADS = frozenset((LEGACY_MEMORY_WORKBENCH, LEGACY_VERIFIER_WORKBENCH))
 K3_PRIOR_PAYLOADS = frozenset((K3_HOME, MEMORY_WORKBENCH, VERIFIER_WORKBENCH)) | LEGACY_K3_PAYLOADS
 TECHNICAL_DETAIL_ROOT = PurePosixPath("workbenches/Technical Details")
+OBSERVE_SCOPE = OBSERVE_SCOPE_RELATIVE_PATH
 TECHNICAL_DETAIL_ENDPOINT_TYPES = {
     "IF-MEM-CORTEX": "Interface",
     "CON-CORTEX-CONTEXT": "Contract",
@@ -219,6 +227,7 @@ LANDSCAPE_PRIVATE_STATUS_FIELDS = {
 }
 V25_INDEX_PAYLOADS = frozenset((INDEX, NAVIGATION, K3_HOME, RESEARCH_LANDSCAPE, HIERARCHY))
 V26_INDEX_PAYLOADS = V25_INDEX_PAYLOADS | W10_PAYLOADS
+V27_INDEX_PAYLOADS = V26_INDEX_PAYLOADS
 
 LITERATURE_RESEARCH_ROLE_FIELDS = (
     "research_direct_subject_refs",
@@ -2312,6 +2321,10 @@ class ManifestV26(ManifestV21):
     view_schema_version: Literal["2.6"]
 
 
+class ManifestV27(ManifestV21):
+    view_schema_version: Literal["2.7"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -2481,6 +2494,37 @@ def reference_views_tree(
         workbench_path, canvas_path = technical_detail_paths(detail.endpoint_id)
         tree[workbench_path] = render_technical_detail_workbench(commit, atlas, detail)
         tree[canvas_path] = render_technical_detail_canvas(atlas, detail)
+    research_rows = _observe_research_navigation_lines(atlas, reference, locators)
+    detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
+    observe_body = render_observe_scope(
+        atlas,
+        identity_link=lambda identity, label: private_link(
+            private_path(atlas.entities[identity]), label
+        ),
+        back_link=_technical_surface_link(TECHNICAL_ANATOMY, "← Agent Anatomy"),
+        source_revision=registry_content_revision(atlas),
+        source_commit=commit,
+        detail_links=(
+            _derived_link(detail_markdown, "DAT-OBSERVATION · W05 Technical Detail"),
+            _canvas_link(detail_canvas, "DAT-OBSERVATION · W05 native Canvas"),
+        ),
+        research_lines=research_rows,
+        research_empty_note=(
+            "No eligible current N-C navigation path terminates at one of the listed Component "
+            "subjects in this source snapshot. Observation is a DataArtifact; no Component "
+            "terminal path is inferred for it."
+        ),
+    )
+    observe_properties = dict(
+        generated_by=OWNER,
+        source_repository=REPOSITORY,
+        source_commit=commit,
+        observe_scope_view_schema_version="1.0",
+        source_registry_revision=registry_content_revision(atlas),
+    )
+    tree[OBSERVE_SCOPE] = (
+        "---\n" + yaml_text(observe_properties) + "---\n" + observe_body
+    ).encode()
     hierarchy = hierarchy_tree(commit, atlas)
     if tree.keys() & hierarchy.keys():
         raise ProjectionError("Duplicate generated hierarchy path")
@@ -2510,15 +2554,81 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.6",
+        view_schema_version="2.7",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV26.model_validate(data).model_dump(exclude_none=True)
+        ManifestV27.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
+
+
+def _observe_research_navigation_lines(
+    atlas: Atlas,
+    reference: ReferenceIndex,
+    locators: dict[str, PurePosixPath],
+) -> tuple[str, ...]:
+    """Reuse only eligible W06 N-C paths terminating at an exact Observe Component."""
+    source_path = OWNED_ROOT / OBSERVE_SCOPE
+    rows = tuple(
+        sorted(
+            (
+                row
+                for identity in OBSERVE_COMPONENT_IDS
+                for row in component_navigation_rows(reference, identity)
+            ),
+            key=lambda row: (
+                row.target_identifier,
+                row.navigation_start.identifier if row.navigation_start else "",
+                row.originating_property,
+                row.source_wiki_id,
+                row.row_id,
+            ),
+        )
+    )
+    if not rows:
+        return ()
+    lines: list[str] = []
+    for number, row in enumerate(rows, start=1):
+        if row.navigation_start is None:
+            raise ProjectionError("Eligible Observe Component path has no source identity")
+        target = atlas.entities[row.target_identifier]
+        navigation_start = _component_identity_display(
+            row.navigation_start, atlas, locators, source_path
+        )
+        terminal_subject = _technical_link(atlas, target.id)
+        declaring_record = _component_research_link(
+            atlas, row.source_wiki_id, locators, source_path
+        )
+        lines.extend(
+            [
+                f"### {target.name} · `{row.target_identifier}` · path {number}",
+                "",
+                f"- Navigation start: {navigation_start}",
+                f"- Exact terminal subject: {terminal_subject} · type `{target.type}`",
+                f"- Declaring record: {declaring_record} · type `{row.source_doc_type}` "
+                f"· revision `v{row.source_record_version}`",
+                f"- Originating property / role: `{row.originating_property}` "
+                f"/ `{row.originating_role or 'none'}`",
+                f"- Path kind / recipe: `{row.path_kind}` / `{row.recipe}`",
+                "- Ordered declared-reference path:",
+            ]
+        )
+        for edge_number, edge in enumerate(row.via, start=1):
+            lines.extend(
+                "  " + line
+                for line in _component_via_edge_lines(
+                    edge, atlas, locators, source_path, edge_number
+                )
+            )
+        lines.extend([f"- Index row: `{row.row_id}`", ""])
+    lines.append(
+        "Current W06 N-C navigation has Component terminal subjects; "
+        "no DataArtifact path is inferred for `DAT-OBSERVATION`."
+    )
+    return tuple(lines)
 
 
 def authored_snapshot(
@@ -2592,6 +2702,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV25.model_validate(data)
         elif data.get("view_schema_version") == "2.6":
             manifest = ManifestV26.model_validate(data)
+        elif data.get("view_schema_version") == "2.7":
+            manifest = ManifestV27.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -2612,14 +2724,16 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and relative.suffix == ".md"
                     and (
                         relative not in W07_PAYLOADS
-                        or manifest.view_schema_version in {"2.5", "2.6"}
+                        or manifest.view_schema_version in {"2.5", "2.6", "2.7"}
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
+                    and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                 )
             )
             or (
-                manifest.view_schema_version in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6"}
+                manifest.view_schema_version
+                in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7"}
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -2635,21 +2749,22 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
             or (
-                manifest.view_schema_version == "2.6"
+                manifest.view_schema_version in {"2.6", "2.7"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
+            or (manifest.view_schema_version == "2.7" and relative in OBSERVE_SCOPE_PAYLOADS)
             or (
-                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6"}
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7"}
                 and relative == HIERARCHY
             )
             or (
-                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6"}
+                manifest.view_schema_version in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
             or (
-                manifest.view_schema_version in {"2.4", "2.5", "2.6"}
+                manifest.view_schema_version in {"2.4", "2.5", "2.6", "2.7"}
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
         ):

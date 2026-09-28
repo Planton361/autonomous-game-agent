@@ -46,7 +46,7 @@ Perception ^7419b4c9
 
 Observation ^735133f0
 
-OPEN PERCEPTION  → ^2aff9526
+OPEN OBSERVE  →  Observe Assembly Scope ^2aff9526
 
 RETAIN / RETRIEVE ^8600ff43
 
@@ -135,7 +135,7 @@ OPEN WORKSHOP  → ^17147fa7
 
 ba9f1541: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
-2aff9526: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+2aff9526: [[Assembly Scopes/Observe|Observe Assembly Scope]]
 
 32a84c09: [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval]]
 
@@ -1326,7 +1326,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
           "CMP-VISIBLE-STATE-BRIDGE": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
           "DAT-OBSERVATION": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]"
         },
-        "navigation_target": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
+        "navigation_target": "[[Assembly Scopes/Observe|Observe Assembly Scope]]",
         "presentation_only": true,
         "presentation_summary": "All observation paths remain within the No-Spoiler Firewall",
         "presentation_title": "OBSERVE",
@@ -1772,7 +1772,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "containerId": null,
       "customData": {
         "navigation": "observation",
-        "navigation_target": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]"
+        "navigation_target": "[[Assembly Scopes/Observe|Observe Assembly Scope]]"
       },
       "fillStyle": "solid",
       "fontFamily": 2,
@@ -1783,18 +1783,18 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "2aff9526",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
+      "link": "[[Assembly Scopes/Observe|Observe Assembly Scope]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "OPEN PERCEPTION  →",
-      "rawText": "OPEN PERCEPTION  →",
+      "originalText": "OPEN OBSERVE  →  Observe Assembly Scope",
+      "rawText": "OPEN OBSERVE  →  Observe Assembly Scope",
       "roughness": 0,
       "roundness": null,
       "seed": 721392934,
       "strokeColor": "#426f7d",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "OPEN PERCEPTION  →",
+      "text": "OPEN OBSERVE  →  Observe Assembly Scope",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
