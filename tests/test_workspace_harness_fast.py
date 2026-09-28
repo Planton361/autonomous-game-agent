@@ -474,7 +474,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -953,7 +953,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -994,7 +994,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.6"
+    assert manifest["view_schema_version"] == "2.7"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -1055,6 +1055,11 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
     write_manifest("2.6", [unknown_index])
     with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
         views.validate_prior(root)
+    write_manifest("2.7", [views.OBSERVE_SCOPE])
+    assert set(views.validate_prior(root)) == {views.OBSERVE_SCOPE}
+    write_manifest("2.7", [unknown_index])
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
 
 
 @pytest.mark.parametrize(
@@ -1068,6 +1073,7 @@ def test_w05_manifest_ownership_is_exact_and_version_bounded(tmp_path: Path):
         ("2.4", (views.technical_detail_paths("IF-MEM-CORTEX")[1],)),
         ("2.5", (views.RESEARCH_LANDSCAPE,)),
         ("2.6", (views.LITERATURE_INSPECTION,)),
+        ("2.7", (views.OBSERVE_SCOPE,)),
     ],
 )
 def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version, paths):
@@ -1090,7 +1096,7 @@ def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version,
                 "sha256": "c" * 64,
                 **(
                     {"ownership": views.STRICT_OWNERSHIP}
-                    if version in {"2.1", "2.2", "2.3", "2.4", "2.5", "2.6"}
+                    if version in {"2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7"}
                     else {}
                 ),
             }
