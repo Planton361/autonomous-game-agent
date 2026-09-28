@@ -249,9 +249,9 @@ def test_observe_scope_has_exact_landmarks_relations_and_truthful_lanes(atlas):
     scope = tree[PUBLIC_OBSERVE_SCOPE_PATH]
     validate_links(tree)
     assert "**Navigation location:** Agent Anatomy / Observe" in scope
-    assert "# OBSERVE — Observation Integrity / State" in scope
+    assert "**OBSERVE — Observation Integrity / State**" in scope
     assert "Acquire · **Observe** · Retain / Retrieve" in scope
-    assert "presentation navigation only" in scope
+    assert "Presentation-only navigation" in scope
 
     cards = scope.split("## Observe landmarks\n", 1)[1].split("## Exact Registry relations\n", 1)[0]
     ids = re.findall(r"Stable ID: `([A-Z0-9-]+)`", cards)

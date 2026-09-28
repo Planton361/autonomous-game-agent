@@ -4,46 +4,31 @@ atlas_presentation_view: assembly-scope
 atlas_presentation_only: true
 atlas_registry_revision: sha256:08b2079918c84d2b84b151ff364e753d482ac908011530320b188c1c9a205104
 ---
-[[Assets/Excalidraw/Agent Anatomy.excalidraw|← Agent Anatomy]]
+[[Assets/Excalidraw/Agent Anatomy.excalidraw|← Agent Anatomy]] · **Navigation location:** Agent Anatomy / Observe (static presentation breadcrumb)
 
-**Navigation location:** Agent Anatomy / Observe. This is a static presentation breadcrumb, not browser history.
-
-# OBSERVE — Observation Integrity / State
+**OBSERVE — Observation Integrity / State**
 
 Visible observation boundary, processing and payload.
 
-## Presentation context
-
-Acquire · **Observe** · Retain / Retrieve
-
-This strip is presentation navigation only; it does not describe technical dependencies.
+**Presentation context:** Acquire · **Observe** · Retain / Retrieve
+*Presentation-only navigation; it does not describe technical dependencies.*
 
 ## Observe landmarks
 
 ### No-Spoiler Firewall
-Type: `Component` · Stable ID: `CMP-NO-SPOILER-FIREWALL`
-Enforces the visible-data and no-spoiler boundary.
-**Action:** [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|Open No-Spoiler Firewall]]
+Type: `Component` · Stable ID: `CMP-NO-SPOILER-FIREWALL` — Enforces the visible-data and no-spoiler boundary. **Action:** [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|Open No-Spoiler Firewall]]
 
 > **Visible-State Bridge — OPTIONAL**
 >
-> Type: `Component` · Stable ID: `CMP-VISIBLE-STATE-BRIDGE`
->
-> Optional screenshot-bound, allowlisted bridge assistance remains subject to the no-spoiler boundary.
->
-> **Action:** [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Open Visible-State Bridge]]
+> Type: `Component` · Stable ID: `CMP-VISIBLE-STATE-BRIDGE` — Optional screenshot-bound, allowlisted bridge assistance remains subject to the no-spoiler boundary. **Action:** [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Open Visible-State Bridge]]
 >
 > Reduced emphasis and proximity are presentation-only; they do not claim Firewall containment.
 
 ### Perception
-Type: `Component` · Stable ID: `CMP-PERCEPTION`
-Assembles signals from visible observations.
-**Action:** [[Components/CMP-PERCEPTION — Perception|Open Perception]]
+Type: `Component` · Stable ID: `CMP-PERCEPTION` — Assembles signals from visible observations. **Action:** [[Components/CMP-PERCEPTION — Perception|Open Perception]]
 
 ### Observation
-Type: `DataArtifact` · Stable ID: `DAT-OBSERVATION`
-Typed visible-observation payload carrying visible signals and evidence references.
-**Action:** [[Data Artifacts/DAT-OBSERVATION — Observation|Open Observation]]
+Type: `DataArtifact` · Stable ID: `DAT-OBSERVATION` — Typed visible-observation payload carrying visible signals and evidence references. **Action:** [[Data Artifacts/DAT-OBSERVATION — Observation|Open Observation]]
 
 ## Exact Registry relations
 

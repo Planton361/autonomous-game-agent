@@ -1,12 +1,14 @@
 """Direct views only, using synthetic Git checkouts/vaults; never real private data."""
 
 import copy
+import posixpath
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path, PurePosixPath
+from urllib.parse import unquote
 
 import pytest
 import yaml
@@ -369,16 +371,34 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     tree = views.project(repo, vault, sha)
     scope = tree[views.OBSERVE_SCOPE].decode()
     properties, body = technical.markdown_parts(scope)
+    generated_metadata = views._observe_scope_generated_metadata(scope)
 
     assert views.OBSERVE_SCOPE == PurePosixPath("assembly-scopes/Observe.md")
     assert PRIVATE_OBSERVE_SCOPE_PATH == views.OWNED_ROOT / views.OBSERVE_SCOPE
-    assert properties["generated_by"] == views.OWNER
-    assert properties["source_commit"] == sha
-    assert properties["source_registry_revision"].startswith("sha256:")
-    assert properties["observe_scope_view_schema_version"] == "1.0"
-    assert "# OBSERVE — Observation Integrity / State" in body
+    assert properties == {}
+    assert generated_metadata["generated_by"] == views.OWNER
+    assert generated_metadata["source_repository"] == views.REPOSITORY
+    assert generated_metadata["source_commit"] == sha
+    assert generated_metadata["source_registry_revision"].startswith("sha256:")
+    assert generated_metadata["observe_scope_view_schema_version"] == "1.0"
+    assert views.OBSERVE_SCOPE_METADATA_MARKER in scope
+    assert "**OBSERVE — Observation Integrity / State**" in body
     assert "**Navigation location:** Agent Anatomy / Observe" in body
     assert "## Authority, revision and limitations" in body
+
+    first_view = body.split("## Exact Registry relations\n", 1)[0]
+    assert len(first_view.splitlines()) <= 27
+    assert (
+        first_view.index("← Agent Anatomy")
+        < first_view.index("**OBSERVE — Observation Integrity / State**")
+        < first_view.index("Visible observation boundary")
+    )
+    assert (
+        first_view.index("Visible observation boundary")
+        < first_view.index("Presentation context")
+        < first_view.index("## Observe landmarks")
+    )
+    assert first_view.count("**Action:**") == 4
 
     expected_actions = {
         "CMP-VISIBLE-STATE-BRIDGE": "Open Visible-State Bridge",
@@ -440,9 +460,16 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     anatomy = technical.projection_tree(atlas, sha, digests)[technical.ANATOMY].decode()
     assert f"[[{PRIVATE_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]" in anatomy
     expected_back_link = (
-        f"[[{technical.OWNED_ROOT / technical.ANATOMY.with_suffix('')}|← Agent Anatomy]]"
+        "[← Agent Anatomy](../../technical-atlas/system-map/Agent%20Anatomy.excalidraw.md)"
     )
     assert expected_back_link in body
+    target = unquote(expected_back_link.partition("](")[2].partition(")")[0])
+    resolved_target = PurePosixPath(
+        posixpath.normpath(
+            str((views.OWNED_ROOT / views.OBSERVE_SCOPE).parent / PurePosixPath(target))
+        )
+    )
+    assert resolved_target == technical.OWNED_ROOT / technical.ANATOMY
     assert str(vault).encode() not in scope.encode()
     assert b"SYNTHETIC-PRIVATE-VIEWS-SECRET" not in scope.encode()
 

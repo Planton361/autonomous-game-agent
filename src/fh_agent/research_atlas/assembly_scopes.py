@@ -118,22 +118,17 @@ def render_observe_scope(
     )
 
     lines = [
-        back_link,
-        "",
         (
-            "**Navigation location:** Agent Anatomy / Observe. This is a static presentation "
-            "breadcrumb, not browser history."
+            f"{back_link} · **Navigation location:** Agent Anatomy / Observe "
+            "(static presentation breadcrumb)"
         ),
         "",
-        "# OBSERVE — Observation Integrity / State",
+        "**OBSERVE — Observation Integrity / State**",
         "",
         "Visible observation boundary, processing and payload.",
         "",
-        "## Presentation context",
-        "",
-        "Acquire · **Observe** · Retain / Retrieve",
-        "",
-        "This strip is presentation navigation only; it does not describe technical dependencies.",
+        "**Presentation context:** Acquire · **Observe** · Retain / Retrieve",
+        "*Presentation-only navigation; it does not describe technical dependencies.*",
         "",
         "## Observe landmarks",
         "",
@@ -149,20 +144,16 @@ def render_observe_scope(
     lines.extend(
         [
             f"### {firewall.name}",
-            f"Type: `{firewall.type}` · Stable ID: `CMP-NO-SPOILER-FIREWALL`",
-            "Enforces the visible-data and no-spoiler boundary.",
-            f"**Action:** {firewall_action}",
+            f"Type: `{firewall.type}` · Stable ID: `CMP-NO-SPOILER-FIREWALL` — "
+            f"Enforces the visible-data and no-spoiler boundary. **Action:** {firewall_action}",
             "",
             "> **Visible-State Bridge — OPTIONAL**",
             ">",
-            "> Type: `Component` · Stable ID: `CMP-VISIBLE-STATE-BRIDGE`",
-            ">",
             (
-                "> Optional screenshot-bound, allowlisted bridge assistance remains subject to "
-                "the no-spoiler boundary."
+                "> Type: `Component` · Stable ID: `CMP-VISIBLE-STATE-BRIDGE` — Optional "
+                "screenshot-bound, allowlisted bridge assistance remains subject to the "
+                f"no-spoiler boundary. **Action:** {bridge_action}"
             ),
-            ">",
-            f"> **Action:** {bridge_action}",
             ">",
             (
                 "> Reduced emphasis and proximity are presentation-only; they do not claim "
@@ -178,14 +169,13 @@ def render_observe_scope(
     lines.extend(
         [
             f"### {perception.name}",
-            f"Type: `{perception.type}` · Stable ID: `CMP-PERCEPTION`",
-            "Assembles signals from visible observations.",
-            f"**Action:** {perception_action}",
+            f"Type: `{perception.type}` · Stable ID: `CMP-PERCEPTION` — "
+            f"Assembles signals from visible observations. **Action:** {perception_action}",
             "",
             f"### {observation.name}",
-            f"Type: `{observation.type}` · Stable ID: `DAT-OBSERVATION`",
-            "Typed visible-observation payload carrying visible signals and evidence references.",
-            f"**Action:** {observation_action}",
+            f"Type: `{observation.type}` · Stable ID: `DAT-OBSERVATION` — "
+            "Typed visible-observation payload carrying visible signals and evidence "
+            f"references. **Action:** {observation_action}",
             "",
             "## Exact Registry relations",
             "",

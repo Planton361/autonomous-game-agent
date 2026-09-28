@@ -130,6 +130,7 @@ K3_PRE_W07_PAYLOADS = frozenset(
 W07_PAYLOADS = frozenset((RESEARCH_LANDSCAPE,))
 W10_PAYLOADS = frozenset((LITERATURE_INSPECTION,))
 OBSERVE_SCOPE_PAYLOADS = frozenset((OBSERVE_SCOPE_RELATIVE_PATH,))
+OBSERVE_SCOPE_METADATA_MARKER = "<!-- observe-scope-generated-metadata\n"
 K3_PAYLOADS = K3_PRE_W07_PAYLOADS | W07_PAYLOADS
 K3_HUB_CHILD_PAYLOADS = frozenset(
     (
@@ -346,6 +347,28 @@ def _canvas_link(path: PurePosixPath, label: str) -> str:
 
 def _technical_surface_link(path: PurePosixPath, label: str) -> str:
     return f"[[{TECHNICAL_ROOT / path.with_suffix('')}|{label}]]"
+
+
+def _relative_markdown_link(source: PurePosixPath, destination: PurePosixPath, label: str) -> str:
+    relative = posixpath.relpath(destination.as_posix(), start=source.parent.as_posix())
+    return f"[{label}]({quote(relative, safe='/.-_')})"
+
+
+def _observe_scope_generated_metadata(text: str) -> dict:
+    """Read scope ownership metadata from legacy frontmatter or its hidden metadata comment."""
+    properties, body = markdown_parts(text)
+    if properties.get("generated_by") == OWNER:
+        return properties
+    _, marker, remainder = body.partition(OBSERVE_SCOPE_METADATA_MARKER)
+    if not marker:
+        return {}
+    metadata_text, end_marker, _ = remainder.partition("\n-->")
+    if not end_marker:
+        return {}
+    try:
+        return read_yaml(metadata_text)
+    except ProjectionError:
+        return {}
 
 
 def _technical_link(atlas: Atlas, identity: str) -> str:
@@ -2501,7 +2524,11 @@ def reference_views_tree(
         identity_link=lambda identity, label: private_link(
             private_path(atlas.entities[identity]), label
         ),
-        back_link=_technical_surface_link(TECHNICAL_ANATOMY, "← Agent Anatomy"),
+        back_link=_relative_markdown_link(
+            OWNED_ROOT / OBSERVE_SCOPE,
+            TECHNICAL_ROOT / TECHNICAL_ANATOMY,
+            "← Agent Anatomy",
+        ),
         source_revision=registry_content_revision(atlas),
         source_commit=commit,
         detail_links=(
@@ -2522,9 +2549,8 @@ def reference_views_tree(
         observe_scope_view_schema_version="1.0",
         source_registry_revision=registry_content_revision(atlas),
     )
-    tree[OBSERVE_SCOPE] = (
-        "---\n" + yaml_text(observe_properties) + "---\n" + observe_body
-    ).encode()
+    observe_metadata = OBSERVE_SCOPE_METADATA_MARKER + yaml_text(observe_properties) + "-->\n"
+    tree[OBSERVE_SCOPE] = (observe_body + "\n" + observe_metadata).encode()
     hierarchy = hierarchy_tree(commit, atlas)
     if tree.keys() & hierarchy.keys():
         raise ProjectionError("Duplicate generated hierarchy path")
@@ -2878,6 +2904,8 @@ def project(
                 and canvas.get("generated_by") == OWNER
                 and canvas.get("canvas_view_schema_version") == "1.0"
             )
+        elif relative == OBSERVE_SCOPE:
+            owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
         else:
             owned = markdown_parts(utf8(data))[0].get("generated_by") == OWNER
         if not owned:
