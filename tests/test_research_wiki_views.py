@@ -412,6 +412,89 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     assert filesystem_state(vault) == after
 
 
+def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_write(setup):
+    repo, vault, sha = setup
+    generated = views.project(repo, vault, sha)
+    manifest = views.read_yaml((derived(vault) / views.MANIFEST).read_text())
+    owned = {
+        PurePosixPath(item["path"])
+        for item in manifest["owned_files"]
+        if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS
+    }
+
+    assert manifest["view_schema_version"] == "2.8"
+    assert owned == views.IDENTITY_PAGE_PAYLOADS
+    for path in views.IDENTITY_PAGE_PAYLOADS:
+        rendered = (derived(vault) / path).read_text()
+        assert (
+            views._identity_page_generated_metadata(rendered, path)["generated_by"] == views.OWNER
+        )
+
+    before_check = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == generated
+    assert filesystem_state(vault) == before_check
+
+
+@pytest.mark.parametrize(
+    "fault",
+    ("missing", "malformed", "wrong_owner", "wrong_subject", "wrong_type"),
+)
+def test_identity_page_hidden_metadata_fails_closed(setup, fault):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    path = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    target = derived(vault) / path
+    original = target.read_text()
+    visible, _, _ = original.partition(views.IDENTITY_PAGE_METADATA_MARKER)
+
+    if fault == "missing":
+        changed = visible
+    elif fault == "malformed":
+        changed = visible + views.IDENTITY_PAGE_METADATA_MARKER + "generated_by: [\n-->\n"
+    else:
+        metadata = views._identity_page_generated_metadata(original, path)
+        if fault == "wrong_owner":
+            metadata["generated_by"] = "another-generator"
+        elif fault == "wrong_subject":
+            metadata["identity_page_subject_id"] = "CMP-OBSERVATION-BUILDER"
+        elif fault == "wrong_type":
+            metadata["identity_page_registry_type"] = "DataArtifact"
+        changed = (
+            visible + views.IDENTITY_PAGE_METADATA_MARKER + technical.yaml_text(metadata) + "-->\n"
+        )
+
+    target.write_text(changed)
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="lost its owner marker"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before
+
+
+def test_identity_page_edits_and_unowned_paths_are_not_adopted(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    root = derived(vault)
+    path = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    target = root / path
+    original = target.read_bytes()
+    edited = original.replace(b"this page is generated navigation", b"manual page edit", 1)
+    assert edited != original
+    target.write_bytes(edited)
+    before_edited = filesystem_state(vault)
+
+    with pytest.raises(technical.ProjectionError, match="Identity Page was edited"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before_edited
+
+    target.write_bytes(original)
+    unowned = root / "identity-pages/Unregistered.md"
+    unowned.write_text("Unowned synthetic page\n")
+    before_unowned = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before_unowned
+
+
 def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinations(setup):
     repo, vault, sha = setup
     atlas = load_registry(repo / "docs/research-atlas")

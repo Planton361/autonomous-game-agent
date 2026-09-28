@@ -668,9 +668,12 @@ Manifest v2.8 adds only these four exact page paths beyond the previously
 declared outputs. Prior v1.0–v2.7 ownership remains finite and readable; only a
 v2.8 manifest may own the four Identity Page paths. `--check` remains
 zero-write, unknown files still fail closed, and authored/private content
-remains outside these generated pages. This code change does not apply the
-projection to the actual private vault; exact-head CONTROL authorization is
-still required for G6.
+remains outside these generated pages. Identity Page provenance is stored in a
+deterministic hidden generated-metadata comment after the visible page content,
+and prior ownership is accepted only when that marker matches the fixed path,
+subject and Registry type. This code change does not apply the projection to
+the actual private vault; exact-head CONTROL authorization is still required
+for G6.
 
 ## RA-4A fixture-only Zotero source projection
 

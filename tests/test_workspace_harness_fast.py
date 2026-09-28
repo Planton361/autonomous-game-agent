@@ -203,12 +203,50 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
 
     for identity, expected_type in expected_types.items():
         path = views.IDENTITY_PAGE_PATHS[identity]
-        properties, body = views.markdown_parts(tree[path].decode())
+        rendered = tree[path].decode()
+        properties, body = views.markdown_parts(rendered)
         subject = atlas.entities[identity]
-        assert properties["generated_by"] == views.OWNER
-        assert properties["identity_page_subject_id"] == identity
-        assert properties["identity_page_registry_type"] == expected_type
-        assert properties["private_input_fingerprint"] == reference.private_input_fingerprint
+        assert properties == {}
+        assert not rendered.startswith("---\n")
+        assert rendered.startswith(f"# {subject.name}\n")
+        metadata = views._identity_page_generated_metadata(rendered, path)
+        assert metadata == {
+            "generated_by": views.OWNER,
+            "source_repository": views.REPOSITORY,
+            "source_commit": SOURCE_COMMIT,
+            "identity_page_schema_version": views.IDENTITY_PAGE_SCHEMA_VERSION,
+            "identity_page_subject_id": identity,
+            "identity_page_registry_type": expected_type,
+            "source_registry_revision": views.registry_content_revision(atlas),
+            "reference_index_schema_version": "1.0",
+            "private_input_fingerprint": reference.private_input_fingerprint,
+        }
+        assert rendered.count(views.IDENTITY_PAGE_METADATA_MARKER) == 1
+        visible = rendered.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+        assert [
+            visible.index(text)
+            for text in (
+                f"# {subject.name}",
+                f"**{expected_type}** · Stable ID `{identity}`",
+                subject.description,
+                "**Sections:**",
+                "## Overview",
+            )
+        ] == sorted(
+            visible.index(text)
+            for text in (
+                f"# {subject.name}",
+                f"**{expected_type}** · Stable ID `{identity}`",
+                subject.description,
+                "**Sections:**",
+                "## Overview",
+            )
+        )
+        assert visible.index("## Overview") < visible.index("## Technical")
+        assert visible.index("## Technical") < visible.index("## Research")
+        assert visible.index("## Research") < visible.index("## Evidence / Provenance")
+        assert visible.index("**Sections:**") < visible.index("- Public Registry source commit:")
+        assert rendered.endswith("-->\n")
         assert body.startswith(f"# {subject.name}\n\n**{expected_type}** · Stable ID `{identity}`")
         assert [
             body.index(f"## {section}")
@@ -332,6 +370,11 @@ def test_rm1_identity_pages_are_deterministic_under_shuffled_inputs(atlas):
     shuffled_atlas = replace(atlas, relationships=tuple(reversed(atlas.relationships)))
     shuffled_tree, _, _, _ = identity_page_tree(shuffled_atlas, list(reversed(records)))
     assert current_tree == shuffled_tree
+    for path in views.IDENTITY_PAGE_PAYLOADS:
+        assert (
+            current_tree[path].split(views.IDENTITY_PAGE_METADATA_MARKER.encode(), 1)[1]
+            == (shuffled_tree[path].split(views.IDENTITY_PAGE_METADATA_MARKER.encode(), 1)[1])
+        )
 
 
 def test_rm1_identity_page_ownership_is_finite(tmp_path, atlas):

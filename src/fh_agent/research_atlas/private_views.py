@@ -157,6 +157,9 @@ IDENTITY_PAGE_PATHS = {
     "DAT-OBSERVATION": PurePosixPath("identity-pages/Observation.md"),
 }
 IDENTITY_PAGE_PAYLOADS = frozenset(IDENTITY_PAGE_PATHS.values())
+IDENTITY_PAGE_SUBJECT_BY_PATH = {path: identity for identity, path in IDENTITY_PAGE_PATHS.items()}
+IDENTITY_PAGE_SCHEMA_VERSION = "1.0"
+IDENTITY_PAGE_METADATA_MARKER = "<!-- identity-page-generated-metadata\n"
 TECHNICAL_DETAIL_ENDPOINT_TYPES = {
     "IF-MEM-CORTEX": "Interface",
     "CON-CORTEX-CONTEXT": "Contract",
@@ -398,6 +401,65 @@ def _observe_scope_generated_metadata(text: str) -> dict:
         return read_yaml(metadata_text)
     except ProjectionError:
         return {}
+
+
+def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dict:
+    """Read a valid, path-bound hidden owner marker from an Identity Page."""
+    subject_id = IDENTITY_PAGE_SUBJECT_BY_PATH.get(relative)
+    if (
+        subject_id is None
+        or text.startswith("---\n")
+        or text.count(IDENTITY_PAGE_METADATA_MARKER) != 1
+    ):
+        return {}
+
+    visible, _, remainder = text.partition(IDENTITY_PAGE_METADATA_MARKER)
+    if not visible.startswith("# "):
+        return {}
+    metadata_text, end_marker, trailing = remainder.partition("\n-->")
+    if not end_marker or trailing not in {"", "\n"}:
+        return {}
+    try:
+        metadata = read_yaml(metadata_text)
+    except ProjectionError:
+        return {}
+
+    required_fields = {
+        "generated_by",
+        "source_repository",
+        "source_commit",
+        "identity_page_schema_version",
+        "identity_page_subject_id",
+        "identity_page_registry_type",
+        "source_registry_revision",
+        "reference_index_schema_version",
+        "private_input_fingerprint",
+    }
+    expected = {
+        "generated_by": OWNER,
+        "source_repository": REPOSITORY,
+        "identity_page_schema_version": IDENTITY_PAGE_SCHEMA_VERSION,
+        "identity_page_subject_id": subject_id,
+        "identity_page_registry_type": IDENTITY_PAGE_TYPES[subject_id],
+        "reference_index_schema_version": "1.0",
+    }
+    if set(metadata) != required_fields or any(
+        metadata.get(key) != value for key, value in expected.items()
+    ):
+        return {}
+    if not isinstance(metadata.get("source_commit"), str) or not re.fullmatch(
+        r"[a-f0-9]{40}", metadata["source_commit"]
+    ):
+        return {}
+    if not isinstance(metadata.get("source_registry_revision"), str) or not re.fullmatch(
+        r"sha256:[a-f0-9]{64}", metadata["source_registry_revision"]
+    ):
+        return {}
+    if not isinstance(metadata.get("private_input_fingerprint"), str) or not re.fullmatch(
+        r"[a-f0-9]{64}", metadata["private_input_fingerprint"]
+    ):
+        return {}
+    return metadata
 
 
 def _technical_link(atlas: Atlas, identity: str) -> str:
@@ -1293,18 +1355,19 @@ def render_identity_page(
     else:
         lines.append("- No selected historical technical Evidence relation is registered.")
     lines.append("")
-    properties = {
+    metadata = {
         "generated_by": OWNER,
         "source_repository": REPOSITORY,
         "source_commit": commit,
-        "identity_page_schema_version": "1.0",
+        "identity_page_schema_version": IDENTITY_PAGE_SCHEMA_VERSION,
         "identity_page_subject_id": subject.id,
         "identity_page_registry_type": subject.type,
         "source_registry_revision": registry_content_revision(atlas),
         "reference_index_schema_version": "1.0",
         "private_input_fingerprint": model.private_input_fingerprint,
     }
-    return ("---\n" + yaml_text(properties) + "---\n" + "\n".join(lines) + "\n").encode()
+    hidden_metadata = IDENTITY_PAGE_METADATA_MARKER + yaml_text(metadata) + "-->\n"
+    return ("\n".join(lines) + "\n\n" + hidden_metadata).encode()
 
 
 def technical_detail_models(atlas: Atlas) -> tuple[TechnicalDetailModel, ...]:
@@ -3307,6 +3370,16 @@ def project(
             )
         elif relative == OBSERVE_SCOPE:
             owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
+        elif relative in IDENTITY_PAGE_PAYLOADS:
+            metadata = _identity_page_generated_metadata(utf8(data), relative)
+            if metadata.get("generated_by") != OWNER:
+                owned = False
+            elif digest(data) != item.sha256 and data != tree.get(relative):
+                raise ProjectionError(
+                    "Prior-owned Identity Page was edited; preserve or restore it"
+                )
+            else:
+                owned = True
         else:
             owned = markdown_parts(utf8(data))[0].get("generated_by") == OWNER
         if not owned:
