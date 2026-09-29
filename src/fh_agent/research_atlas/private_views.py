@@ -437,25 +437,25 @@ def _identity_page_subject_for_path(relative: PurePosixPath) -> str | None:
     return identity if _identity_page_type_for_id(identity) is not None else None
 
 
+def _identity_page_path(atlas: Atlas, identity: str) -> PurePosixPath | None:
+    node = atlas.entities.get(identity)
+    if not isinstance(node, TechnicalIdentity) or node.type not in SUPPORTED_IDENTITY_PAGE_TYPES:
+        return None
+    if _identity_page_type_for_id(identity) != node.type:
+        raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity}")
+    hub = COMPONENT_HUB_PATHS.get(identity)
+    if hub is not None:
+        return hub.overview
+    return IDENTITY_PAGE_PATHS.get(identity, PurePosixPath("identity-pages") / f"{identity}.md")
+
+
 def identity_page_paths(atlas: Atlas) -> dict[str, PurePosixPath]:
-    """Resolve one preferred destination per supported Registry identity."""
-    paths: dict[str, PurePosixPath] = {}
-    for identity, node in sorted(atlas.entities.items()):
-        if (
-            not isinstance(node, TechnicalIdentity)
-            or node.type not in SUPPORTED_IDENTITY_PAGE_TYPES
-        ):
-            continue
-        if _identity_page_type_for_id(identity) != node.type:
-            raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity}")
-        hub = COMPONENT_HUB_PATHS.get(identity)
-        paths[identity] = (
-            hub.overview
-            if hub is not None
-            else IDENTITY_PAGE_PATHS.get(
-                identity, PurePosixPath("identity-pages") / f"{identity}.md"
-            )
-        )
+    """Resolve and collision-check all preferred current Registry destinations."""
+    paths = {
+        identity: path
+        for identity in sorted(atlas.entities)
+        if (path := _identity_page_path(atlas, identity)) is not None
+    }
     if len(set(paths.values())) != len(paths):
         raise ProjectionError("Identity Page path collision")
     return paths
@@ -1090,7 +1090,9 @@ def identity_page_model(
         or _identity_page_type_for_id(identity_id) != subject.type
     ):
         raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity_id}")
-    path = identity_page_paths(atlas)[identity_id]
+    path = _identity_page_path(atlas, identity_id)
+    if path is None:
+        raise ProjectionError(f"Unsupported Identity Page subject: {identity_id}")
 
     direct_relationships = tuple(
         sorted(
@@ -1177,7 +1179,7 @@ def _identity_page_entity_link(atlas: Atlas, identity: str, label: str) -> str:
         raise ProjectionError(
             f"Identity Page relationship endpoint is missing: {identity}"
         ) from exc
-    path = identity_page_paths(atlas).get(identity)
+    path = _identity_page_path(atlas, identity)
     if path is not None:
         return _derived_link(path, label)
     return private_link(private_path(node), label)
@@ -1463,13 +1465,16 @@ def render_identity_page(
     commit: str,
     atlas: Atlas,
     model: IdentityPageModel,
+    *,
+    registry_revision: str | None = None,
 ) -> bytes:
     """Render the shared human-first page grammar over the exact Registry snapshot."""
     subject = model.subject
-    if identity_page_paths(atlas).get(subject.id) != model.path:
+    if _identity_page_path(atlas, subject.id) != model.path:
         raise ProjectionError("Identity Page model path is not the resolved ID-to-page mapping")
     if subject.type not in SUPPORTED_IDENTITY_PAGE_TYPES:
         raise ProjectionError("Identity Page model type is unsupported")
+    registry_revision_value = registry_revision or registry_content_revision(atlas)
 
     observe_link = _derived_link(OBSERVE_SCOPE, "Back to Observe")
     status = subject.technical
@@ -1872,7 +1877,7 @@ def render_identity_page(
             "",
             f"- Raw Registry record: {raw_record}",
             f"- Public Registry source commit: `{commit}`",
-            f"- Registry content revision: `{registry_content_revision(atlas)}`",
+            f"- Registry content revision: `{registry_revision_value}`",
             f"- Reference Index input fingerprint: `{model.private_input_fingerprint}`",
             "- Generated owner: `research-wiki-derived`; this is a derived navigation page, "
             "not an editable Registry record or a second identity.",
@@ -1889,7 +1894,7 @@ def render_identity_page(
         "identity_page_schema_version": IDENTITY_PAGE_SCHEMA_VERSION,
         "identity_page_subject_id": subject.id,
         "identity_page_registry_type": subject.type,
-        "source_registry_revision": registry_content_revision(atlas),
+        "source_registry_revision": registry_revision_value,
         "reference_index_schema_version": "1.0",
         "private_input_fingerprint": model.private_input_fingerprint,
     }
@@ -3505,15 +3510,16 @@ def reference_views_tree(
         workbench_path, canvas_path = technical_detail_paths(detail.endpoint_id)
         tree[workbench_path] = render_technical_detail_workbench(commit, atlas, detail)
         tree[canvas_path] = render_technical_detail_canvas(atlas, detail)
+    revision = registry_content_revision(atlas)
     for page in identity_page_models(atlas, reference):
         if page.path in tree:
             raise ProjectionError("Identity Page path collision with existing derived surface")
-        tree[page.path] = render_identity_page(commit, atlas, page)
+        tree[page.path] = render_identity_page(commit, atlas, page, registry_revision=revision)
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
 
     def observe_identity_link(identity: str, label: str) -> str:
-        path = identity_page_paths(atlas).get(identity)
+        path = _identity_page_path(atlas, identity)
         if path is not None:
             return _derived_link(path, label)
         return private_link(private_path(atlas.entities[identity]), label)
@@ -3526,7 +3532,7 @@ def reference_views_tree(
             TECHNICAL_ROOT / TECHNICAL_ANATOMY,
             "← Agent Anatomy",
         ),
-        source_revision=registry_content_revision(atlas),
+        source_revision=revision,
         source_commit=commit,
         detail_links=(
             _derived_link(detail_markdown, "Observation · W05 Technical Detail"),
@@ -3544,7 +3550,7 @@ def reference_views_tree(
         source_repository=REPOSITORY,
         source_commit=commit,
         observe_scope_view_schema_version="1.0",
-        source_registry_revision=registry_content_revision(atlas),
+        source_registry_revision=revision,
     )
     observe_metadata = OBSERVE_SCOPE_METADATA_MARKER + yaml_text(observe_properties) + "-->\n"
     tree[OBSERVE_SCOPE] = (observe_body + "\n" + observe_metadata).encode()
