@@ -9,6 +9,9 @@
   [data-callout="aga-status"],
   [data-callout="aga-context"],
   [data-callout="aga-depth"],
+  [data-callout="aga-pillars"],
+  [data-callout="aga-technical-entry"],
+  [data-callout="aga-research-entry"],
   [data-callout="aga-research"],
   [data-callout="aga-evidence"],
   [data-callout="aga-audit"]
@@ -52,6 +55,13 @@
   text-decoration: none;
 }
 
+.callout[data-callout="aga-nav"] {
+  background: var(--background-primary);
+  border: 0;
+  padding: 0.25rem 0;
+  margin-block: 0.5rem;
+}
+
 .callout[data-callout="aga-nav"] .internal-link:is(:hover, :focus-visible) {
   color: var(--link-color-hover);
   outline: 2px solid var(--interactive-accent);
@@ -62,6 +72,30 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: 0.75rem;
+}
+
+.callout[data-callout="aga-grid"] {
+  background: var(--background-primary);
+  border: 0;
+  padding: 0;
+}
+
+.callout[data-callout="aga-pillars"] {
+  background: var(--background-primary);
+  border: 0;
+  padding: 0;
+}
+
+.callout[data-callout="aga-pillars"] > .callout-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0.75rem;
+}
+
+.callout:is([data-callout="aga-technical-entry"], [data-callout="aga-research-entry"]) {
+  margin: 0;
+  background: var(--background-secondary);
+  border-inline-start: 0.25rem solid var(--interactive-accent);
 }
 
 .callout[data-callout="aga-grid"] > .callout-content > .callout {
@@ -85,7 +119,7 @@
 
 /* Narrow panes and mobile keep the same reading order and all content. */
 @media (max-width: 40rem) {
-  .callout[data-callout="aga-grid"] > .callout-content {
+  .callout:is([data-callout="aga-grid"], [data-callout="aga-pillars"]) > .callout-content {
     grid-template-columns: minmax(0, 1fr);
   }
 

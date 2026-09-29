@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 import pytest
+import yaml
 from test_research_wiki_schema import props as wiki_props
 
 from fh_agent.research_atlas import private_projection as technical_projection
@@ -21,7 +22,7 @@ from fh_agent.research_atlas.private_reference_index import (
     make_snapshot,
 )
 from fh_agent.research_atlas.schema import DataArtifact, Relationship
-from fh_agent.research_atlas.validator import Atlas, load_registry
+from fh_agent.research_atlas.validator import Atlas, load_registry, validate_registry
 from fh_agent.research_atlas.wiki_schema import WIKI_PREFIXES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -438,16 +439,11 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         ("CMP-NO-SPOILER-FIREWALL", "Open No-Spoiler Firewall"),
         ("CMP-VISIBLE-STATE-BRIDGE", "Open Visible-State Bridge"),
     ):
-        assert (
-            technical_projection.private_link(
-                technical_projection.private_path(atlas.entities[identity]), label
-            )
-            in observe
-        )
+        assert views._derived_link(views.identity_page_paths(atlas)[identity], label) in observe
 
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.9"
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
     assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
 
@@ -512,7 +508,7 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
         visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER)[0]
         fallback = re.sub(r"```mermaid\n.*?```\n", "", visible, flags=re.S)
-        hooks.update(re.findall(r"\[!(aga-[a-z]+)\]", fallback))
+        hooks.update(re.findall(r"\[!(aga-[a-z-]+)\]", fallback))
         assert "<" not in fallback and "css" not in fallback
         assert not fallback.startswith("---")
         headings = re.findall(r"^## (.+)$", fallback, re.M)
@@ -523,9 +519,13 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
             "Evidence / Provenance",
             "Registry / Audit",
         ]
-        assert re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback) == headings
+        assert re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback)[:5] == headings
         assert all(re.search(rf"^## {re.escape(anchor)}$", fallback, re.M) for anchor in headings)
-        assert "### Implementation notes\n" in fallback
+        if views._identity_page_supporting_evidence(atlas, model):
+            assert (
+                "### Implementation notes\n" in fallback
+                or "### Technical and decision support\n" in fallback
+            )
         assert model.subject.description in fallback
         status = model.subject.technical
         assert (
@@ -542,17 +542,29 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
             for identity in identities:
                 assert views._identity_page_human_link(atlas, identity) in plain
         if model.child_component_ids:
-            depth = plain.split("### Go deeper\n", 1)[1].split("[!warning]", 1)[0]
+            depth = plain.split("### Go deeper\n", 1)[1].split("[!aga-pillars]", 1)[0]
             assert re.findall(r"^- (\[\[.+\]\])$", depth, re.M) == [
                 views._identity_page_human_link(atlas, child) for child in model.child_component_ids
             ]
         else:
             assert "Go deeper" not in fallback and "[!aga-depth]" not in fallback
         assert "[!aga-hero] Responsibility" in plain
+        assert "TECHNICAL — How does it work?" in plain
+        assert "RESEARCH — What do we know or need to know?" in plain
+        assert plain.index("TECHNICAL — How does it work?") < plain.index(
+            "RESEARCH — What do we know or need to know?"
+        )
         assert "[!aga-grid] At a glance" in plain
         assert "[!aga-status] Current state" in plain
-        assert "[!aga-context] Context" in plain
-        assert "research completeness have not been assessed" in plain.lower()
+        if any(
+            label != "Contains"
+            for label, _ in views._identity_page_human_relation_groups(atlas, model)
+        ):
+            assert "[!aga-context] Context" in plain
+        if model.subject.type == "Environment":
+            assert "direct environment research attachment is deferred" in plain.lower()
+        else:
+            assert "research completeness have not been assessed" in plain.lower()
         assert "Source inspection alone is not live or measurement validation." in plain
         assert "[!aga-audit]- Registry / Audit" in plain
         assert "Generated owner: `research-wiki-derived`" in identity_page_audit_text(page)
@@ -576,6 +588,9 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         "aga-status",
         "aga-context",
         "aga-depth",
+        "aga-pillars",
+        "aga-technical-entry",
+        "aga-research-entry",
         "aga-research",
         "aga-evidence",
         "aga-audit",
@@ -608,7 +623,6 @@ def test_identity_page_mermaid_exact_direct_facts_and_textual_fallback(atlas):
     for model in views.identity_page_models(atlas, reference):
         page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
         if model.subject.id not in expected:
-            assert "```mermaid" not in page and "Local relation diagram" not in page
             continue
         diagram = page.split("```mermaid\n")[1].split("```", 1)[0]
         names_to_ids = {node.name: node.id for node in atlas.entities.values()}
@@ -698,6 +712,9 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "aga-status",
         "aga-context",
         "aga-depth",
+        "aga-pillars",
+        "aga-technical-entry",
+        "aga-research-entry",
         "aga-research",
         "aga-evidence",
         "aga-audit",
@@ -730,6 +747,8 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
     )
     assert "display: none" not in css and "!important" not in css
     assert "display: grid" in css and "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))" in css
+    assert "repeat(auto-fit, minmax(min(100%, 20rem), 1fr))" in css
+    assert "height:" not in css and "overflow-x:" not in css
     assert "@media (max-width: 40rem)" in css and "grid-template-columns: minmax(0, 1fr)" in css
     declarations = re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", css)
     allowed = {
@@ -753,7 +772,10 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
     }
     assert {prop for prop, _ in declarations} <= allowed
     for prop, value in declarations:
-        if prop in {"color", "background", "border", "border-inline-start", "outline"}:
+        if (
+            prop in {"color", "background", "border", "border-inline-start", "outline"}
+            and value.strip() != "0"
+        ):
             assert re.search(r"var\(--(?:text-|background-|interactive-|link-)", value)
     # CSS never enters manifest ownership or the vault writer; source is operator-installed at G6.
     assert not any(str(path).endswith(".css") for path in views.IDENTITY_PAGE_PAYLOADS)
@@ -762,7 +784,7 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
 def test_rm1_identity_pages_reject_wrong_types_parents_and_nonpilot_ids(atlas):
     reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
     with pytest.raises(ProjectionError, match="Unsupported Identity Page subject"):
-        views.identity_page_model(atlas, reference, "CMP-CORTEX")
+        views.identity_page_model(atlas, reference, "DOM-COGNITION")
 
     entities = dict(atlas.entities)
     perception_record = entities["CMP-PERCEPTION"].model_dump(mode="python")
@@ -1158,7 +1180,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.9"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -1637,7 +1659,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.9"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -1678,7 +1700,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.9"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -1794,3 +1816,218 @@ def test_w05_manifest_prior_versions_keep_bounded_paths(tmp_path: Path, version,
         )
     manifest_path.write_bytes(views.yaml_text(manifest).encode())
     assert set(views.validate_prior(root)) == set(paths)
+
+
+ATLAS_ROOT = ROOT / "docs/research-atlas"
+
+
+def six_level_payloads():
+    registry = ATLAS_ROOT / "registry"
+    nodes, relationships, evidence = (
+        yaml.safe_load((registry / name).read_text())
+        for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
+    )
+    template = next(node for node in nodes["nodes"] if node["id"] == "CMP-PERCEPTION")
+    parent = "CMP-PERCEPTION"
+    for level in range(1, 7):
+        identity = f"CMP-SYN-LEVEL-{level}"
+        node = {**template, "id": identity, "name": f"Synthetic level {level}"}
+        node.update(
+            description=f"Synthetic technical responsibility at level {level}.",
+            atlas_level=None,
+            overview_visibility=None,
+            overview_order=None,
+        )
+        nodes["nodes"].append(node)
+        relationships["relationships"].append(
+            {"relation": "part_of", "source": identity, "target": parent}
+        )
+        parent = identity
+    for identity, name, parent in (
+        ("CMP-SYN-SIB-A", "Alpha sibling", "CMP-SYN-LEVEL-2"),
+        ("CMP-SYN-SIB-B", "Beta sibling", "CMP-SYN-LEVEL-2"),
+        ("CMP-SYN-SIB-C", "Gamma sibling", "CMP-SYN-LEVEL-4"),
+    ):
+        node = {**template, "id": identity, "name": name}
+        node.update(
+            description=f"Synthetic {name} responsibility.",
+            atlas_level=None,
+            overview_visibility=None,
+            overview_order=None,
+        )
+        nodes["nodes"].append(node)
+        relationships["relationships"].append(
+            {"relation": "part_of", "source": identity, "target": parent}
+        )
+    return nodes, relationships, evidence
+
+
+def model(atlas: Atlas, identity: str):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    return views.identity_page_model(atlas, reference, identity)
+
+
+def page(atlas: Atlas, identity: str) -> str:
+    return views.render_identity_page(SOURCE_COMMIT, atlas, model(atlas, identity)).decode()
+
+
+def test_six_level_reciprocal_navigation_leaf_and_all_authorized_types():
+    baseline = load_registry(ATLAS_ROOT)
+    nodes, relationships, evidence = six_level_payloads()
+    deep = validate_registry(nodes, relationships, evidence)
+    paths = views.identity_page_paths(deep)
+    assert len(paths) == len(views.identity_page_paths(baseline)) + 9
+    assert {
+        deep.entities[identity].type for identity in paths
+    } == views.SUPPORTED_IDENTITY_PAGE_TYPES
+    assert paths["CMP-MEM-RETRIEVAL"] == views.MEMORY_WORKBENCH
+    assert paths["CMP-INDEPENDENT-VERIFIER"] == views.VERIFIER_WORKBENCH
+    assert paths["CMP-PERCEPTION"] == views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    assert paths["CMP-SYN-LEVEL-6"] == PurePosixPath("identity-pages/CMP-SYN-LEVEL-6.md")
+    assert len(set(paths.values())) == len(paths)
+    memory_children = model(deep, "CMP-MEMORY").child_component_ids
+    assert set(memory_children) == {
+        "CMP-MEM-EPISODIC",
+        "CMP-MEM-FACTS",
+        "CMP-MEM-HYPOTHESES",
+        "CMP-MEM-TOPOLOGY",
+        "CMP-MEM-STRATEGY",
+        "CMP-SKILL-COMPETENCE",
+    }
+    assert "CMP-MEM-RETRIEVAL" not in memory_children
+    assert model(deep, "CMP-SYN-LEVEL-2").child_component_ids == (
+        "CMP-SYN-SIB-A",
+        "CMP-SYN-SIB-B",
+        "CMP-SYN-LEVEL-3",
+    )
+    for level in range(1, 6):
+        parent = f"CMP-SYN-LEVEL-{level}"
+        child = f"CMP-SYN-LEVEL-{level + 1}"
+        assert child in model(deep, parent).child_component_ids
+        assert parent in model(deep, child).technical_parent_ids
+        assert views._identity_page_human_link(deep, child) in page(deep, parent)
+        assert views._identity_page_human_link(deep, parent) in page(deep, child)
+    level2 = page(deep, "CMP-SYN-LEVEL-2")
+    depth = level2.split("### Go deeper", 1)[1].split("## Technical", 1)[0]
+    assert depth.index("Alpha sibling") < depth.index("Beta sibling")
+    assert "CMP-SYN-LEVEL-4" not in depth
+    leaf = page(deep, "CMP-SYN-LEVEL-6")
+    assert "Go deeper" not in leaf
+    assert "**Back up to direct parent(s):**" in leaf
+    trail = leaf.split("**Location:**", 1)[1].split("**Back up", 1)[0]
+    assert all(f"Synthetic level {level}" in trail for level in range(1, 7))
+    assert "Browse area" not in trail
+    assert leaf.index("aga-technical-entry") < leaf.index("aga-research-entry")
+    assert leaf.index("## Technical") < leaf.index("## Research")
+    assert "No literature exists" not in leaf and "Research is complete" not in leaf
+    assert "<div" not in leaf and not leaf.startswith("---")
+    assert "Direct Research deferred" in page(deep, "ENV-GAME-INSTANCE")
+
+
+def test_multiple_parents_rename_removal_order_and_collision(monkeypatch):
+    nodes, relationships, evidence = six_level_payloads()
+    relationships["relationships"].append(
+        {"relation": "part_of", "source": "CMP-SYN-LEVEL-6", "target": "CMP-SYN-LEVEL-4"}
+    )
+    multi = validate_registry(nodes, relationships, evidence)
+    leaf = model(multi, "CMP-SYN-LEVEL-6")
+    assert leaf.technical_parent_ids == ("CMP-SYN-LEVEL-4", "CMP-SYN-LEVEL-5")
+    rendered = page(multi, leaf.subject.id)
+    assert rendered.count("→ Synthetic level 6") == 2
+    shuffled = Atlas(
+        dict(reversed(tuple(multi.entities.items()))), tuple(reversed(multi.relationships))
+    )
+    assert rendered == page(shuffled, leaf.subject.id)
+    assert views.identity_page_paths(multi) == views.identity_page_paths(shuffled)
+
+    renamed_nodes = yaml.safe_load(yaml.safe_dump(nodes))
+    next(node for node in renamed_nodes["nodes"] if node["id"] == leaf.subject.id)["name"] = (
+        "Renamed leaf"
+    )
+    renamed = validate_registry(renamed_nodes, relationships, evidence)
+    assert views.identity_page_paths(renamed)[leaf.subject.id] == leaf.path
+    assert "Renamed leaf" in page(renamed, leaf.subject.id)
+    removed_nodes = yaml.safe_load(yaml.safe_dump(nodes))
+    removed_nodes["nodes"] = [
+        node for node in removed_nodes["nodes"] if node["id"] != "CMP-SYN-SIB-C"
+    ]
+    removed_relationships = {
+        **relationships,
+        "relationships": [
+            edge for edge in relationships["relationships"] if edge["source"] != "CMP-SYN-SIB-C"
+        ],
+    }
+    removed = validate_registry(removed_nodes, removed_relationships, evidence)
+    assert "CMP-SYN-SIB-C" not in views.identity_page_paths(removed)
+    assert "Gamma sibling" not in page(removed, "CMP-SYN-LEVEL-4")
+
+    monkeypatch.setattr(
+        views,
+        "IDENTITY_PAGE_PATHS",
+        {**views.IDENTITY_PAGE_PATHS, leaf.subject.id: views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]},
+    )
+    with pytest.raises(ProjectionError, match="path collision"):
+        views.identity_page_paths(multi)
+
+
+@pytest.mark.parametrize(
+    ("edge", "message"),
+    (
+        (
+            {"relation": "part_of", "source": "CMP-SYN-LEVEL-1", "target": "CMP-SYN-LEVEL-6"},
+            "cycle",
+        ),
+        (
+            {"relation": "part_of", "source": "DAT-OBSERVATION", "target": "CMP-PERCEPTION"},
+            "Illegal part_of type pairing",
+        ),
+        (
+            {"relation": "part_of", "source": "CMP-SYN-LEVEL-6", "target": "DAT-OBSERVATION"},
+            "Illegal part_of type pairing",
+        ),
+        (
+            {"relation": "part_of", "source": "CMP-SYN-LEVEL-6", "target": "CMP-NOT-REGISTERED"},
+            "Dangling relationship",
+        ),
+    ),
+)
+def test_invalid_containment_is_rejected(edge, message):
+    nodes, relationships, evidence = six_level_payloads()
+    relationships["relationships"].append(edge)
+    with pytest.raises(ValueError, match=message):
+        validate_registry(nodes, relationships, evidence)
+
+
+def test_rm1_evidence_roles_remain_separate_without_scientific_acceptance():
+    nodes, relationships, evidence = six_level_payloads()
+    evidence["evidence"].append(
+        {
+            "id": "EVID-SYN-LITERATURE",
+            "type": "Evidence",
+            "name": "Synthetic primary source",
+            "description": "Synthetic source locator for evidence-role testing only.",
+            "provenance_kind": "primary_literature",
+            "checked_date": "2026-09-29",
+            "document": "Synthetic source",
+            "version": "v1",
+            "section": "1",
+        }
+    )
+    relationships["relationships"].append(
+        {
+            "relation": "supports",
+            "source": "EVID-SYN-LITERATURE",
+            "target": "CMP-PERCEPTION",
+        }
+    )
+    atlas = validate_registry(nodes, relationships, evidence)
+    content = page(atlas, "CMP-PERCEPTION")
+    support = content.split("## Evidence / Provenance", 1)[1].split("## Registry / Audit", 1)[0]
+    assert "### Technical and decision support" in support
+    assert "### Research and scientific support" in support
+    assert support.index("### Technical and decision support") < support.index(
+        "### Research and scientific support"
+    )
+    assert "Synthetic source locator for evidence-role testing only." in support
+    assert "Source inspection alone is not live or measurement validation." in support
+    assert "accepted claim" not in support.lower()

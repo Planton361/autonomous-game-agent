@@ -760,6 +760,40 @@ Native behavior follows [Obsidian callouts](https://obsidian.md/help/callouts)
 (unknown custom types fall back to ordinary native callouts); diagram syntax
 uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
 
+## RM-1 typed Identity Page rollout (manifest v2.9)
+
+Issue #114 extends the shared renderer to every current Registry System,
+Component, Interface, Contract, DataArtifact and MeasurementPoint. Environment
+gets technical/context presentation with direct Research explicitly deferred.
+Domain and Assembly remain navigation surfaces. The four v2.8 pilot paths remain
+stable, as do the two expanded Component Hub Overview destinations; every other
+supported identity uses `identity-pages/<stable-id>.md`. This ID-based path
+contract makes display renames link-stable. A duplicate destination fails closed.
+
+Only validated `part_of` Component edges create deeper navigation. Each page
+shows every ancestry trail and direct parent, including multiple valid parents;
+only exact direct Component children appear under Go deeper. A leaf omits that
+block. Domain, Assembly, folder and visual placement cannot supply ancestry.
+Typed non-Component pages remain cross-references. The existing expanded Hubs
+are reused as preferred destinations rather than duplicated under
+`identity-pages/`.
+
+Technical and Research stay full same-page sections, preceded by paired entry
+cards in Technical then Research source order. The optional stylesheet places
+readable cards side by side when space permits and stacks them at narrow widths,
+without fixed heights or horizontal overflow. Native Markdown remains complete
+when CSS or Mermaid is disabled. Evidence is supporting and separated by
+technical/decision, research/scientific, and other provenance kinds. Exact
+Registry predicates and locators remain in the collapsed Audit. Missing direct
+mapping does not imply a literature gap, completeness or accepted claim.
+
+Manifest v2.9 admits only the prior finite paths plus ID-shaped Identity Page
+paths bound by the hidden owner marker, subject ID, type, source revision and
+fingerprint. Removed pages are deleted only when prior owned bytes are intact;
+edited or unowned files block the write. `--check` remains zero-write. This
+repository change does not inspect or apply to the actual private vault; a
+separate CONTROL-authorized G6 is required.
+
 ## RA-4A fixture-only Zotero source projection
 
 RA-4A adds an independent offline PoC, with one explicit synthetic JSON fixture
