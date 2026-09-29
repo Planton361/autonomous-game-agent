@@ -477,7 +477,7 @@ def test_identity_page_edits_and_unowned_paths_are_not_adopted(setup):
     path = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
     target = root / path
     original = target.read_bytes()
-    edited = original.replace(b"this page is generated navigation", b"manual page edit", 1)
+    edited = original.replace(b"derived navigation page", b"manual navigation page", 1)
     assert edited != original
     target.write_bytes(edited)
     before_edited = filesystem_state(vault)

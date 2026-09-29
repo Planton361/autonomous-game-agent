@@ -642,23 +642,43 @@ identity-pages/Observation.md
 
 One exact ID-to-page resolver maps `CMP-PERCEPTION`,
 `CMP-OBSERVATION-BUILDER`, `CMP-PERCEPTION-UI-STATE` and `DAT-OBSERVATION`
-to those human-titled paths. Each page uses the same Overview, Technical,
-Research and Evidence / Provenance sections. The human Registry name is the
-heading; the exact type and stable ID remain visible beneath it. Existing
-ID-based raw Registry records remain available as inspection routes and are
-not renamed or copied into editable pages.
+to those human-titled paths. Each page uses one same-page template with
+Overview / General, Technical, Research, Evidence / Provenance and Registry /
+Audit sections. Section navigation uses same-page anchors. The human Registry
+name leads; type and stable ID remain secondary beneath it. The first view
+explains the identity and its agent role, implementation and verification
+state, useful human-labeled relations, and a `Back to Observe` route.
 
-Component parent and child links use only direct Registry `part_of` relations.
-`presented_in_domain` remains a separate presentation context. Technical
-inputs, outputs, typed endpoint lanes and selected historical implementation
-Evidence preserve exact Registry direction and type, with explicit empty
-states. The Observe actions for Perception and Observation open their Identity
-Pages; the other Observe landmarks retain their existing raw-record routes.
-Both Perception children return to the Perception page and all four pages link
-back to the existing Observe Assembly Scope.
+Human relation labels retain Registry direction: `part_of` is Part of /
+Contains; `consumes` is Uses / Used by; `supplies` is Produces / Produced by
+for a DataArtifact and Provides to / Provided by for other endpoints. The
+accepted Controls / Controlled by, Executes / Executed by, Grounds / Grounded
+by, Measures / Measured by, Observes / Observed by, Proposes to / Receives
+proposals from, Constrains / Constrained by and Verifies / Verified by labels
+also preserve direction. `presented_in_domain` is Browse area context, never
+technical ancestry. Evidence uses Supports / Supported by. Unmapped relations
+remain in Registry / Audit.
 
-The Observation page links to the existing W05 Markdown detail and native
-Canvas; it creates neither a replacement detail nor an extra Canvas. Component
+Only direct Registry `part_of` children typed as Components are primary
+deeper-navigation links. No hierarchy is inferred from Domains, files, or
+presentation layout. Empty technical endpoint lanes are omitted. Evidence /
+Provenance presents human-readable source names, source kinds and summaries;
+Registry / Audit retains exact relations and direction, raw predicates and
+IDs, Evidence source locators and revisions, Registry source revision, raw
+record routes and generated provenance metadata. Research empty states report
+only the current Reference Index mapping boundary; they do not imply that
+literature is absent, a research gap exists, or research is complete.
+
+Observation remains a DataArtifact page and is never shown as a Component.
+Its summary says Produced by Perception and Used by Cortex, Memory, Independent
+Verifier and Temporal State. The Observe actions for Perception and Observation
+open their Identity Pages; the other Observe landmarks retain their existing
+raw-record routes. Both Perception children return to the Perception page and
+all four pages link back to the existing Observe Assembly Scope.
+
+The Observation page keeps the existing technical Markdown and Canvas
+destinations, labeled `Exact technical relations` and `Visual relation map`.
+It creates neither a replacement detail nor an extra Canvas. Component
 Research navigation reuses exact eligible Component paths in the existing
 Declared Reference Index. DataArtifact research targeting is unavailable in
 this slice, and no attachment path or Research prose is inferred. The existing

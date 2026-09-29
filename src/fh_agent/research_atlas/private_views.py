@@ -363,7 +363,6 @@ class IdentityPageModel:
     child_component_ids: tuple[str, ...]
     presentation_domain_ids: tuple[str, ...]
     direct_relationships: tuple[Relationship, ...]
-    historical_evidence: tuple[tuple[Evidence, Relationship], ...]
     research_question_relationships: tuple[Relationship, ...]
     literature_paths: tuple[Row, ...]
     private_input_fingerprint: str
@@ -1083,7 +1082,6 @@ def identity_page_model(
         child_component_ids=sort_ids(child_edges, "source"),
         presentation_domain_ids=sort_ids(presentation_edges, "target"),
         direct_relationships=direct_relationships,
-        historical_evidence=tuple(_historical_technical_evidence(atlas, (identity_id,))),
         research_question_relationships=question_edges,
         literature_paths=(
             component_navigation_rows(reference, identity_id) if subject.type == "Component" else ()
@@ -1112,9 +1110,180 @@ def _identity_page_entity_link(atlas: Atlas, identity: str, label: str) -> str:
     return private_link(private_path(node), label)
 
 
-def _identity_page_display_link(atlas: Atlas, identity: str) -> str:
+def _identity_page_human_link(atlas: Atlas, identity: str) -> str:
     node = atlas.entities[identity]
-    return _identity_page_entity_link(atlas, identity, f"{node.name} · {node.id}")
+    return _identity_page_entity_link(atlas, identity, node.name)
+
+
+def _identity_page_audit_link(atlas: Atlas, identity: str) -> str:
+    node = atlas.entities[identity]
+    return private_link(private_path(node), f"{node.name} (`{node.id}`)")
+
+
+def _identity_page_relation_label(atlas: Atlas, subject_id: str, edge: Relationship) -> str | None:
+    """Return an accepted human label in the subject's exact edge direction."""
+    if edge.source == subject_id:
+        forward = True
+    elif edge.target == subject_id:
+        forward = False
+    else:
+        return None
+
+    if edge.relation == "part_of":
+        return "Part of" if forward else "Contains"
+    if edge.relation == "consumes":
+        return "Uses" if forward else "Used by"
+    if edge.relation == "supplies":
+        data_artifact_target = atlas.entities[edge.target].type == "DataArtifact"
+        if forward:
+            return "Produces" if data_artifact_target else "Provides to"
+        return "Produced by" if data_artifact_target else "Provided by"
+    if edge.relation == "presented_in_domain":
+        return "Browse area" if forward else None
+    if edge.relation == "supports":
+        return "Supports" if forward else "Supported by"
+
+    directional_labels = {
+        "controls": ("Controls", "Controlled by"),
+        "executes": ("Executes", "Executed by"),
+        "grounds": ("Grounds", "Grounded by"),
+        "measured_at": ("Measures", "Measured by"),
+        "observes": ("Observes", "Observed by"),
+        "proposes_to": ("Proposes to", "Receives proposals from"),
+        "constrains": ("Constrains", "Constrained by"),
+        "verifies": ("Verifies", "Verified by"),
+    }
+    labels = directional_labels.get(edge.relation)
+    if labels is None:
+        return None
+    return labels[0] if forward else labels[1]
+
+
+def _identity_page_human_relation_groups(
+    atlas: Atlas, model: IdentityPageModel
+) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    groups: dict[str, set[str]] = {}
+    for edge in model.direct_relationships:
+        if edge.relation == "related_to_research_question":
+            continue
+        label = _identity_page_relation_label(atlas, model.subject.id, edge)
+        if label in {None, "Supports", "Supported by"}:
+            continue
+        endpoint = edge.target if edge.source == model.subject.id else edge.source
+        groups.setdefault(label, set()).add(endpoint)
+
+    label_order = (
+        "Part of",
+        "Contains",
+        "Uses",
+        "Produces",
+        "Produced by",
+        "Used by",
+        "Provides to",
+        "Provided by",
+        "Controls",
+        "Controlled by",
+        "Executes",
+        "Executed by",
+        "Grounds",
+        "Grounded by",
+        "Measures",
+        "Measured by",
+        "Observes",
+        "Observed by",
+        "Proposes to",
+        "Receives proposals from",
+        "Constrains",
+        "Constrained by",
+        "Verifies",
+        "Verified by",
+        "Browse area",
+    )
+    return tuple(
+        (
+            label,
+            tuple(
+                sorted(
+                    groups[label],
+                    key=lambda identity: _identity_page_relation_endpoint_order(
+                        atlas, model.subject.id, label, identity
+                    ),
+                )
+            ),
+        )
+        for label in label_order
+        if groups.get(label)
+    )
+
+
+def _identity_page_relation_endpoint_order(
+    atlas: Atlas, subject_id: str, label: str, identity: str
+) -> tuple[int, str, str]:
+    if subject_id == "DAT-OBSERVATION" and label == "Used by":
+        observation_consumer_order = (
+            "CMP-CORTEX",
+            "CMP-MEMORY",
+            "CMP-INDEPENDENT-VERIFIER",
+            "CMP-TEMPORAL-STATE",
+        )
+        if identity in observation_consumer_order:
+            return observation_consumer_order.index(identity), "", identity
+    return (len(IDENTITY_PAGE_TYPES), atlas.entities[identity].name.casefold(), identity)
+
+
+def _identity_page_supporting_evidence(
+    atlas: Atlas, model: IdentityPageModel
+) -> tuple[tuple[Evidence, Relationship], ...]:
+    result: list[tuple[Evidence, Relationship]] = []
+    for edge in model.direct_relationships:
+        if edge.relation != "supports":
+            continue
+        evidence_id = edge.source if edge.target == model.subject.id else edge.target
+        evidence = atlas.entities.get(evidence_id)
+        if isinstance(evidence, Evidence):
+            result.append((evidence, edge))
+    return tuple(sorted(result, key=lambda item: (item[0].name.casefold(), item[0].id)))
+
+
+def _identity_page_evidence_locator(evidence: Evidence) -> tuple[str, str, str]:
+    if evidence.provenance_kind == "github_implementation":
+        revision = evidence.ref or ""
+        locator = evidence.path or ""
+        if evidence.symbol:
+            locator += f" · {evidence.symbol}"
+        if evidence.line is not None:
+            locator += f" · line {evidence.line}"
+        source = evidence.repository or ""
+    else:
+        revision = evidence.version or ""
+        source = evidence.document or ""
+        locator = next(
+            (
+                value
+                for value in (
+                    evidence.section,
+                    evidence.page,
+                    evidence.figure,
+                    evidence.table,
+                    evidence.quote_or_paraphrase_location,
+                )
+                if value
+            ),
+            "",
+        )
+    return source, revision, locator
+
+
+def _identity_page_evidence_kind(evidence: Evidence) -> str:
+    return {
+        "canonical_project_source": "Architecture source",
+        "github_implementation": "Implementation source inspection",
+        "primary_literature": "Primary literature",
+        "scientific_project_artifact": "Scientific project artifact",
+        "chat_historical_context": "Historical project context",
+        "synthesis_inference": "Synthesis or inference",
+        "project_decision": "Project decision record",
+    }[evidence.provenance_kind]
 
 
 def render_identity_page(
@@ -1129,7 +1298,15 @@ def render_identity_page(
     if IDENTITY_PAGE_TYPES.get(subject.id) != subject.type:
         raise ProjectionError("Identity Page model type is outside the fixed pilot contract")
 
-    observe_link = _derived_link(OBSERVE_SCOPE, "Observe Assembly Scope")
+    observe_link = _derived_link(OBSERVE_SCOPE, "Back to Observe")
+    status = subject.technical
+    supporting_evidence = _identity_page_supporting_evidence(atlas, model)
+    implementation_evidence = tuple(
+        evidence
+        for evidence, _edge in supporting_evidence
+        if evidence.provenance_kind == "github_implementation"
+    )
+    relation_groups = _identity_page_human_relation_groups(atlas, model)
     lines = [
         f"# {subject.name}",
         "",
@@ -1141,220 +1318,219 @@ def render_identity_page(
         + " · ".join(
             f"[[#{anchor}|{label}]]"
             for anchor, label in (
-                ("Overview", "Overview"),
+                ("Overview / General", "Overview / General"),
                 ("Technical", "Technical"),
                 ("Research", "Research"),
                 ("Evidence / Provenance", "Evidence / Provenance"),
+                ("Registry / Audit", "Registry / Audit"),
             )
         ),
         "",
-        "## Overview",
-        "",
-        "The public Registry identity and exact registered context are authoritative; this page "
-        "is generated navigation.",
-        "",
-        "### Technical parent(s)",
+        "## Overview / General",
         "",
     ]
-    if model.technical_parent_ids:
-        for parent_id in model.technical_parent_ids:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, subject.id)} — `part_of` → "
-                f"{_identity_page_display_link(atlas, parent_id)}"
-            )
-    else:
-        lines.append("- No technical parent is declared by a Registry `part_of` relation.")
-    lines.extend(["", "### Direct Component subcomponents", ""])
-    if subject.type != "Component":
-        lines.append("- Not applicable: this Registry identity is a DataArtifact, not a Component.")
-    elif model.child_component_ids:
-        for child_id in model.child_component_ids:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, child_id)} — `part_of` → "
-                f"{_identity_page_display_link(atlas, subject.id)}"
-            )
-    else:
-        lines.append("- No direct Component subcomponents are declared by `part_of`.")
-    lines.extend(["", "### Presentation context", ""])
-    if model.presentation_domain_ids:
-        for domain_id in model.presentation_domain_ids:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, subject.id)} — `presented_in_domain` → "
-                f"{_identity_page_display_link(atlas, domain_id)}"
-            )
-        lines.append("- Presentation grouping is navigation context, not technical parentage.")
-    else:
-        lines.append("- No Registry presentation Domain is declared; none is inferred.")
+    lines.append(
+        f"**Implementation:** {status.implementation_status.replace('-', ' ').title()} · "
+        f"**Verification:** {status.verification_status.replace('-', ' ').title()}"
+    )
+    for label, endpoint_ids in _identity_page_human_relation_groups(atlas, model):
+        links = ", ".join(_identity_page_human_link(atlas, identity) for identity in endpoint_ids)
+        lines.append(f"**{label}:** {links}")
+    if subject.type == "Component" and not model.child_component_ids:
+        lines.append(
+            "**Contains:** No direct Component subcomponents are registered; this remains a "
+            "leaf in the current Component graph."
+        )
     lines.extend(
         [
-            "",
-            "### Return routes",
             "",
             f"- {observe_link}",
         ]
     )
-    for parent_id in model.technical_parent_ids:
-        if parent_id in IDENTITY_PAGE_PATHS:
-            lines.append(f"- {_identity_page_display_link(atlas, parent_id)} — Parent Component")
-
     lines.extend(
         [
             "",
             "## Technical",
             "",
-            "### Registry state",
-            "",
-            "These Registry axes stay separate; this view creates no combined maturity or "
-            "verification claim.",
-            "",
-            f"- Architecture authority: `{subject.technical.architecture_authority}`",
-            f"- Implementation status: `{subject.technical.implementation_status}`",
-            f"- Technical verification: `{subject.technical.verification_status}`",
-            "",
-            "### Inputs and outputs",
-            "",
+            f"- Architecture basis: {status.architecture_authority.replace('-', ' ').capitalize()}",
+            f"- Implementation status: {status.implementation_status.replace('-', ' ').title()}",
+            f"- Verification status: {status.verification_status.replace('-', ' ').title()}",
         ]
     )
-    input_output = tuple(
-        edge for edge in model.direct_relationships if edge.relation in {"consumes", "supplies"}
+    if implementation_evidence:
+        lines.extend(["", "### Implementation notes", ""])
+        for evidence in implementation_evidence:
+            lines.append(f"- {evidence.description}")
+    data_flow_groups = tuple(
+        (label, endpoint_ids)
+        for label, endpoint_ids in relation_groups
+        if label
+        in {
+            "Uses",
+            "Used by",
+            "Produces",
+            "Produced by",
+            "Provides to",
+            "Provided by",
+        }
     )
-    if input_output:
-        for edge in input_output:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, edge.source)} — `{edge.relation}` → "
-                f"{_identity_page_display_link(atlas, edge.target)}"
+    if data_flow_groups:
+        lines.extend(["", "### Registered data flow", ""])
+        for label, endpoint_ids in data_flow_groups:
+            links = ", ".join(
+                _identity_page_human_link(atlas, identity) for identity in endpoint_ids
             )
-    else:
-        lines.append("- No direct Registry `consumes` or `supplies` relation is declared.")
-    lines.extend(["", "### Typed endpoint lanes", ""])
-    if subject.type == "Component":
-        for endpoint_type, heading in (
-            ("Interface", "Interfaces"),
-            ("Contract", "Contracts"),
-            ("DataArtifact", "Data Artifacts"),
-            ("MeasurementPoint", "Measurement Points"),
-        ):
-            lane = tuple(
-                edge
-                for edge in model.direct_relationships
-                if atlas.entities[edge.target if edge.source == subject.id else edge.source].type
-                == endpoint_type
-                and edge.relation in _COMPONENT_LANE_RELATIONS[endpoint_type]
-            )
-            lines.extend([f"#### {heading}", ""])
-            if lane:
-                for edge in lane:
-                    lines.append(
-                        f"- {_identity_page_display_link(atlas, edge.source)} "
-                        f"— `{edge.relation}` → "
-                        f"{_identity_page_display_link(atlas, edge.target)}"
-                    )
-            else:
-                lines.append(f"- No direct {endpoint_type} endpoint is registered.")
-            lines.append("")
-    else:
-        lines.append(
-            "- DataArtifact endpoints keep their declared direction in the relation rows above "
-            "and the existing W05 detail; no Component containment is inferred."
-        )
-        lines.append("")
-    technical_relationships = tuple(
-        edge
-        for edge in model.direct_relationships
-        if edge.relation not in {"presented_in_domain", "related_to_research_question", "supports"}
-    )
-    lines.extend(["### Exact direct technical relations", ""])
-    if technical_relationships:
-        for edge in technical_relationships:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, edge.source)} — `{edge.relation}` → "
-                f"{_identity_page_display_link(atlas, edge.target)}"
-            )
-    else:
-        lines.append("- No direct technical Registry relations are declared for this identity.")
-    raw_record = private_link(private_path(subject), "Open raw Registry record")
-    lines.extend(["", f"- Raw record inspection: {raw_record}"])
+            lines.append(f"- **{label}:** {links}")
     if subject.id == "DAT-OBSERVATION":
         detail_markdown, detail_canvas = technical_detail_paths(subject.id)
         lines.extend(
             [
-                "- Existing W05 Markdown detail: "
-                + _derived_link(detail_markdown, "Observation · W05 Technical Detail"),
-                "- Existing W05 native Canvas: "
-                + _canvas_link(detail_canvas, "Observation · W05 native Canvas"),
+                "",
+                "### Further technical detail",
+                "",
+                "- " + _derived_link(detail_markdown, "Exact technical relations"),
+                "- " + _canvas_link(detail_canvas, "Visual relation map"),
             ]
         )
 
-    lines.extend(["", "## Research", "", "### Declared Research Questions", ""])
+    lines.extend(["", "## Research", ""])
     if model.research_question_relationships:
+        lines.extend(["### Related research questions", ""])
         for edge in model.research_question_relationships:
-            lines.append(
-                f"- {_identity_page_display_link(atlas, edge.source)} — `{edge.relation}` → "
-                f"{_identity_page_display_link(atlas, edge.target)}"
-            )
+            lines.append(f"- {_identity_page_human_link(atlas, edge.target)}")
     else:
-        lines.append("- No direct Registry Research Question relation is declared.")
+        lines.append(
+            "No direct research question is linked to this identity in the current Registry "
+            "snapshot. This does not assess research coverage or completion."
+        )
     if subject.type == "Component":
-        lines.extend(["", "### Existing declared literature navigation", ""])
+        lines.extend(["", "### Declared literature navigation", ""])
         if model.literature_paths:
             lines.append(
-                f"- {len(model.literature_paths)} eligible declared Component path(s) are "
-                "available in the current Reference Index snapshot."
+                f"{len(model.literature_paths)} declared Component path(s) resolve in the "
+                "current Reference Index snapshot."
             )
-            for number, row in enumerate(model.literature_paths, start=1):
-                lines.append(
-                    f"- Path {number}: `{row.recipe}` · row `{row.row_id}` · "
-                    f"{_derived_link(NAVIGATION, 'open the declared navigation index')}"
-                )
+            lines.append(f"- {_derived_link(NAVIGATION, 'Open declared literature navigation')}")
         else:
             lines.append(
-                "- No matching declared Component paths are present in this snapshot; this "
-                "does not mean that no literature exists."
+                "No declared Component literature path resolves to this identity in the current "
+                "Reference Index snapshot; literature coverage and research completeness have "
+                "not been assessed."
             )
     else:
         lines.extend(
             [
                 "",
-                "### Research targeting availability",
+                "### Research targeting",
                 "",
-                "The current finite Reference Index exposes Component-terminal literature paths. "
-                "DataArtifact targeting is not implemented in this slice; no direct or inherited "
-                "DataArtifact path is inferred.",
+                "The current Reference Index resolves Component-terminal paths. DataArtifact "
+                "targeting is outside this slice; no direct or inherited path is inferred. "
+                "Literature coverage and research completeness have not been assessed.",
             ]
         )
     lines.extend(
         [
             "",
-            "Existing research navigation remains the path authority:",
+            "Existing research navigation:",
             f"- {_derived_link(NAVIGATION, 'Declared Literature Navigation')}",
             f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
             f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}",
             "",
             "## Evidence / Provenance",
             "",
-            f"- Public Registry source commit: `{commit}`",
-            f"- Registry content revision: `{registry_content_revision(atlas)}`",
-            "- Existing private Reference Index input fingerprint: "
-            f"`{model.private_input_fingerprint}`",
-            f"- Raw technical identity route: {raw_record}",
-            "- This page is generated by `research-wiki-derived`; it is not an editable Registry "
-            "copy or a second identity.",
-            "- Technical implementation evidence remains distinct from scientific evidence; no "
-            "scientific claim is created or implied.",
-            "",
-            "### Selected historical technical Evidence",
-            "",
         ]
     )
-    if model.historical_evidence:
-        for _evidence, edge in model.historical_evidence:
+    if supporting_evidence:
+        lines.extend(
+            [
+                "Registry-linked sources for this identity:",
+                "",
+            ]
+        )
+        for evidence, edge in supporting_evidence:
+            direction = _identity_page_relation_label(atlas, subject.id, edge)
             lines.append(
-                f"- {_identity_page_display_link(atlas, edge.source)} — `{edge.relation}` → "
-                f"{_identity_page_display_link(atlas, edge.target)}"
+                f"- **{direction} — {_identity_page_human_link(atlas, evidence.id)}** "
+                f"({_identity_page_evidence_kind(evidence).lower()}): "
+                f"{evidence.description}"
             )
     else:
-        lines.append("- No selected historical technical Evidence relation is registered.")
-    lines.append("")
+        lines.append(
+            "No direct Evidence relation is registered for this identity in the current "
+            "snapshot; this does not assess evidence availability elsewhere."
+        )
+    lines.extend(
+        [
+            "",
+            "Implementation inspection, test-source inspection, normative sources, and scientific "
+            "evidence are distinct. Source inspection alone is not live or measurement validation.",
+            "",
+            "## Registry / Audit",
+            "",
+            "### Exact Registry relations",
+            "",
+            "Raw direction and predicates are retained here from the current Registry snapshot.",
+            "",
+            "| Source | Predicate | Target |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for edge in model.direct_relationships:
+        lines.append(
+            f"| {_identity_page_audit_link(atlas, edge.source)} | `{edge.relation}` | "
+            f"{_identity_page_audit_link(atlas, edge.target)} |"
+        )
+    if not model.direct_relationships:
+        lines.append("| — | — | No direct Registry relations are registered. |")
+    lines.extend(
+        [
+            "",
+            "### Evidence source locators",
+            "",
+            "| Evidence identity | Provenance kind | "
+            "Source revision | Source and locator | Checked |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    if supporting_evidence:
+        for evidence, _edge in supporting_evidence:
+            source, revision, locator = _identity_page_evidence_locator(evidence)
+            lines.append(
+                f"| {_identity_page_audit_link(atlas, evidence.id)} | "
+                f"`{evidence.provenance_kind}` | `{revision}` | `{source}` · `{locator}` | "
+                f"{evidence.checked_date.isoformat()} |"
+            )
+    else:
+        lines.append("| — | — | — | No direct Evidence locator is registered. | — |")
+    if model.literature_paths:
+        lines.extend(
+            [
+                "",
+                "### Declared literature-path audit",
+                "",
+                "Exact path recipes and index row identities remain here; the Reference Index is "
+                "the path authority.",
+                "",
+                "| Path | Recipe | Index row | Path kind |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for number, row in enumerate(model.literature_paths, start=1):
+            lines.append(
+                f"| {number} | `{row.recipe or ''}` | `{row.row_id}` | `{row.path_kind}` |"
+            )
+    raw_record = private_link(private_path(subject), "Open raw Registry record")
+    lines.extend(
+        [
+            "",
+            f"- Raw Registry record: {raw_record}",
+            f"- Public Registry source commit: `{commit}`",
+            f"- Registry content revision: `{registry_content_revision(atlas)}`",
+            f"- Reference Index input fingerprint: `{model.private_input_fingerprint}`",
+            "- Generated owner: `research-wiki-derived`; this is a derived navigation page, "
+            "not an editable Registry record or a second identity.",
+        ]
+    )
     metadata = {
         "generated_by": OWNER,
         "source_repository": REPOSITORY,
