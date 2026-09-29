@@ -645,7 +645,8 @@ One exact ID-to-page resolver maps `CMP-PERCEPTION`,
 to those human-titled paths. Each page uses one same-page template with
 Overview / General, Technical, Research, Evidence / Provenance and Registry /
 Audit sections. Section navigation uses same-page anchors. The human Registry
-name leads; type and stable ID remain secondary beneath it. The first view
+name leads, followed immediately by the existing responsibility description;
+type and stable ID remain quiet secondary metadata below it. The first view
 explains the identity and its agent role, implementation and verification
 state, useful human-labeled relations, and a `Back to Observe` route.
 
@@ -660,14 +661,16 @@ technical ancestry. Evidence uses Supports / Supported by. Unmapped relations
 remain in Registry / Audit.
 
 Only direct Registry `part_of` children typed as Components are primary
-deeper-navigation links. No hierarchy is inferred from Domains, files, or
-presentation layout. Empty technical endpoint lanes are omitted. Evidence /
-Provenance presents human-readable source names, source kinds and summaries;
-Registry / Audit retains exact relations and direction, raw predicates and
-IDs, Evidence source locators and revisions, Registry source revision, raw
-record routes and generated provenance metadata. Research empty states report
-only the current Reference Index mapping boundary; they do not imply that
-literature is absent, a research gap exists, or research is complete.
+deeper-navigation links; Component leaves omit the empty `Contains` row. No
+hierarchy is inferred from Domains, files, or presentation layout. Empty
+technical endpoint lanes are omitted. Evidence / Provenance presents
+human-readable source names, source kinds and summaries; Registry / Audit
+retains exact relations and direction, raw predicates and IDs, Evidence source
+locators and revisions, Registry source revision, raw record routes and
+generated provenance metadata inside a native Markdown disclosure collapsed by
+default. Research empty states report only the current Reference Index mapping
+boundary; they do not imply that literature is absent, a research gap exists,
+or research is complete.
 
 Observation remains a DataArtifact page and is never shown as a Component.
 Its summary says Produced by Perception and Used by Cortex, Memory, Independent

@@ -1310,9 +1310,9 @@ def render_identity_page(
     lines = [
         f"# {subject.name}",
         "",
-        f"**{subject.type}** · Stable ID `{subject.id}`",
-        "",
         subject.description,
+        "",
+        f"*{subject.type} · Stable ID `{subject.id}`*",
         "",
         "**Sections:** "
         + " · ".join(
@@ -1334,13 +1334,16 @@ def render_identity_page(
         f"**Verification:** {status.verification_status.replace('-', ' ').title()}"
     )
     for label, endpoint_ids in _identity_page_human_relation_groups(atlas, model):
-        links = ", ".join(_identity_page_human_link(atlas, identity) for identity in endpoint_ids)
-        lines.append(f"**{label}:** {links}")
-    if subject.type == "Component" and not model.child_component_ids:
-        lines.append(
-            "**Contains:** No direct Component subcomponents are registered; this remains a "
-            "leaf in the current Component graph."
-        )
+        if label == "Contains":
+            lines.append("**Contains:**")
+            lines.extend(
+                f"- {_identity_page_human_link(atlas, identity)}" for identity in endpoint_ids
+            )
+        else:
+            links = ", ".join(
+                _identity_page_human_link(atlas, identity) for identity in endpoint_ids
+            )
+            lines.append(f"**{label}:** {links}")
     lines.extend(
         [
             "",
@@ -1467,6 +1470,11 @@ def render_identity_page(
             "",
             "## Registry / Audit",
             "",
+        ]
+    )
+    audit_payload_start = len(lines)
+    lines.extend(
+        [
             "### Exact Registry relations",
             "",
             "Raw direction and predicates are retained here from the current Registry snapshot.",
@@ -1531,6 +1539,11 @@ def render_identity_page(
             "not an editable Registry record or a second identity.",
         ]
     )
+    audit_payload = lines[audit_payload_start:]
+    lines[audit_payload_start:] = [
+        "> [!info]- Registry / Audit",
+        *(f"> {line}" for line in audit_payload),
+    ]
     metadata = {
         "generated_by": OWNER,
         "source_repository": REPOSITORY,

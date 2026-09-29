@@ -174,6 +174,17 @@ def identity_page_tree(atlas, records=None):
     return tree, snapshot, reference, locators
 
 
+def identity_page_audit_text(page):
+    """Return collapsed audit content while asserting native disclosure syntax."""
+    visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+    section = visible.split("## Registry / Audit\n", 1)[1]
+    assert section.startswith("\n> [!info]- Registry / Audit\n")
+    quoted_lines = section.splitlines()[1:]
+    assert quoted_lines[0] == "> [!info]- Registry / Audit"
+    assert all(not line.strip() or line.startswith(">") for line in quoted_lines)
+    return "\n".join(line[2:] for line in quoted_lines[1:] if line.startswith("> "))
+
+
 def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     secret_title = "SYNTHETIC-PRIVATE-IDENTITY-PAGE-SECRET"
     records = [
@@ -226,8 +237,11 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         visible = rendered.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
         first_view = visible.split("## Technical\n", 1)[0]
         assert first_view.index(f"# {subject.name}") < first_view.index(subject.description)
-        assert first_view.index(subject.description) < first_view.index("**Sections:**")
+        identity_metadata = f"*{expected_type} · Stable ID `{identity}`*"
+        assert first_view.index(subject.description) < first_view.index(identity_metadata)
+        assert first_view.index(identity_metadata) < first_view.index("**Sections:**")
         assert first_view.index("**Sections:**") < first_view.index("## Overview / General")
+        assert body.startswith(f"# {subject.name}\n\n{subject.description}\n\n{identity_metadata}")
         assert "**Implementation:** " in first_view
         assert "**Verification:** " in first_view
         assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in first_view
@@ -253,7 +267,10 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         for section in section_names:
             assert f"[[#{section}|{section}]]" in visible
         assert visible.index("## Registry / Audit") > visible.index("## Evidence / Provenance")
-        assert "- Public Registry source commit:" in visible.split("## Registry / Audit\n", 1)[1]
+        assert visible[visible.index("## Registry / Audit\n") :].startswith(
+            "## Registry / Audit\n\n> [!info]- Registry / Audit\n"
+        )
+        assert "- Public Registry source commit:" in identity_page_audit_text(visible)
         assert "- Public Registry source commit:" not in first_view
         assert "W05" not in visible
         assert "No direct Interface endpoint" not in visible
@@ -261,7 +278,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert "No direct DataArtifact endpoint" not in visible
         assert "No direct MeasurementPoint endpoint" not in visible
         assert rendered.endswith("-->\n")
-        assert body.startswith(f"# {subject.name}\n\n**{expected_type}** · Stable ID `{identity}`")
+        assert identity_metadata in visible
         technical = visible.split("## Technical\n", 1)[1].split("## Research\n", 1)[0]
         assert "Architecture basis:" in technical
         assert "Implementation status:" in technical
@@ -275,7 +292,8 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         )
         assert secret_title not in visible
 
-        audit = visible.split("### Exact Registry relations\n", 1)[1].split(
+        audit_text = identity_page_audit_text(visible)
+        audit = audit_text.split("### Exact Registry relations\n", 1)[1].split(
             "### Evidence source locators\n", 1
         )[0]
         expected_edges = tuple(
@@ -303,10 +321,17 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         )
     )
     assert expected_children == ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE")
-    expected_contains = ", ".join(
-        views._identity_page_human_link(atlas, child_id) for child_id in expected_children
-    )
-    assert f"**Contains:** {expected_contains}" in perception_summary
+    assert perception_summary.count("**Contains:**") == 1
+    summary_lines = perception_summary.splitlines()
+    contains_header = summary_lines.index("**Contains:**")
+    contains_children = []
+    for line in summary_lines[contains_header + 1 :]:
+        if not line.startswith("- "):
+            break
+        contains_children.append(line)
+    assert contains_children == [
+        f"- {views._identity_page_human_link(atlas, child_id)}" for child_id in expected_children
+    ]
     assert "**Part of:**" in perception_summary
     assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in (
         perception_summary
@@ -321,18 +346,21 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             f"**Part of:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
             in child_summary
         )
-        assert "leaf in the current Component graph" in child_summary
+        assert "**Contains:**" not in child_summary
+        assert "No direct Component subcomponents" not in child_summary
         assert "`part_of`" not in child_summary
     assert "**Browse area:**" in perception_summary
     assert "`part_of`" not in perception_summary
     assert "`consumes`" not in perception_summary and "`supplies`" not in perception_summary
     assert "`presented_in_domain`" not in perception_summary
-    assert "EVID-48-BUILDER" in perception.split("## Registry / Audit\n", 1)[1]
+    assert "EVID-48-BUILDER" in identity_page_audit_text(perception)
 
     observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
     detail_markdown, detail_canvas = views.technical_detail_paths("DAT-OBSERVATION")
+    assert detail_markdown == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.md")
+    assert detail_canvas == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.canvas")
     observation_summary = observation.split("## Technical\n", 1)[0]
-    assert "**DataArtifact** · Stable ID `DAT-OBSERVATION`" in observation_summary
+    assert "*DataArtifact · Stable ID `DAT-OBSERVATION`*" in observation_summary
     assert (
         f"**Produced by:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
         in observation_summary
@@ -360,31 +388,42 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     assert "WPAPER-RM1-OBSERVATION" not in observation
 
     for identity, expected_edges in audit_rows_by_identity.items():
-        page = tree[views.IDENTITY_PAGE_PATHS[identity]].decode()
-        audit = page.split("### Exact Registry relations\n", 1)[1].split(
+        page_bytes = tree[views.IDENTITY_PAGE_PATHS[identity]]
+        page = page_bytes.decode()
+        audit_text = identity_page_audit_text(page)
+        audit = audit_text.split("### Exact Registry relations\n", 1)[1].split(
             "### Evidence source locators\n", 1
         )[0]
         assert audit.count("\n| ") == len(expected_edges) + 2
         for edge in expected_edges:
             assert f"`{edge.relation}`" in audit
             assert f"`{edge.source}`" in audit and f"`{edge.target}`" in audit
-        assert f"`{SOURCE_COMMIT}`" in page.split("## Registry / Audit\n", 1)[1]
-        assert (
-            f"`{views.registry_content_revision(atlas)}`"
-            in page.split("## Registry / Audit\n", 1)[1]
-        )
+        assert f"`{SOURCE_COMMIT}`" in audit_text
+        assert f"`{views.registry_content_revision(atlas)}`" in audit_text
+        model = views.identity_page_model(atlas, reference, identity)
+        assert f"`{model.private_input_fingerprint}`" in audit_text
+        assert "Generated owner: `research-wiki-derived`" in audit_text
+        assert "derived navigation page" in audit_text
         assert "No literature exists" not in page
         assert "Research is complete" not in page
-        model = views.identity_page_model(atlas, reference, identity)
+        for evidence, _edge in views._identity_page_supporting_evidence(atlas, model):
+            source, revision, locator = views._identity_page_evidence_locator(evidence)
+            for audit_value in (
+                evidence.id,
+                f"`{revision}`",
+                f"`{source}` · `{locator}`",
+                evidence.checked_date.isoformat(),
+            ):
+                assert audit_value.encode() in page_bytes
         research_summary = page.split("## Research\n", 1)[1].split("## Evidence / Provenance\n", 1)[
             0
         ]
         for row in model.literature_paths:
             assert row.row_id not in research_summary
-            assert f"`{row.row_id}`" in page.split("## Registry / Audit\n", 1)[1]
+            assert f"`{row.row_id}`" in audit_text
             if row.recipe:
                 assert row.recipe not in research_summary
-                assert f"`{row.recipe}`" in page.split("## Registry / Audit\n", 1)[1]
+                assert f"`{row.recipe}`" in audit_text
 
     observe = tree[views.OBSERVE_SCOPE].decode()
     for identity, label in (
