@@ -628,6 +628,133 @@ Candidate History and Decision Lineage remain deferred. No acceptance/status
 promotion, private-to-public export, scientific adjudication or Wiki-to-Agent
 Memory/Retrieval/Cortex path is introduced.
 
+## RM-1 universal Identity Page reference slice (manifest v2.8)
+
+RM-1 adds four compact pages under the existing `research-wiki-derived`
+`_generated/derived/` owner:
+
+```text
+identity-pages/Perception.md
+identity-pages/Observation Builder.md
+identity-pages/UI State Classification.md
+identity-pages/Observation.md
+```
+
+One exact ID-to-page resolver maps `CMP-PERCEPTION`,
+`CMP-OBSERVATION-BUILDER`, `CMP-PERCEPTION-UI-STATE` and `DAT-OBSERVATION`
+to those human-titled paths. Each page uses one same-page template with
+Overview / General, Technical, Research, Evidence / Provenance and Registry /
+Audit sections. Section navigation uses same-page anchors. The human Registry
+name leads, followed immediately by the existing responsibility description;
+type and stable ID remain quiet secondary metadata below it. The first view
+explains the identity and its agent role, implementation and verification
+state, useful human-labeled relations, and a `Back to Observe` route.
+
+Human relation labels retain Registry direction: `part_of` is Part of /
+Contains; `consumes` is Uses / Used by; `supplies` is Produces / Produced by
+for a DataArtifact and Provides to / Provided by for other endpoints. The
+accepted Controls / Controlled by, Executes / Executed by, Grounds / Grounded
+by, Measures / Measured by, Observes / Observed by, Proposes to / Receives
+proposals from, Constrains / Constrained by and Verifies / Verified by labels
+also preserve direction. `presented_in_domain` is Browse area context, never
+technical ancestry. Evidence uses Supports / Supported by. Unmapped relations
+remain in Registry / Audit.
+
+Only direct Registry `part_of` children typed as Components are primary
+deeper-navigation links; Component leaves omit the empty `Contains` row. No
+hierarchy is inferred from Domains, files, or presentation layout. Empty
+technical endpoint lanes are omitted. Evidence / Provenance presents
+human-readable source names, source kinds and summaries; Registry / Audit
+retains exact relations and direction, raw predicates and IDs, Evidence source
+locators and revisions, Registry source revision, raw record routes and
+generated provenance metadata inside a native Markdown disclosure collapsed by
+default. Research empty states report only the current Reference Index mapping
+boundary; they do not imply that literature is absent, a research gap exists,
+or research is complete.
+
+Observation remains a DataArtifact page and is never shown as a Component.
+Its summary says Produced by Perception and Used by Cortex, Memory, Independent
+Verifier and Temporal State. The Observe actions for Perception and Observation
+open their Identity Pages; the other Observe landmarks retain their existing
+raw-record routes. Both Perception children return to the Perception page and
+all four pages link back to the existing Observe Assembly Scope.
+
+The Observation page keeps the existing technical Markdown and Canvas
+destinations, labeled `Exact technical relations` and `Visual relation map`.
+It creates neither a replacement detail nor an extra Canvas. Component
+Research navigation reuses exact eligible Component paths in the existing
+Declared Reference Index. DataArtifact research targeting is unavailable in
+this slice, and no attachment path or Research prose is inferred. The existing
+Memory Retrieval and Independent Verifier Hubs remain unchanged.
+
+Manifest v2.8 adds only these four exact page paths beyond the previously
+declared outputs. Prior v1.0–v2.7 ownership remains finite and readable; only a
+v2.8 manifest may own the four Identity Page paths. `--check` remains
+zero-write, unknown files still fail closed, and authored/private content
+remains outside these generated pages. Identity Page provenance is stored in a
+deterministic hidden generated-metadata comment after the visible page content,
+and prior ownership is accepted only when that marker matches the fixed path,
+subject and Registry type. This code change does not apply the projection to
+the actual private vault; exact-head CONTROL authorization is still required
+for G6.
+
+### Optional Identity Page presentation (Pattern B / Pattern A)
+
+Issue #113 CONTROL [release comment 5894355912](https://github.com/Planton361/autonomous-game-agent/issues/113#issuecomment-5894355912)
+extends only the four pilot pages with Pattern B: semantic Markdown, native
+Obsidian callouts, bounded Mermaid and one optional managed stylesheet.
+Pattern A is the mandatory native-only fallback; no community plugin is required.
+There are no visible Properties, styling frontmatter, Bases embeds or generated
+HTML layout containers.
+
+The H1 and normal same-page H2/H3 sections stay in Markdown. The responsibility
+hero keeps the exact Registry description before quiet type/Stable ID metadata.
+On-this-page navigation links to Overview, Technical, Research, Evidence and
+Audit. At-a-glance cards contain textual implementation/verification state and
+human-labeled context. Only Perception has Go deeper, with its two exact Component
+children. Observation remains a DataArtifact cross-reference with Produced by /
+Used by summaries and unchanged W05 Markdown/Canvas destinations.
+
+Presentation hooks are exactly `aga-hero`, `aga-nav`, `aga-grid`, `aga-status`,
+`aga-context`, `aga-depth`, `aga-research`, `aga-evidence` and `aga-audit`.
+Every callout has a readable title and content. The audit callout remains
+collapsed by default, with all exact predicates, IDs, revisions and provenance.
+Foldable native warning callouts quote only the selected direct baseline
+limitation evidence: Perception's OCR/spatial limits and UI State Classification's
+unvalidated pixel-classifier boundary. Their source links remain explicit.
+No limitation is inferred from missing data or unverified status.
+
+Mermaid uses the current identity, its direct System/Component parent, exact
+Component children, and direct technical Uses/Produces endpoints, including
+incoming Used by/Produced by facts. Diagram arrows retain Registry direction;
+labels use the accepted human-facing mapping. Provides to, Domain, Evidence,
+Research and unrelated neighbor edges are excluded. Node/edge ordering is stable,
+and names are escaped as Mermaid labels. A diagram requires at least three
+distinct nodes: the current pilots produce six-node diagrams for Perception and
+Observation; the two simple Component leaves omit diagrams. All diagram facts
+also remain in ordinary textual summaries and exact audit rows. Disabling Mermaid
+loses no information.
+
+The sole managed presentation source is
+[`presentation/aga-identity-pages.css`](presentation/aga-identity-pages.css).
+It styles only the finite public callout hooks: hero, cards, responsive grid,
+navigation links, badges and muted audit. It uses Obsidian/theme color variables,
+fluid sizing and a one-column narrow-screen fallback, without fonts, external
+resources, private selectors or content-hiding rules. It changes neither fact
+order nor semantic state. CSS is separate from the generator payload and manifest
+v2.8; the Workspace harness does not install or enable it. Actual-vault installation
+and enabling require a later exact-head CONTROL G6 authorization. The repository
+file remains the managed source, not operator-local configuration.
+
+Focused tests exercise the Markdown without loading CSS, remove Mermaid to check
+textual fallback, verify anchors/ordinary child links and complete collapsed audit,
+check exact graph facts and deterministic shuffled generation, and restrict CSS
+to the finite presentation vocabulary and safe declarations. These are source and
+contract checks, not a substitute for Reading View / Live Preview human G6.
+Native behavior follows [Obsidian callouts](https://obsidian.md/help/callouts)
+(unknown custom types fall back to ordinary native callouts); diagram syntax
+uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
+
 ## RA-4A fixture-only Zotero source projection
 
 RA-4A adds an independent offline PoC, with one explicit synthetic JSON fixture

@@ -20,7 +20,7 @@ from fh_agent.research_atlas.private_reference_index import (
     component_navigation_rows,
     make_snapshot,
 )
-from fh_agent.research_atlas.schema import Relationship
+from fh_agent.research_atlas.schema import DataArtifact, Relationship
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.wiki_schema import WIKI_PREFIXES
 
@@ -148,6 +148,690 @@ def component_research_tree(atlas, records=None, *, locators=None):
         reference,
         locators,
     )
+
+
+def identity_page_tree(atlas, records=None):
+    """Build the finite identity-page slice with synthetic authored Research only."""
+    records = [] if records is None else records
+    snapshot = make_snapshot(records, atlas)
+    private_records = views.landscape_private_records(records, atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    locators = {
+        record["wiki_id"]: PurePosixPath("authored") / f"{record['wiki_id']}.md"
+        for record in records
+    }
+    tree = views.reference_views_tree(
+        SOURCE_COMMIT,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        locators,
+        snapshot,
+        False,
+        private_records,
+    )
+    return tree, snapshot, reference, locators
+
+
+def identity_page_audit_text(page):
+    """Return collapsed audit content while asserting native disclosure syntax."""
+    visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+    section = visible.split("## Registry / Audit\n", 1)[1]
+    assert section.startswith("\n> [!aga-audit]- Registry / Audit\n")
+    quoted_lines = section.splitlines()[1:]
+    assert quoted_lines[0] == "> [!aga-audit]- Registry / Audit"
+    assert all(not line.strip() or line.startswith(">") for line in quoted_lines)
+    return "\n".join(line[2:] for line in quoted_lines[1:] if line.startswith("> "))
+
+
+def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
+    secret_title = "SYNTHETIC-PRIVATE-IDENTITY-PAGE-SECRET"
+    records = [
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-PERCEPTION",
+            title=secret_title,
+            research_direct_subject_refs=["CMP-PERCEPTION"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-OBSERVATION",
+            title=secret_title,
+            research_direct_subject_refs=["DAT-OBSERVATION"],
+        ),
+    ]
+    tree, _, reference, _ = identity_page_tree(atlas, records)
+    expected_types = {
+        "CMP-PERCEPTION": "Component",
+        "CMP-OBSERVATION-BUILDER": "Component",
+        "CMP-PERCEPTION-UI-STATE": "Component",
+        "DAT-OBSERVATION": "DataArtifact",
+    }
+    assert set(views.IDENTITY_PAGE_TYPES.items()) == set(expected_types.items())
+    assert set(views.IDENTITY_PAGE_PATHS) == set(expected_types)
+    assert views.IDENTITY_PAGE_PAYLOADS == frozenset(views.IDENTITY_PAGE_PATHS.values())
+
+    audit_rows_by_identity = {}
+    for identity, expected_type in expected_types.items():
+        path = views.IDENTITY_PAGE_PATHS[identity]
+        rendered = tree[path].decode()
+        properties, body = views.markdown_parts(rendered)
+        subject = atlas.entities[identity]
+        assert properties == {}
+        assert not rendered.startswith("---\n")
+        assert rendered.startswith(f"# {subject.name}\n")
+        metadata = views._identity_page_generated_metadata(rendered, path)
+        assert metadata == {
+            "generated_by": views.OWNER,
+            "source_repository": views.REPOSITORY,
+            "source_commit": SOURCE_COMMIT,
+            "identity_page_schema_version": views.IDENTITY_PAGE_SCHEMA_VERSION,
+            "identity_page_subject_id": identity,
+            "identity_page_registry_type": expected_type,
+            "source_registry_revision": views.registry_content_revision(atlas),
+            "reference_index_schema_version": "1.0",
+            "private_input_fingerprint": reference.private_input_fingerprint,
+        }
+        assert rendered.count(views.IDENTITY_PAGE_METADATA_MARKER) == 1
+        visible = rendered.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+        first_view = visible.split("## Technical\n", 1)[0]
+        assert first_view.index(f"# {subject.name}") < first_view.index(subject.description)
+        identity_metadata = f"*{expected_type} · Stable ID `{identity}`*"
+        assert first_view.index(subject.description) < first_view.index(identity_metadata)
+        assert first_view.index(identity_metadata) < first_view.index("[!aga-nav] On this page")
+        assert first_view.index("[!aga-nav] On this page") < first_view.index(
+            "## Overview / General"
+        )
+        assert body.startswith(f"# {subject.name}\n\n> [!aga-hero] Responsibility\n")
+        assert f"> {subject.description}\n> \n> {identity_metadata}" in body
+        assert "**Implementation:** " in first_view
+        assert "**Verification:** " in first_view
+        assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in first_view
+        for predicate in (
+            "part_of",
+            "consumes",
+            "supplies",
+            "presented_in_domain",
+            "supports",
+            "related_to_research_question",
+        ):
+            assert f"`{predicate}`" not in first_view
+        section_names = (
+            "Overview / General",
+            "Technical",
+            "Research",
+            "Evidence / Provenance",
+            "Registry / Audit",
+        )
+        assert [visible.index(f"## {section}") for section in section_names] == sorted(
+            visible.index(f"## {section}") for section in section_names
+        )
+        for section, label in zip(
+            section_names, ("Overview", "Technical", "Research", "Evidence", "Audit"), strict=True
+        ):
+            assert f"[[#{section}|{label}]]" in visible
+        assert visible.index("## Registry / Audit") > visible.index("## Evidence / Provenance")
+        assert visible[visible.index("## Registry / Audit\n") :].startswith(
+            "## Registry / Audit\n\n> [!aga-audit]- Registry / Audit\n"
+        )
+        assert "- Public Registry source commit:" in identity_page_audit_text(visible)
+        assert "- Public Registry source commit:" not in first_view
+        assert "W05" not in visible
+        assert "No direct Interface endpoint" not in visible
+        assert "No direct Contract endpoint" not in visible
+        assert "No direct DataArtifact endpoint" not in visible
+        assert "No direct MeasurementPoint endpoint" not in visible
+        assert rendered.endswith("-->\n")
+        assert identity_metadata in visible
+        technical = visible.split("## Technical\n", 1)[1].split("## Research\n", 1)[0]
+        assert "Architecture basis:" in technical
+        assert "Implementation status:" in technical
+        assert "Verification status:" in technical
+        assert "### Implementation notes" in technical
+        assert (
+            views.private_link(
+                technical_projection.private_path(subject), "Open raw Registry record"
+            )
+            in visible
+        )
+        assert secret_title not in visible
+
+        audit_text = identity_page_audit_text(visible)
+        audit = audit_text.split("### Exact Registry relations\n", 1)[1].split(
+            "### Evidence source locators\n", 1
+        )[0]
+        expected_edges = tuple(
+            edge for edge in atlas.relationships if identity in {edge.source, edge.target}
+        )
+        audit_rows_by_identity[identity] = expected_edges
+        for edge in expected_edges:
+            source = views._identity_page_audit_link(atlas, edge.source)
+            target = views._identity_page_audit_link(atlas, edge.target)
+            assert f"| {source} | `{edge.relation}` | {target} |" in audit
+        assert audit.count("\n| ") == len(expected_edges) + 2
+
+    perception = tree[views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]].decode()
+    perception_summary = perception.split("## Technical\n", 1)[0]
+    expected_children = tuple(
+        sorted(
+            (
+                edge.source
+                for edge in audit_rows_by_identity["CMP-PERCEPTION"]
+                if edge.relation == "part_of"
+                and edge.target == "CMP-PERCEPTION"
+                and atlas.entities[edge.source].type == "Component"
+            ),
+            key=lambda child_id: atlas.entities[child_id].name.casefold(),
+        )
+    )
+    assert expected_children == ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE")
+    assert perception_summary.count("**Contains:**") == 1
+    summary_lines = [line.removeprefix("> ") for line in perception_summary.splitlines()]
+    contains_header = summary_lines.index("**Contains:**")
+    contains_children = []
+    for line in summary_lines[contains_header + 1 :]:
+        if not line.startswith("- "):
+            break
+        contains_children.append(line)
+    assert contains_children == [
+        f"- {views._identity_page_human_link(atlas, child_id)}" for child_id in expected_children
+    ]
+    assert "**Part of:**" in perception_summary
+    assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in (
+        perception_summary
+    )
+    assert f"**Produces:** {views._identity_page_human_link(atlas, 'DAT-OBSERVATION')}" in (
+        perception_summary
+    )
+    for child_id in expected_children:
+        child_body = tree[views.IDENTITY_PAGE_PATHS[child_id]].decode()
+        child_summary = child_body.split("## Technical\n", 1)[0]
+        assert (
+            f"**Part of:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
+            in child_summary
+        )
+        assert "**Contains:**" not in child_summary
+        assert "No direct Component subcomponents" not in child_summary
+        assert "`part_of`" not in child_summary
+    assert "**Browse area:**" in perception_summary
+    assert "`part_of`" not in perception_summary
+    assert "`consumes`" not in perception_summary and "`supplies`" not in perception_summary
+    assert "`presented_in_domain`" not in perception_summary
+    assert "EVID-48-BUILDER" in identity_page_audit_text(perception)
+
+    observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
+    detail_markdown, detail_canvas = views.technical_detail_paths("DAT-OBSERVATION")
+    assert detail_markdown == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.md")
+    assert detail_canvas == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.canvas")
+    observation_summary = observation.split("## Technical\n", 1)[0]
+    assert "*DataArtifact · Stable ID `DAT-OBSERVATION`*" in observation_summary
+    assert (
+        f"**Produced by:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
+        in observation_summary
+    )
+    used_by_line = next(line for line in observation_summary.splitlines() if "**Used by:**" in line)
+    expected_consumers = (
+        "CMP-CORTEX",
+        "CMP-MEMORY",
+        "CMP-INDEPENDENT-VERIFIER",
+        "CMP-TEMPORAL-STATE",
+    )
+    for consumer_id in expected_consumers:
+        assert views._identity_page_human_link(atlas, consumer_id) in used_by_line
+    assert used_by_line.index("Cortex") < used_by_line.index("Memory")
+    assert used_by_line.index("Memory") < used_by_line.index("Independent Verifier")
+    assert used_by_line.index("Independent Verifier") < used_by_line.index("Temporal State")
+    assert "**Part of:**" not in observation_summary
+    assert "**Contains:**" not in observation_summary
+    assert views._derived_link(detail_markdown, "Exact technical relations") in observation
+    assert views._canvas_link(detail_canvas, "Visual relation map") in observation
+    assert detail_markdown in tree and detail_canvas in tree
+    assert "DataArtifact targeting is outside this slice" in observation
+    assert "WPAPER-RM1-OBSERVATION" not in observation
+
+    for identity, expected_edges in audit_rows_by_identity.items():
+        page_bytes = tree[views.IDENTITY_PAGE_PATHS[identity]]
+        page = page_bytes.decode()
+        audit_text = identity_page_audit_text(page)
+        audit = audit_text.split("### Exact Registry relations\n", 1)[1].split(
+            "### Evidence source locators\n", 1
+        )[0]
+        assert audit.count("\n| ") == len(expected_edges) + 2
+        for edge in expected_edges:
+            assert f"`{edge.relation}`" in audit
+            assert f"`{edge.source}`" in audit and f"`{edge.target}`" in audit
+        assert f"`{SOURCE_COMMIT}`" in audit_text
+        assert f"`{views.registry_content_revision(atlas)}`" in audit_text
+        model = views.identity_page_model(atlas, reference, identity)
+        assert f"`{model.private_input_fingerprint}`" in audit_text
+        assert "Generated owner: `research-wiki-derived`" in audit_text
+        assert "derived navigation page" in audit_text
+        assert "No literature exists" not in page
+        assert "Research is complete" not in page
+        for evidence, _edge in views._identity_page_supporting_evidence(atlas, model):
+            source, revision, locator = views._identity_page_evidence_locator(evidence)
+            for audit_value in (
+                evidence.id,
+                f"`{revision}`",
+                f"`{source}` · `{locator}`",
+                evidence.checked_date.isoformat(),
+            ):
+                assert audit_value.encode() in page_bytes
+        research_summary = page.split("## Research\n", 1)[1].split("## Evidence / Provenance\n", 1)[
+            0
+        ]
+        for row in model.literature_paths:
+            assert row.row_id not in research_summary
+            assert f"`{row.row_id}`" in audit_text
+            if row.recipe:
+                assert row.recipe not in research_summary
+                assert f"`{row.recipe}`" in audit_text
+
+    observe = tree[views.OBSERVE_SCOPE].decode()
+    for identity, label in (
+        ("CMP-PERCEPTION", "Open Perception"),
+        ("DAT-OBSERVATION", "Open Observation"),
+    ):
+        assert views._derived_link(views.IDENTITY_PAGE_PATHS[identity], label) in observe
+    for identity, label in (
+        ("CMP-NO-SPOILER-FIREWALL", "Open No-Spoiler Firewall"),
+        ("CMP-VISIBLE-STATE-BRIDGE", "Open Visible-State Bridge"),
+    ):
+        assert (
+            technical_projection.private_link(
+                technical_projection.private_path(atlas.entities[identity]), label
+            )
+            in observe
+        )
+
+    manifest = views.read_yaml(tree[views.MANIFEST].decode())
+    owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
+    assert manifest["view_schema_version"] == "2.8"
+    assert views.IDENTITY_PAGE_PAYLOADS <= owned
+    assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
+
+
+def test_identity_page_relation_labels_keep_accepted_direction(atlas):
+    cases = (
+        ("part_of", "CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION", "Part of", "Contains"),
+        ("consumes", "CMP-PERCEPTION", "DAT-SCREEN-FRAME", "Uses", "Used by"),
+        ("supplies", "CMP-PERCEPTION", "DAT-OBSERVATION", "Produces", "Produced by"),
+        (
+            "supplies",
+            "CMP-PERCEPTION",
+            "CON-VERIFIER-RESULT",
+            "Provides to",
+            "Provided by",
+        ),
+        ("controls", "CMP-PERCEPTION", "CMP-CORTEX", "Controls", "Controlled by"),
+        ("executes", "CMP-PERCEPTION", "CMP-CORTEX", "Executes", "Executed by"),
+        ("grounds", "CMP-PERCEPTION", "CMP-CORTEX", "Grounds", "Grounded by"),
+        ("measured_at", "CMP-PERCEPTION", "CMP-CORTEX", "Measures", "Measured by"),
+        ("observes", "CMP-PERCEPTION", "CMP-CORTEX", "Observes", "Observed by"),
+        (
+            "proposes_to",
+            "CMP-PERCEPTION",
+            "CMP-CORTEX",
+            "Proposes to",
+            "Receives proposals from",
+        ),
+        ("constrains", "CMP-PERCEPTION", "CMP-CORTEX", "Constrains", "Constrained by"),
+        ("verifies", "CMP-PERCEPTION", "CMP-CORTEX", "Verifies", "Verified by"),
+        ("supports", "EVID-48-BUILDER", "CMP-PERCEPTION", "Supports", "Supported by"),
+    )
+    for relation, source, target, forward_label, reverse_label in cases:
+        edge = Relationship(relation=relation, source=source, target=target)
+        assert views._identity_page_relation_label(atlas, source, edge) == forward_label
+        assert views._identity_page_relation_label(atlas, target, edge) == reverse_label
+
+    presentation = Relationship(
+        relation="presented_in_domain",
+        source="CMP-PERCEPTION",
+        target="DOM-OBS-INTEGRITY-STATE",
+    )
+    assert views._identity_page_relation_label(atlas, "CMP-PERCEPTION", presentation) == (
+        "Browse area"
+    )
+    assert (
+        views._identity_page_relation_label(atlas, "DOM-OBS-INTEGRITY-STATE", presentation) is None
+    )
+    question = Relationship(
+        relation="related_to_research_question",
+        source="CMP-PERCEPTION",
+        target="RQ-PROGRAM-AB-001",
+    )
+    assert views._identity_page_relation_label(atlas, "CMP-PERCEPTION", question) is None
+
+
+def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
+    """Exercise the document alone: no stylesheet, plugin or Mermaid renderer loaded."""
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    hooks = set()
+    for model in views.identity_page_models(atlas, reference):
+        page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
+        visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER)[0]
+        fallback = re.sub(r"```mermaid\n.*?```\n", "", visible, flags=re.S)
+        hooks.update(re.findall(r"\[!(aga-[a-z]+)\]", fallback))
+        assert "<" not in fallback and "css" not in fallback
+        assert not fallback.startswith("---")
+        headings = re.findall(r"^## (.+)$", fallback, re.M)
+        assert headings == [
+            "Overview / General",
+            "Technical",
+            "Research",
+            "Evidence / Provenance",
+            "Registry / Audit",
+        ]
+        assert re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback) == headings
+        assert all(re.search(rf"^## {re.escape(anchor)}$", fallback, re.M) for anchor in headings)
+        assert "### Implementation notes\n" in fallback
+        assert model.subject.description in fallback
+        status = model.subject.technical
+        assert (
+            f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}"
+            in fallback
+        )
+        assert (
+            f"**Verification:** {status.verification_status.replace('-', ' ').title()}" in fallback
+        )
+        # Flatten ordinary blockquote markers only, retaining every title, fact and link.
+        plain = re.sub(r"^(?:> ?)+", "", fallback, flags=re.M)
+        for label, identities in views._identity_page_human_relation_groups(atlas, model):
+            assert f"**{label}:**" in plain
+            for identity in identities:
+                assert views._identity_page_human_link(atlas, identity) in plain
+        if model.child_component_ids:
+            depth = plain.split("### Go deeper\n", 1)[1].split("[!warning]", 1)[0]
+            assert re.findall(r"^- (\[\[.+\]\])$", depth, re.M) == [
+                views._identity_page_human_link(atlas, child) for child in model.child_component_ids
+            ]
+        else:
+            assert "Go deeper" not in fallback and "[!aga-depth]" not in fallback
+        assert "[!aga-hero] Responsibility" in plain
+        assert "[!aga-grid] At a glance" in plain
+        assert "[!aga-status] Current state" in plain
+        assert "[!aga-context] Context" in plain
+        assert "research completeness have not been assessed" in plain.lower()
+        assert "Source inspection alone is not live or measurement validation." in plain
+        assert "[!aga-audit]- Registry / Audit" in plain
+        assert "Generated owner: `research-wiki-derived`" in identity_page_audit_text(page)
+        warning = "[!warning]- Current limitations — baseline source inspection"
+        assert (warning in plain) == (
+            model.subject.id in {"CMP-PERCEPTION", "CMP-PERCEPTION-UI-STATE"}
+        )
+        if warning in plain:
+            limitation = plain.split(warning, 1)[1].split("Back to Observe", 1)[0]
+            evidence_ids = (
+                {"EVID-48-OCR-LIMIT", "EVID-48-SPATIAL-LIMIT"}
+                if model.subject.id == "CMP-PERCEPTION"
+                else {"EVID-48-UI"}
+            )
+            for identity in evidence_ids:
+                assert atlas.entities[identity].description in limitation
+    assert hooks == {
+        "aga-hero",
+        "aga-nav",
+        "aga-grid",
+        "aga-status",
+        "aga-context",
+        "aga-depth",
+        "aga-research",
+        "aga-evidence",
+        "aga-audit",
+    }
+
+
+def test_identity_page_mermaid_exact_direct_facts_and_textual_fallback(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    expected = {
+        "CMP-PERCEPTION": {
+            ("CMP-PERCEPTION", "Part of", "SYS-AGA"),
+            ("CMP-OBSERVATION-BUILDER", "Part of", "CMP-PERCEPTION"),
+            ("CMP-PERCEPTION-UI-STATE", "Part of", "CMP-PERCEPTION"),
+            ("CMP-PERCEPTION", "Uses", "DAT-SCREEN-FRAME"),
+            ("CMP-PERCEPTION", "Produces", "DAT-OBSERVATION"),
+        },
+        "DAT-OBSERVATION": {
+            ("CMP-PERCEPTION", "Produces", "DAT-OBSERVATION"),
+            *(
+                (identity, "Uses", "DAT-OBSERVATION")
+                for identity in (
+                    "CMP-CORTEX",
+                    "CMP-MEMORY",
+                    "CMP-INDEPENDENT-VERIFIER",
+                    "CMP-TEMPORAL-STATE",
+                )
+            ),
+        },
+    }
+    for model in views.identity_page_models(atlas, reference):
+        page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
+        if model.subject.id not in expected:
+            assert "```mermaid" not in page and "Local relation diagram" not in page
+            continue
+        diagram = page.split("```mermaid\n")[1].split("```", 1)[0]
+        names_to_ids = {node.name: node.id for node in atlas.entities.values()}
+        nodes = {
+            node: names_to_ids[name]
+            for node, name in re.findall(r'    (n\d+)\["([^"]+)"\]', diagram)
+        }
+        assert nodes["n0"] == model.subject.id
+        assert len(nodes) == 6
+        assert list(nodes.values())[1:] == sorted(list(nodes.values())[1:])
+        edges = re.findall(r'    (n\d+) -->\|"([^"]+)"\| (n\d+)', diagram)
+        actual = {(nodes[source], label, nodes[target]) for source, label, target in edges}
+        assert actual == expected[model.subject.id]
+        assert len(edges) == len(actual)
+        assert set(nodes.values()) == {
+            endpoint for source, _, target in actual for endpoint in (source, target)
+        }
+        # Independently check every rendered edge against the Registry's exact direction.
+        predicates = {"Part of": "part_of", "Uses": "consumes", "Produces": "supplies"}
+        registry_facts = {(e.source, e.relation, e.target) for e in atlas.relationships}
+        for source, label, target in actual:
+            assert (source, predicates[label], target) in registry_facts
+        fallback = re.sub(r"```mermaid\n.*?```", "", page, flags=re.S)
+        audit = identity_page_audit_text(fallback)
+        overview = fallback.split("## Technical")[0]
+        for source, label, target in actual:
+            assert (
+                f"| {views._identity_page_audit_link(atlas, source)} | `{predicates[label]}` | "
+                f"{views._identity_page_audit_link(atlas, target)} |" in audit
+            )
+            other = source if source != model.subject.id else target
+            assert views._identity_page_human_link(atlas, other) in overview
+        shuffled = replace(model, direct_relationships=tuple(reversed(model.direct_relationships)))
+        assert views._identity_page_mermaid(atlas, model) == views._identity_page_mermaid(
+            atlas, shuffled
+        )
+
+
+def test_identity_page_mermaid_excludes_neighbors_research_and_trivial_graphs(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    model = views.identity_page_model(atlas, reference, "CMP-PERCEPTION")
+    original = views._identity_page_mermaid(atlas, model)
+    excluded = (
+        Relationship(relation="controls", source="CMP-PERCEPTION", target="CMP-CORTEX"),
+        Relationship(relation="supplies", source="CMP-PERCEPTION", target="CON-VERIFIER-RESULT"),
+        Relationship(relation="consumes", source="CMP-CORTEX", target="DAT-SCREEN-FRAME"),
+        Relationship(
+            relation="related_to_research_question",
+            source="CMP-PERCEPTION",
+            target="RQ-PROGRAM-AB-001",
+        ),
+    )
+    assert (
+        views._identity_page_mermaid(
+            atlas, replace(model, direct_relationships=(*model.direct_relationships, *excluded))
+        )
+        == original
+    )
+    parent_only = tuple(
+        e
+        for e in model.direct_relationships
+        if e.relation == "part_of" and e.source == model.subject.id
+    )
+    assert (
+        views._identity_page_mermaid(atlas, replace(model, direct_relationships=parent_only)) == []
+    )
+    entities = dict(atlas.entities)
+    entities[model.subject.id] = model.subject.model_copy(
+        update={"name": 'Perception "quoted" <tag> # | `'}
+    )
+    escaped = "\n".join(views._identity_page_mermaid(replace(atlas, entities=entities), model))
+    assert "Perception #34;quoted#34; #60;tag#62; #35; #124; #96;" in escaped
+    assert "<tag>" not in escaped
+
+
+def test_identity_page_css_is_finite_optional_and_presentation_only():
+    asset = ROOT / "docs/research-atlas/presentation/aga-identity-pages.css"
+    assert list(asset.parent.glob("*.css")) == [asset]
+    data = asset.read_bytes()
+    assert data == asset.read_bytes() and len(data) < 5000
+    css = re.sub(r"/\*.*?\*/", "", data.decode(), flags=re.S)
+    hooks = set(re.findall(r'data-callout="([^"]+)"', css))
+    assert hooks == {
+        "aga-hero",
+        "aga-nav",
+        "aga-grid",
+        "aga-status",
+        "aga-context",
+        "aga-depth",
+        "aga-research",
+        "aga-evidence",
+        "aga-audit",
+    }
+    selector_words = hooks | {
+        "callout",
+        "is",
+        "data-callout",
+        "callout-content",
+        "p",
+        "last-child",
+        "code",
+        "strong",
+        "internal-link",
+        "hover",
+        "focus-visible",
+        "media",
+        "max-width",
+        "rem",
+    }
+    for block in css.split("{")[:-1]:
+        selector = block.rsplit("}", 1)[-1]
+        assert set(re.findall(r"[a-zA-Z][a-zA-Z-]*", selector)) <= selector_words
+    assert not re.search(
+        r"url\s*\(|@import|@font-face|font-family|https?:|file:|/Users/|/home/|[A-Z]:\\", css, re.I
+    )
+    assert not re.search(
+        r"#[\w-]+|\b(?:content|visibility|opacity|overflow|height|max-height|text-indent|position|clip|clip-path)\s*:",
+        css,
+    )
+    assert "display: none" not in css and "!important" not in css
+    assert "display: grid" in css and "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))" in css
+    assert "@media (max-width: 40rem)" in css and "grid-template-columns: minmax(0, 1fr)" in css
+    declarations = re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", css)
+    allowed = {
+        "color",
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "margin-block",
+        "min-width",
+        "overflow-wrap",
+        "border-inline-start",
+        "font-size",
+        "display",
+        "text-decoration",
+        "outline",
+        "outline-offset",
+        "grid-template-columns",
+        "gap",
+        "margin",
+    }
+    assert {prop for prop, _ in declarations} <= allowed
+    for prop, value in declarations:
+        if prop in {"color", "background", "border", "border-inline-start", "outline"}:
+            assert re.search(r"var\(--(?:text-|background-|interactive-|link-)", value)
+    # CSS never enters manifest ownership or the vault writer; source is operator-installed at G6.
+    assert not any(str(path).endswith(".css") for path in views.IDENTITY_PAGE_PAYLOADS)
+
+
+def test_rm1_identity_pages_reject_wrong_types_parents_and_nonpilot_ids(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    with pytest.raises(ProjectionError, match="Unsupported Identity Page subject"):
+        views.identity_page_model(atlas, reference, "CMP-CORTEX")
+
+    entities = dict(atlas.entities)
+    perception_record = entities["CMP-PERCEPTION"].model_dump(mode="python")
+    perception_record["type"] = "DataArtifact"
+    entities["CMP-PERCEPTION"] = DataArtifact.model_validate(perception_record)
+    wrong_type_atlas = replace(atlas, entities=entities)
+    with pytest.raises(ProjectionError, match="wrong Registry type"):
+        views.identity_page_model(wrong_type_atlas, reference, "CMP-PERCEPTION")
+
+    wrong_parent = Relationship(
+        relation="part_of", source="CMP-OBSERVATION-BUILDER", target="DAT-OBSERVATION"
+    )
+    parent_atlas = replace(atlas, relationships=(*atlas.relationships, wrong_parent))
+    with pytest.raises(ProjectionError, match="parent is not a System or Component"):
+        views.identity_page_model(parent_atlas, reference, "CMP-OBSERVATION-BUILDER")
+
+    wrong_dataartifact_parent = Relationship(
+        relation="part_of", source="DAT-OBSERVATION", target="CMP-PERCEPTION"
+    )
+    dataartifact_atlas = replace(
+        atlas, relationships=(*atlas.relationships, wrong_dataartifact_parent)
+    )
+    with pytest.raises(ProjectionError, match="does not infer Component containment"):
+        views.identity_page_model(dataartifact_atlas, reference, "DAT-OBSERVATION")
+
+
+def test_rm1_identity_pages_are_deterministic_under_shuffled_inputs(atlas):
+    records = [
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-PERCEPTION",
+            research_direct_subject_refs=["CMP-PERCEPTION"],
+        ),
+        wiki_props(
+            "paper",
+            wiki_id="WPAPER-RM1-OBSERVATION",
+            research_direct_subject_refs=["DAT-OBSERVATION"],
+        ),
+    ]
+    current_tree, _, _, _ = identity_page_tree(atlas, records)
+    shuffled_atlas = replace(atlas, relationships=tuple(reversed(atlas.relationships)))
+    shuffled_tree, _, _, _ = identity_page_tree(shuffled_atlas, list(reversed(records)))
+    assert current_tree == shuffled_tree
+    for path in views.IDENTITY_PAGE_PAYLOADS:
+        assert (
+            current_tree[path].split(views.IDENTITY_PAGE_METADATA_MARKER.encode(), 1)[1]
+            == (shuffled_tree[path].split(views.IDENTITY_PAGE_METADATA_MARKER.encode(), 1)[1])
+        )
+
+
+def test_rm1_identity_page_ownership_is_finite(tmp_path, atlas):
+    tree, _, _, _ = identity_page_tree(atlas)
+    root = tmp_path / "derived"
+    manifest_path = root / views.MANIFEST
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_bytes(tree[views.MANIFEST])
+    prior = views.validate_prior(root)
+    assert set(prior).intersection(views.IDENTITY_PAGE_PAYLOADS) == views.IDENTITY_PAGE_PAYLOADS
+
+    manifest = views.read_yaml(manifest_path.read_text())
+    sample = next(
+        item
+        for item in manifest["owned_files"]
+        if item["path"] in map(str, views.IDENTITY_PAGE_PAYLOADS)
+    )
+    manifest["owned_files"].append({**sample, "path": "identity-pages/Unregistered.md"})
+    manifest_path.write_text(views.yaml_text(manifest))
+    with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
+        views.validate_prior(root)
 
 
 def w10_private_fixtures():
@@ -474,7 +1158,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -953,7 +1637,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -994,7 +1678,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.7"
+    assert manifest["view_schema_version"] == "2.8"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
