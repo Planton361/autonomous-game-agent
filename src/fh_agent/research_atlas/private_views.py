@@ -1157,7 +1157,11 @@ def _historical_technical_evidence(
 
 
 def identity_page_model(
-    atlas: Atlas, reference: ReferenceIndex, identity_id: str
+    atlas: Atlas,
+    reference: ReferenceIndex,
+    identity_id: str,
+    *,
+    page_paths: dict[str, PurePosixPath] | None = None,
 ) -> IdentityPageModel:
     """Resolve one supported identity from exact Registry facts."""
     subject = atlas.entities.get(identity_id)
@@ -1168,7 +1172,7 @@ def identity_page_model(
         or _identity_page_type_for_id(identity_id) != subject.type
     ):
         raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity_id}")
-    path = _identity_page_path(atlas, identity_id)
+    path = (page_paths if page_paths is not None else identity_page_paths(atlas)).get(identity_id)
     if path is None:
         raise ProjectionError(f"Unsupported Identity Page subject: {identity_id}")
 
@@ -1238,34 +1242,47 @@ def identity_page_model(
     )
 
 
-def identity_page_models(atlas: Atlas, reference: ReferenceIndex) -> tuple[IdentityPageModel, ...]:
+def identity_page_models(
+    atlas: Atlas,
+    reference: ReferenceIndex,
+    *,
+    page_paths: dict[str, PurePosixPath] | None = None,
+) -> tuple[IdentityPageModel, ...]:
     """Build current supported identities; expanded Hubs keep their preferred pages."""
+    paths = page_paths if page_paths is not None else identity_page_paths(atlas)
     return tuple(
-        identity_page_model(atlas, reference, identity)
+        identity_page_model(atlas, reference, identity, page_paths=paths)
         for identity in sorted(
-            identity_page_paths(atlas),
+            paths,
             key=lambda item: (atlas.entities[item].name.casefold(), item),
         )
         if identity not in COMPONENT_HUB_PATHS
     )
 
 
-def _identity_page_entity_link(atlas: Atlas, identity: str, label: str) -> str:
+def _identity_page_entity_link(
+    atlas: Atlas,
+    identity: str,
+    label: str,
+    page_paths: dict[str, PurePosixPath] | None = None,
+) -> str:
     try:
         node = atlas.entities[identity]
     except KeyError as exc:
         raise ProjectionError(
             f"Identity Page relationship endpoint is missing: {identity}"
         ) from exc
-    path = _identity_page_path(atlas, identity)
+    path = (page_paths if page_paths is not None else identity_page_paths(atlas)).get(identity)
     if path is not None:
         return _derived_link(path, label)
     return private_link(private_path(node), label)
 
 
-def _identity_page_human_link(atlas: Atlas, identity: str) -> str:
+def _identity_page_human_link(
+    atlas: Atlas, identity: str, page_paths: dict[str, PurePosixPath] | None = None
+) -> str:
     node = atlas.entities[identity]
-    return _identity_page_entity_link(atlas, identity, node.name)
+    return _identity_page_entity_link(atlas, identity, node.name, page_paths)
 
 
 def _identity_page_audit_link(atlas: Atlas, identity: str) -> str:
@@ -1498,8 +1515,14 @@ def _identity_page_mermaid(atlas: Atlas, model: IdentityPageModel) -> list[str]:
     return [*lines, "```", ""]
 
 
-def _identity_page_location(atlas: Atlas, model: IdentityPageModel) -> list[str]:
+def _identity_page_location(
+    atlas: Atlas, model: IdentityPageModel, page_paths: dict[str, PurePosixPath]
+) -> list[str]:
     """Show every Registry ancestry path; never select a synthetic primary parent."""
+
+    def human_link(identity: str) -> str:
+        return _identity_page_human_link(atlas, identity, page_paths)
+
     parents: dict[str, set[str]] = {}
     for edge in atlas.relationships:
         if edge.relation == "part_of":
@@ -1523,16 +1546,13 @@ def _identity_page_location(atlas: Atlas, model: IdentityPageModel) -> list[str]
     trails = paths(model.subject.id, frozenset())
     lines = ["**Location:**"]
     for trail in trails:
-        segments = [_identity_page_human_link(atlas, identity) for identity in trail[:-1]]
+        segments = [human_link(identity) for identity in trail[:-1]]
         segments.append(model.subject.name)
         lines.append("- " + " → ".join(segments))
     if model.technical_parent_ids:
         lines.append(
             "**Back up to direct parent(s):** "
-            + ", ".join(
-                _identity_page_human_link(atlas, identity)
-                for identity in model.technical_parent_ids
-            )
+            + ", ".join(human_link(identity) for identity in model.technical_parent_ids)
         )
     elif model.subject.type == "Component":
         lines.append("No technical parent is registered in this snapshot; no ancestry is inferred.")
@@ -1545,11 +1565,17 @@ def render_identity_page(
     model: IdentityPageModel,
     *,
     registry_revision: str | None = None,
+    page_paths: dict[str, PurePosixPath] | None = None,
 ) -> bytes:
     """Render the shared human-first page grammar over the exact Registry snapshot."""
     subject = model.subject
-    if _identity_page_path(atlas, subject.id) != model.path:
+    paths = page_paths if page_paths is not None else identity_page_paths(atlas)
+    if paths.get(subject.id) != model.path:
         raise ProjectionError("Identity Page model path is not the resolved ID-to-page mapping")
+
+    def human_link(identity: str) -> str:
+        return _identity_page_human_link(atlas, identity, paths)
+
     if subject.type not in SUPPORTED_IDENTITY_PAGE_TYPES:
         raise ProjectionError("Identity Page model type is unsupported")
     registry_revision_value = registry_revision or registry_content_revision(atlas)
@@ -1586,7 +1612,7 @@ def render_identity_page(
             [subject.description, "", f"*{subject.type} · Stable ID `{subject.id}`*"],
         ),
         "",
-        *_identity_page_location(atlas, model),
+        *_identity_page_location(atlas, model, paths),
         "",
         *_identity_page_callout(
             "aga-nav",
@@ -1621,7 +1647,7 @@ def render_identity_page(
     for label, endpoint_ids in relation_groups:
         if label == "Contains":
             continue
-        links = ", ".join(_identity_page_human_link(atlas, identity) for identity in endpoint_ids)
+        links = ", ".join(human_link(identity) for identity in endpoint_ids)
         context.extend([f"**{label}:** {links}", ""])
     if context:
         profile.extend(["", *_identity_page_callout("aga-context", "Context", context[:-1])])
@@ -1637,10 +1663,7 @@ def render_identity_page(
                     "Component children",
                     [
                         "**Contains:**",
-                        *(
-                            f"- {_identity_page_human_link(atlas, identity)}"
-                            for identity in model.child_component_ids
-                        ),
+                        *(f"- {human_link(identity)}" for identity in model.child_component_ids),
                     ],
                 ),
             ]
@@ -1679,7 +1702,7 @@ def render_identity_page(
         "CMP-PERCEPTION-UI-STATE": {"EVID-48-UI"},
     }.get(subject.id, set())
     limitations = [
-        f"- {evidence.description} ({_identity_page_human_link(atlas, evidence.id)})"
+        f"- {evidence.description} ({human_link(evidence.id)})"
         for evidence in implementation_evidence
         if evidence.id in limitation_ids
     ]
@@ -1714,18 +1737,12 @@ def render_identity_page(
         if model.technical_parent_ids:
             lines.append(
                 "- **Direct parent(s):** "
-                + ", ".join(
-                    _identity_page_human_link(atlas, identity)
-                    for identity in model.technical_parent_ids
-                )
+                + ", ".join(human_link(identity) for identity in model.technical_parent_ids)
             )
         if model.child_component_ids:
             lines.append(
                 "- **Direct Component children:** "
-                + ", ".join(
-                    _identity_page_human_link(atlas, identity)
-                    for identity in model.child_component_ids
-                )
+                + ", ".join(human_link(identity) for identity in model.child_component_ids)
             )
     if implementation_evidence:
         lines.extend(["", "### Implementation notes", ""])
@@ -1763,9 +1780,7 @@ def render_identity_page(
         }[subject.type]
         lines.extend(["", f"### {technical_heading}", ""])
         for label, endpoint_ids in technical_groups:
-            links = ", ".join(
-                _identity_page_human_link(atlas, identity) for identity in endpoint_ids
-            )
+            links = ", ".join(human_link(identity) for identity in endpoint_ids)
             lines.append(f"- **{label}:** {links}")
     if subject.id == "DAT-OBSERVATION":
         detail_markdown, detail_canvas = technical_detail_paths(subject.id)
@@ -1795,7 +1810,7 @@ def render_identity_page(
     elif model.research_question_relationships:
         lines.extend(["### Related research questions", ""])
         for edge in model.research_question_relationships:
-            lines.append(f"- {_identity_page_human_link(atlas, edge.target)}")
+            lines.append(f"- {human_link(edge.target)}")
     else:
         lines.extend(
             _identity_page_callout(
@@ -1867,7 +1882,7 @@ def render_identity_page(
             for evidence, edge in selected:
                 direction = _identity_page_relation_label(atlas, subject.id, edge)
                 lines.append(
-                    f"- **{direction} — {_identity_page_human_link(atlas, evidence.id)}** "
+                    f"- **{direction} — {human_link(evidence.id)}** "
                     f"({_identity_page_evidence_kind(evidence).lower()}): "
                     f"{evidence.description}"
                 )
@@ -3594,15 +3609,18 @@ def reference_views_tree(
         tree[workbench_path] = render_technical_detail_workbench(commit, atlas, detail)
         tree[canvas_path] = render_technical_detail_canvas(atlas, detail)
     revision = registry_content_revision(atlas)
-    for page in identity_page_models(atlas, reference):
+    page_paths = identity_page_paths(atlas)
+    for page in identity_page_models(atlas, reference, page_paths=page_paths):
         if page.path in tree:
             raise ProjectionError("Identity Page path collision with existing derived surface")
-        tree[page.path] = render_identity_page(commit, atlas, page, registry_revision=revision)
+        tree[page.path] = render_identity_page(
+            commit, atlas, page, registry_revision=revision, page_paths=page_paths
+        )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
 
     def observe_identity_link(identity: str, label: str) -> str:
-        path = _identity_page_path(atlas, identity)
+        path = page_paths.get(identity)
         if path is not None:
             return _derived_link(path, label)
         return private_link(private_path(atlas.entities[identity]), label)
