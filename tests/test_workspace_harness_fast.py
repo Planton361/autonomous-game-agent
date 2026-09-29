@@ -178,9 +178,9 @@ def identity_page_audit_text(page):
     """Return collapsed audit content while asserting native disclosure syntax."""
     visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
     section = visible.split("## Registry / Audit\n", 1)[1]
-    assert section.startswith("\n> [!info]- Registry / Audit\n")
+    assert section.startswith("\n> [!aga-audit]- Registry / Audit\n")
     quoted_lines = section.splitlines()[1:]
-    assert quoted_lines[0] == "> [!info]- Registry / Audit"
+    assert quoted_lines[0] == "> [!aga-audit]- Registry / Audit"
     assert all(not line.strip() or line.startswith(">") for line in quoted_lines)
     return "\n".join(line[2:] for line in quoted_lines[1:] if line.startswith("> "))
 
@@ -239,9 +239,12 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert first_view.index(f"# {subject.name}") < first_view.index(subject.description)
         identity_metadata = f"*{expected_type} · Stable ID `{identity}`*"
         assert first_view.index(subject.description) < first_view.index(identity_metadata)
-        assert first_view.index(identity_metadata) < first_view.index("**Sections:**")
-        assert first_view.index("**Sections:**") < first_view.index("## Overview / General")
-        assert body.startswith(f"# {subject.name}\n\n{subject.description}\n\n{identity_metadata}")
+        assert first_view.index(identity_metadata) < first_view.index("[!aga-nav] On this page")
+        assert first_view.index("[!aga-nav] On this page") < first_view.index(
+            "## Overview / General"
+        )
+        assert body.startswith(f"# {subject.name}\n\n> [!aga-hero] Responsibility\n")
+        assert f"> {subject.description}\n> \n> {identity_metadata}" in body
         assert "**Implementation:** " in first_view
         assert "**Verification:** " in first_view
         assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in first_view
@@ -264,11 +267,13 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert [visible.index(f"## {section}") for section in section_names] == sorted(
             visible.index(f"## {section}") for section in section_names
         )
-        for section in section_names:
-            assert f"[[#{section}|{section}]]" in visible
+        for section, label in zip(
+            section_names, ("Overview", "Technical", "Research", "Evidence", "Audit"), strict=True
+        ):
+            assert f"[[#{section}|{label}]]" in visible
         assert visible.index("## Registry / Audit") > visible.index("## Evidence / Provenance")
         assert visible[visible.index("## Registry / Audit\n") :].startswith(
-            "## Registry / Audit\n\n> [!info]- Registry / Audit\n"
+            "## Registry / Audit\n\n> [!aga-audit]- Registry / Audit\n"
         )
         assert "- Public Registry source commit:" in identity_page_audit_text(visible)
         assert "- Public Registry source commit:" not in first_view
@@ -322,7 +327,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     )
     assert expected_children == ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE")
     assert perception_summary.count("**Contains:**") == 1
-    summary_lines = perception_summary.splitlines()
+    summary_lines = [line.removeprefix("> ") for line in perception_summary.splitlines()]
     contains_header = summary_lines.index("**Contains:**")
     contains_children = []
     for line in summary_lines[contains_header + 1 :]:
@@ -365,9 +370,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         f"**Produced by:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
         in observation_summary
     )
-    used_by_line = next(
-        line for line in observation_summary.splitlines() if line.startswith("**Used by:**")
-    )
+    used_by_line = next(line for line in observation_summary.splitlines() if "**Used by:**" in line)
     expected_consumers = (
         "CMP-CORTEX",
         "CMP-MEMORY",
@@ -499,6 +502,261 @@ def test_identity_page_relation_labels_keep_accepted_direction(atlas):
         target="RQ-PROGRAM-AB-001",
     )
     assert views._identity_page_relation_label(atlas, "CMP-PERCEPTION", question) is None
+
+
+def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
+    """Exercise the document alone: no stylesheet, plugin or Mermaid renderer loaded."""
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    hooks = set()
+    for model in views.identity_page_models(atlas, reference):
+        page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
+        visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER)[0]
+        fallback = re.sub(r"```mermaid\n.*?```\n", "", visible, flags=re.S)
+        hooks.update(re.findall(r"\[!(aga-[a-z]+)\]", fallback))
+        assert "<" not in fallback and "css" not in fallback
+        assert not fallback.startswith("---")
+        headings = re.findall(r"^## (.+)$", fallback, re.M)
+        assert headings == [
+            "Overview / General",
+            "Technical",
+            "Research",
+            "Evidence / Provenance",
+            "Registry / Audit",
+        ]
+        assert re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback) == headings
+        assert all(re.search(rf"^## {re.escape(anchor)}$", fallback, re.M) for anchor in headings)
+        assert "### Implementation notes\n" in fallback
+        assert model.subject.description in fallback
+        status = model.subject.technical
+        assert (
+            f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}"
+            in fallback
+        )
+        assert (
+            f"**Verification:** {status.verification_status.replace('-', ' ').title()}" in fallback
+        )
+        # Flatten ordinary blockquote markers only, retaining every title, fact and link.
+        plain = re.sub(r"^(?:> ?)+", "", fallback, flags=re.M)
+        for label, identities in views._identity_page_human_relation_groups(atlas, model):
+            assert f"**{label}:**" in plain
+            for identity in identities:
+                assert views._identity_page_human_link(atlas, identity) in plain
+        if model.child_component_ids:
+            depth = plain.split("### Go deeper\n", 1)[1].split("[!warning]", 1)[0]
+            assert re.findall(r"^- (\[\[.+\]\])$", depth, re.M) == [
+                views._identity_page_human_link(atlas, child) for child in model.child_component_ids
+            ]
+        else:
+            assert "Go deeper" not in fallback and "[!aga-depth]" not in fallback
+        assert "[!aga-hero] Responsibility" in plain
+        assert "[!aga-grid] At a glance" in plain
+        assert "[!aga-status] Current state" in plain
+        assert "[!aga-context] Context" in plain
+        assert "research completeness have not been assessed" in plain.lower()
+        assert "Source inspection alone is not live or measurement validation." in plain
+        assert "[!aga-audit]- Registry / Audit" in plain
+        assert "Generated owner: `research-wiki-derived`" in identity_page_audit_text(page)
+        warning = "[!warning]- Current limitations — baseline source inspection"
+        assert (warning in plain) == (
+            model.subject.id in {"CMP-PERCEPTION", "CMP-PERCEPTION-UI-STATE"}
+        )
+        if warning in plain:
+            limitation = plain.split(warning, 1)[1].split("Back to Observe", 1)[0]
+            evidence_ids = (
+                {"EVID-48-OCR-LIMIT", "EVID-48-SPATIAL-LIMIT"}
+                if model.subject.id == "CMP-PERCEPTION"
+                else {"EVID-48-UI"}
+            )
+            for identity in evidence_ids:
+                assert atlas.entities[identity].description in limitation
+    assert hooks == {
+        "aga-hero",
+        "aga-nav",
+        "aga-grid",
+        "aga-status",
+        "aga-context",
+        "aga-depth",
+        "aga-research",
+        "aga-evidence",
+        "aga-audit",
+    }
+
+
+def test_identity_page_mermaid_exact_direct_facts_and_textual_fallback(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    expected = {
+        "CMP-PERCEPTION": {
+            ("CMP-PERCEPTION", "Part of", "SYS-AGA"),
+            ("CMP-OBSERVATION-BUILDER", "Part of", "CMP-PERCEPTION"),
+            ("CMP-PERCEPTION-UI-STATE", "Part of", "CMP-PERCEPTION"),
+            ("CMP-PERCEPTION", "Uses", "DAT-SCREEN-FRAME"),
+            ("CMP-PERCEPTION", "Produces", "DAT-OBSERVATION"),
+        },
+        "DAT-OBSERVATION": {
+            ("CMP-PERCEPTION", "Produces", "DAT-OBSERVATION"),
+            *(
+                (identity, "Uses", "DAT-OBSERVATION")
+                for identity in (
+                    "CMP-CORTEX",
+                    "CMP-MEMORY",
+                    "CMP-INDEPENDENT-VERIFIER",
+                    "CMP-TEMPORAL-STATE",
+                )
+            ),
+        },
+    }
+    for model in views.identity_page_models(atlas, reference):
+        page = views.render_identity_page(SOURCE_COMMIT, atlas, model).decode()
+        if model.subject.id not in expected:
+            assert "```mermaid" not in page and "Local relation diagram" not in page
+            continue
+        diagram = page.split("```mermaid\n")[1].split("```", 1)[0]
+        names_to_ids = {node.name: node.id for node in atlas.entities.values()}
+        nodes = {
+            node: names_to_ids[name]
+            for node, name in re.findall(r'    (n\d+)\["([^"]+)"\]', diagram)
+        }
+        assert nodes["n0"] == model.subject.id
+        assert len(nodes) == 6
+        assert list(nodes.values())[1:] == sorted(list(nodes.values())[1:])
+        edges = re.findall(r'    (n\d+) -->\|"([^"]+)"\| (n\d+)', diagram)
+        actual = {(nodes[source], label, nodes[target]) for source, label, target in edges}
+        assert actual == expected[model.subject.id]
+        assert len(edges) == len(actual)
+        assert set(nodes.values()) == {
+            endpoint for source, _, target in actual for endpoint in (source, target)
+        }
+        # Independently check every rendered edge against the Registry's exact direction.
+        predicates = {"Part of": "part_of", "Uses": "consumes", "Produces": "supplies"}
+        registry_facts = {(e.source, e.relation, e.target) for e in atlas.relationships}
+        for source, label, target in actual:
+            assert (source, predicates[label], target) in registry_facts
+        fallback = re.sub(r"```mermaid\n.*?```", "", page, flags=re.S)
+        audit = identity_page_audit_text(fallback)
+        overview = fallback.split("## Technical")[0]
+        for source, label, target in actual:
+            assert (
+                f"| {views._identity_page_audit_link(atlas, source)} | `{predicates[label]}` | "
+                f"{views._identity_page_audit_link(atlas, target)} |" in audit
+            )
+            other = source if source != model.subject.id else target
+            assert views._identity_page_human_link(atlas, other) in overview
+        shuffled = replace(model, direct_relationships=tuple(reversed(model.direct_relationships)))
+        assert views._identity_page_mermaid(atlas, model) == views._identity_page_mermaid(
+            atlas, shuffled
+        )
+
+
+def test_identity_page_mermaid_excludes_neighbors_research_and_trivial_graphs(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    model = views.identity_page_model(atlas, reference, "CMP-PERCEPTION")
+    original = views._identity_page_mermaid(atlas, model)
+    excluded = (
+        Relationship(relation="controls", source="CMP-PERCEPTION", target="CMP-CORTEX"),
+        Relationship(relation="supplies", source="CMP-PERCEPTION", target="CON-VERIFIER-RESULT"),
+        Relationship(relation="consumes", source="CMP-CORTEX", target="DAT-SCREEN-FRAME"),
+        Relationship(
+            relation="related_to_research_question",
+            source="CMP-PERCEPTION",
+            target="RQ-PROGRAM-AB-001",
+        ),
+    )
+    assert (
+        views._identity_page_mermaid(
+            atlas, replace(model, direct_relationships=(*model.direct_relationships, *excluded))
+        )
+        == original
+    )
+    parent_only = tuple(
+        e
+        for e in model.direct_relationships
+        if e.relation == "part_of" and e.source == model.subject.id
+    )
+    assert (
+        views._identity_page_mermaid(atlas, replace(model, direct_relationships=parent_only)) == []
+    )
+    entities = dict(atlas.entities)
+    entities[model.subject.id] = model.subject.model_copy(
+        update={"name": 'Perception "quoted" <tag> # | `'}
+    )
+    escaped = "\n".join(views._identity_page_mermaid(replace(atlas, entities=entities), model))
+    assert "Perception #34;quoted#34; #60;tag#62; #35; #124; #96;" in escaped
+    assert "<tag>" not in escaped
+
+
+def test_identity_page_css_is_finite_optional_and_presentation_only():
+    asset = ROOT / "docs/research-atlas/presentation/aga-identity-pages.css"
+    assert list(asset.parent.glob("*.css")) == [asset]
+    data = asset.read_bytes()
+    assert data == asset.read_bytes() and len(data) < 5000
+    css = re.sub(r"/\*.*?\*/", "", data.decode(), flags=re.S)
+    hooks = set(re.findall(r'data-callout="([^"]+)"', css))
+    assert hooks == {
+        "aga-hero",
+        "aga-nav",
+        "aga-grid",
+        "aga-status",
+        "aga-context",
+        "aga-depth",
+        "aga-research",
+        "aga-evidence",
+        "aga-audit",
+    }
+    selector_words = hooks | {
+        "callout",
+        "is",
+        "data-callout",
+        "callout-content",
+        "p",
+        "last-child",
+        "code",
+        "strong",
+        "internal-link",
+        "hover",
+        "focus-visible",
+        "media",
+        "max-width",
+        "rem",
+    }
+    for block in css.split("{")[:-1]:
+        selector = block.rsplit("}", 1)[-1]
+        assert set(re.findall(r"[a-zA-Z][a-zA-Z-]*", selector)) <= selector_words
+    assert not re.search(
+        r"url\s*\(|@import|@font-face|font-family|https?:|file:|/Users/|/home/|[A-Z]:\\", css, re.I
+    )
+    assert not re.search(
+        r"#[\w-]+|\b(?:content|visibility|opacity|overflow|height|max-height|text-indent|position|clip|clip-path)\s*:",
+        css,
+    )
+    assert "display: none" not in css and "!important" not in css
+    assert "display: grid" in css and "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))" in css
+    assert "@media (max-width: 40rem)" in css and "grid-template-columns: minmax(0, 1fr)" in css
+    declarations = re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", css)
+    allowed = {
+        "color",
+        "background",
+        "border",
+        "border-radius",
+        "padding",
+        "margin-block",
+        "min-width",
+        "overflow-wrap",
+        "border-inline-start",
+        "font-size",
+        "display",
+        "text-decoration",
+        "outline",
+        "outline-offset",
+        "grid-template-columns",
+        "gap",
+        "margin",
+    }
+    assert {prop for prop, _ in declarations} <= allowed
+    for prop, value in declarations:
+        if prop in {"color", "background", "border", "border-inline-start", "outline"}:
+            assert re.search(r"var\(--(?:text-|background-|interactive-|link-)", value)
+    # CSS never enters manifest ownership or the vault writer; source is operator-installed at G6.
+    assert not any(str(path).endswith(".css") for path in views.IDENTITY_PAGE_PAYLOADS)
 
 
 def test_rm1_identity_pages_reject_wrong_types_parents_and_nonpilot_ids(atlas):

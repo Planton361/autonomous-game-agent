@@ -1,0 +1,95 @@
+/* Optional RM-1 Identity Page presentation. Native Markdown carries every fact.
+   Repository-managed source; installation/enabling requires exact-head G6.
+   No fonts, plugins, external resources, generated content or vault-specific selectors. */
+
+.callout:is(
+  [data-callout="aga-hero"],
+  [data-callout="aga-nav"],
+  [data-callout="aga-grid"],
+  [data-callout="aga-status"],
+  [data-callout="aga-context"],
+  [data-callout="aga-depth"],
+  [data-callout="aga-research"],
+  [data-callout="aga-evidence"],
+  [data-callout="aga-audit"]
+) {
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-block: 1rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.callout[data-callout="aga-hero"] {
+  border-inline-start: 0.25rem solid var(--interactive-accent);
+  padding: 1.25rem;
+}
+
+.callout[data-callout="aga-hero"] .callout-content > p:last-child {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.callout[data-callout="aga-hero"] code,
+.callout[data-callout="aga-status"] strong {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.35em;
+}
+
+.callout[data-callout="aga-nav"] .internal-link {
+  display: inline-block;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 1rem;
+  padding: 0.2em 0.65em;
+  margin-block: 0.2em;
+  color: var(--link-color);
+  background: var(--background-primary);
+  text-decoration: none;
+}
+
+.callout[data-callout="aga-nav"] .internal-link:is(:hover, :focus-visible) {
+  color: var(--link-color-hover);
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+.callout[data-callout="aga-grid"] > .callout-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+}
+
+.callout[data-callout="aga-grid"] > .callout-content > .callout {
+  margin: 0;
+  background: var(--background-primary);
+}
+
+.callout[data-callout="aga-depth"] {
+  border-inline-start: 0.25rem solid var(--interactive-accent);
+}
+
+.callout:is([data-callout="aga-research"], [data-callout="aga-evidence"]) {
+  background: var(--background-primary);
+}
+
+.callout[data-callout="aga-audit"] {
+  color: var(--text-muted);
+  background: var(--background-primary);
+  font-size: 0.9em;
+}
+
+/* Narrow panes and mobile keep the same reading order and all content. */
+@media (max-width: 40rem) {
+  .callout[data-callout="aga-grid"] > .callout-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .callout[data-callout="aga-hero"] {
+    padding: 1rem;
+  }
+}

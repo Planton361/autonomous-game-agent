@@ -698,6 +698,63 @@ subject and Registry type. This code change does not apply the projection to
 the actual private vault; exact-head CONTROL authorization is still required
 for G6.
 
+### Optional Identity Page presentation (Pattern B / Pattern A)
+
+Issue #113 CONTROL [release comment 5894355912](https://github.com/Planton361/autonomous-game-agent/issues/113#issuecomment-5894355912)
+extends only the four pilot pages with Pattern B: semantic Markdown, native
+Obsidian callouts, bounded Mermaid and one optional managed stylesheet.
+Pattern A is the mandatory native-only fallback; no community plugin is required.
+There are no visible Properties, styling frontmatter, Bases embeds or generated
+HTML layout containers.
+
+The H1 and normal same-page H2/H3 sections stay in Markdown. The responsibility
+hero keeps the exact Registry description before quiet type/Stable ID metadata.
+On-this-page navigation links to Overview, Technical, Research, Evidence and
+Audit. At-a-glance cards contain textual implementation/verification state and
+human-labeled context. Only Perception has Go deeper, with its two exact Component
+children. Observation remains a DataArtifact cross-reference with Produced by /
+Used by summaries and unchanged W05 Markdown/Canvas destinations.
+
+Presentation hooks are exactly `aga-hero`, `aga-nav`, `aga-grid`, `aga-status`,
+`aga-context`, `aga-depth`, `aga-research`, `aga-evidence` and `aga-audit`.
+Every callout has a readable title and content. The audit callout remains
+collapsed by default, with all exact predicates, IDs, revisions and provenance.
+Foldable native warning callouts quote only the selected direct baseline
+limitation evidence: Perception's OCR/spatial limits and UI State Classification's
+unvalidated pixel-classifier boundary. Their source links remain explicit.
+No limitation is inferred from missing data or unverified status.
+
+Mermaid uses the current identity, its direct System/Component parent, exact
+Component children, and direct technical Uses/Produces endpoints, including
+incoming Used by/Produced by facts. Diagram arrows retain Registry direction;
+labels use the accepted human-facing mapping. Provides to, Domain, Evidence,
+Research and unrelated neighbor edges are excluded. Node/edge ordering is stable,
+and names are escaped as Mermaid labels. A diagram requires at least three
+distinct nodes: the current pilots produce six-node diagrams for Perception and
+Observation; the two simple Component leaves omit diagrams. All diagram facts
+also remain in ordinary textual summaries and exact audit rows. Disabling Mermaid
+loses no information.
+
+The sole managed presentation source is
+[`presentation/aga-identity-pages.css`](presentation/aga-identity-pages.css).
+It styles only the finite public callout hooks: hero, cards, responsive grid,
+navigation links, badges and muted audit. It uses Obsidian/theme color variables,
+fluid sizing and a one-column narrow-screen fallback, without fonts, external
+resources, private selectors or content-hiding rules. It changes neither fact
+order nor semantic state. CSS is separate from the generator payload and manifest
+v2.8; the Workspace harness does not install or enable it. Actual-vault installation
+and enabling require a later exact-head CONTROL G6 authorization. The repository
+file remains the managed source, not operator-local configuration.
+
+Focused tests exercise the Markdown without loading CSS, remove Mermaid to check
+textual fallback, verify anchors/ordinary child links and complete collapsed audit,
+check exact graph facts and deterministic shuffled generation, and restrict CSS
+to the finite presentation vocabulary and safe declarations. These are source and
+contract checks, not a substitute for Reading View / Live Preview human G6.
+Native behavior follows [Obsidian callouts](https://obsidian.md/help/callouts)
+(unknown custom types fall back to ordinary native callouts); diagram syntax
+uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
+
 ## RA-4A fixture-only Zotero source projection
 
 RA-4A adds an independent offline PoC, with one explicit synthetic JSON fixture

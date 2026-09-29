@@ -1286,6 +1286,65 @@ def _identity_page_evidence_kind(evidence: Evidence) -> str:
     }[evidence.provenance_kind]
 
 
+def _identity_page_callout(
+    kind: str, title: str, body: list[str], *, collapsed: bool = False
+) -> list[str]:
+    """Native Markdown only: titles and content carry meaning without a stylesheet."""
+    return [f"> [!{kind}]{'-' if collapsed else ''} {title}", ">", *(f"> {line}" for line in body)]
+
+
+def _identity_page_mermaid(atlas: Atlas, model: IdentityPageModel) -> list[str]:
+    """A redundant view of direct parent/child and Uses/Produces facts only."""
+    subject_id = model.subject.id
+    edges: list[Relationship] = []
+    for edge in model.direct_relationships:
+        if subject_id not in {edge.source, edge.target}:
+            continue
+        parent_or_child = edge.relation == "part_of" and (
+            (edge.source == subject_id and edge.target in model.technical_parent_ids)
+            or (edge.target == subject_id and edge.source in model.child_component_ids)
+        )
+        data_flow = (
+            edge.relation == "consumes"
+            or (edge.relation == "supplies" and atlas.entities[edge.target].type == "DataArtifact")
+        ) and all(
+            isinstance(atlas.entities[identity], TechnicalIdentity)
+            for identity in (edge.source, edge.target)
+        )
+        if parent_or_child or data_flow:
+            edges.append(edge)
+    identities = {subject_id} | {
+        identity for edge in edges for identity in (edge.source, edge.target)
+    }
+    if len(identities) < 3:
+        return []
+    ordered_ids = [subject_id, *sorted(identities - {subject_id})]
+    node_ids = {identity: f"n{number}" for number, identity in enumerate(ordered_ids)}
+
+    def label(text: str) -> str:
+        # Mermaid decimal entities keep Registry names from becoming diagram syntax/HTML.
+        return "".join(
+            char if char.isalnum() or char in " -_." else f"#{ord(char)};" for char in text
+        )
+
+    lines = [
+        "### Local relation diagram",
+        "",
+        "The text summaries on this page retain every relation shown here.",
+        "",
+        "```mermaid",
+        "flowchart TD",
+    ]
+    lines.extend(
+        f'    {node_ids[identity]}["{label(atlas.entities[identity].name)}"]'
+        for identity in ordered_ids
+    )
+    for edge in sorted(edges, key=lambda edge: (edge.relation, edge.source, edge.target)):
+        human_label = _identity_page_relation_label(atlas, edge.source, edge)
+        lines.append(f'    {node_ids[edge.source]} -->|"{human_label}"| {node_ids[edge.target]}')
+    return [*lines, "```", ""]
+
+
 def render_identity_page(
     commit: str,
     atlas: Atlas,
@@ -1310,40 +1369,91 @@ def render_identity_page(
     lines = [
         f"# {subject.name}",
         "",
-        subject.description,
+        *_identity_page_callout(
+            "aga-hero",
+            "Responsibility",
+            [subject.description, "", f"*{subject.type} · Stable ID `{subject.id}`*"],
+        ),
         "",
-        f"*{subject.type} · Stable ID `{subject.id}`*",
-        "",
-        "**Sections:** "
-        + " · ".join(
-            f"[[#{anchor}|{label}]]"
-            for anchor, label in (
-                ("Overview / General", "Overview / General"),
-                ("Technical", "Technical"),
-                ("Research", "Research"),
-                ("Evidence / Provenance", "Evidence / Provenance"),
-                ("Registry / Audit", "Registry / Audit"),
-            )
+        *_identity_page_callout(
+            "aga-nav",
+            "On this page",
+            [
+                " · ".join(
+                    f"[[#{anchor}|{label}]]"
+                    for anchor, label in (
+                        ("Overview / General", "Overview"),
+                        ("Technical", "Technical"),
+                        ("Research", "Research"),
+                        ("Evidence / Provenance", "Evidence"),
+                        ("Registry / Audit", "Audit"),
+                    )
+                )
+            ],
         ),
         "",
         "## Overview / General",
         "",
     ]
-    lines.append(
-        f"**Implementation:** {status.implementation_status.replace('-', ' ').title()} · "
-        f"**Verification:** {status.verification_status.replace('-', ' ').title()}"
+    profile = _identity_page_callout(
+        "aga-status",
+        "Current state",
+        [
+            f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}",
+            "",
+            f"**Verification:** {status.verification_status.replace('-', ' ').title()}",
+        ],
     )
-    for label, endpoint_ids in _identity_page_human_relation_groups(atlas, model):
+    context: list[str] = []
+    for label, endpoint_ids in relation_groups:
         if label == "Contains":
-            lines.append("**Contains:**")
-            lines.extend(
-                f"- {_identity_page_human_link(atlas, identity)}" for identity in endpoint_ids
-            )
-        else:
-            links = ", ".join(
-                _identity_page_human_link(atlas, identity) for identity in endpoint_ids
-            )
-            lines.append(f"**{label}:** {links}")
+            continue
+        links = ", ".join(_identity_page_human_link(atlas, identity) for identity in endpoint_ids)
+        context.extend([f"**{label}:** {links}", ""])
+    if context:
+        profile.extend(["", *_identity_page_callout("aga-context", "Context", context[:-1])])
+    lines.extend(_identity_page_callout("aga-grid", "At a glance", profile))
+    if model.child_component_ids:
+        lines.extend(
+            [
+                "",
+                "### Go deeper",
+                "",
+                *_identity_page_callout(
+                    "aga-depth",
+                    "Component children",
+                    [
+                        "**Contains:**",
+                        *(
+                            f"- {_identity_page_human_link(atlas, identity)}"
+                            for identity in model.child_component_ids
+                        ),
+                    ],
+                ),
+            ]
+        )
+    # Explicit accepted baseline limitations, never inferred from status or missing data.
+    limitation_ids = {
+        "CMP-PERCEPTION": {"EVID-48-OCR-LIMIT", "EVID-48-SPATIAL-LIMIT"},
+        "CMP-PERCEPTION-UI-STATE": {"EVID-48-UI"},
+    }.get(subject.id, set())
+    limitations = [
+        f"- {evidence.description} ({_identity_page_human_link(atlas, evidence.id)})"
+        for evidence in implementation_evidence
+        if evidence.id in limitation_ids
+    ]
+    if limitations:
+        lines.extend(
+            [
+                "",
+                *_identity_page_callout(
+                    "warning",
+                    "Current limitations — baseline source inspection",
+                    limitations,
+                    collapsed=True,
+                ),
+            ]
+        )
     lines.extend(
         [
             "",
@@ -1396,15 +1506,22 @@ def render_identity_page(
             ]
         )
 
+    lines.extend(["", *_identity_page_mermaid(atlas, model)])
     lines.extend(["", "## Research", ""])
     if model.research_question_relationships:
         lines.extend(["### Related research questions", ""])
         for edge in model.research_question_relationships:
             lines.append(f"- {_identity_page_human_link(atlas, edge.target)}")
     else:
-        lines.append(
-            "No direct research question is linked to this identity in the current Registry "
-            "snapshot. This does not assess research coverage or completion."
+        lines.extend(
+            _identity_page_callout(
+                "aga-research",
+                "Research state",
+                [
+                    "No direct research question is linked to this identity in the current "
+                    "Registry snapshot. This does not assess research coverage or completion."
+                ],
+            )
         )
     if subject.type == "Component":
         lines.extend(["", "### Declared literature navigation", ""])
@@ -1465,8 +1582,15 @@ def render_identity_page(
     lines.extend(
         [
             "",
-            "Implementation inspection, test-source inspection, normative sources, and scientific "
-            "evidence are distinct. Source inspection alone is not live or measurement validation.",
+            *_identity_page_callout(
+                "aga-evidence",
+                "Evidence meaning",
+                [
+                    "Implementation inspection, test-source inspection, normative sources, "
+                    "and scientific evidence are distinct. Source inspection alone is not "
+                    "live or measurement validation."
+                ],
+            ),
             "",
             "## Registry / Audit",
             "",
@@ -1540,10 +1664,9 @@ def render_identity_page(
         ]
     )
     audit_payload = lines[audit_payload_start:]
-    lines[audit_payload_start:] = [
-        "> [!info]- Registry / Audit",
-        *(f"> {line}" for line in audit_payload),
-    ]
+    lines[audit_payload_start:] = _identity_page_callout(
+        "aga-audit", "Registry / Audit", audit_payload, collapsed=True
+    )
     metadata = {
         "generated_by": OWNER,
         "source_repository": REPOSITORY,
