@@ -230,6 +230,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             "identity_page_schema_version": views.IDENTITY_PAGE_SCHEMA_VERSION,
             "identity_page_subject_id": identity,
             "identity_page_registry_type": expected_type,
+            "identity_page_path": str(path),
             "source_registry_revision": views.registry_content_revision(atlas),
             "reference_index_schema_version": "1.0",
             "private_input_fingerprint": reference.private_input_fingerprint,
@@ -443,7 +444,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
 
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
     assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
 
@@ -841,6 +842,10 @@ def test_rm1_identity_page_ownership_is_finite(tmp_path, atlas):
     manifest_path = root / views.MANIFEST
     manifest_path.parent.mkdir(parents=True)
     manifest_path.write_bytes(tree[views.MANIFEST])
+    for path in views.identity_page_paths(atlas).values():
+        if path in tree:
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / path).write_bytes(tree[path])
     prior = views.validate_prior(root)
     assert set(prior).intersection(views.IDENTITY_PAGE_PAYLOADS) == views.IDENTITY_PAGE_PAYLOADS
 
@@ -850,7 +855,7 @@ def test_rm1_identity_page_ownership_is_finite(tmp_path, atlas):
         for item in manifest["owned_files"]
         if item["path"] in map(str, views.IDENTITY_PAGE_PAYLOADS)
     )
-    manifest["owned_files"].append({**sample, "path": "identity-pages/Unregistered.md"})
+    manifest["owned_files"].append({**sample, "path": "identity-pages/Unregistered?.md"})
     manifest_path.write_text(views.yaml_text(manifest))
     with pytest.raises(ProjectionError, match="Invalid direct-view ownership path/type"):
         views.validate_prior(root)
@@ -1180,7 +1185,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -1659,7 +1664,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -1700,7 +1705,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -1883,7 +1888,7 @@ def test_six_level_reciprocal_navigation_leaf_and_all_authorized_types():
     assert paths["CMP-MEM-RETRIEVAL"] == views.MEMORY_WORKBENCH
     assert paths["CMP-INDEPENDENT-VERIFIER"] == views.VERIFIER_WORKBENCH
     assert paths["CMP-PERCEPTION"] == views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
-    assert paths["CMP-SYN-LEVEL-6"] == PurePosixPath("identity-pages/CMP-SYN-LEVEL-6.md")
+    assert paths["CMP-SYN-LEVEL-6"] == PurePosixPath("identity-pages/Synthetic level 6.md")
     assert len(set(paths.values())) == len(paths)
     memory_children = model(deep, "CMP-MEMORY").child_component_ids
     assert set(memory_children) == {
@@ -1945,7 +1950,9 @@ def test_multiple_parents_rename_removal_order_and_collision(monkeypatch):
         "Renamed leaf"
     )
     renamed = validate_registry(renamed_nodes, relationships, evidence)
-    assert views.identity_page_paths(renamed)[leaf.subject.id] == leaf.path
+    assert views.identity_page_paths(renamed)[leaf.subject.id] == PurePosixPath(
+        "identity-pages/Renamed leaf.md"
+    )
     assert "Renamed leaf" in page(renamed, leaf.subject.id)
     removed_nodes = yaml.safe_load(yaml.safe_dump(nodes))
     removed_nodes["nodes"] = [
@@ -1968,6 +1975,86 @@ def test_multiple_parents_rename_removal_order_and_collision(monkeypatch):
     )
     with pytest.raises(ProjectionError, match="path collision"):
         views.identity_page_paths(multi)
+
+
+def test_human_first_identity_paths_sanitize_and_disambiguate(atlas):
+    assert views.identity_page_paths(atlas)["CMP-MEMORY"] == PurePosixPath(
+        "identity-pages/Memory.md"
+    )
+    assert views.identity_page_paths(atlas)["CMP-CORTEX"] == PurePosixPath(
+        "identity-pages/Cortex.md"
+    )
+    assert all(
+        views.identity_page_paths(atlas)[identity] == path
+        for identity, path in views.IDENTITY_PAGE_PATHS.items()
+    )
+    assert views.identity_page_paths(atlas)["CMP-MEM-RETRIEVAL"] == views.MEMORY_WORKBENCH
+    assert views.identity_page_paths(atlas)["CMP-INDEPENDENT-VERIFIER"] == views.VERIFIER_WORKBENCH
+    assert all(
+        not path.stem.startswith(identity)
+        for identity, path in views.identity_page_paths(atlas).items()
+        if identity not in views.IDENTITY_PAGE_PATHS | views.COMPONENT_HUB_PATHS
+    )
+
+    template = atlas.entities["CMP-MEMORY"]
+    names = {
+        "CMP-SYN-DUP-A": "Same name",
+        "CMP-SYN-DUP-B": "Same name",
+        "CMP-SYN-CASE-A": "Case name",
+        "CMP-SYN-CASE-B": "case name",
+        "CMP-SYN-UNSAFE": 'A/B:C*D?E"F<G>H|I#J^K[L]',
+        "CMP-SYN-CONTROL": "Alpha/\\Beta\nGamma\x00",
+        "CMP-SYN-EMPTY": "///...",
+        "CMP-SYN-DEVICE": "CON",
+        "CMP-SYN-DEVICE-EXT": "CON.txt",
+        "CMP-SYN-PILOT": "Perception",
+        "CMP-SYN-HUB": "Memory Retrieval",
+    }
+    synthetic = Atlas(
+        {
+            **atlas.entities,
+            **{
+                identity: template.model_copy(update={"id": identity, "name": name})
+                for identity, name in names.items()
+            },
+        },
+        atlas.relationships,
+    )
+    paths = views.identity_page_paths(synthetic)
+    expected = {
+        "CMP-SYN-DUP-A": "Same name — CMP-SYN-DUP-A.md",
+        "CMP-SYN-DUP-B": "Same name — CMP-SYN-DUP-B.md",
+        "CMP-SYN-CASE-A": "Case name — CMP-SYN-CASE-A.md",
+        "CMP-SYN-CASE-B": "case name — CMP-SYN-CASE-B.md",
+        "CMP-SYN-UNSAFE": "A B C D E F G H I J K L.md",
+        "CMP-SYN-CONTROL": "Alpha Beta Gamma.md",
+        "CMP-SYN-EMPTY": "Untitled — CMP-SYN-EMPTY.md",
+        "CMP-SYN-DEVICE": "CON — CMP-SYN-DEVICE.md",
+        "CMP-SYN-DEVICE-EXT": "CON.txt — CMP-SYN-DEVICE-EXT.md",
+        "CMP-SYN-PILOT": "Perception — CMP-SYN-PILOT.md",
+        "CMP-SYN-HUB": "Memory Retrieval — CMP-SYN-HUB.md",
+    }
+    assert {identity: paths[identity].name for identity in names} == expected
+    assert paths == views.identity_page_paths(
+        Atlas(dict(reversed(tuple(synthetic.entities.items()))), atlas.relationships)
+    )
+    assert len({str(path).casefold() for path in paths.values()}) == len(paths)
+
+
+def test_human_first_residual_path_collision_fails_closed(atlas):
+    template = atlas.entities["CMP-MEMORY"]
+    synthetic = Atlas(
+        {
+            **atlas.entities,
+            "CMP-SYN-ONE": template.model_copy(update={"id": "CMP-SYN-ONE", "name": "Memory"}),
+            "CMP-SYN-TWO": template.model_copy(
+                update={"id": "CMP-SYN-TWO", "name": "Memory — CMP-MEMORY"}
+            ),
+        },
+        atlas.relationships,
+    )
+    with pytest.raises(ProjectionError, match="path collision"):
+        views.identity_page_paths(synthetic)
 
 
 @pytest.mark.parametrize(

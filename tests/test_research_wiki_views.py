@@ -202,9 +202,44 @@ def remove_observe_scope_for_legacy_manifest(vault, manifest):
 
 def remove_identity_pages_for_legacy_manifest(vault, manifest):
     for item in list(manifest["owned_files"]):
-        if views._identity_page_subject_for_path(PurePosixPath(item["path"])) is not None:
+        if views._is_identity_page_path(PurePosixPath(item["path"])):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
+
+
+def install_v29_stable_id_identity_paths(vault, atlas):
+    """Model the already-applied v2.9 owner marker and generic ID paths."""
+    root = derived(vault)
+    manifest_path = root / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_text())
+    old_paths = {}
+    for identity, current in views.identity_page_paths(atlas).items():
+        if identity in views.COMPONENT_HUB_PATHS:
+            continue
+        previous = (
+            current
+            if identity in views.IDENTITY_PAGE_PATHS
+            else PurePosixPath("identity-pages") / f"{identity}.md"
+        )
+        rendered = (root / current).read_text()
+        visible, _, _ = rendered.partition(views.IDENTITY_PAGE_METADATA_MARKER)
+        metadata = views._identity_page_generated_metadata(rendered, current)
+        metadata.pop("identity_page_path")
+        metadata["identity_page_schema_version"] = "1.0"
+        prior_bytes = (
+            visible + views.IDENTITY_PAGE_METADATA_MARKER + technical.yaml_text(metadata) + "-->\n"
+        ).encode()
+        if previous != current:
+            (root / current).unlink()
+        (root / previous).write_bytes(prior_bytes)
+        item = next(item for item in manifest["owned_files"] if item["path"] == str(current))
+        item["path"] = str(previous)
+        item["sha256"] = technical.digest(prior_bytes)
+        old_paths[identity] = previous
+    manifest["view_schema_version"] = "2.9"
+    manifest["owned_files"].sort(key=lambda item: item["path"])
+    manifest_path.write_text(technical.yaml_text(manifest))
+    return old_paths
 
 
 def downgrade_manifest_to_v26(vault):
@@ -343,7 +378,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -442,7 +477,7 @@ def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert str(views.OBSERVE_SCOPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     after = filesystem_state(vault)
@@ -460,10 +495,10 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     manifest["owned_files"] = [
         item
         for item in manifest["owned_files"]
-        if views._identity_page_subject_for_path(PurePosixPath(item["path"])) is None
+        if not views._is_identity_page_path(PurePosixPath(item["path"]))
     ]
     for path in current:
-        if views._identity_page_subject_for_path(path) is None:
+        if not views._is_identity_page_path(path):
             continue
         (derived(vault) / path).unlink()
     manifest_path.write_bytes(technical.yaml_text(manifest).encode())
@@ -475,7 +510,7 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert migrated_manifest["view_schema_version"] == "2.9"
+    assert migrated_manifest["view_schema_version"] == "2.10"
     assert views.IDENTITY_PAGE_PAYLOADS <= {
         PurePosixPath(item["path"]) for item in migrated_manifest["owned_files"]
     }
@@ -495,7 +530,7 @@ def test_rm1_v28_pilot_paths_migrate_to_v29_without_adopting_new_paths(setup):
     added_paths = {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
-        if views._identity_page_subject_for_path(PurePosixPath(item["path"])) is not None
+        if views._is_identity_page_path(PurePosixPath(item["path"]))
         and PurePosixPath(item["path"]) not in views.IDENTITY_PAGE_PAYLOADS
     }
     assert len(added_paths) == 44
@@ -526,7 +561,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
         if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS
     }
 
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert owned == views.IDENTITY_PAGE_PAYLOADS
     for path in views.IDENTITY_PAGE_PAYLOADS:
         rendered = (derived(vault) / path).read_text()
@@ -541,7 +576,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
 
 @pytest.mark.parametrize(
     "fault",
-    ("missing", "malformed", "wrong_owner", "wrong_subject", "wrong_type"),
+    ("missing", "malformed", "wrong_owner", "wrong_subject", "wrong_type", "wrong_path"),
 )
 def test_identity_page_hidden_metadata_fails_closed(setup, fault):
     repo, vault, sha = setup
@@ -563,6 +598,8 @@ def test_identity_page_hidden_metadata_fails_closed(setup, fault):
             metadata["identity_page_subject_id"] = "CMP-OBSERVATION-BUILDER"
         elif fault == "wrong_type":
             metadata["identity_page_registry_type"] = "DataArtifact"
+        elif fault == "wrong_path":
+            metadata["identity_page_path"] = "identity-pages/Other.md"
         changed = (
             visible + views.IDENTITY_PAGE_METADATA_MARKER + technical.yaml_text(metadata) + "-->\n"
         )
@@ -597,6 +634,66 @@ def test_identity_page_edits_and_unowned_paths_are_not_adopted(setup):
     with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
         views.project(repo, vault, sha)
     assert filesystem_state(vault) == before_unowned
+
+
+def test_v29_stable_id_paths_migrate_to_human_first_without_authored_writes(setup):
+    repo, vault, sha = setup
+    expected = views.project(repo, vault, sha)
+    atlas = load_registry(repo / "docs/research-atlas")
+    old_paths = install_v29_stable_id_identity_paths(vault, atlas)
+    authored = outside_owned(vault)
+    before_check = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before_check
+
+    migrated = views.project(repo, vault, sha)
+    assert migrated == expected
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
+    assert old_paths["CMP-MEMORY"] == PurePosixPath("identity-pages/CMP-MEMORY.md")
+    assert not (derived(vault) / old_paths["CMP-MEMORY"]).exists()
+    memory = PurePosixPath("identity-pages/Memory.md")
+    assert memory in migrated
+    assert (
+        views._identity_page_generated_metadata(migrated[memory].decode(), memory)[
+            "identity_page_subject_id"
+        ]
+        == "CMP-MEMORY"
+    )
+    assert (
+        views._derived_link(memory, "Memory")
+        in migrated[views.identity_page_paths(atlas)["CMP-MEM-EPISODIC"]].decode()
+    )
+    assert (
+        "_generated/derived/identity-pages/CMP-MEMORY|"
+        not in migrated[views.identity_page_paths(atlas)["CMP-MEM-EPISODIC"]].decode()
+    )
+    assert outside_owned(vault) == authored
+    after = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == migrated
+    assert filesystem_state(vault) == after
+
+
+def test_v29_identity_migration_fails_closed_without_writes(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    atlas = load_registry(repo / "docs/research-atlas")
+    old_paths = install_v29_stable_id_identity_paths(vault, atlas)
+    target = derived(vault) / old_paths["CMP-MEMORY"]
+    intact = target.read_bytes()
+    target.write_bytes(intact + b"Authored edit\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Identity Page was edited|owner marker"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before
+    target.write_bytes(intact)
+
+    destination = derived(vault) / "identity-pages/Memory.md"
+    destination.write_text("Authored destination\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before
 
 
 def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write(setup):
@@ -637,7 +734,7 @@ def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write
         views.project(repo, vault, added_sha, check=True)
     assert filesystem_state(vault) == before_check
     added = views.project(repo, vault, added_sha)
-    path = PurePosixPath("identity-pages/CMP-SYN-ADDED.md")
+    path = PurePosixPath("identity-pages/Synthetic addition.md")
     assert path in added and path not in baseline
     owned = {item["path"] for item in yaml.safe_load(added[views.MANIFEST])["owned_files"]}
     assert str(path) in owned
@@ -651,24 +748,47 @@ def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write
     nodes_path.write_text(technical.yaml_text(nodes))
     renamed_sha = commit(repo)
     technical.project(repo, vault, renamed_sha)
+    prior_page = derived(vault) / path
+    original_prior = prior_page.read_bytes()
+    prior_page.write_bytes(original_prior + b"Edited old generated page\n")
+    before_rejected_rename = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Identity Page was edited|owner marker"):
+        views.project(repo, vault, renamed_sha)
+    assert filesystem_state(vault) == before_rejected_rename
+    prior_page.write_bytes(original_prior)
+    renamed_path = PurePosixPath("identity-pages/Renamed synthetic Component.md")
+    occupied = derived(vault) / renamed_path
+    occupied.write_text("Authored destination\n")
+    before_occupied = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, renamed_sha)
+    assert filesystem_state(vault) == before_occupied
+    occupied.unlink()
     renamed = views.project(repo, vault, renamed_sha)
-    assert path in renamed and "Renamed synthetic Component" in renamed[path].decode()
-    assert "Synthetic addition" not in renamed[path].decode()
+    assert path not in renamed and not (derived(vault) / path).exists()
+    assert renamed_path in renamed
+    pilot = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    assert (
+        views._derived_link(renamed_path, "Renamed synthetic Component") in renamed[pilot].decode()
+    )
+    assert views._derived_link(path, "Synthetic addition") not in renamed[pilot].decode()
+    assert "Renamed synthetic Component" in renamed[renamed_path].decode()
+    assert "Synthetic addition" not in renamed[renamed_path].decode()
     assert authored_bytes() == authored
 
     nodes_path.write_bytes(original_nodes)
     edges_path.write_bytes(original_edges)
     removed_sha = commit(repo)
     technical.project(repo, vault, removed_sha)
-    edited_page = derived(vault) / path
-    edited_page.write_bytes(renamed[path] + b"Manual edit must survive\n")
+    edited_page = derived(vault) / renamed_path
+    edited_page.write_bytes(renamed[renamed_path] + b"Manual edit must survive\n")
     before_rejected_remove = filesystem_state(vault)
     with pytest.raises(technical.ProjectionError, match="owner marker|Identity Page was edited"):
         views.project(repo, vault, removed_sha)
     assert filesystem_state(vault) == before_rejected_remove
-    edited_page.write_bytes(renamed[path])
+    edited_page.write_bytes(renamed[renamed_path])
     removed = views.project(repo, vault, removed_sha)
-    assert path not in removed and not (derived(vault) / path).exists()
+    assert renamed_path not in removed and not edited_page.exists()
     assert authored_bytes() == authored
     before_final_check = filesystem_state(vault)
     assert views.project(repo, vault, removed_sha, check=True) == removed
@@ -756,7 +876,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "The Registry declares no Bridge → Firewall → Perception pipeline edge." in body
 
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.OBSERVE_SCOPE in owned
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
@@ -963,7 +1083,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.9"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.10"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -1195,7 +1315,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1225,7 +1345,7 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1249,8 +1369,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     old_tree = {
         path: data
         for path, data in current.items()
-        if path != views.LITERATURE_INSPECTION
-        and views._identity_page_subject_for_path(path) is None
+        if path != views.LITERATURE_INSPECTION and not views._is_identity_page_path(path)
     }
     old_tree.pop(views.OBSERVE_SCOPE)
 
@@ -1277,11 +1396,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
         not in {
             str(views.LITERATURE_INSPECTION),
             str(views.OBSERVE_SCOPE),
-            *(
-                str(path)
-                for path in current
-                if views._identity_page_subject_for_path(path) is not None
-            ),
+            *(str(path) for path in current if views._is_identity_page_path(path)),
         }
     ]
     for item in manifest["owned_files"]:
@@ -1296,7 +1411,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     target.unlink()
     (root / views.OBSERVE_SCOPE).unlink()
     for path in current:
-        if views._identity_page_subject_for_path(path) is None:
+        if not views._is_identity_page_path(path):
             continue
         (root / path).unlink()
     for relative, data in old_tree.items():
@@ -1318,7 +1433,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert migrated_manifest["view_schema_version"] == "2.9"
+    assert migrated_manifest["view_schema_version"] == "2.10"
     assert str(views.LITERATURE_INSPECTION) in {
         item["path"] for item in migrated_manifest["owned_files"]
     }
@@ -1399,7 +1514,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.9"
+    assert manifest["view_schema_version"] == "2.10"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -2223,7 +2338,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.9"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 

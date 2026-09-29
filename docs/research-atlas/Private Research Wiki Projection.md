@@ -760,15 +760,27 @@ Native behavior follows [Obsidian callouts](https://obsidian.md/help/callouts)
 (unknown custom types fall back to ordinary native callouts); diagram syntax
 uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
 
-## RM-1 typed Identity Page rollout (manifest v2.9)
+## RM-1 typed Identity Page rollout (manifest v2.10)
 
 Issue #114 extends the shared renderer to every current Registry System,
 Component, Interface, Contract, DataArtifact and MeasurementPoint. Environment
 gets technical/context presentation with direct Research explicitly deferred.
 Domain and Assembly remain navigation surfaces. The four v2.8 pilot paths remain
-stable, as do the two expanded Component Hub Overview destinations; every other
-supported identity uses `identity-pages/<stable-id>.md`. This ID-based path
-contract makes display renames link-stable. A duplicate destination fails closed.
+stable, as do the two expanded Component Hub Overview destinations. Every other
+supported identity uses `identity-pages/<human Registry name>.md` when safe and
+unambiguous, so Obsidian's inline title is human-first. Stable ID remains the
+semantic identity in page content and hidden metadata. A display rename can
+change the preferred filename and updates all generated links.
+
+The path resolver normalizes names with Unicode NFKC, replaces separators,
+reserved filename and Obsidian link characters, and control characters with
+spaces, collapses whitespace, and strips surrounding spaces and periods. An
+empty or non-alphanumeric result becomes `Untitled`. Windows device names,
+duplicate or case-folded names, and names reserved by fixed pilot or Hub
+destinations receive ` — <Stable ID>` after the human stem. Any residual
+case-folded path collision or a filename over 240 UTF-8 bytes fails closed.
+Paths are sorted by Stable ID for
+deterministic output; no random suffixes are used.
 
 Only validated `part_of` Component edges create deeper navigation. Each page
 shows every ancestry trail and direct parent, including multiple valid parents;
@@ -787,12 +799,15 @@ technical/decision, research/scientific, and other provenance kinds. Exact
 Registry predicates and locators remain in the collapsed Audit. Missing direct
 mapping does not imply a literature gap, completeness or accepted claim.
 
-Manifest v2.9 admits only the prior finite paths plus ID-shaped Identity Page
-paths bound by the hidden owner marker, subject ID, type, source revision and
-fingerprint. Removed pages are deleted only when prior owned bytes are intact;
-edited or unowned files block the write. `--check` remains zero-write. This
-repository change does not inspect or apply to the actual private vault; a
-separate CONTROL-authorized G6 is required.
+Manifest v2.10 owns human-named Identity Page paths with a hidden v1.1 marker
+bound to the exact path, subject Stable ID, Registry type, source commit,
+Registry revision, Reference Index fingerprint, and generated owner. It accepts
+prior v2.9 Stable-ID paths with their v1.0 markers for migration. An intact old
+generated page is removed when its new preferred path is written. An edited
+old page, an unowned destination, or an invalid owner marker blocks the entire
+write. Authored files remain untouched, and `--check` remains zero-write.
+The actual private vault is outside this repository repair; CONTROL must review
+this head before another G6.
 
 ## RA-4A fixture-only Zotero source projection
 

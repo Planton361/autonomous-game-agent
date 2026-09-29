@@ -169,7 +169,7 @@ SUPPORTED_IDENTITY_PAGE_TYPES = frozenset(
         "Environment",
     }
 )
-IDENTITY_PAGE_SCHEMA_VERSION = "1.0"
+IDENTITY_PAGE_SCHEMA_VERSION = "1.1"
 IDENTITY_PAGE_METADATA_MARKER = "<!-- identity-page-generated-metadata\n"
 TECHNICAL_DETAIL_ENDPOINT_TYPES = {
     "IF-MEM-CORTEX": "Interface",
@@ -426,6 +426,7 @@ def _identity_page_type_for_id(identity: str) -> str | None:
 
 
 def _identity_page_subject_for_path(relative: PurePosixPath) -> str | None:
+    """Resolve only the legacy v2.9 ID-shaped path contract."""
     pilot = IDENTITY_PAGE_SUBJECT_BY_PATH.get(relative)
     if pilot is not None:
         return pilot
@@ -437,35 +438,95 @@ def _identity_page_subject_for_path(relative: PurePosixPath) -> str | None:
     return identity if _identity_page_type_for_id(identity) is not None else None
 
 
+_UNSAFE_IDENTITY_FILENAME = frozenset('/\\<>:"|?*#^[]')
+_RESERVED_IDENTITY_FILENAME = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{number}" for number in range(1, 10)}
+    | {f"LPT{number}" for number in range(1, 10)}
+)
+
+
+def _identity_filename_stem(name: str) -> tuple[str, bool]:
+    """Return one portable, human-first basename and whether it needs an ID suffix."""
+    normalized = unicodedata.normalize("NFKC", name)
+    safe = "".join(
+        " "
+        if char in _UNSAFE_IDENTITY_FILENAME or unicodedata.category(char).startswith("C")
+        else char
+        for char in normalized
+    )
+    stem = " ".join(safe.split()).strip(" .")
+    degenerate = not any(char.isalnum() for char in stem)
+    if degenerate:
+        stem = "Untitled"
+    return stem, degenerate or stem.split(".", 1)[0].upper() in _RESERVED_IDENTITY_FILENAME
+
+
+def _is_identity_page_path(relative: PurePosixPath) -> bool:
+    return (
+        relative.parent == PurePosixPath("identity-pages")
+        and relative.suffix == ".md"
+        and _identity_filename_stem(relative.stem)[0] == relative.stem
+    )
+
+
 def _identity_page_path(atlas: Atlas, identity: str) -> PurePosixPath | None:
-    node = atlas.entities.get(identity)
-    if not isinstance(node, TechnicalIdentity) or node.type not in SUPPORTED_IDENTITY_PAGE_TYPES:
-        return None
-    if _identity_page_type_for_id(identity) != node.type:
-        raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity}")
-    hub = COMPONENT_HUB_PATHS.get(identity)
-    if hub is not None:
-        return hub.overview
-    return IDENTITY_PAGE_PATHS.get(identity, PurePosixPath("identity-pages") / f"{identity}.md")
+    return identity_page_paths(atlas).get(identity)
 
 
 def identity_page_paths(atlas: Atlas) -> dict[str, PurePosixPath]:
-    """Resolve and collision-check all preferred current Registry destinations."""
+    """Resolve portable human filenames, with stable-ID suffixes only when needed."""
+    supported = {}
+    for identity, node in sorted(atlas.entities.items()):
+        if (
+            not isinstance(node, TechnicalIdentity)
+            or node.type not in SUPPORTED_IDENTITY_PAGE_TYPES
+        ):
+            continue
+        if _identity_page_type_for_id(identity) != node.type:
+            raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity}")
+        supported[identity] = node
+
     paths = {
-        identity: path
-        for identity in sorted(atlas.entities)
-        if (path := _identity_page_path(atlas, identity)) is not None
+        identity: path for identity, path in IDENTITY_PAGE_PATHS.items() if identity in supported
     }
-    if len(set(paths.values())) != len(paths):
+    paths.update(
+        (identity, hub.overview)
+        for identity, hub in COMPONENT_HUB_PATHS.items()
+        if identity in supported
+    )
+    reserved = {
+        path.stem.casefold() for identity, path in paths.items() if identity in IDENTITY_PAGE_PATHS
+    }
+    reserved.update(
+        _identity_filename_stem(supported[identity].name)[0].casefold()
+        for identity in COMPONENT_HUB_PATHS
+        if identity in supported
+    )
+    stems = {
+        identity: _identity_filename_stem(node.name)
+        for identity, node in supported.items()
+        if identity not in paths
+    }
+    counts: dict[str, int] = {}
+    for stem, _ in stems.values():
+        key = stem.casefold()
+        counts[key] = counts.get(key, 0) + 1
+    for identity, (stem, forced_suffix) in stems.items():
+        suffix = forced_suffix or stem.casefold() in reserved or counts[stem.casefold()] > 1
+        filename = f"{stem} — {identity}.md" if suffix else f"{stem}.md"
+        if len(filename.encode("utf-8")) > 240:
+            raise ProjectionError(f"Identity Page human filename exceeds 240 bytes: {identity}")
+        paths[identity] = PurePosixPath("identity-pages") / filename
+    if len({str(path).casefold() for path in paths.values()}) != len(paths):
         raise ProjectionError("Identity Page path collision")
-    return paths
+    return {identity: paths[identity] for identity in sorted(paths)}
 
 
 def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dict:
     """Read a valid, path-bound hidden owner marker from an Identity Page."""
-    subject_id = _identity_page_subject_for_path(relative)
     if (
-        subject_id is None
+        not _is_identity_page_path(relative)
         or text.startswith("---\n")
         or text.count(IDENTITY_PAGE_METADATA_MARKER) != 1
     ):
@@ -493,14 +554,31 @@ def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dic
         "reference_index_schema_version",
         "private_input_fingerprint",
     }
+    version = metadata.get("identity_page_schema_version")
+    if version == "1.0":
+        subject_id = _identity_page_subject_for_path(relative)
+        if subject_id is None:
+            return {}
+    elif version == IDENTITY_PAGE_SCHEMA_VERSION:
+        subject_id = metadata.get("identity_page_subject_id")
+        required_fields.add("identity_page_path")
+    else:
+        return {}
+    if not isinstance(subject_id, str) or _identity_page_type_for_id(subject_id) is None:
+        return {}
+    pilot_subject = IDENTITY_PAGE_SUBJECT_BY_PATH.get(relative)
+    if pilot_subject is not None and subject_id != pilot_subject:
+        return {}
     expected = {
         "generated_by": OWNER,
         "source_repository": REPOSITORY,
-        "identity_page_schema_version": IDENTITY_PAGE_SCHEMA_VERSION,
+        "identity_page_schema_version": version,
         "identity_page_subject_id": subject_id,
         "identity_page_registry_type": _identity_page_type_for_id(subject_id),
         "reference_index_schema_version": "1.0",
     }
+    if version == IDENTITY_PAGE_SCHEMA_VERSION:
+        expected["identity_page_path"] = str(relative)
     if set(metadata) != required_fields or any(
         metadata.get(key) != value for key, value in expected.items()
     ):
@@ -1894,6 +1972,7 @@ def render_identity_page(
         "identity_page_schema_version": IDENTITY_PAGE_SCHEMA_VERSION,
         "identity_page_subject_id": subject.id,
         "identity_page_registry_type": subject.type,
+        "identity_page_path": str(model.path),
         "source_registry_revision": registry_revision_value,
         "reference_index_schema_version": "1.0",
         "private_input_fingerprint": model.private_input_fingerprint,
@@ -3334,6 +3413,10 @@ class ManifestV29(ManifestV21):
     view_schema_version: Literal["2.9"]
 
 
+class ManifestV210(ManifestV21):
+    view_schema_version: Literal["2.10"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -3583,13 +3666,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.9",
+        view_schema_version="2.10",
         reference_index_schema_version="1.0",
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV29.model_validate(data).model_dump(exclude_none=True)
+        ManifestV210.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -3737,6 +3820,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV28.model_validate(data)
         elif data.get("view_schema_version") == "2.9":
             manifest = ManifestV29.model_validate(data)
+        elif data.get("view_schema_version") == "2.10":
+            manifest = ManifestV210.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -3757,20 +3842,21 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and relative.suffix == ".md"
                     and (
                         relative not in W07_PAYLOADS
-                        or manifest.view_schema_version in {"2.5", "2.6", "2.7", "2.8", "2.9"}
+                        or manifest.view_schema_version
+                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
-                        manifest.view_schema_version not in {"2.8", "2.9"}
+                        manifest.view_schema_version not in {"2.8", "2.9", "2.10"}
                         or relative in V27_INDEX_PAYLOADS
                     )
                 )
             )
             or (
                 manifest.view_schema_version
-                in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"}
+                in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -3786,27 +3872,27 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9"}
+                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9", "2.10"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.7", "2.8", "2.9"}
+                manifest.view_schema_version in {"2.7", "2.8", "2.9", "2.10"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
                 and relative == HIERARCHY
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
             or (
-                manifest.view_schema_version in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9"}
+                manifest.view_schema_version in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
             or (manifest.view_schema_version == "2.8" and relative in IDENTITY_PAGE_PAYLOADS)
@@ -3814,6 +3900,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 manifest.view_schema_version == "2.9"
                 and _identity_page_subject_for_path(relative) is not None
             )
+            or (manifest.view_schema_version == "2.10" and _is_identity_page_path(relative))
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         if isinstance(item, OwnedFileV21):
@@ -3927,7 +4014,7 @@ def project(
             )
         elif relative == OBSERVE_SCOPE:
             owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
-        elif _identity_page_subject_for_path(relative) is not None:
+        elif _is_identity_page_path(relative):
             metadata = _identity_page_generated_metadata(utf8(data), relative)
             if metadata.get("generated_by") != OWNER:
                 owned = False
