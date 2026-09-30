@@ -13,8 +13,10 @@ from fh_agent.research_atlas.render import render_overview
 from fh_agent.research_atlas.schema import PREFIXES, RelationName
 from fh_agent.research_atlas.validator import (
     RELATION_PAIRS,
+    AtlasSourceSchema,
     load_registry,
     validate_registry,
+    validated_source_schema_version,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +40,7 @@ def edge(payloads, relation, source="CMP-CORTEX", target="CMP-MANAGER", **kwargs
 
 def test_valid_pilot_registry_loads():
     atlas = load_registry(ATLAS)
+    assert atlas.source_atlas_schema == "0.2"
     expected = {
         "CMP-MEM-RETRIEVAL": ("partial", "unverified"),
         "CMP-CORTEX": ("implemented", "integration-tested"),
@@ -51,6 +54,66 @@ def test_valid_pilot_registry_loads():
     assert atlas.entities["DAT-RETRIEVAL-SNAPSHOT"].technical.implementation_status == "target-only"
     assert atlas.entities["CON-SKILL-CONTRACT"].type == "Contract"
     assert not any(n.type in {"Paper", "Finding"} for n in atlas.entities.values())
+
+
+def test_source_schema_envelope_allows_only_current_and_next_metadata_versions(payloads, tmp_path):
+    assert get_args(AtlasSourceSchema) == ("0.2", "0.3")
+    for payload in payloads:
+        payload["atlas_schema_version"] = "0.3"
+    assert validated_source_schema_version(*payloads) == "0.3"
+    # The provenance envelope may describe the next version, while public contents
+    # remain closed to 0.2 until their bounded schema-evolution Issue.
+    with pytest.raises(ValueError):
+        validate_registry(*payloads)
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    for filename, payload in zip(
+        ("nodes.yaml", "relationships.yaml", "evidence.yaml"), payloads, strict=True
+    ):
+        (registry / filename).write_text(yaml.safe_dump(payload), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_registry(tmp_path)
+
+
+def test_mixed_registry_source_schema_versions_fail_closed(payloads):
+    payloads[1]["atlas_schema_version"] = "0.3"
+    with pytest.raises(ValueError, match="must agree on atlas_schema_version"):
+        validated_source_schema_version(*payloads)
+    with pytest.raises(ValueError, match="must agree on atlas_schema_version"):
+        validate_registry(*payloads)
+
+
+@pytest.mark.parametrize("version", ["0.4", "0.5", "0.2 ", None])
+def test_unsupported_registry_source_schema_version_fails_closed(payloads, version):
+    for payload in payloads:
+        payload["atlas_schema_version"] = version
+    with pytest.raises(ValueError, match="Unsupported Atlas source schema version"):
+        validated_source_schema_version(*payloads)
+
+
+@pytest.mark.parametrize("payload", [None, {"nodes": []}, {"atlas_schema_version": ["0.2"]}])
+def test_malformed_registry_source_envelope_fails_closed(payloads, payload):
+    payloads[1] = payload
+    with pytest.raises(ValueError):
+        validated_source_schema_version(*payloads)
+
+
+def test_duplicate_registry_source_schema_key_fails_closed(tmp_path):
+    registry = tmp_path / "registry"
+    registry.mkdir()
+    for filename in ("nodes.yaml", "relationships.yaml", "evidence.yaml"):
+        source = ATLAS / "registry" / filename
+        shutil.copyfile(source, registry / filename)
+    nodes_path = registry / "nodes.yaml"
+    original = nodes_path.read_text(encoding="utf-8").splitlines()
+    nodes_path.write_text(
+        'atlas_schema_version: "0.2"\natlas_schema_version: "0.3"\n'
+        + "\n".join(original[1:])
+        + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Duplicate YAML key: atlas_schema_version"):
+        load_registry(tmp_path)
 
 
 @pytest.mark.parametrize("index", [0, 1, 2])

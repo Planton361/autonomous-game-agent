@@ -116,8 +116,14 @@ evidence quality, Finding acceptance or Decision acceptance.
 Private payload: `indexes/declared-reference-index.yaml`. Top-level keys are
 exactly `index_schema_version: "1.0"`, `generated_by: research-wiki-derived`,
 `source_repository: Planton361/autonomous-game-agent`, `source_commit` (40 lower
-hex characters), `source_atlas_schema: "0.2"`, `private_input_fingerprint`
-(64 lower hex characters), and `rows`.
+hex characters), `source_atlas_schema`, `private_input_fingerprint` (64 lower
+hex characters), and `rows`. `source_atlas_schema` is exactly `"0.2"` or
+`"0.3"`, copied from the shared validated Registry version envelope; the three
+Registry files must agree. Current public content validation and generation
+remain on `"0.2"` until a later bounded schema-evolution Issue changes the
+public vocabulary. This provenance field is independent of private Research
+record schemas and fingerprints, so a source-version change alone requires no
+private-record migration.
 
 Each closed row has exactly:
 

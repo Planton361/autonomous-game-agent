@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
+from typing import Literal, cast
 
 import yaml
 
@@ -31,6 +32,8 @@ TECHNICAL = frozenset(
 ACTORS = frozenset({"System", "Component"})
 PAYLOADS = frozenset({"Interface", "Contract", "DataArtifact"})
 ALL_TYPES = frozenset(PREFIXES)
+AtlasSourceSchema = Literal["0.2", "0.3"]
+SUPPORTED_ATLAS_SOURCE_SCHEMAS = frozenset({"0.2", "0.3"})
 # Explicit admissible pairs; lifecycle relations additionally require equal endpoint types.
 RELATION_PAIRS = {
     "part_of": ({"Component"}, ACTORS),
@@ -62,6 +65,7 @@ RELATION_PAIRS = {
 class Atlas:
     entities: Mapping[str, Entity]
     relationships: tuple[Relationship, ...]
+    source_atlas_schema: AtlasSourceSchema = "0.2"
 
     def ancestors(self, node_id: str) -> frozenset[str]:
         """Only authored part_of contributes; domains and work graph edges never do."""
@@ -79,7 +83,29 @@ class Atlas:
         return frozenset(result)
 
 
+def validated_source_schema_version(
+    nodes: object, relationships: object, evidence: object
+) -> AtlasSourceSchema:
+    """Validate the common source-version envelope without broadening Registry content support."""
+    versions = []
+    for filename, payload in zip(
+        ("nodes.yaml", "relationships.yaml", "evidence.yaml"),
+        (nodes, relationships, evidence),
+        strict=True,
+    ):
+        if not isinstance(payload, Mapping):
+            raise ValueError(f"Registry source envelope must be a mapping: {filename}")
+        version = payload.get("atlas_schema_version")
+        if not isinstance(version, str) or version not in SUPPORTED_ATLAS_SOURCE_SCHEMAS:
+            raise ValueError(f"Unsupported Atlas source schema version in {filename}: {version!r}")
+        versions.append(version)
+    if len(set(versions)) != 1:
+        raise ValueError("Registry files must agree on atlas_schema_version")
+    return cast(AtlasSourceSchema, versions[0])
+
+
 def validate_registry(nodes: object, relationships: object, evidence: object) -> Atlas:
+    source_atlas_schema = validated_source_schema_version(nodes, relationships, evidence)
     node_file = NodeRegistry.model_validate(nodes)
     edge_file = RelationshipRegistry.model_validate(relationships)
     evidence_file = EvidenceRegistry.model_validate(evidence)
@@ -146,7 +172,7 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
     for edge in edge_file.relationships:
         if edge.relation == "decomposed_into" and edge.decision_id not in approved_decisions:
             raise ValueError("Decomposition Decision requires supporting project_decision Evidence")
-    atlas = Atlas(MappingProxyType(entities), edge_file.relationships)
+    atlas = Atlas(MappingProxyType(entities), edge_file.relationships, source_atlas_schema)
     for node_id in entities:
         if node_id in atlas.ancestors(node_id):
             raise ValueError(f"Technical part_of cycle: {node_id}")

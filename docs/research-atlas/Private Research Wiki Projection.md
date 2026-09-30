@@ -101,11 +101,15 @@ replacing or deleting the prior System Anatomy. The output set, path, owner and
 digest checks remain closed; unknown files still fail closed.
 
 The deterministic manifest records the source repository, full commit, Atlas
-schema `0.2`, exact-byte SHA-256 digests of all three Registry files, record and
-Evidence counts, and each owned output's digest. Generated notes carry source
-provenance and a digest of the public record's sorted JSON representation; the
-map carries the public rendered map's digest. Neither timestamps nor private
-absolute paths are included.
+schema, exact-byte SHA-256 digests of all three Registry files, record and
+Evidence counts, and each owned output's digest. Source schema metadata accepts
+exactly `0.2` and `0.3` and is derived from the shared Registry version envelope;
+all three Registry files must agree. The current public Registry and generated
+output remain `0.2`, and public content validation remains closed to `0.2` until
+the owner of a later public schema evolution updates it. Generated notes carry
+the same source schema provenance plus a digest of the public record's sorted
+JSON representation; the map carries the public rendered map's digest. Neither
+timestamps nor private absolute paths are included.
 
 Topology, symlinks, marker, source state, prior manifest, authored envelopes, and
 all output targets are validated before writes/deletes. Symlinked ownership
