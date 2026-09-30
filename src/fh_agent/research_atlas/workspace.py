@@ -16,7 +16,6 @@ import yaml
 from .schema import PREFIXES, Entity, Evidence, Relationship, TechnicalIdentity
 from .validator import Atlas, load_registry
 
-SCHEMA_VERSION = "0.2"
 GENERATED_NOTICE = (
     "Generated from Registry YAML; fully overwriteable. Do not edit structured claims here."
 )
@@ -24,6 +23,7 @@ FOLDERS = {
     "System": "Home",
     "Domain": "Architecture/Domains",
     "Environment": "Architecture/Environments",
+    "Function": "Functions",
     "Component": "Components",
     "Interface": "Interfaces & Contracts",
     "Contract": "Interfaces & Contracts",
@@ -131,7 +131,7 @@ def record_properties(atlas: Atlas, node: Entity) -> dict[str, object]:
         "atlas_name": node.name,
         "atlas_level": node.atlas_level,
         "atlas_generated": True,
-        "registry_schema_version": SCHEMA_VERSION,
+        "registry_schema_version": atlas.source_atlas_schema,
         "overview_visibility": node.overview_visibility,
         "overview_order": node.overview_order,
         "research_mapping": node.research_mapping,
@@ -167,6 +167,8 @@ def record_properties(atlas: Atlas, node: Entity) -> dict[str, object]:
         "decomposed_into",
         "decomposed_into_from",
         "contradicts",
+        "contributes_to_function",
+        "contributes_to_function_from",
     ):
         props.setdefault(field, [])
     props["supported_by"] = incoming.get("supports_from", [])
@@ -220,11 +222,16 @@ def technical_sections(atlas: Atlas, node: TechnicalIdentity) -> list[str]:
                 "supersedes": ("Supersedes", "Superseded by"),
                 "decomposed_into": ("Decomposed into", "Decomposed from"),
                 "research_suggests_decomposition": ("Proposed decomposition target", "Proposal"),
+                "contributes_to_function": ("Contributes to Function", "Function participant"),
             }
             label = labels.get(edge.relation, (edge.relation, edge.relation + " from"))[
                 0 if outgoing else 1
             ]
             lines.append(f"- {label}: {note_link(other)}")
+            if edge.functional_role is not None:
+                lines.append(f"  Functional role: {edge.functional_role}")
+            if edge.functional_order is not None:
+                lines.append(f"  Explicit functional order: {edge.functional_order}")
             if edge.decision_id:
                 lines.append(f"  Approval: {note_link(atlas.entities[edge.decision_id])}")
         if not selected:
@@ -238,6 +245,12 @@ def technical_sections(atlas: Atlas, node: TechnicalIdentity) -> list[str]:
     lines += ["Technical parents are outgoing `part_of`; children are incoming `part_of`.", ""]
     section("Presentation", [e for e in edges if e.relation == "presented_in_domain"])
     lines += [f"L-level: {node.atlas_level}. Overview visibility: {node.overview_visibility}.", ""]
+    section("Functional context", [e for e in edges if e.relation == "contributes_to_function"])
+    lines += [
+        "Functional participation is orthogonal to technical `part_of` ancestry and does not "
+        "imply authority or research relevance.",
+        "",
+    ]
     section("Inputs and outputs", [e for e in edges if e.relation in {"supplies", "consumes"}])
     for title, types in (
         ("Interfaces and contracts", {"Interface", "Contract"}),
@@ -315,6 +328,42 @@ def render_record(atlas: Atlas, node: Entity) -> str:
             source_locator(node),
             "",
         ]
+    if node.type == "Function":
+        participants = sorted(
+            (
+                edge
+                for edge in atlas.relationships
+                if edge.relation == "contributes_to_function" and edge.target == node.id
+            ),
+            key=lambda edge: (
+                edge.functional_order is None,
+                edge.functional_order if edge.functional_order is not None else 0,
+                edge.source,
+            ),
+        )
+        lines += ["## Functional participants", ""]
+        if participants:
+            lines += [
+                "Membership records participation only; it does not imply authority or "
+                "technical containment.",
+                "",
+            ]
+            for edge in participants:
+                details = []
+                if edge.functional_role is not None:
+                    details.append(f"role: {edge.functional_role}")
+                if edge.functional_order is not None:
+                    details.append(f"explicit functional order: {edge.functional_order}")
+                suffix = f" ({'; '.join(details)})" if details else ""
+                lines.append(f"- {note_link(atlas.entities[edge.source])}{suffix}")
+            lines += [
+                "",
+                "Only an explicit functional order expresses order. Otherwise, list order is "
+                "deterministic presentation and has no functional meaning.",
+                "",
+            ]
+        else:
+            lines += ["None mapped.", ""]
     if isinstance(node, TechnicalIdentity):
         lines += technical_sections(atlas, node)
         lines += ["[[Home/Research Atlas|Research Atlas Home]]", ""]
@@ -328,6 +377,10 @@ def render_record(atlas: Atlas, node: Entity) -> str:
             f"- {note_link(atlas.entities[edge.source])} — `{edge.relation}` → "
             f"{note_link(atlas.entities[edge.target])}"
         )
+        if edge.functional_role is not None:
+            lines.append(f"  Functional role: {edge.functional_role}")
+        if edge.functional_order is not None:
+            lines.append(f"  Explicit functional order: {edge.functional_order}")
         if edge.decision_id:
             lines.append(f"  Approval: {note_link(atlas.entities[edge.decision_id])}")
     if not any(node.id in {e.source, e.target} for e in edges):
@@ -354,8 +407,10 @@ def render_home(atlas: Atlas) -> str:
         "",
         GENERATED_NOTICE,
         "",
-        "Registry = authoritative SOT. Generated notes = views. "
-        "Presentation Domain != technical hierarchy: only `part_of` defines technical ancestry.",
+        "Registry is authoritative. `part_of` is technical Component containment only. "
+        "`contributes_to_function` records explicit functional participation; Function membership "
+        "does not create ancestry, imply authority/subordination or infer Research relevance. "
+        "Scientific targeting is separate and explicit.",
         "",
         "Open docs/research-atlas/ as an Obsidian vault. Enable the Bases core plugin. "
         "The Excalidraw community plugin is required only for the rich visual surfaces; "
@@ -406,6 +461,10 @@ def render_home(atlas: Atlas) -> str:
         for n in ordered_entities(atlas)
         if n.type in {"System", "Domain", "Environment"}
     ]
+    functions = [n for n in ordered_entities(atlas) if n.type == "Function"]
+    if functions:
+        lines += ["", "## Functions", ""]
+        lines += [f"- {note_link(node)}" for node in functions]
     lines += ["", "## Research overlays", ""]
     lines += [
         f"- {note_link(n)}"
@@ -437,6 +496,8 @@ BASE_COLUMNS = (
     "contradicted_by",
     "supported_by",
     "part_of",
+    "contributes_to_function",
+    "contributes_to_function_from",
     "presented_in_domain",
 )
 
@@ -465,6 +526,7 @@ def render_base() -> str:
     ):
         view(label, [f'note.implementation_status == "{status}"'])
     view("Verification status", ["!note.verification_status.isEmpty()"], "verification_status")
+    view("Functions", ['note.atlas_type == "Function"'])
     view("Research Mapping Status", ["!note.research_mapping.isEmpty()"], "research_mapping")
     view("Research Direction Status", ["!note.research_direction.isEmpty()"], "research_direction")
     view(

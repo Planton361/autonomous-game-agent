@@ -63,6 +63,7 @@ REQUIRED_VIEWS = {
     "Partial",
     "Implemented",
     "Verification status",
+    "Functions",
     "Research Mapping Status",
     "Research Direction Status",
     "Research Questions by Component",
@@ -93,7 +94,7 @@ def find_node(payloads, id):
 
 
 def test_schema_spine_types_and_retained_status(atlas, payloads):
-    assert all(p["atlas_schema_version"] == "0.2" for p in payloads)
+    assert all(p["atlas_schema_version"] == "0.3" for p in payloads)
     assert REQUIRED_SPINE <= atlas.entities.keys()
     for id, kind in REQUIRED_TYPES.items():
         assert atlas.entities[id].type == kind
@@ -111,7 +112,7 @@ def test_schema_spine_types_and_retained_status(atlas, payloads):
     assert "CMP-LLM" not in atlas.entities
 
 
-@pytest.mark.parametrize("version", ["0.1", "1.0", "0.3"])
+@pytest.mark.parametrize("version", ["0.1", "0.2", "1.0"])
 @pytest.mark.parametrize("index", [0, 1, 2])
 def test_incompatible_schema_rejected(payloads, index, version):
     payloads[index]["atlas_schema_version"] = version
@@ -212,6 +213,7 @@ def test_type_folder_mapping_and_safe_paths():
         "System": "Home",
         "Domain": "Architecture/Domains",
         "Environment": "Architecture/Environments",
+        "Function": "Functions",
         "Component": "Components",
         "Interface": "Interfaces & Contracts",
         "Contract": "Interfaces & Contracts",
@@ -248,7 +250,7 @@ def test_all_records_covered_and_properties_resolve(atlas):
         assert path.name.split(" — ")[0] == n.id
         assert props == record_properties(atlas, n)
         assert "atlas_level" in props
-        assert props["registry_schema_version"] == "0.2"
+        assert props["registry_schema_version"] == "0.3"
         assert path == note_path_for(n.id, n.type, n.name)
     for kind in ("Evidence", "Environment"):
         assert any(p["atlas_type"] == kind for p in records.values())
@@ -267,6 +269,22 @@ def test_evidence_notes_show_locator_and_both_polarities(payloads):
     assert f"/blob/{BASELINE}/" in content and e.symbol in content
     assert "`supports`" in content and "`contradicts`" in content
     assert note_link(a.entities["CMP-PERCEPTION"]) in content
+
+
+def test_function_semantics_evidence_provenance_is_exact(atlas):
+    expected = {
+        "document": (
+            "https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426"
+        ),
+        "version": "Issue #137 accepted comment 5915268426 (2026-09-30)",
+        "section": "Program Owner acceptance — #137 conceptual model frozen",
+    }
+    evidence = atlas.entities["EVID-FUNCTION-SEMANTICS-137"]
+    assert {field: getattr(evidence, field) for field in expected} == expected
+
+    note_path = note_path_for(evidence.id, evidence.type, evidence.name)
+    generated = parse_frontmatter(workspace_tree(atlas)[note_path])
+    assert {field: generated[field] for field in expected} == expected
 
 
 def test_committed_workspace_and_migration(atlas):
@@ -498,7 +516,11 @@ def test_missing_link_rejected(atlas):
 
 
 def test_historical_evidence_records_are_immutable(payloads):
-    historical = [e for e in payloads[2]["evidence"] if not e["id"].startswith("EVID-48-")]
+    historical = [
+        e
+        for e in payloads[2]["evidence"]
+        if not e["id"].startswith("EVID-48-") and e["id"] != "EVID-FUNCTION-SEMANTICS-137"
+    ]
     assert len(historical) == 22
     assert (
         hashlib.sha256(json.dumps(historical, sort_keys=True).encode()).hexdigest()
@@ -724,6 +746,85 @@ def test_cortex_human_dossier_and_empty_overlay_sections(atlas):
         assert "## " + heading + "\n\nNone mapped." in text
     body = text.split("## Evidence\n", 1)[1].split("\n## ", 1)[0]
     assert note_link(atlas.entities["EVID-CANON-CORTEX"]) in body
+
+
+def test_function_records_and_public_views_are_deterministic_and_navigable(atlas, payloads):
+    from fh_agent.research_atlas.assembly_scopes import PUBLIC_OBSERVE_SCOPE_PATH
+    from fh_agent.research_atlas.render import render_overview
+    from fh_agent.research_atlas.workspace import render_base, render_record
+
+    tree = workspace_tree(atlas)
+    function = atlas.entities["FUNC-OBSERVE"]
+    function_path = note_path_for(function.id, function.type, function.name)
+    function_note = tree[function_path]
+    properties = parse_frontmatter(function_note)
+    assert properties["atlas_type"] == "Function"
+    assert properties["registry_schema_version"] == "0.3"
+    assert "## Functional participants\n" in function_note
+    for identity in (
+        "CMP-NO-SPOILER-FIREWALL",
+        "CMP-PERCEPTION",
+        "DAT-OBSERVATION",
+        "CMP-TEMPORAL-STATE",
+    ):
+        assert note_link(atlas.entities[identity]) in function_note
+    assert "Only an explicit functional order expresses order." in function_note
+    assert "CMP-VISIBLE-STATE-BRIDGE" not in function_note
+
+    # The legacy Observe Assembly remains a separate navigation surface; its extra bridge
+    # card is not silently copied into the explicit Function membership.
+    assert "CMP-VISIBLE-STATE-BRIDGE" in tree[PUBLIC_OBSERVE_SCOPE_PATH]
+    assert "## Functions" in tree[HOME_PATH]
+    assert "## Functions" in tree[PurePosixPath("overview.md")]
+    assert "# Research Atlas v0.3" in tree[PurePosixPath("overview.md")]
+    assert (
+        "Function membership does not infer Research relevance,"
+        in tree[PurePosixPath("overview.md")]
+    )
+    assert "contributes_to_function" not in tree[MAP_PATH]
+
+    base = yaml.safe_load(render_base())
+    assert "Functions" in {view["name"] for view in base["views"]}
+    assert all(path in tree for path in (function_path, HOME_PATH, MAP_PATH, BASE_PATH))
+    assert render_record(atlas, function) == function_note
+
+    # Domain assignment and YAML list placement cannot change any authored Function edge.
+    before = {
+        (edge["source"], edge["target"])
+        for edge in payloads[1]["relationships"]
+        if edge["relation"] == "contributes_to_function"
+    }
+    for edge in payloads[1]["relationships"]:
+        if edge["relation"] == "presented_in_domain":
+            edge["target"] = "DOM-COGNITION"
+    payloads[0]["nodes"].reverse()
+    payloads[1]["relationships"].reverse()
+    payloads[2]["evidence"].reverse()
+    changed = validate_registry(*payloads)
+    after = {
+        (edge.source, edge.target)
+        for edge in changed.relationships
+        if edge.relation == "contributes_to_function"
+    }
+    assert after == before
+    assert (
+        render_overview(changed).split("## Functions\n", 1)[1]
+        == render_overview(atlas).split("## Functions\n", 1)[1]
+    )
+    assert render_record(changed, changed.entities["FUNC-OBSERVE"]) == function_note
+
+
+def test_function_membership_does_not_inherit_research(atlas):
+    environment = atlas.entities["ENV-GAME-INSTANCE"]
+    function = atlas.entities["FUNC-ACQUIRE"]
+    environment_properties = record_properties(atlas, environment)
+    function_properties = record_properties(atlas, function)
+    assert environment_properties["contributes_to_function"] == [note_link(function)]
+    assert environment_properties["research_questions"] == []
+    assert environment_properties["research_components"] == []
+    assert function_properties["contributes_to_function_from"]
+    assert function_properties["research_questions"] == []
+    assert function_properties["research_components"] == []
 
 
 def base_fixture_matches(view, props):

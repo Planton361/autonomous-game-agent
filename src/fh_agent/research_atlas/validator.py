@@ -29,6 +29,7 @@ TECHNICAL = frozenset(
         "Environment",
     }
 )
+FUNCTION_PARTICIPANT_TYPES = TECHNICAL
 ACTORS = frozenset({"System", "Component"})
 PAYLOADS = frozenset({"Interface", "Contract", "DataArtifact"})
 ALL_TYPES = frozenset(PREFIXES)
@@ -58,6 +59,7 @@ RELATION_PAIRS = {
     "research_suggests_decomposition": ({"ExperimentLead"}, {"Component"}),
     "related_to_research_question": (ALL_TYPES - {"Domain"}, {"ResearchQuestion"}),
     "presented_in_domain": (TECHNICAL | {"ResearchQuestion", "ResearchThread"}, {"Domain"}),
+    "contributes_to_function": (FUNCTION_PARTICIPANT_TYPES, {"Function"}),
 }
 
 
@@ -109,6 +111,11 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
     node_file = NodeRegistry.model_validate(nodes)
     edge_file = RelationshipRegistry.model_validate(relationships)
     evidence_file = EvidenceRegistry.model_validate(evidence)
+    if source_atlas_schema == "0.2" and (
+        any(node.type == "Function" for node in node_file.nodes)
+        or any(edge.relation == "contributes_to_function" for edge in edge_file.relationships)
+    ):
+        raise ValueError("Atlas schema 0.2 does not support Function semantics; migrate to 0.3")
     entities: dict[str, Entity] = {}
     for node in (*node_file.nodes, *evidence_file.evidence):
         if node.research_direction is not None and node.type not in {
@@ -136,6 +143,7 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
                 }:
                     raise ValueError(f"Illegal ResearchThread reference type: {target.type}")
     seen: set[tuple[str, str, str]] = set()
+    seen_function_orders: set[tuple[str, int]] = set()
     for edge in edge_file.relationships:
         if edge.source not in entities or edge.target not in entities:
             raise ValueError(f"Dangling relationship: {edge.source} -> {edge.target}")
@@ -147,6 +155,13 @@ def validate_registry(nodes: object, relationships: object, evidence: object) ->
         sources, targets = RELATION_PAIRS[edge.relation]
         if source.type not in sources or target.type not in targets:
             raise ValueError(f"Illegal {edge.relation} type pairing: {source.type}/{target.type}")
+        if edge.relation == "contributes_to_function" and edge.functional_order is not None:
+            order_key = (edge.target, edge.functional_order)
+            if order_key in seen_function_orders:
+                raise ValueError(
+                    f"Duplicate functional_order in {edge.target}: {edge.functional_order}"
+                )
+            seen_function_orders.add(order_key)
         if edge.relation in {"supersedes", "decomposed_into"}:
             if source.type != target.type or source.id == target.id:
                 raise ValueError("Lifecycle edges require distinct IDs of the same type")

@@ -4,7 +4,7 @@ atlas_type: Contract
 atlas_name: TaskSpec / bounded Skill Contract
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 19
 research_mapping: unmapped
@@ -15,6 +15,9 @@ verification_status: unverified
 constrains:
 - '[[Components/CMP-BODY — Body|CMP-BODY · Body]]'
 - '[[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]'
+contributes_to_function:
+- '[[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL ·
+  Executive Control]]'
 presented_in_domain:
 - '[[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE
   · Executive Control & Contracts]]'
@@ -36,6 +39,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -71,6 +75,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

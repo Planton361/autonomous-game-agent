@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from fh_agent.research_atlas.render import render_overview
-from fh_agent.research_atlas.schema import PREFIXES, RelationName
+from fh_agent.research_atlas.schema import PREFIXES, RelationName, Relationship
 from fh_agent.research_atlas.validator import (
     RELATION_PAIRS,
     AtlasSourceSchema,
@@ -22,14 +22,91 @@ from fh_agent.research_atlas.validator import (
 ROOT = Path(__file__).resolve().parents[1]
 ATLAS = ROOT / "docs/research-atlas"
 PACKAGE = ROOT / "src/fh_agent/research_atlas"
+EXPECTED_FUNCTION_PARTICIPANTS = {
+    "FUNC-ACQUIRE": {
+        "ENV-GAME-INSTANCE",
+        "CMP-SCREEN-CAPTURE",
+        "CMP-VISIBLE-STATE-BRIDGE",
+    },
+    "FUNC-OBSERVE": {
+        "CMP-NO-SPOILER-FIREWALL",
+        "CMP-PERCEPTION",
+        "DAT-OBSERVATION",
+        "CMP-TEMPORAL-STATE",
+    },
+    "FUNC-RETAIN-RETRIEVE": {
+        "CMP-EVIDENCE-LEDGER",
+        "CMP-MEMORY",
+        "CMP-MEM-RETRIEVAL",
+    },
+    "FUNC-REASON": {"CMP-CORTEX"},
+    "FUNC-EXECUTIVE-CONTROL": {
+        "CMP-MANAGER",
+        "CMP-MANAGER-GROUNDING",
+        "CMP-MANAGER-SCHED-COMP",
+        "CON-SKILL-CONTRACT",
+    },
+    "FUNC-ACT": {
+        "CMP-BODY",
+        "CMP-BOUNDED-REFLEX",
+        "CMP-SAFETY-FILTER",
+        "CMP-INPUT-EXECUTOR",
+    },
+    "FUNC-VERIFY": {
+        "DAT-VISIBLE-OUTCOME",
+        "CMP-INDEPENDENT-VERIFIER",
+        "CON-VERIFIER-RESULT",
+    },
+    "FUNC-BETWEEN-RUNS": {
+        "CMP-REPLAY-BUFFER",
+        "CMP-SKILL-TRAINER",
+        "DAT-CANDIDATE-BODY-VERSION",
+        "CMP-BODY-CERTIFICATION",
+    },
+}
+EXPECTED_COMPONENT_PARENTS = {
+    "CMP-BODY": "SYS-AGA",
+    "CMP-BODY-CERTIFICATION": "SYS-AGA",
+    "CMP-BOUNDED-REFLEX": "CMP-BODY",
+    "CMP-CORTEX": "SYS-AGA",
+    "CMP-EVIDENCE-LEDGER": "SYS-AGA",
+    "CMP-INDEPENDENT-VERIFIER": "SYS-AGA",
+    "CMP-INPUT-EXECUTOR": "SYS-AGA",
+    "CMP-MANAGER": "SYS-AGA",
+    "CMP-MANAGER-GROUNDING": "CMP-MANAGER",
+    "CMP-MANAGER-SCHED-COMP": "CMP-MANAGER",
+    "CMP-MEM-EPISODIC": "CMP-MEMORY",
+    "CMP-MEM-FACTS": "CMP-MEMORY",
+    "CMP-MEM-HYPOTHESES": "CMP-MEMORY",
+    "CMP-MEM-RETRIEVAL": "SYS-AGA",
+    "CMP-MEM-STRATEGY": "CMP-MEMORY",
+    "CMP-MEM-TOPOLOGY": "CMP-MEMORY",
+    "CMP-MEMORY": "SYS-AGA",
+    "CMP-NO-SPOILER-FIREWALL": "SYS-AGA",
+    "CMP-OBSERVATION-BUILDER": "CMP-PERCEPTION",
+    "CMP-PERCEPTION": "SYS-AGA",
+    "CMP-PERCEPTION-UI-STATE": "CMP-PERCEPTION",
+    "CMP-REPLAY-BUFFER": "SYS-AGA",
+    "CMP-SAFETY-FILTER": "SYS-AGA",
+    "CMP-SCREEN-CAPTURE": "SYS-AGA",
+    "CMP-SKILL-COMPETENCE": "CMP-MEMORY",
+    "CMP-SKILL-TRAINER": "SYS-AGA",
+    "CMP-TEMPORAL-STATE": "SYS-AGA",
+    "CMP-VISIBLE-STATE-BRIDGE": "SYS-AGA",
+}
 
 
-@pytest.fixture
-def payloads():
+@pytest.fixture(scope="module")
+def registry_templates():
     return [
         yaml.safe_load((ATLAS / "registry" / name).read_text())
         for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
     ]
+
+
+@pytest.fixture
+def payloads(registry_templates):
+    return copy.deepcopy(registry_templates)
 
 
 def edge(payloads, relation, source="CMP-CORTEX", target="CMP-MANAGER", **kwargs):
@@ -38,9 +115,23 @@ def edge(payloads, relation, source="CMP-CORTEX", target="CMP-MANAGER", **kwargs
     )
 
 
+def minimal_registry(payloads, node_ids, relationships=()):
+    templates = {node["id"]: node for node in payloads[0]["nodes"]}
+    nodes = []
+    for node_id in node_ids:
+        node = copy.deepcopy(templates[node_id])
+        node.update(atlas_level=None, overview_visibility=None, overview_order=None)
+        nodes.append(node)
+    return [
+        {"atlas_schema_version": "0.3", "nodes": nodes},
+        {"atlas_schema_version": "0.3", "relationships": list(relationships)},
+        {"atlas_schema_version": "0.3", "evidence": []},
+    ]
+
+
 def test_valid_pilot_registry_loads():
     atlas = load_registry(ATLAS)
-    assert atlas.source_atlas_schema == "0.2"
+    assert atlas.source_atlas_schema == "0.3"
     expected = {
         "CMP-MEM-RETRIEVAL": ("partial", "unverified"),
         "CMP-CORTEX": ("implemented", "integration-tested"),
@@ -56,27 +147,33 @@ def test_valid_pilot_registry_loads():
     assert not any(n.type in {"Paper", "Finding"} for n in atlas.entities.values())
 
 
-def test_source_schema_envelope_allows_only_current_and_next_metadata_versions(payloads, tmp_path):
+def test_schema_03_functions_and_legacy_02_migration_are_explicit(payloads):
     assert get_args(AtlasSourceSchema) == ("0.2", "0.3")
-    for payload in payloads:
-        payload["atlas_schema_version"] = "0.3"
+    atlas = validate_registry(*payloads)
     assert validated_source_schema_version(*payloads) == "0.3"
-    # The provenance envelope may describe the next version, while public contents
-    # remain closed to 0.2 until their bounded schema-evolution Issue.
-    with pytest.raises(ValueError):
+    assert atlas.source_atlas_schema == "0.3"
+
+    legacy = copy.deepcopy(payloads)
+    function_ids = {node["id"] for node in legacy[0]["nodes"] if node["type"] == "Function"}
+    legacy[0]["nodes"] = [node for node in legacy[0]["nodes"] if node["id"] not in function_ids]
+    legacy[1]["relationships"] = [
+        relation
+        for relation in legacy[1]["relationships"]
+        if relation["source"] not in function_ids and relation["target"] not in function_ids
+    ]
+    for item in legacy:
+        item["atlas_schema_version"] = "0.2"
+    assert validate_registry(*legacy).source_atlas_schema == "0.2"
+
+    # Schema 0.2 remains readable for legacy contents but cannot claim the 0.3 vocabulary.
+    for item in payloads:
+        item["atlas_schema_version"] = "0.2"
+    with pytest.raises(ValueError, match="schema 0.2 does not support Function semantics"):
         validate_registry(*payloads)
-    registry = tmp_path / "registry"
-    registry.mkdir()
-    for filename, payload in zip(
-        ("nodes.yaml", "relationships.yaml", "evidence.yaml"), payloads, strict=True
-    ):
-        (registry / filename).write_text(yaml.safe_dump(payload), encoding="utf-8")
-    with pytest.raises(ValueError):
-        load_registry(tmp_path)
 
 
 def test_mixed_registry_source_schema_versions_fail_closed(payloads):
-    payloads[1]["atlas_schema_version"] = "0.3"
+    payloads[1]["atlas_schema_version"] = "0.2"
     with pytest.raises(ValueError, match="must agree on atlas_schema_version"):
         validated_source_schema_version(*payloads)
     with pytest.raises(ValueError, match="must agree on atlas_schema_version"):
@@ -121,6 +218,241 @@ def test_schema_version_rejected(payloads, index):
     payloads[index]["atlas_schema_version"] = "0.1"
     with pytest.raises(ValueError):
         validate_registry(*payloads)
+
+
+def test_function_memberships_and_component_hierarchy_are_exact(payloads):
+    atlas = validate_registry(*payloads)
+    functions = {node.id for node in atlas.entities.values() if node.type == "Function"}
+    assert functions == set(EXPECTED_FUNCTION_PARTICIPANTS)
+
+    memberships = [
+        edge for edge in atlas.relationships if edge.relation == "contributes_to_function"
+    ]
+    actual_participants = {
+        function_id: {edge.source for edge in memberships if edge.target == function_id}
+        for function_id in functions
+    }
+    assert actual_participants == EXPECTED_FUNCTION_PARTICIPANTS
+    assert len(memberships) == 26
+    assert all(
+        edge.functional_role is None and edge.functional_order is None for edge in memberships
+    )
+    assert all(
+        ("EVID-FUNCTION-SEMANTICS-137", function_id)
+        in {
+            (edge.source, edge.target)
+            for edge in atlas.relationships
+            if edge.relation == "supports"
+        }
+        for function_id in functions
+    )
+
+    component_ids = {node.id for node in atlas.entities.values() if node.type == "Component"}
+    assert component_ids == set(EXPECTED_COMPONENT_PARENTS)
+    component_parents = {
+        (edge.source, edge.target)
+        for edge in atlas.relationships
+        if edge.relation == "part_of" and atlas.entities[edge.source].type == "Component"
+    }
+    assert component_parents == set(EXPECTED_COMPONENT_PARENTS.items())
+    assert len(component_parents) == 28
+    assert sum(parent == "SYS-AGA" for _, parent in component_parents) == 17
+    assert sum(parent in component_ids for _, parent in component_parents) == 11
+    child_counts = {
+        component: sum(parent == component for _, parent in component_parents)
+        for component in component_ids
+    }
+    assert sum(count > 0 for count in child_counts.values()) == 4
+    assert sum(count == 0 for count in child_counts.values()) == 24
+    assert all(
+        atlas.entities[edge.source].type != "Function"
+        and atlas.entities[edge.target].type != "Function"
+        for edge in atlas.relationships
+        if edge.relation == "part_of"
+    )
+
+
+def test_function_prefix_is_closed(payloads):
+    registry = minimal_registry(payloads, ["CMP-CORTEX", "FUNC-OBSERVE"])
+    registry[0]["nodes"].append(
+        dict(
+            id="CMP-FUNCTION-WRONG",
+            type="Function",
+            name="Wrong prefix",
+            description="Synthetic only",
+        )
+    )
+    with pytest.raises(ValueError, match="ID prefix/type mismatch"):
+        validate_registry(*registry)
+
+
+def test_function_membership_can_overlap(payloads):
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "FUNC-REASON", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-REASON",
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+            },
+        ],
+    )
+    atlas = validate_registry(*registry)
+    functions = {
+        relation.target
+        for relation in atlas.relationships
+        if relation.relation == "contributes_to_function" and relation.source == "CMP-CORTEX"
+    }
+    assert functions == {"FUNC-REASON", "FUNC-OBSERVE"}
+
+
+@pytest.mark.parametrize("source", ["DOM-COGNITION", "FUNC-REASON"])
+def test_function_membership_rejects_unsupported_source_types(payloads, source):
+    registry = minimal_registry(
+        payloads,
+        [source, "FUNC-OBSERVE"],
+        [{"relation": "contributes_to_function", "source": source, "target": "FUNC-OBSERVE"}],
+    )
+    with pytest.raises(ValueError, match="Illegal contributes_to_function type pairing"):
+        validate_registry(*registry)
+
+
+def test_function_membership_target_must_be_function(payloads):
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "CMP-MANAGER"],
+        [{"relation": "contributes_to_function", "source": "CMP-CORTEX", "target": "CMP-MANAGER"}],
+    )
+    with pytest.raises(ValueError, match="Illegal contributes_to_function type pairing"):
+        validate_registry(*registry)
+
+
+def test_duplicate_function_membership_fails(payloads):
+    membership = {
+        "relation": "contributes_to_function",
+        "source": "CMP-CORTEX",
+        "target": "FUNC-REASON",
+    }
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "FUNC-REASON"],
+        [membership, membership.copy()],
+    )
+    with pytest.raises(ValueError, match="Duplicate relationship"):
+        validate_registry(*registry)
+
+
+@pytest.mark.parametrize(
+    "source,target", [("FUNC-OBSERVE", "CMP-PERCEPTION"), ("CMP-PERCEPTION", "FUNC-OBSERVE")]
+)
+def test_function_cannot_be_source_or_target_of_part_of(payloads, source, target):
+    registry = minimal_registry(
+        payloads,
+        [source, target],
+        [{"relation": "part_of", "source": source, "target": target}],
+    )
+    with pytest.raises(ValueError, match="Illegal part_of type pairing"):
+        validate_registry(*registry)
+
+
+@pytest.mark.parametrize(
+    "relation,field,value",
+    [
+        ("consumes", "functional_role", "observer"),
+        ("supplies", "functional_order", 1),
+        ("part_of", "functional_role", None),
+    ],
+)
+def test_function_metadata_is_rejected_on_unrelated_relations(relation, field, value):
+    membership = {
+        "relation": relation,
+        "source": "CMP-CORTEX",
+        "target": "CMP-MANAGER",
+        field: value,
+    }
+    with pytest.raises(ValueError, match="functional metadata is only valid"):
+        Relationship.model_validate(membership)
+
+
+def test_function_order_is_optional_and_explicit_when_present(payloads):
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "CMP-MANAGER", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_role": "short-horizon stabilizer",
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-MANAGER",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 3,
+            },
+        ],
+    )
+    atlas = validate_registry(*registry)
+    membership = next(
+        item
+        for item in atlas.relationships
+        if item.relation == "contributes_to_function"
+        and item.source == "CMP-CORTEX"
+        and item.target == "FUNC-OBSERVE"
+    )
+    assert membership.functional_role == "short-horizon stabilizer"
+    assert membership.functional_order is None
+    participant = next(
+        item
+        for item in atlas.relationships
+        if item.relation == "contributes_to_function"
+        and item.source == "CMP-MANAGER"
+        and item.target == "FUNC-OBSERVE"
+    )
+    assert participant.functional_order == 3
+
+
+def test_duplicate_explicit_function_order_fails_within_one_function(payloads):
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "CMP-MANAGER", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 1,
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-MANAGER",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 1,
+            },
+        ],
+    )
+    with pytest.raises(ValueError, match="Duplicate functional_order"):
+        validate_registry(*registry)
+
+
+@pytest.mark.parametrize("order", [0, -1, "1", True])
+def test_function_order_requires_a_positive_strict_integer(order):
+    with pytest.raises(ValueError):
+        Relationship.model_validate(
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_order": order,
+            }
+        )
 
 
 @pytest.mark.parametrize("index,key", [(0, "nodes"), (2, "evidence")])
@@ -335,7 +667,7 @@ def test_duplicate_relationship_rejected(payloads):
 
 
 def test_all_node_types_and_relations_are_closed_and_supported(payloads):
-    assert len(PREFIXES) == 15
+    assert len(PREFIXES) == 16
     assert set(get_args(RelationName)) == set(RELATION_PAIRS)
     for kind, prefix in PREFIXES.items():
         if kind in {n["type"] for n in payloads[0]["nodes"]} or kind == "Evidence":

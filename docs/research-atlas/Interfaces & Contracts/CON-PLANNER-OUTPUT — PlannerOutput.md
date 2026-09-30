@@ -4,7 +4,7 @@ atlas_type: Contract
 atlas_name: PlannerOutput
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 18
 research_mapping: unmapped
@@ -31,6 +31,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -66,6 +68,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+None mapped.
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

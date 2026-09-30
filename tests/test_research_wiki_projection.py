@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -126,7 +125,7 @@ def generate(setup, *, check=False):
     return projection.project(*setup, check=check)
 
 
-def test_current_02_public_projection_bytes_are_unchanged():
+def test_current_03_public_projection_uses_truthful_source_version():
     atlas = load_registry(ATLAS)
     registry_digests = {
         name: projection.digest((ATLAS / "registry" / name).read_bytes())
@@ -135,19 +134,18 @@ def test_current_02_public_projection_bytes_are_unchanged():
     tree = projection.projection_tree(atlas, "a" * 40, registry_digests)
     manifest = yaml.safe_load(tree[projection.MANIFEST])
 
-    assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.2"
-    assert tree_digest(tree) == "ea502d0897a85922a17154c703f27660007f6e5de684467c956498a6e0b41c14"
+    assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.3"
+    assert tree_digest(tree) == "6dcb35aea7553ce39775e745e2b51f1dd9d9a6ecdda97392a20b0b1571096a1d"
 
 
-def test_synthetic_03_source_schema_propagates_to_public_projection_metadata():
+def test_current_03_source_schema_propagates_to_public_projection_metadata():
     payloads = [
         yaml.safe_load((ATLAS / "registry" / name).read_text(encoding="utf-8"))
         for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
     ]
-    for payload in payloads:
-        payload["atlas_schema_version"] = "0.3"
     source_schema = validated_source_schema_version(*payloads)
-    atlas = replace(load_registry(ATLAS), source_atlas_schema=source_schema)
+    atlas = load_registry(ATLAS)
+    assert atlas.source_atlas_schema == source_schema == "0.3"
     registry_digests = {
         name: projection.digest((ATLAS / "registry" / name).read_bytes())
         for name in projection.REGISTRY_FILES
@@ -184,7 +182,7 @@ def test_authored_tree_invariance_determinism_and_provenance(setup):
     atlas = load_registry(repo / "docs/research-atlas")
     assert manifest["source_commit"] == head and len(head) == 40
     assert manifest["source_repository"] == projection.REPOSITORY
-    assert manifest["source_atlas_schema"] == "0.2"
+    assert manifest["source_atlas_schema"] == "0.3"
     assert manifest["record_count"] == sum(n.type != "Evidence" for n in atlas.entities.values())
     assert manifest["evidence_count"] == sum(n.type == "Evidence" for n in atlas.entities.values())
     assert manifest["source_registry_sha256"] == {
@@ -209,7 +207,7 @@ def test_authored_tree_invariance_determinism_and_provenance(setup):
     for identity, node in atlas.entities.items():
         props = parse_frontmatter(first[projection.private_path(node)].decode())
         assert props["generated_by"] == projection.OWNER
-        assert props["source_commit"] == head and props["source_schema"] == "0.2"
+        assert props["source_commit"] == head and props["source_schema"] == "0.3"
         assert props["source_repository"] == projection.REPOSITORY
         source = json.dumps(
             node.model_dump(mode="json"), sort_keys=True, ensure_ascii=False

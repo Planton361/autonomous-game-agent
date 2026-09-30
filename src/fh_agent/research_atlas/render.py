@@ -13,7 +13,7 @@ from .workspace import (
 
 def render_overview(atlas: Atlas) -> str:
     lines = [
-        "# Research Atlas v0.2",
+        f"# Research Atlas v{atlas.source_atlas_schema}",
         "",
         GENERATED_NOTICE,
         "",
@@ -22,8 +22,12 @@ def render_overview(atlas: Atlas) -> str:
         f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|Evidence, Memory & Retrieval slice]] · "
         f"[[{MAP_PATH.with_suffix('')}|System Anatomy reference]]",
         "",
-        "Domains are presentation views. Technical ancestry derives only from `part_of`. "
-        "Statuses and relationships are in generated record notes, backed by Registry.",
+        "Domains are presentation views. `part_of` is technical Component containment only. "
+        "`contributes_to_function` records explicit functional participation. Function membership "
+        "does not infer Research relevance, create technical ancestry, or imply "
+        "authority/subordination. Scientific targeting is explicit and orthogonal. "
+        "Domain, Assembly, folder, YAML and Graph presentation cannot assign "
+        "Function membership.",
         "",
     ]
     for domain in ordered_entities(atlas):
@@ -36,5 +40,10 @@ def render_overview(atlas: Atlas) -> str:
             if e.relation == "presented_in_domain" and e.target == domain.id
         }
         lines += [f"- {note_link(n)}" for n in ordered_entities(atlas) if n.id in members]
+        lines.append("")
+    functions = [n for n in ordered_entities(atlas) if n.type == "Function"]
+    if functions:
+        lines.extend(["## Functions", ""])
+        lines.extend(f"- {note_link(node)}" for node in functions)
         lines.append("")
     return "\n".join(lines)

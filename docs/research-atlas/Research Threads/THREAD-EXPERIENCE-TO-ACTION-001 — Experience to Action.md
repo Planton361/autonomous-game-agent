@@ -4,7 +4,7 @@ atlas_type: ResearchThread
 atlas_name: Experience to Action
 atlas_level: null
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: null
 overview_order: 13
 research_mapping: unmapped
@@ -23,6 +23,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: *id002

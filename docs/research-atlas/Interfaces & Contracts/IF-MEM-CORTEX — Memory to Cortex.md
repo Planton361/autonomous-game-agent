@@ -4,7 +4,7 @@ atlas_type: Interface
 atlas_name: Memory to Cortex
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: expansion
 overview_order: 15
 research_mapping: unmapped
@@ -30,6 +30,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -65,6 +67,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-EVIDENCE-MEMORY — Evidence, Memory & Retrieval|DOM-EVIDENCE-MEMORY · Evidence, Memory & Retrieval]]
 
 L-level: L2. Overview visibility: expansion.
+
+## Functional context
+
+None mapped.
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

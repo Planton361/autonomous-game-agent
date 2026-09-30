@@ -1,4 +1,4 @@
-atlas_schema_version: '0.2'
+atlas_schema_version: '0.3'
 nodes:
 - id: SYS-AGA
   type: System
@@ -703,3 +703,43 @@ nodes:
   atlas_level: L2
   overview_visibility: main
   overview_order: 60
+- id: FUNC-ACQUIRE
+  type: Function
+  name: Acquire
+  description: Visible-state acquisition and ingress context. The Environment remains external
+    to the Agent.
+- id: FUNC-OBSERVE
+  type: Function
+  name: Observe
+  description: Visible-information integrity, interpretation and short-horizon stabilization.
+    This is functional context, not a Component or parent of Perception.
+- id: FUNC-RETAIN-RETRIEVE
+  type: Function
+  name: Retain / Retrieve
+  description: Evidence-backed retention and bounded retrieval context. Memory Retrieval remains
+    a System child, not a child of Memory.
+- id: FUNC-REASON
+  type: Function
+  name: Reason
+  description: Slow evidence-grounded reasoning and planning context. Cortex is the participant;
+    no duplicate planner Component is introduced.
+- id: FUNC-EXECUTIVE-CONTROL
+  type: Function
+  name: Executive Control
+  description: Proposal validation, grounding, bounded contract issuance and execution coordination.
+    The Skill Contract remains a Contract.
+- id: FUNC-ACT
+  type: Function
+  name: Act
+  description: Bounded action proposal, reflex and guarded primitive execution. SafetyFilter and
+    InputExecutor retain independent Component identities.
+- id: FUNC-VERIFY
+  type: Function
+  name: Verify
+  description: Independent visible-outcome verification context. Verifier remains outside
+    Cortex/Manager decision authority.
+- id: FUNC-BETWEEN-RUNS
+  type: Function
+  name: Between Mission Runs
+  description: Between-run learning, candidate and certification lifecycle outside active Mission
+    Runs.

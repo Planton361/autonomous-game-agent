@@ -33,6 +33,7 @@ def atlas():
             )
         },
         original.relationships,
+        original.source_atlas_schema,
     )
 
 
@@ -86,7 +87,7 @@ def signature(row):
 def test_index_source_schema_is_derived_and_private_records_need_no_migration(atlas):
     current_snapshot = index.make_snapshot(sample_records(), atlas)
     current = index.build_index(atlas, current_snapshot, COMMIT)
-    assert current.source_atlas_schema == "0.2"
+    assert current.source_atlas_schema == "0.3"
 
     registry_root = Path(__file__).resolve().parents[1] / "docs/research-atlas/registry"
     payloads = [
@@ -108,11 +109,11 @@ def test_index_source_schema_is_derived_and_private_records_need_no_migration(at
     }
 
 
-def test_current_02_declared_reference_index_bytes_are_unchanged(atlas):
+def test_current_03_declared_reference_index_schema_is_truthful(atlas):
     empty = index.build_index(atlas, index.make_snapshot([], atlas), COMMIT)
-    assert empty.source_atlas_schema == "0.2"
+    assert empty.source_atlas_schema == "0.3"
     assert hashlib.sha256(index.render_index(empty)).hexdigest() == (
-        "455128269b78e78c0eb1ba3aac527d5c0cf6f6ecc0c3b70415c64382583df40b"
+        "978cb40d2d1f029bb2bb7e03bc400ff5978b1ac06ada9fd5f10f91bc616bf508"
     )
 
 

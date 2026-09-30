@@ -4,7 +4,7 @@ atlas_type: Component
 atlas_name: Perception
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 30
 research_mapping: unmapped
@@ -14,6 +14,8 @@ implementation_status: partial
 verification_status: unverified
 consumes:
 - '[[Data Artifacts/DAT-SCREEN-FRAME — ScreenFrame|DAT-SCREEN-FRAME · ScreenFrame]]'
+contributes_to_function:
+- '[[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]'
 part_of:
 - '[[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game
   Agent Experiment System]]'
@@ -45,6 +47,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -80,6 +83,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|DOM-OBS-INTEGRITY-STATE · Observation Integrity & State]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

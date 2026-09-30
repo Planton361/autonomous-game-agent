@@ -4,7 +4,7 @@ atlas_type: ResearchQuestion
 atlas_name: Program A–B working question
 atlas_level: null
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: null
 overview_order: 12
 research_mapping: unmapped
@@ -26,6 +26,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []

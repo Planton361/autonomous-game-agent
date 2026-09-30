@@ -1,10 +1,10 @@
-# Research Atlas v0.2
+# Research Atlas v0.3
 
 Generated from Registry YAML; fully overwriteable. Do not edit structured claims here.
 
 [[Home/Research Atlas|Research Atlas Home]] · [[Assets/Excalidraw/Agent Anatomy.excalidraw|Agent Anatomy]] · [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval slice]] · [[Assets/Excalidraw/System Anatomy.excalidraw|System Anatomy reference]]
 
-Domains are presentation views. Technical ancestry derives only from `part_of`. Statuses and relationships are in generated record notes, backed by Registry.
+Domains are presentation views. `part_of` is technical Component containment only. `contributes_to_function` records explicit functional participation. Function membership does not infer Research relevance, create technical ancestry, or imply authority/subordination. Scientific targeting is explicit and orthogonal. Domain, Assembly, folder, YAML and Graph presentation cannot assign Function membership.
 
 ## Environment & Acquisition
 
@@ -89,3 +89,14 @@ Domains are presentation views. Technical ancestry derives only from `part_of`. 
 - [[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]
 - [[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]
 - [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]
+
+## Functions
+
+- [[Functions/FUNC-ACQUIRE — Acquire|FUNC-ACQUIRE · Acquire]]
+- [[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]
+- [[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between Mission Runs]]
+- [[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]
+- [[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]
+- [[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]
+- [[Functions/FUNC-RETAIN-RETRIEVE — Retain - Retrieve|FUNC-RETAIN-RETRIEVE · Retain / Retrieve]]
+- [[Functions/FUNC-VERIFY — Verify|FUNC-VERIFY · Verify]]

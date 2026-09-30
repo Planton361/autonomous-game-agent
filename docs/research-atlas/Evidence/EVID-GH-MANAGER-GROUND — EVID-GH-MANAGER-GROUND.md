@@ -4,7 +4,7 @@ atlas_type: Evidence
 atlas_name: EVID-GH-MANAGER-GROUND
 atlas_level: null
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: null
 overview_order: null
 research_mapping: unmapped
@@ -28,6 +28,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: []
 contradicted_by: []
 research_questions: []
