@@ -863,7 +863,7 @@ evidence:
   description: Program Owner acceptance of explicit Function identities and orthogonal,
     non-containment functional context. This is design authority, not runtime truth.
   provenance_kind: project_decision
-  document: https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915271195
-  version: Issue #137 accepted comment 5915271195 (2026-09-30)
-  section: Program Owner acceptance — #137 conceptual model frozen
+  document: "https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426"
+  version: "Issue #137 accepted comment 5915268426 (2026-09-30)"
+  section: "Program Owner acceptance — #137 conceptual model frozen"
   checked_date: '2026-09-30'

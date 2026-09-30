@@ -2,7 +2,7 @@
 atlas_workspace_generated: true
 atlas_presentation_view: assembly-scope
 atlas_presentation_only: true
-atlas_registry_revision: sha256:943bd9a9d3734bd72bd03e0fa1179763ea436d2b35b10e14f397940788c158da
+atlas_registry_revision: sha256:d79ab66332122815cc5651bdd1bf428990ee5fae3c9073f5c85d4aa7b31047d2
 ---
 [[Assets/Excalidraw/Agent Anatomy.excalidraw|← Agent Anatomy]] · **Navigation location:** Agent Anatomy / Observe (static presentation breadcrumb)
 
@@ -115,7 +115,7 @@ These paths are navigation only; they do not establish evidence, coverage, novel
 
 ## Authority, revision and limitations
 
-- Generated Registry model revision: `sha256:943bd9a9d3734bd72bd03e0fa1179763ea436d2b35b10e14f397940788c158da`.
+- Generated Registry model revision: `sha256:d79ab66332122815cc5651bdd1bf428990ee5fae3c9073f5c85d4aa7b31047d2`.
 - This Markdown scope is a presentation/navigation view, not a Registry identity, technical parent or Component Hub.
 - Exact Registry records and relations remain authoritative; this view creates no technical relation or scientific status.
 - The four-landmark selection is fixed for this reference slice; Temporal State is not an Observe landmark.

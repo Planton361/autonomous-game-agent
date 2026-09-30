@@ -11,9 +11,9 @@ research_mapping: unmapped
 research_direction: null
 provenance_kind: project_decision
 checked_date: '2026-09-30'
-document: https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915271195
-version: Issue
-section: Program Owner acceptance —
+document: https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426
+version: 'Issue #137 accepted comment 5915268426 (2026-09-30)'
+section: 'Program Owner acceptance — #137 conceptual model frozen'
 supports:
 - '[[Functions/FUNC-ACQUIRE — Acquire|FUNC-ACQUIRE · Acquire]]'
 - '[[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]'
@@ -55,7 +55,7 @@ Program Owner acceptance of explicit Function identities and orthogonal, non-con
 
 Provenance: project_decision. Checked: 2026-09-30.
 
-[Source](https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915271195) · version: Issue; section: Program Owner acceptance —
+[Source](https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426) · version: Issue #137 accepted comment 5915268426 (2026-09-30); section: Program Owner acceptance — #137 conceptual model frozen
 
 ## Registry relationships
 

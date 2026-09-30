@@ -271,6 +271,22 @@ def test_evidence_notes_show_locator_and_both_polarities(payloads):
     assert note_link(a.entities["CMP-PERCEPTION"]) in content
 
 
+def test_function_semantics_evidence_provenance_is_exact(atlas):
+    expected = {
+        "document": (
+            "https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426"
+        ),
+        "version": "Issue #137 accepted comment 5915268426 (2026-09-30)",
+        "section": "Program Owner acceptance — #137 conceptual model frozen",
+    }
+    evidence = atlas.entities["EVID-FUNCTION-SEMANTICS-137"]
+    assert {field: getattr(evidence, field) for field in expected} == expected
+
+    note_path = note_path_for(evidence.id, evidence.type, evidence.name)
+    generated = parse_frontmatter(workspace_tree(atlas)[note_path])
+    assert {field: generated[field] for field in expected} == expected
+
+
 def test_committed_workspace_and_migration(atlas):
     validate_workspace(atlas, ATLAS)
     assert not list((ATLAS / "dossiers").glob("*.md"))
