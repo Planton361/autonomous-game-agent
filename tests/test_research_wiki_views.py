@@ -164,10 +164,27 @@ def install_legacy_workbench_paths(vault):
         (views.MEMORY_WORKBENCH, views.LEGACY_MEMORY_WORKBENCH),
         (views.VERIFIER_WORKBENCH, views.LEGACY_VERIFIER_WORKBENCH),
     )
+    atlas = load_registry(ATLAS)
     for current, legacy in pairs:
-        (root / current).rename(root / legacy)
+        identity = next(
+            identity
+            for identity, hub in views.COMPONENT_HUB_PATHS.items()
+            if hub.overview == current
+        )
+        metadata = views._identity_page_generated_metadata((root / current).read_text(), current)
+        data = views.render_component_hub_view(
+            metadata["source_commit"],
+            atlas,
+            views._component_hub_model(atlas, identity),
+            "overview",
+            views.make_snapshot([], atlas),
+            False,
+        )
+        (root / current).unlink()
+        (root / legacy).write_bytes(data)
         item = next(item for item in manifest["owned_files"] if item["path"] == str(current))
         item["path"] = str(legacy)
+        item["sha256"] = technical.digest(data)
     manifest["owned_files"].sort(key=lambda item: item["path"])
     manifest_path.write_text(technical.yaml_text(manifest))
 
@@ -202,7 +219,7 @@ def remove_observe_scope_for_legacy_manifest(vault, manifest):
 
 def remove_identity_pages_for_legacy_manifest(vault, manifest):
     for item in list(manifest["owned_files"]):
-        if views._is_identity_page_path(PurePosixPath(item["path"])):
+        if PurePosixPath(item["path"]).parent == PurePosixPath("identity-pages"):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
 
@@ -495,10 +512,10 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     manifest["owned_files"] = [
         item
         for item in manifest["owned_files"]
-        if not views._is_identity_page_path(PurePosixPath(item["path"]))
+        if PurePosixPath(item["path"]).parent != PurePosixPath("identity-pages")
     ]
     for path in current:
-        if not views._is_identity_page_path(path):
+        if path.parent != PurePosixPath("identity-pages"):
             continue
         (derived(vault) / path).unlink()
     manifest_path.write_bytes(technical.yaml_text(manifest).encode())
@@ -530,7 +547,7 @@ def test_rm1_v28_pilot_paths_migrate_to_v29_without_adopting_new_paths(setup):
     added_paths = {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
-        if views._is_identity_page_path(PurePosixPath(item["path"]))
+        if PurePosixPath(item["path"]).parent == PurePosixPath("identity-pages")
         and PurePosixPath(item["path"]) not in views.IDENTITY_PAGE_PAYLOADS
     }
     assert len(added_paths) == 44
@@ -1095,7 +1112,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
     home_props, _ = technical.markdown_parts(tree[views.K3_HOME].decode())
     assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.6"
     assert "Component Hubs" in home
-    assert "Overview and opens Technical or Research views of that same Component identity" in home
+    assert "complete Identity Page with same-page Technical and Research" in home
 
     expected = (
         (
@@ -1117,34 +1134,36 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
         )
         assert f"{title} · {identity}" in home
         for view, path in payloads:
-            properties, body = technical.markdown_parts(tree[path].decode())
-            assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION
-            assert properties["k3_surface"] == f"component-hub-{view}"
-            assert properties["k3_subject"] == identity
-            assert body.startswith(f"# {title}\n\n*Component Hub · {view.title()}*")
+            if view == "overview":
+                body = tree[path].decode()
+                metadata = views._identity_page_generated_metadata(body, path)
+                assert metadata["identity_page_subject_id"] == identity
+                assert metadata["identity_page_registry_type"] == "Component"
+                assert body.startswith(f"# {title}\n")
+                assert "## Technical" in body and "## Research" in body
+                assert "## Return Navigation" in body
+            else:
+                properties, body = technical.markdown_parts(tree[path].decode())
+                assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION
+                assert properties["k3_surface"] == f"component-hub-{view}"
+                assert properties["k3_subject"] == identity
+                assert body.startswith(f"# {title}\n\n*Component Hub · {view.title()}*")
+                assert "**Views:**" in body
             assert f"`{identity}`" in body
-            assert "**Views:**" in body
             assert "Agent Anatomy" in body and "Technical Hierarchy" in body
             assert "Research Knowledge Home" in body
         overview = tree[paths.overview].decode()
-        assert "Open Technical" in overview and "Open Research" in overview
-        assert "declared Research Questions and literature paths" in overview
-
-    memory_overview = tree[views.MEMORY_WORKBENCH].decode()
-    parentage = memory_overview.split("**Technical parent(s)**", 1)[1].split("\n## ", 1)[0]
-    navigation = memory_overview.split("**Navigation location**", 1)[1].split("\n\n", 1)[0]
-    assert "SYS-AGA" in parentage and "CMP-MEMORY" not in parentage
-    assert "DOM-EVIDENCE-MEMORY" in navigation
-    assert "follows the Agent → presentation Domain → Component path" in memory_overview
-    assert "this is not technical ancestry" in memory_overview
-    assert "canonical-target" in memory_overview
-    assert "partial" in memory_overview and "unverified" in memory_overview
-
-    verifier_overview = tree[views.VERIFIER_WORKBENCH].decode()
-    verifier_parentage = verifier_overview.split("**Technical parent(s)**", 1)[1].split("\n## ", 1)[
-        0
-    ]
-    assert "SYS-AGA" in verifier_parentage and "DOM-VERIFY-LEARN" in verifier_overview
+        assert "Read Technical on this page" in overview
+        assert "Read Research on this page" in overview
+        assert "Technical auxiliary view" in overview and "Research auxiliary view" in overview
+        assert "No registered direct subcomponents" in overview
+        assert "Canonical target" in overview
+        status = load_registry(repo / "docs/research-atlas").entities[identity].technical
+        assert status.implementation_status.replace("-", " ").title() in overview
+        assert status.verification_status.replace("-", " ").title() in overview
+        return_navigation = overview.split("## Return Navigation", 1)[1]
+        assert "Autonomous Game Agent" in return_navigation
+        assert "Memory.md" not in return_navigation
 
 
 def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
@@ -1156,6 +1175,9 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
         assert links
         for link in links:
             target = link.replace(r"\|", "|").partition("|")[0]
+            if target.startswith("#"):
+                assert target[1:] in tree[path].decode(), (path, target)
+                continue
             relative = PurePosixPath(target)
             if relative.suffix == ".excalidraw":
                 generated = PurePosixPath(f"{relative}.md")
@@ -1369,7 +1391,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     old_tree = {
         path: data
         for path, data in current.items()
-        if path != views.LITERATURE_INSPECTION and not views._is_identity_page_path(path)
+        if path != views.LITERATURE_INSPECTION and path.parent != PurePosixPath("identity-pages")
     }
     old_tree.pop(views.OBSERVE_SCOPE)
 
@@ -1396,7 +1418,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
         not in {
             str(views.LITERATURE_INSPECTION),
             str(views.OBSERVE_SCOPE),
-            *(str(path) for path in current if views._is_identity_page_path(path)),
+            *(str(path) for path in current if path.parent == PurePosixPath("identity-pages")),
         }
     ]
     for item in manifest["owned_files"]:
@@ -1411,7 +1433,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     target.unlink()
     (root / views.OBSERVE_SCOPE).unlink()
     for path in current:
-        if not views._is_identity_page_path(path):
+        if path.parent != PurePosixPath("identity-pages"):
             continue
         (root / path).unlink()
     for relative, data in old_tree.items():
@@ -2526,3 +2548,54 @@ def test_a25_interrupted_owned_regeneration_is_detectable_and_recoverable(
     repaired = views.project(repo, vault, sha)
     assert repaired[views.MANIFEST] != old_manifest
     assert views.project(repo, vault, sha, check=True) == repaired
+
+
+@pytest.mark.parametrize("edited", [False, True])
+def test_uip_legacy_hub_overviews_migrate_only_when_intact(setup, edited):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    authored = outside_owned(vault)
+    atlas = load_registry(repo / "docs/research-atlas")
+    snapshot = views.make_snapshot([], atlas)
+    manifest_path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_bytes())
+    for identity, paths in views.COMPONENT_HUB_PATHS.items():
+        legacy = views.render_component_hub_view(
+            sha,
+            atlas,
+            views._component_hub_model(atlas, identity),
+            "overview",
+            snapshot,
+            False,
+        )
+        (derived(vault) / paths.overview).write_bytes(legacy)
+        item = next(item for item in manifest["owned_files"] if item["path"] == str(paths.overview))
+        item["sha256"] = technical.digest(legacy)
+    manifest_path.write_text(technical.yaml_text(manifest))
+    if edited:
+        with (derived(vault) / views.MEMORY_WORKBENCH).open("ab") as stream:
+            stream.write(b"\nAuthored edit must be preserved.\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="edited" if edited else "drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    if edited:
+        with pytest.raises(technical.ProjectionError, match="edited"):
+            views.project(repo, vault, sha)
+        assert filesystem_state(vault) == before
+    else:
+        migrated = views.project(repo, vault, sha)
+        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
+        for identity, paths in views.COMPONENT_HUB_PATHS.items():
+            page = migrated[paths.overview].decode()
+            assert (
+                views._identity_page_generated_metadata(page, paths.overview)[
+                    "identity_page_subject_id"
+                ]
+                == identity
+            )
+            assert "## Technical" in page and "## Research" in page
+        after = filesystem_state(vault)
+        assert views.project(repo, vault, sha, check=True) == migrated
+        assert filesystem_state(vault) == after
+    assert outside_owned(vault) == authored

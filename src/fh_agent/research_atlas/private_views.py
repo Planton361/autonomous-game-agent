@@ -463,6 +463,8 @@ def _identity_filename_stem(name: str) -> tuple[str, bool]:
 
 
 def _is_identity_page_path(relative: PurePosixPath) -> bool:
+    if relative in {hub.overview for hub in COMPONENT_HUB_PATHS.values()}:
+        return True
     return (
         relative.parent == PurePosixPath("identity-pages")
         and relative.suffix == ".md"
@@ -566,7 +568,10 @@ def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dic
         return {}
     if not isinstance(subject_id, str) or _identity_page_type_for_id(subject_id) is None:
         return {}
-    pilot_subject = IDENTITY_PAGE_SUBJECT_BY_PATH.get(relative)
+    pilot_subject = {
+        **IDENTITY_PAGE_SUBJECT_BY_PATH,
+        **{hub.overview: identity for identity, hub in COMPONENT_HUB_PATHS.items()},
+    }.get(relative)
     if pilot_subject is not None and subject_id != pilot_subject:
         return {}
     expected = {
@@ -1256,7 +1261,6 @@ def identity_page_models(
             paths,
             key=lambda item: (atlas.entities[item].name.casefold(), item),
         )
-        if identity not in COMPONENT_HUB_PATHS
     )
 
 
@@ -1634,40 +1638,26 @@ def render_identity_page(
         "## Overview / General",
         "",
     ]
+    if model.presentation_domain_ids:
+        lines.extend(
+            [
+                "**Browse area (presentation only):** "
+                + ", ".join(human_link(identity) for identity in model.presentation_domain_ids),
+                "",
+            ]
+        )
     profile = _identity_page_callout(
         "aga-status",
         "Current state",
         [
+            f"**Architecture:** {status.architecture_authority.replace('-', ' ').capitalize()}",
+            "",
             f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}",
             "",
             f"**Verification:** {status.verification_status.replace('-', ' ').title()}",
         ],
     )
-    context: list[str] = []
-    for label, endpoint_ids in relation_groups:
-        if label == "Contains":
-            continue
-        links = ", ".join(human_link(identity) for identity in endpoint_ids)
-        context.extend([f"**{label}:** {links}", ""])
-    if context:
-        profile.extend(["", *_identity_page_callout("aga-context", "Context", context[:-1])])
     lines.extend(_identity_page_callout("aga-grid", "At a glance", profile))
-    if model.child_component_ids:
-        lines.extend(
-            [
-                "",
-                "### Go deeper",
-                "",
-                *_identity_page_callout(
-                    "aga-depth",
-                    "Component children",
-                    [
-                        "**Contains:**",
-                        *(f"- {human_link(identity)}" for identity in model.child_component_ids),
-                    ],
-                ),
-            ]
-        )
     lines.extend(
         [
             "",
@@ -1696,6 +1686,48 @@ def render_identity_page(
             ),
         ]
     )
+    lines.extend(["", "## Local Anatomy", ""])
+    if subject.type in {"System", "Component"}:
+        children = model.child_component_ids
+        lines.append(f"Registered direct subcomponents: **{len(children)}**.")
+        if not children:
+            lines.append("No registered direct subcomponents in this snapshot.")
+        else:
+            lines.extend(["", "### Go deeper", ""])
+
+            def child_card(identity: str) -> list[str]:
+                child = atlas.entities[identity]
+                return _identity_page_callout(
+                    "aga-child", child.name, [human_link(identity), "", child.description]
+                )
+
+            for identity in children[:6]:
+                lines.extend([*child_card(identity), ""])
+            if len(children) > 6:
+                remainder = []
+                for identity in children[6:]:
+                    remainder.extend([*child_card(identity), ""])
+                lines.extend(
+                    _identity_page_callout(
+                        "aga-depth",
+                        f"{len(children) - 6} additional direct subcomponents",
+                        remainder,
+                        collapsed=True,
+                    )
+                )
+    else:
+        lines.append("Not Component containment; typed connections appear under Related Objects.")
+    visual = _identity_page_mermaid(atlas, model)
+    if visual:
+        lines.extend(["", "## Visual Context", "", *visual])
+    lines.extend(["", "## Technical", "", f"### {technical_entry_text.rstrip('.')}", ""])
+    lines.extend(
+        [
+            "Current implementation provenance beyond the registered source inspection "
+            "is unavailable.",
+            "Accepted design rationale / best-practice inputs are not attached in this slice.",
+        ]
+    )
     # Explicit accepted baseline limitations, never inferred from status or missing data.
     limitation_ids = {
         "CMP-PERCEPTION": {"EVID-48-OCR-LIMIT", "EVID-48-SPATIAL-LIMIT"},
@@ -1718,70 +1750,36 @@ def render_identity_page(
                 ),
             ]
         )
-    if subject.id in IDENTITY_PAGE_PATHS:
-        lines.extend(["", f"- {observe_link}"])
-    lines.extend(
-        [
-            "",
-            "## Technical",
-            "",
-            f"- Architecture basis: {status.architecture_authority.replace('-', ' ').capitalize()}",
-            f"- Implementation status: {status.implementation_status.replace('-', ' ').title()}",
-            f"- Verification status: {status.verification_status.replace('-', ' ').title()}",
-        ]
-    )
-    if subject.type in {"System", "Component"} and (
-        model.technical_parent_ids or model.child_component_ids
-    ):
-        lines.extend(["", "### Component structure", ""])
-        if model.technical_parent_ids:
-            lines.append(
-                "- **Direct parent(s):** "
-                + ", ".join(human_link(identity) for identity in model.technical_parent_ids)
-            )
-        if model.child_component_ids:
-            lines.append(
-                "- **Direct Component children:** "
-                + ", ".join(human_link(identity) for identity in model.child_component_ids)
-            )
     if implementation_evidence:
         lines.extend(["", "### Implementation notes", ""])
         for evidence in implementation_evidence:
             lines.append(f"- {evidence.description}")
-    data_flow_groups = tuple(
-        (label, endpoint_ids)
-        for label, endpoint_ids in relation_groups
-        if label
-        in {
-            "Uses",
-            "Used by",
-            "Produces",
-            "Produced by",
-            "Provides to",
-            "Provided by",
-        }
-    )
-    other_technical_groups = tuple(
-        (label, endpoint_ids)
-        for label, endpoint_ids in relation_groups
+    typed_classes = {"Interface", "Contract", "DataArtifact", "MeasurementPoint"}
+    technical_groups = tuple(
+        (
+            label,
+            tuple(
+                identity
+                for identity in identities
+                if subject.type not in typed_classes
+                and atlas.entities[identity].type not in typed_classes
+            ),
+        )
+        for label, identities in relation_groups
         if label not in {"Part of", "Contains", "Browse area"}
-        and (label, endpoint_ids) not in data_flow_groups
     )
-    technical_groups = (*data_flow_groups, *other_technical_groups)
-    if technical_groups:
-        technical_heading = {
-            "System": "Registered architecture and technical connections",
-            "Component": "Registered mechanism and data flow",
-            "Interface": "Registered endpoints and participants",
-            "Contract": "Registered participants and constraints",
-            "DataArtifact": "Registered producers, consumers and lifecycle",
-            "MeasurementPoint": "Registered measurement and instrumentation",
-            "Environment": "Registered environment context",
-        }[subject.type]
-        lines.extend(["", f"### {technical_heading}", ""])
-        for label, endpoint_ids in technical_groups:
-            links = ", ".join(human_link(identity) for identity in endpoint_ids)
-            lines.append(f"- **{label}:** {links}")
+    for label, identities in technical_groups:
+        if identities:
+            lines.append(f"- **{label}:** " + ", ".join(human_link(i) for i in identities))
+    hub = COMPONENT_HUB_PATHS.get(subject.id)
+    if hub is not None:
+        lines.extend(
+            [
+                "",
+                "Auxiliary technical inspection (same identity):",
+                "- " + _derived_link(hub.technical, "Technical auxiliary view"),
+            ]
+        )
     if subject.id == "DAT-OBSERVATION":
         detail_markdown, detail_canvas = technical_detail_paths(subject.id)
         lines.extend(
@@ -1794,8 +1792,42 @@ def render_identity_page(
             ]
         )
 
-    lines.extend(["", *_identity_page_mermaid(atlas, model)])
-    lines.extend(["", "## Research", ""])
+    lines.extend(["", "## Related Objects", ""])
+    related = tuple(
+        (
+            label,
+            tuple(
+                identity
+                for identity in identities
+                if subject.type in typed_classes or atlas.entities[identity].type in typed_classes
+            ),
+        )
+        for label, identities in relation_groups
+        if label not in {"Part of", "Contains", "Browse area"}
+    )
+    if any(identities for _, identities in related):
+        for label, identities in related:
+            if identities:
+                lines.append(f"- **{label}:** " + ", ".join(human_link(i) for i in identities))
+    else:
+        lines.append("No direct typed Related Object relation is registered in this snapshot.")
+    lines.extend(
+        [
+            "",
+            "## Research",
+            "",
+            "**Scope / availability:** direct Registry Research Questions and declared "
+            "Component literature paths only; richer attachment is outside this slice.",
+        ]
+    )
+    if hub is not None:
+        lines.extend(
+            [
+                "",
+                "Auxiliary declared-path inspection (same identity):",
+                "- " + _derived_link(hub.research, "Research auxiliary view"),
+            ]
+        )
     if subject.type == "Environment":
         lines.extend(
             _identity_page_callout(
@@ -1854,6 +1886,10 @@ def render_identity_page(
             f"- {_derived_link(NAVIGATION, 'Declared Literature Navigation')}",
             f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
             f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}",
+            "",
+            "## Gap Analysis",
+            "",
+            "Not assessed / no authorized gap assessment attached.",
             "",
             "## Evidence / Provenance",
             "",
@@ -1979,6 +2015,18 @@ def render_identity_page(
     audit_payload = lines[audit_payload_start:]
     lines[audit_payload_start:] = _identity_page_callout(
         "aga-audit", "Registry / Audit", audit_payload, collapsed=True
+    )
+    lines.extend(["", "## Return Navigation", ""])
+    for identity in model.technical_parent_ids:
+        lines.append("- Back up to " + human_link(identity))
+    if subject.id in IDENTITY_PAGE_PATHS:
+        lines.append("- " + observe_link)
+    lines.extend(
+        [
+            "- " + _technical_surface_link(TECHNICAL_ANATOMY, "Agent Anatomy"),
+            "- " + _derived_link(HIERARCHY, "Technical Hierarchy"),
+            "- " + _derived_link(K3_HOME, "Research Knowledge Home"),
+        ]
     )
     metadata = {
         "generated_by": OWNER,
@@ -3174,8 +3222,8 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
                 "Independent Verifier · CMP-INDEPENDENT-VERIFIER",
             ),
             "",
-            "Each Component Hub starts with Overview and opens Technical or Research views "
-            "of that same Component identity.",
+            "Each Component Hub opens a complete Identity Page with same-page Technical and "
+            "Research; its retained subfiles are auxiliary views of that same identity.",
             "",
             "## Technical hierarchy",
             "",
@@ -3611,7 +3659,10 @@ def reference_views_tree(
     revision = registry_content_revision(atlas)
     page_paths = identity_page_paths(atlas)
     for page in identity_page_models(atlas, reference, page_paths=page_paths):
-        if page.path in tree:
+        if page.path in tree and (
+            page.subject.id not in COMPONENT_HUB_PATHS
+            or page.path != COMPONENT_HUB_PATHS[page.subject.id].overview
+        ):
             raise ProjectionError("Identity Page path collision with existing derived surface")
         tree[page.path] = render_identity_page(
             commit, atlas, page, registry_revision=revision, page_paths=page_paths
@@ -4034,7 +4085,21 @@ def project(
             owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
         elif _is_identity_page_path(relative):
             metadata = _identity_page_generated_metadata(utf8(data), relative)
-            if metadata.get("generated_by") != OWNER:
+            legacy_hub = next(
+                (
+                    identity
+                    for identity, hub in COMPONENT_HUB_PATHS.items()
+                    if relative == hub.overview
+                ),
+                None,
+            )
+            legacy = markdown_parts(utf8(data))[0] if legacy_hub is not None else {}
+            legacy_owned = (
+                legacy.get("generated_by") == OWNER
+                and legacy.get("k3_subject") == legacy_hub
+                and legacy.get("k3_surface") == "component-hub-overview"
+            )
+            if metadata.get("generated_by") != OWNER and not legacy_owned:
                 owned = False
             elif digest(data) != item.sha256 and data != tree.get(relative):
                 raise ProjectionError(

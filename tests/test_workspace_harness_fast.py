@@ -178,7 +178,7 @@ def identity_page_tree(atlas, records=None):
 def identity_page_audit_text(page):
     """Return collapsed audit content while asserting native disclosure syntax."""
     visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
-    section = visible.split("## Registry / Audit\n", 1)[1]
+    section = visible.split("## Registry / Audit\n", 1)[1].split("## Return Navigation\n", 1)[0]
     assert section.startswith("\n> [!aga-audit]- Registry / Audit\n")
     quoted_lines = section.splitlines()[1:]
     assert quoted_lines[0] == "> [!aga-audit]- Registry / Audit"
@@ -249,7 +249,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert f"> {subject.description}\n> \n> {identity_metadata}" in body
         assert "**Implementation:** " in first_view
         assert "**Verification:** " in first_view
-        assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in first_view
+        assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in visible
         for predicate in (
             "part_of",
             "consumes",
@@ -287,9 +287,9 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert rendered.endswith("-->\n")
         assert identity_metadata in visible
         technical = visible.split("## Technical\n", 1)[1].split("## Research\n", 1)[0]
-        assert "Architecture basis:" in technical
-        assert "Implementation status:" in technical
-        assert "Verification status:" in technical
+        assert "**Architecture:**" in first_view
+        assert "**Implementation:**" in first_view
+        assert "**Verification:**" in first_view
         assert "### Implementation notes" in technical
         assert (
             views.private_link(
@@ -328,45 +328,25 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         )
     )
     assert expected_children == ("CMP-OBSERVATION-BUILDER", "CMP-PERCEPTION-UI-STATE")
-    assert perception_summary.count("**Contains:**") == 1
-    summary_lines = [line.removeprefix("> ") for line in perception_summary.splitlines()]
-    contains_header = summary_lines.index("**Contains:**")
-    contains_children = []
-    for line in summary_lines[contains_header + 1 :]:
-        if not line.startswith("- "):
-            break
-        contains_children.append(line)
-    assert contains_children == [
-        f"- {views._identity_page_human_link(atlas, child_id)}" for child_id in expected_children
-    ]
-    assert "**Part of:**" in perception_summary
-    assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in (
-        perception_summary
-    )
-    assert f"**Produces:** {views._identity_page_human_link(atlas, 'DAT-OBSERVATION')}" in (
-        perception_summary
-    )
+    anatomy = perception.split("## Local Anatomy\n", 1)[1].split("## Visual Context", 1)[0]
+    assert "Registered direct subcomponents: **2**." in anatomy
     for child_id in expected_children:
-        child_body = tree[views.IDENTITY_PAGE_PATHS[child_id]].decode()
-        child_summary = child_body.split("## Technical\n", 1)[0]
-        assert (
-            f"**Part of:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
-            in child_summary
-        )
-        assert "**Contains:**" not in child_summary
-        assert "No direct Component subcomponents" not in child_summary
-        assert "`part_of`" not in child_summary
-    assert "**Browse area:**" in perception_summary
+        assert views._identity_page_human_link(atlas, child_id) in anatomy
+        child = tree[views.IDENTITY_PAGE_PATHS[child_id]].decode()
+        assert "No registered direct subcomponents in this snapshot." in child
+        assert "### Go deeper" not in child
+        assert views._identity_page_human_link(atlas, "CMP-PERCEPTION") in child
+    related = perception.split("## Related Objects\n", 1)[1].split("## Research\n", 1)[0]
+    assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in related
+    assert f"**Produces:** {views._identity_page_human_link(atlas, 'DAT-OBSERVATION')}" in related
     assert "`part_of`" not in perception_summary
-    assert "`consumes`" not in perception_summary and "`supplies`" not in perception_summary
-    assert "`presented_in_domain`" not in perception_summary
     assert "EVID-48-BUILDER" in identity_page_audit_text(perception)
 
     observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
     detail_markdown, detail_canvas = views.technical_detail_paths("DAT-OBSERVATION")
     assert detail_markdown == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.md")
     assert detail_canvas == PurePosixPath("workbenches/Technical Details/DAT-OBSERVATION.canvas")
-    observation_summary = observation.split("## Technical\n", 1)[0]
+    observation_summary = observation.split("## Registry / Audit\n", 1)[0]
     assert "*DataArtifact · Stable ID `DAT-OBSERVATION`*" in observation_summary
     assert (
         f"**Produced by:** {views._identity_page_human_link(atlas, 'CMP-PERCEPTION')}"
@@ -513,15 +493,27 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         assert "<" not in fallback and "css" not in fallback
         assert not fallback.startswith("---")
         headings = re.findall(r"^## (.+)$", fallback, re.M)
-        assert headings == [
+        expected = [
+            "Overview / General",
+            "Local Anatomy",
+            "Technical",
+            "Related Objects",
+            "Research",
+            "Gap Analysis",
+            "Evidence / Provenance",
+            "Registry / Audit",
+            "Return Navigation",
+        ]
+        assert [h for h in headings if h != "Visual Context"] == expected
+        anchors = re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback)[:5]
+        assert anchors == [
             "Overview / General",
             "Technical",
             "Research",
             "Evidence / Provenance",
             "Registry / Audit",
         ]
-        assert re.findall(r"\[\[#([^|]+)\|[^]]+\]\]", fallback)[:5] == headings
-        assert all(re.search(rf"^## {re.escape(anchor)}$", fallback, re.M) for anchor in headings)
+        assert all(re.search(rf"^## {re.escape(anchor)}$", fallback, re.M) for anchor in anchors)
         if views._identity_page_supporting_evidence(atlas, model):
             assert (
                 "### Implementation notes\n" in fallback
@@ -539,14 +531,15 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         # Flatten ordinary blockquote markers only, retaining every title, fact and link.
         plain = re.sub(r"^(?:> ?)+", "", fallback, flags=re.M)
         for label, identities in views._identity_page_human_relation_groups(atlas, model):
+            if label in {"Part of", "Contains", "Browse area"}:
+                continue
             assert f"**{label}:**" in plain
             for identity in identities:
                 assert views._identity_page_human_link(atlas, identity) in plain
         if model.child_component_ids:
-            depth = plain.split("### Go deeper\n", 1)[1].split("[!aga-pillars]", 1)[0]
-            assert re.findall(r"^- (\[\[.+\]\])$", depth, re.M) == [
-                views._identity_page_human_link(atlas, child) for child in model.child_component_ids
-            ]
+            depth = plain.split("### Go deeper\n", 1)[1].split("## Technical", 1)[0]
+            for child in model.child_component_ids:
+                assert views._identity_page_human_link(atlas, child) in depth
         else:
             assert "Go deeper" not in fallback and "[!aga-depth]" not in fallback
         assert "[!aga-hero] Responsibility" in plain
@@ -557,11 +550,7 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         )
         assert "[!aga-grid] At a glance" in plain
         assert "[!aga-status] Current state" in plain
-        if any(
-            label != "Contains"
-            for label, _ in views._identity_page_human_relation_groups(atlas, model)
-        ):
-            assert "[!aga-context] Context" in plain
+        assert "[!aga-context] Context" not in plain
         if model.subject.type == "Environment":
             assert "direct environment research attachment is deferred" in plain.lower()
         else:
@@ -587,8 +576,8 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         "aga-nav",
         "aga-grid",
         "aga-status",
-        "aga-context",
         "aga-depth",
+        "aga-child",
         "aga-pillars",
         "aga-technical-entry",
         "aga-research-entry",
@@ -648,7 +637,7 @@ def test_identity_page_mermaid_exact_direct_facts_and_textual_fallback(atlas):
             assert (source, predicates[label], target) in registry_facts
         fallback = re.sub(r"```mermaid\n.*?```", "", page, flags=re.S)
         audit = identity_page_audit_text(fallback)
-        overview = fallback.split("## Technical")[0]
+        overview = fallback.split("## Registry / Audit")[0]
         for source, label, target in actual:
             assert (
                 f"| {views._identity_page_audit_link(atlas, source)} | `{predicates[label]}` | "
@@ -713,6 +702,7 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "aga-status",
         "aga-context",
         "aga-depth",
+        "aga-child",
         "aga-pillars",
         "aga-technical-entry",
         "aga-research-entry",
@@ -735,6 +725,13 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "media",
         "max-width",
         "rem",
+        "has",
+        "markdown-reading-view",
+        "inline-title",
+        "markdown-preview-view",
+        "h",
+        "markdown-source-view",
+        "HyperMD-header-",
     }
     for block in css.split("{")[:-1]:
         selector = block.rsplit("}", 1)[-1]
@@ -2118,3 +2115,130 @@ def test_rm1_evidence_roles_remain_separate_without_scientific_acceptance():
     assert "Synthetic source locator for evidence-role testing only." in support
     assert "Source inspection alone is not live or measurement validation." in support
     assert "accepted claim" not in support.lower()
+
+
+def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
+    tree, _, reference, _ = identity_page_tree(atlas)
+    paths = views.identity_page_paths(atlas)
+    models = views.identity_page_models(atlas, reference, page_paths=paths)
+    assert len(models) == len(paths) == 50
+    expected_counts = {
+        "SYS-AGA": 17,
+        "CMP-MEMORY": 6,
+        "CMP-PERCEPTION": 2,
+        "CMP-MANAGER": 2,
+        "CMP-BODY": 1,
+    }
+    leaves = 0
+    for model in models:
+        identity = model.subject.id
+        page = tree[model.path].decode()
+        visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+        assert visible.startswith(f"# {model.subject.name}\n")
+        metadata = views._identity_page_generated_metadata(page, model.path)
+        assert metadata["identity_page_subject_id"] == identity
+        assert metadata["identity_page_path"] == str(model.path)
+        order = [
+            "> [!aga-hero]",
+            "> [!aga-status]",
+            "> [!aga-pillars]",
+            "## Local Anatomy",
+            "## Technical",
+            "## Related Objects",
+            "## Research",
+            "## Gap Analysis",
+            "## Evidence / Provenance",
+            "## Registry / Audit",
+            "## Return Navigation",
+        ]
+        positions = [visible.index(token) for token in order]
+        assert positions == sorted(positions)
+        if "## Visual Context" in visible:
+            assert visible.index("## Local Anatomy") < visible.index("## Visual Context")
+            assert visible.index("## Visual Context") < visible.index("## Technical")
+        state = visible.split("> [!aga-status]", 1)[1].split("> [!aga-pillars]", 1)[0]
+        assert all(
+            f"**{axis}:**" in state for axis in ("Architecture", "Implementation", "Verification")
+        )
+        assert "**Uses:**" not in state and "**Produces:**" not in state
+        anatomy = (
+            visible.split("## Local Anatomy", 1)[1]
+            .split("## Visual Context", 1)[0]
+            .split("## Technical", 1)[0]
+        )
+        if model.subject.type in {"System", "Component"}:
+            count = expected_counts.get(identity, 0)
+            assert f"Registered direct subcomponents: **{count}**." in anatomy
+            assert len(model.child_component_ids) == count
+            expected_order = sorted(
+                model.child_component_ids, key=lambda i: (atlas.entities[i].name.casefold(), i)
+            )
+            assert list(model.child_component_ids) == expected_order
+            if count == 0:
+                leaves += 1
+                assert "No registered direct subcomponents in this snapshot." in anatomy
+                assert "Go deeper" not in anatomy
+            else:
+                visible_cards, _, remainder = anatomy.partition("> [!aga-depth]-")
+                assert visible_cards.count("> [!aga-child]") == min(count, 6)
+                assert remainder.count("> > [!aga-child]") == max(count - 6, 0)
+                links = [
+                    views._identity_page_human_link(atlas, child, paths) for child in expected_order
+                ]
+                assert [anatomy.index(link) for link in links] == sorted(
+                    anatomy.index(link) for link in links
+                )
+                if count > 6:
+                    assert "11 additional direct subcomponents" in remainder
+            assert "CMP-PERCEPTION-OCR" not in anatomy
+            assert "CMP-PERCEPTION-SPATIAL" not in anatomy
+        technical = visible.split("## Technical", 1)[1].split("## Related Objects", 1)[0]
+        assert "**Contains:**" not in technical and "**Part of:**" not in technical
+        related = visible.split("## Related Objects", 1)[1].split("## Research", 1)[0]
+        for label, identities in views._identity_page_human_relation_groups(atlas, model):
+            for target in identities:
+                if label in {"Part of", "Contains", "Browse area"}:
+                    continue
+                if model.subject.type in {
+                    "Interface",
+                    "Contract",
+                    "DataArtifact",
+                    "MeasurementPoint",
+                } or atlas.entities[target].type in {
+                    "Interface",
+                    "Contract",
+                    "DataArtifact",
+                    "MeasurementPoint",
+                }:
+                    link = views._identity_page_human_link(atlas, target, paths)
+                    assert link in related and link not in technical
+                    assert related.count(link) == sum(
+                        target in group_ids
+                        for group_label, group_ids in views._identity_page_human_relation_groups(
+                            atlas, model
+                        )
+                        if group_label not in {"Part of", "Contains", "Browse area"}
+                    )
+        research = visible.split("## Research", 1)[1].split("## Gap Analysis", 1)[0]
+        assert research.lstrip().startswith("**Scope / availability:**")
+        assert "Not assessed / no authorized gap assessment attached." in visible
+        bottom = visible.split("## Return Navigation", 1)[1]
+        assert "Research Knowledge Home" in bottom
+        for parent in model.technical_parent_ids:
+            assert views._identity_page_human_link(atlas, parent, paths) in bottom
+    assert leaves == 24
+    for identity, hub in views.COMPONENT_HUB_PATHS.items():
+        assert paths[identity] == hub.overview
+        assert PurePosixPath("identity-pages") / f"{atlas.entities[identity].name}.md" not in tree
+        assert "Technical auxiliary view" in tree[hub.overview].decode()
+        assert "Research auxiliary view" in tree[hub.overview].decode()
+
+
+def test_uip_title_polish_is_scoped_and_preserves_markdown_h1(atlas):
+    tree, _, _, _ = identity_page_tree(atlas)
+    css = (ROOT / "docs/research-atlas/presentation/aga-identity-pages.css").read_text()
+    assert ':has(.inline-title):has(.callout[data-callout="aga-hero"])' in css
+    assert "display: none" not in css
+    assert "font-size: 1em" in css
+    for identity, path in views.identity_page_paths(atlas).items():
+        assert tree[path].decode().startswith(f"# {atlas.entities[identity].name}\n")

@@ -9,6 +9,7 @@
   [data-callout="aga-status"],
   [data-callout="aga-context"],
   [data-callout="aga-depth"],
+  [data-callout="aga-child"],
   [data-callout="aga-pillars"],
   [data-callout="aga-technical-entry"],
   [data-callout="aga-research-entry"],
@@ -105,6 +106,21 @@
 
 .callout[data-callout="aga-depth"] {
   border-inline-start: 0.25rem solid var(--interactive-accent);
+}
+
+/* The inline title leads in Obsidian; the semantic H1 stays available in
+   standalone Markdown and when this optional snippet is disabled. */
+.markdown-reading-view:has(.inline-title):has(.callout[data-callout="aga-hero"])
+  .markdown-preview-view h1,
+.markdown-source-view:has(.inline-title):has(.callout[data-callout="aga-hero"])
+  .HyperMD-header-1 {
+  font-size: 1em;
+  color: var(--text-muted);
+}
+
+.callout[data-callout="aga-child"] {
+  background: var(--background-primary);
+  padding: 0.75rem;
 }
 
 .callout:is([data-callout="aga-research"], [data-callout="aga-evidence"]) {
