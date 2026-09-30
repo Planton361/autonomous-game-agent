@@ -2,7 +2,7 @@
 atlas_workspace_generated: true
 atlas_presentation_view: assembly-scope
 atlas_presentation_only: true
-atlas_registry_revision: sha256:08b2079918c84d2b84b151ff364e753d482ac908011530320b188c1c9a205104
+atlas_registry_revision: sha256:943bd9a9d3734bd72bd03e0fa1179763ea436d2b35b10e14f397940788c158da
 ---
 [[Assets/Excalidraw/Agent Anatomy.excalidraw|← Agent Anatomy]] · **Navigation location:** Agent Anatomy / Observe (static presentation breadcrumb)
 
@@ -39,18 +39,22 @@ Each row preserves the Registry direction. `part_of` is technical parenthood; `p
 | [[Components/CMP-CORTEX — Cortex|Cortex · CMP-CORTEX]] | `consumes` | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] |
 | [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Independent Verifier · CMP-INDEPENDENT-VERIFIER]] | `consumes` | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] |
 | [[Components/CMP-MEMORY — Memory|Memory · CMP-MEMORY]] | `consumes` | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] |
+| [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|No-Spoiler Firewall · CMP-NO-SPOILER-FIREWALL]] | `contributes_to_function` | [[Functions/FUNC-OBSERVE — Observe|Observe · FUNC-OBSERVE]] |
 | [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|No-Spoiler Firewall · CMP-NO-SPOILER-FIREWALL]] | `part_of` | [[Home/SYS-AGA — Autonomous Game Agent Experiment System|Autonomous Game Agent Experiment System · SYS-AGA]] |
 | [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|No-Spoiler Firewall · CMP-NO-SPOILER-FIREWALL]] | `presented_in_domain` | [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|Observation Integrity & State · DOM-OBS-INTEGRITY-STATE]] |
 | [[Components/CMP-OBSERVATION-BUILDER — Observation Builder|Observation Builder · CMP-OBSERVATION-BUILDER]] | `part_of` | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] |
 | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] | `consumes` | [[Data Artifacts/DAT-SCREEN-FRAME — ScreenFrame|ScreenFrame · DAT-SCREEN-FRAME]] |
+| [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] | `contributes_to_function` | [[Functions/FUNC-OBSERVE — Observe|Observe · FUNC-OBSERVE]] |
 | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] | `part_of` | [[Home/SYS-AGA — Autonomous Game Agent Experiment System|Autonomous Game Agent Experiment System · SYS-AGA]] |
 | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] | `presented_in_domain` | [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|Observation Integrity & State · DOM-OBS-INTEGRITY-STATE]] |
 | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] | `supplies` | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] |
 | [[Components/CMP-PERCEPTION-UI-STATE — UI State Classification|UI State Classification · CMP-PERCEPTION-UI-STATE]] | `part_of` | [[Components/CMP-PERCEPTION — Perception|Perception · CMP-PERCEPTION]] |
 | [[Components/CMP-TEMPORAL-STATE — Temporal State|Temporal State · CMP-TEMPORAL-STATE]] | `consumes` | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] |
+| [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Optional Visible-State Bridge · CMP-VISIBLE-STATE-BRIDGE]] | `contributes_to_function` | [[Functions/FUNC-ACQUIRE — Acquire|Acquire · FUNC-ACQUIRE]] |
 | [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Optional Visible-State Bridge · CMP-VISIBLE-STATE-BRIDGE]] | `observes` | [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|Game / Environment · ENV-GAME-INSTANCE]] |
 | [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Optional Visible-State Bridge · CMP-VISIBLE-STATE-BRIDGE]] | `part_of` | [[Home/SYS-AGA — Autonomous Game Agent Experiment System|Autonomous Game Agent Experiment System · SYS-AGA]] |
 | [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Optional Visible-State Bridge · CMP-VISIBLE-STATE-BRIDGE]] | `presented_in_domain` | [[Architecture/Domains/DOM-ENV-ACQUISITION — Environment & Acquisition|Environment & Acquisition · DOM-ENV-ACQUISITION]] |
+| [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] | `contributes_to_function` | [[Functions/FUNC-OBSERVE — Observe|Observe · FUNC-OBSERVE]] |
 | [[Data Artifacts/DAT-OBSERVATION — Observation|Observation · DAT-OBSERVATION]] | `presented_in_domain` | [[Architecture/Domains/DOM-OBS-INTEGRITY-STATE — Observation Integrity & State|Observation Integrity & State · DOM-OBS-INTEGRITY-STATE]] |
 | [[Evidence/EVID-48-BRIDGE — Bridge — baseline inspection|Bridge — baseline inspection · EVID-48-BRIDGE]] | `supports` | [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|Optional Visible-State Bridge · CMP-VISIBLE-STATE-BRIDGE]] |
 | [[Evidence/EVID-48-BRIDGE-SANITIZER — Bridge sanitizer — baseline inspection|Bridge sanitizer — baseline inspection · EVID-48-BRIDGE-SANITIZER]] | `supports` | [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|No-Spoiler Firewall · CMP-NO-SPOILER-FIREWALL]] |
@@ -111,7 +115,7 @@ These paths are navigation only; they do not establish evidence, coverage, novel
 
 ## Authority, revision and limitations
 
-- Generated Registry model revision: `sha256:08b2079918c84d2b84b151ff364e753d482ac908011530320b188c1c9a205104`.
+- Generated Registry model revision: `sha256:943bd9a9d3734bd72bd03e0fa1179763ea436d2b35b10e14f397940788c158da`.
 - This Markdown scope is a presentation/navigation view, not a Registry identity, technical parent or Component Hub.
 - Exact Registry records and relations remain authoritative; this view creates no technical relation or scientific status.
 - The four-landmark selection is fixed for this reference slice; Temporal State is not an Observe landmark.

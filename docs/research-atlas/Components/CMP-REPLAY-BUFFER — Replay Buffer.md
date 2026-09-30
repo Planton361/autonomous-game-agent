@@ -4,7 +4,7 @@ atlas_type: Component
 atlas_name: Replay Buffer
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 56
 research_mapping: unmapped
@@ -15,6 +15,9 @@ verification_status: unverified
 consumes:
 - '[[Interfaces & Contracts/CON-VERIFIER-RESULT — VerifierResult|CON-VERIFIER-RESULT
   · VerifierResult]]'
+contributes_to_function:
+- '[[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between
+  Mission Runs]]'
 part_of:
 - '[[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game
   Agent Experiment System]]'
@@ -38,6 +41,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -71,6 +75,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between Mission Runs]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

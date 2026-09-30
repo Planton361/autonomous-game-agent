@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
@@ -353,7 +352,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     assert manifest["generated_by"] == views.OWNER == "research-wiki-derived"
     assert manifest["source_repository"] == "Planton361/autonomous-game-agent"
     assert manifest["source_commit"] == sha == git(repo, "rev-parse", "HEAD")
-    assert manifest["source_atlas_schema"] == "0.2"
+    assert manifest["source_atlas_schema"] == "0.3"
     assert manifest["source_sha256"] == {
         "public_atlas_base": technical.digest((repo / views.PUBLIC_SOURCE).read_bytes()),
         "research_wiki_direct_base": technical.digest((repo / views.DIRECT_SOURCE).read_bytes()),
@@ -374,7 +373,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     assert sha in text and "Process%20Seeds" in text and "Capability%20Matrix.md" in text
 
 
-def test_current_02_private_views_and_reference_index_bytes_are_unchanged():
+def test_current_03_private_views_report_source_schema_truthfully():
     atlas = load_registry(ATLAS)
     commit = "a" * 40
     snapshot = views.make_snapshot([], atlas)
@@ -392,20 +391,19 @@ def test_current_02_private_views_and_reference_index_bytes_are_unchanged():
     manifest = yaml.safe_load(tree[views.MANIFEST])
     index_payload = yaml.safe_load(tree[views.REFERENCE_INDEX])
 
-    assert manifest["source_atlas_schema"] == "0.2"
-    assert index_payload["source_atlas_schema"] == "0.2"
-    assert tree_digest(tree) == "6ea15062080518c6c7ec8733af522486d709e3c2dde515f3ad1193bc472c2536"
+    assert manifest["source_atlas_schema"] == "0.3"
+    assert index_payload["source_atlas_schema"] == "0.3"
+    assert tree_digest(tree) == "02326600851b8c3cdbcc20092a26c9093f0c46725c75e7241b460803d3c7be2d"
 
 
-def test_synthetic_03_source_schema_propagates_through_private_views():
+def test_current_03_source_schema_propagates_through_private_views():
     payloads = [
         yaml.safe_load((ATLAS / "registry" / name).read_text(encoding="utf-8"))
         for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
     ]
-    for payload in payloads:
-        payload["atlas_schema_version"] = "0.3"
     source_schema = validated_source_schema_version(*payloads)
-    atlas = replace(load_registry(ATLAS), source_atlas_schema=source_schema)
+    atlas = load_registry(ATLAS)
+    assert atlas.source_atlas_schema == source_schema == "0.3"
     commit = "a" * 40
     snapshot = views.make_snapshot([], atlas)
     reference = views.build_index(atlas, snapshot, commit)
@@ -1853,7 +1851,7 @@ def test_public_base_label_only_and_registry_regressions():
     assert {identity: atlas.ancestors(identity) for identity in atlas.entities} == ancestors
     assert snapshot(ATLAS / "registry") == before
     assert all(
-        yaml.safe_load(p.read_text())["atlas_schema_version"] == "0.2"
+        yaml.safe_load(p.read_text())["atlas_schema_version"] == "0.3"
         for p in (ATLAS / "registry").glob("*.yaml")
     )
 

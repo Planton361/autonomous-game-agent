@@ -2,7 +2,7 @@
 
 Generated from Registry YAML; fully overwriteable. Do not edit structured claims here.
 
-Registry = authoritative SOT. Generated notes = views. Presentation Domain != technical hierarchy: only `part_of` defines technical ancestry.
+Registry is authoritative. `part_of` is technical Component containment only. `contributes_to_function` records explicit functional participation; Function membership does not create ancestry, imply authority/subordination or infer Research relevance. Scientific targeting is separate and explicit.
 
 Open docs/research-atlas/ as an Obsidian vault. Enable the Bases core plugin. The Excalidraw community plugin is required only for the rich visual surfaces; no personal plugin settings are committed.
 
@@ -35,6 +35,17 @@ File-format references: [Bases syntax](https://obsidian.md/help/bases/syntax), [
 - [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
 - [[Architecture/Domains/DOM-VERIFY-LEARN — Verification & Learning|DOM-VERIFY-LEARN · Verification & Learning]]
 - [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
+
+## Functions
+
+- [[Functions/FUNC-ACQUIRE — Acquire|FUNC-ACQUIRE · Acquire]]
+- [[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]
+- [[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between Mission Runs]]
+- [[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]
+- [[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]
+- [[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]
+- [[Functions/FUNC-RETAIN-RETRIEVE — Retain - Retrieve|FUNC-RETAIN-RETRIEVE · Retain / Retrieve]]
+- [[Functions/FUNC-VERIFY — Verify|FUNC-VERIFY · Verify]]
 
 ## Research overlays
 

@@ -4,7 +4,7 @@ atlas_type: Domain
 atlas_name: Observation Integrity & State
 atlas_level: L1
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 3
 research_mapping: unmapped
@@ -29,6 +29,8 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function: []
+contributes_to_function_from: []
 supported_by: []
 contradicted_by: []
 research_questions: []

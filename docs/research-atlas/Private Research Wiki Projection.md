@@ -105,8 +105,9 @@ schema, exact-byte SHA-256 digests of all three Registry files, record and
 Evidence counts, and each owned output's digest. Source schema metadata accepts
 exactly `0.2` and `0.3` and is derived from the shared Registry version envelope;
 all three Registry files must agree. The current public Registry and generated
-output remain `0.2`, and public content validation remains closed to `0.2` until
-the owner of a later public schema evolution updates it. Generated notes carry
+output use `0.3`. Legacy `0.2` content remains readable only without Function
+nodes or `contributes_to_function` relations; the validator fails closed if those
+semantics appear under `0.2`. Generated notes carry
 the same source schema provenance plus a digest of the public record's sorted
 JSON representation; the map carries the public rendered map's digest. Neither
 timestamps nor private absolute paths are included.
@@ -192,8 +193,8 @@ does not become a scientific acceptance gate and still performs no writes.
 
 Document maturity, reading verification, candidate decisions and public technical
 verification remain independent. The five research-role lists imply no other
-role, `supports`, `part_of`, causal or implementation evidence. Public Atlas
-schema remains `0.2`; its validator allows non-null `research_direction` only on
+role, `supports`, `part_of`, causal or implementation evidence. Current Public Atlas
+schema is `0.3`; its validator allows non-null `research_direction` only on
 `ResearchQuestion` and `ExperimentLead`, never Thread or technical records.
 There is no automatic private-to-public status mapping or promotion.
 

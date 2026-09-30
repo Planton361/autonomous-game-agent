@@ -80,6 +80,10 @@ class Environment(TechnicalIdentity):
     type: Literal["Environment"]
 
 
+class Function(Identity):
+    type: Literal["Function"]
+
+
 class ResearchQuestion(Identity):
     type: Literal["ResearchQuestion"]
 
@@ -162,6 +166,7 @@ Node = Annotated[
     | DataArtifact
     | MeasurementPoint
     | Environment
+    | Function
     | ResearchQuestion
     | ResearchThread
     | Paper
@@ -181,6 +186,7 @@ PREFIXES = {
     "DataArtifact": "DAT",
     "MeasurementPoint": "MEAS",
     "Environment": "ENV",
+    "Function": "FUNC",
     "ResearchQuestion": "RQ",
     "ResearchThread": "THREAD",
     "Paper": "PAPER",
@@ -214,6 +220,7 @@ RelationName = Literal[
     "research_suggests_decomposition",
     "related_to_research_question",
     "presented_in_domain",
+    "contributes_to_function",
 ]
 
 
@@ -222,18 +229,27 @@ class Relationship(Record):
     source: Text
     target: Text
     decision_id: Text | None = None
+    functional_role: Text | None = None
+    functional_order: int | None = Field(default=None, gt=0, strict=True)
+
+    @model_validator(mode="after")
+    def functional_metadata_is_relation_specific(self) -> "Relationship":
+        metadata = {"functional_role", "functional_order"} & self.model_fields_set
+        if self.relation != "contributes_to_function" and metadata:
+            raise ValueError("functional metadata is only valid on contributes_to_function")
+        return self
 
 
 class NodeRegistry(Record):
-    atlas_schema_version: Literal["0.2"]
+    atlas_schema_version: Literal["0.2", "0.3"]
     nodes: tuple[Node, ...]
 
 
 class EvidenceRegistry(Record):
-    atlas_schema_version: Literal["0.2"]
+    atlas_schema_version: Literal["0.2", "0.3"]
     evidence: tuple[Evidence, ...]
 
 
 class RelationshipRegistry(Record):
-    atlas_schema_version: Literal["0.2"]
+    atlas_schema_version: Literal["0.2", "0.3"]
     relationships: tuple[Relationship, ...]

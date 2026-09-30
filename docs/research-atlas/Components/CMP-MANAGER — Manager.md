@@ -4,7 +4,7 @@ atlas_type: Component
 atlas_name: Manager
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 11
 research_mapping: unmapped
@@ -19,6 +19,9 @@ consumes:
   · VerifierResult]]'
 - '[[Interfaces & Contracts/IF-CORTEX-MANAGER — Cortex to Manager|IF-CORTEX-MANAGER
   · Cortex to Manager]]'
+contributes_to_function:
+- '[[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL ·
+  Executive Control]]'
 controls:
 - '[[Components/CMP-BODY — Body|CMP-BODY · Body]]'
 part_of:
@@ -74,6 +77,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: *id002
@@ -111,6 +115,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-EXECUTIVE — Executive Control & Contracts|DOM-EXECUTIVE · Executive Control & Contracts]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

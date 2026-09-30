@@ -4,7 +4,7 @@ atlas_type: Component
 atlas_name: Bounded Reflex
 atlas_level: L3
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: expansion
 overview_order: 46
 research_mapping: unmapped
@@ -12,6 +12,8 @@ research_direction: null
 architecture_authority: canonical-target
 implementation_status: target-only
 verification_status: unverified
+contributes_to_function:
+- '[[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]'
 part_of:
 - '[[Components/CMP-BODY — Body|CMP-BODY · Body]]'
 presented_in_domain:
@@ -34,6 +36,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: []
@@ -67,6 +70,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-ACTION-SAFETY — Action & Safety|DOM-ACTION-SAFETY · Action & Safety]]
 
 L-level: L3. Overview visibility: expansion.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 

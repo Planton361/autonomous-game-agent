@@ -29,6 +29,10 @@ properties:
     displayName: supported by
   note.part_of:
     displayName: part of
+  note.contributes_to_function:
+    displayName: contributes to function
+  note.contributes_to_function_from:
+    displayName: contributes to function from
   note.presented_in_domain:
     displayName: presented in domain
 views:
@@ -52,6 +56,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -79,6 +85,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -103,6 +111,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -127,6 +137,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -151,12 +163,40 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
     direction: ASC
   groupBy:
     property: note.verification_status
+    direction: ASC
+- type: table
+  name: Functions
+  filters:
+    and:
+    - note.atlas_type == "Function"
+  order:
+  - file.name
+  - note.atlas_id
+  - note.atlas_type
+  - note.atlas_level
+  - note.implementation_status
+  - note.verification_status
+  - note.research_mapping
+  - note.research_direction
+  - note.research_components
+  - note.research_interfaces
+  - note.measured_at
+  - note.contradicted_by
+  - note.supported_by
+  - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
+  - note.presented_in_domain
+  sort:
+  - property: note.atlas_id
     direction: ASC
 - type: table
   name: Research Mapping Status
@@ -178,6 +218,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -205,6 +247,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -233,6 +277,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -261,6 +307,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -288,6 +336,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -317,6 +367,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -344,6 +396,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -369,6 +423,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id
@@ -394,6 +450,8 @@ views:
   - note.contradicted_by
   - note.supported_by
   - note.part_of
+  - note.contributes_to_function
+  - note.contributes_to_function_from
   - note.presented_in_domain
   sort:
   - property: note.atlas_id

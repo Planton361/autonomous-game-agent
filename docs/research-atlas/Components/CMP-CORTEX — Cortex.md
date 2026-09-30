@@ -4,7 +4,7 @@ atlas_type: Component
 atlas_name: Cortex
 atlas_level: L2
 atlas_generated: true
-registry_schema_version: '0.2'
+registry_schema_version: '0.3'
 overview_visibility: main
 overview_order: 10
 research_mapping: unmapped
@@ -20,6 +20,8 @@ consumes:
   · Bounded retrieval snapshot (target only)]]'
 - '[[Interfaces & Contracts/IF-MEM-CORTEX — Memory to Cortex|IF-MEM-CORTEX · Memory
   to Cortex]]'
+contributes_to_function:
+- '[[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]'
 part_of:
 - '[[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game
   Agent Experiment System]]'
@@ -72,6 +74,7 @@ supersedes_from: []
 decomposed_into: []
 decomposed_into_from: []
 contradicts: []
+contributes_to_function_from: []
 supported_by: *id001
 contradicted_by: []
 research_questions: *id002
@@ -107,6 +110,12 @@ Technical parents are outgoing `part_of`; children are incoming `part_of`.
 - Presentation Domain: [[Architecture/Domains/DOM-COGNITION — Cognition|DOM-COGNITION · Cognition]]
 
 L-level: L2. Overview visibility: main.
+
+## Functional context
+
+- Contributes to Function: [[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]
+
+Functional participation is orthogonal to technical `part_of` ancestry and does not imply authority or research relevance.
 
 ## Inputs and outputs
 
