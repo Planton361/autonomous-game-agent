@@ -732,6 +732,16 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "h",
         "markdown-source-view",
         "HyperMD-header-",
+        "body",
+        "show-inline-title",
+        "markdown-preview-sizer",
+        "el-h",
+        "mod-cm",
+        "is-live-preview",
+        "cm-content",
+        "cm-line",
+        "not",
+        "markdown-embed",
     }
     for block in css.split("{")[:-1]:
         selector = block.rsplit("}", 1)[-1]
@@ -740,13 +750,13 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         r"url\s*\(|@import|@font-face|font-family|https?:|file:|/Users/|/home/|[A-Z]:\\", css, re.I
     )
     assert not re.search(
-        r"#[\w-]+|\b(?:content|visibility|opacity|overflow|height|max-height|text-indent|position|clip|clip-path)\s*:",
+        r"#[\w-]+|(?<![\w-])(?:content|visibility|opacity|overflow|height|max-height|text-indent|position|clip|clip-path)\s*:",
         css,
     )
     assert "display: none" not in css and "!important" not in css
     assert "display: grid" in css and "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))" in css
     assert "repeat(auto-fit, minmax(min(100%, 20rem), 1fr))" in css
-    assert "height:" not in css and "overflow-x:" not in css
+    assert not re.search(r"(?<![\w-])height\s*:", css) and "overflow-x:" not in css
     assert "@media (max-width: 40rem)" in css and "grid-template-columns: minmax(0, 1fr)" in css
     declarations = re.findall(r"([\w-]+)\s*:\s*([^;{}]+);", css)
     allowed = {
@@ -760,6 +770,12 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "overflow-wrap",
         "border-inline-start",
         "font-size",
+        "font-weight",
+        "line-height",
+        "--h1-size",
+        "--h1-weight",
+        "--h1-color",
+        "--h1-line-height",
         "display",
         "text-decoration",
         "outline",
@@ -2237,8 +2253,35 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
 def test_uip_title_polish_is_scoped_and_preserves_markdown_h1(atlas):
     tree, _, _, _ = identity_page_tree(atlas)
     css = (ROOT / "docs/research-atlas/presentation/aga-identity-pages.css").read_text()
-    assert ':has(.inline-title):has(.callout[data-callout="aga-hero"])' in css
+    assert (
+        ':has(.inline-title):has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))'
+        in css
+    )
     assert "display: none" not in css
-    assert "font-size: 1em" in css
+    title_rule = (
+        css.split("/* Obsidian places the inline title", 1)[1]
+        .split("*/", 1)[1]
+        .split('.callout[data-callout="aga-child"]', 1)[0]
+    )
+    selectors, declarations = title_rule.split("{", 1)
+    selectors = re.sub(r"/\*.*?\*/", "", selectors, flags=re.S).split(",")
+    assert len(selectors) == 2
+    for selector in selectors:
+        assert "body.show-inline-title" in selector
+        assert (
+            ':has(.inline-title):has(.callout[data-callout="aga-hero"]'
+            ":not(.markdown-embed .callout))" in selector
+        )
+        assert not selector.rstrip().endswith(".inline-title")
+    assert "> .markdown-preview-sizer > .el-h1 > h1" in selectors[0]
+    assert ".markdown-source-view.mod-cm6.is-live-preview" in selectors[1]
+    assert ".cm-content > .cm-line.HyperMD-header-1" in selectors[1]
+    assert "font-size: var(--font-text-size);" in declarations
+    assert "font-weight: 400;" in declarations
+    assert "--h1-size: var(--font-text-size);" in declarations
+    assert "--h1-weight: 400;" in declarations
+    # Neither a standalone H1 nor an unrelated view can satisfy both page guards.
+    assert "visibility:" not in declarations and "opacity:" not in declarations
+    assert "display:" not in declarations
     for identity, path in views.identity_page_paths(atlas).items():
         assert tree[path].decode().startswith(f"# {atlas.entities[identity].name}\n")

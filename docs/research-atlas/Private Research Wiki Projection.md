@@ -746,9 +746,18 @@ It styles only the finite public callout hooks: hero, cards, responsive grid,
 navigation links, badges and muted audit. It uses Obsidian/theme color variables,
 fluid sizing and a one-column narrow-screen fallback, without fonts, external
 resources, private selectors or content-hiding rules. UIP adds scoped title polish
-only when an Obsidian inline title and an Identity Page hero coexist: the semantic
-H1 becomes secondary, leaving the human inline title dominant. CSS-off and
-standalone Markdown retain the ordinary H1. No global setting is changed. It changes neither fact
+only in Obsidian's existing visible-inline-title mode and when an inline title
+and an Identity Page hero coexist in the same preview/editor view. Reading View
+targets the direct rendered `.el-h1 > h1` block in `.markdown-preview-sizer`;
+Live Preview targets the CM6 `.cm-content > .cm-line.HyperMD-header-1` line.
+Both use body-text size, normal weight, muted color and local H1 variables, so
+nested heading tokens cannot retain the large H1 scale. The inline title is never
+targeted and the semantic H1 is neither removed nor hidden. Unrelated notes,
+embedded headings and source-only editing are outside these selectors. CSS-off
+and standalone Markdown retain the ordinary H1. No global setting is changed.
+Selector structure was checked against installed Obsidian 1.13.7 renderer/CSS
+and synthetic browser DOM fixtures; actual-vault visual acceptance still needs
+separately authorized CONTROL G6. It changes neither fact
 order nor semantic state. CSS is separate from the generator payload and manifest
 v2.8; the Workspace harness does not install or enable it. Actual-vault installation
 and enabling require a later exact-head CONTROL G6 authorization. The repository

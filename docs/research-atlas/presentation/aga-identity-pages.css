@@ -108,14 +108,25 @@
   border-inline-start: 0.25rem solid var(--interactive-accent);
 }
 
-/* The inline title leads in Obsidian; the semantic H1 stays available in
-   standalone Markdown and when this optional snippet is disabled. */
-.markdown-reading-view:has(.inline-title):has(.callout[data-callout="aga-hero"])
-  .markdown-preview-view h1,
-.markdown-source-view:has(.inline-title):has(.callout[data-callout="aga-hero"])
-  .HyperMD-header-1 {
-  font-size: 1em;
+/* Obsidian places the inline title in the preview header or CM6 sizer.
+   Require the visible-title mode and this page's AGA hero in that same view.
+   Target the rendered Markdown block / CM6 heading line, never .inline-title.
+   Local heading variables also cover Live Preview's nested heading tokens. */
+body.show-inline-title
+  .markdown-preview-view:has(.inline-title):has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
+  > .markdown-preview-sizer > .el-h1 > h1,
+body.show-inline-title
+  .markdown-source-view.mod-cm6.is-live-preview:has(.inline-title):has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
+  .cm-content > .cm-line.HyperMD-header-1 {
+  --h1-size: var(--font-text-size);
+  --h1-weight: 400;
+  --h1-color: var(--text-muted);
+  --h1-line-height: var(--line-height-normal);
+  font-size: var(--font-text-size);
+  font-weight: 400;
+  line-height: var(--line-height-normal);
   color: var(--text-muted);
+  margin-block: 0.25rem 0.75rem;
 }
 
 .callout[data-callout="aga-child"] {
