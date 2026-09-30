@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from fh_agent.research_atlas.render import render_overview
-from fh_agent.research_atlas.schema import PREFIXES, RelationName
+from fh_agent.research_atlas.schema import PREFIXES, RelationName, Relationship
 from fh_agent.research_atlas.validator import (
     RELATION_PAIRS,
     AtlasSourceSchema,
@@ -96,18 +96,37 @@ EXPECTED_COMPONENT_PARENTS = {
 }
 
 
-@pytest.fixture
-def payloads():
+@pytest.fixture(scope="module")
+def registry_templates():
     return [
         yaml.safe_load((ATLAS / "registry" / name).read_text())
         for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
     ]
 
 
+@pytest.fixture
+def payloads(registry_templates):
+    return copy.deepcopy(registry_templates)
+
+
 def edge(payloads, relation, source="CMP-CORTEX", target="CMP-MANAGER", **kwargs):
     payloads[1]["relationships"].append(
         dict(relation=relation, source=source, target=target, **kwargs)
     )
+
+
+def minimal_registry(payloads, node_ids, relationships=()):
+    templates = {node["id"]: node for node in payloads[0]["nodes"]}
+    nodes = []
+    for node_id in node_ids:
+        node = copy.deepcopy(templates[node_id])
+        node.update(atlas_level=None, overview_visibility=None, overview_order=None)
+        nodes.append(node)
+    return [
+        {"atlas_schema_version": "0.3", "nodes": nodes},
+        {"atlas_schema_version": "0.3", "relationships": list(relationships)},
+        {"atlas_schema_version": "0.3", "evidence": []},
+    ]
 
 
 def test_valid_pilot_registry_loads():
@@ -254,7 +273,8 @@ def test_function_memberships_and_component_hierarchy_are_exact(payloads):
 
 
 def test_function_prefix_is_closed(payloads):
-    payloads[0]["nodes"].append(
+    registry = minimal_registry(payloads, ["CMP-CORTEX", "FUNC-OBSERVE"])
+    registry[0]["nodes"].append(
         dict(
             id="CMP-FUNCTION-WRONG",
             type="Function",
@@ -263,12 +283,27 @@ def test_function_prefix_is_closed(payloads):
         )
     )
     with pytest.raises(ValueError, match="ID prefix/type mismatch"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 def test_function_membership_can_overlap(payloads):
-    edge(payloads, "contributes_to_function", "CMP-CORTEX", "FUNC-OBSERVE")
-    atlas = validate_registry(*payloads)
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "FUNC-REASON", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-REASON",
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+            },
+        ],
+    )
+    atlas = validate_registry(*registry)
     functions = {
         relation.target
         for relation in atlas.relationships
@@ -279,35 +314,51 @@ def test_function_membership_can_overlap(payloads):
 
 @pytest.mark.parametrize("source", ["DOM-COGNITION", "FUNC-REASON"])
 def test_function_membership_rejects_unsupported_source_types(payloads, source):
-    edge(payloads, "contributes_to_function", source, "FUNC-OBSERVE")
+    registry = minimal_registry(
+        payloads,
+        [source, "FUNC-OBSERVE"],
+        [{"relation": "contributes_to_function", "source": source, "target": "FUNC-OBSERVE"}],
+    )
     with pytest.raises(ValueError, match="Illegal contributes_to_function type pairing"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 def test_function_membership_target_must_be_function(payloads):
-    edge(payloads, "contributes_to_function", "CMP-CORTEX", "CMP-MANAGER")
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "CMP-MANAGER"],
+        [{"relation": "contributes_to_function", "source": "CMP-CORTEX", "target": "CMP-MANAGER"}],
+    )
     with pytest.raises(ValueError, match="Illegal contributes_to_function type pairing"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 def test_duplicate_function_membership_fails(payloads):
-    membership = next(
-        item
-        for item in payloads[1]["relationships"]
-        if item["relation"] == "contributes_to_function"
+    membership = {
+        "relation": "contributes_to_function",
+        "source": "CMP-CORTEX",
+        "target": "FUNC-REASON",
+    }
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "FUNC-REASON"],
+        [membership, membership.copy()],
     )
-    payloads[1]["relationships"].append(membership.copy())
     with pytest.raises(ValueError, match="Duplicate relationship"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 @pytest.mark.parametrize(
     "source,target", [("FUNC-OBSERVE", "CMP-PERCEPTION"), ("CMP-PERCEPTION", "FUNC-OBSERVE")]
 )
 def test_function_cannot_be_source_or_target_of_part_of(payloads, source, target):
-    edge(payloads, "part_of", source, target)
+    registry = minimal_registry(
+        payloads,
+        [source, target],
+        [{"relation": "part_of", "source": source, "target": target}],
+    )
     with pytest.raises(ValueError, match="Illegal part_of type pairing"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 @pytest.mark.parametrize(
@@ -318,21 +369,37 @@ def test_function_cannot_be_source_or_target_of_part_of(payloads, source, target
         ("part_of", "functional_role", None),
     ],
 )
-def test_function_metadata_is_rejected_on_unrelated_relations(payloads, relation, field, value):
-    edge(payloads, relation, "CMP-CORTEX", "CMP-MANAGER", **{field: value})
+def test_function_metadata_is_rejected_on_unrelated_relations(relation, field, value):
+    membership = {
+        "relation": relation,
+        "source": "CMP-CORTEX",
+        "target": "CMP-MANAGER",
+        field: value,
+    }
     with pytest.raises(ValueError, match="functional metadata is only valid"):
-        validate_registry(*payloads)
+        Relationship.model_validate(membership)
 
 
 def test_function_order_is_optional_and_explicit_when_present(payloads):
-    edge(
+    registry = minimal_registry(
         payloads,
-        "contributes_to_function",
-        "CMP-CORTEX",
-        "FUNC-OBSERVE",
-        functional_role="short-horizon stabilizer",
+        ["CMP-CORTEX", "CMP-MANAGER", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_role": "short-horizon stabilizer",
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-MANAGER",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 3,
+            },
+        ],
     )
-    atlas = validate_registry(*payloads)
+    atlas = validate_registry(*registry)
     membership = next(
         item
         for item in atlas.relationships
@@ -342,12 +409,9 @@ def test_function_order_is_optional_and_explicit_when_present(payloads):
     )
     assert membership.functional_role == "short-horizon stabilizer"
     assert membership.functional_order is None
-
-    edge(payloads, "contributes_to_function", "CMP-MANAGER", "FUNC-OBSERVE", functional_order=3)
-    ordered = validate_registry(*payloads)
     participant = next(
         item
-        for item in ordered.relationships
+        for item in atlas.relationships
         if item.relation == "contributes_to_function"
         and item.source == "CMP-MANAGER"
         and item.target == "FUNC-OBSERVE"
@@ -356,17 +420,39 @@ def test_function_order_is_optional_and_explicit_when_present(payloads):
 
 
 def test_duplicate_explicit_function_order_fails_within_one_function(payloads):
-    edge(payloads, "contributes_to_function", "CMP-CORTEX", "FUNC-OBSERVE", functional_order=1)
-    edge(payloads, "contributes_to_function", "CMP-MANAGER", "FUNC-OBSERVE", functional_order=1)
+    registry = minimal_registry(
+        payloads,
+        ["CMP-CORTEX", "CMP-MANAGER", "FUNC-OBSERVE"],
+        [
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 1,
+            },
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-MANAGER",
+                "target": "FUNC-OBSERVE",
+                "functional_order": 1,
+            },
+        ],
+    )
     with pytest.raises(ValueError, match="Duplicate functional_order"):
-        validate_registry(*payloads)
+        validate_registry(*registry)
 
 
 @pytest.mark.parametrize("order", [0, -1, "1", True])
-def test_function_order_requires_a_positive_strict_integer(payloads, order):
-    edge(payloads, "contributes_to_function", "CMP-CORTEX", "FUNC-OBSERVE", functional_order=order)
+def test_function_order_requires_a_positive_strict_integer(order):
     with pytest.raises(ValueError):
-        validate_registry(*payloads)
+        Relationship.model_validate(
+            {
+                "relation": "contributes_to_function",
+                "source": "CMP-CORTEX",
+                "target": "FUNC-OBSERVE",
+                "functional_order": order,
+            }
+        )
 
 
 @pytest.mark.parametrize("index,key", [(0, "nodes"), (2, "evidence")])
