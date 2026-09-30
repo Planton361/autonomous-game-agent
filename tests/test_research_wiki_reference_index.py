@@ -1,16 +1,23 @@
 """A01–A20/A27: synthetic declared links, not literature or scientific judgments."""
 
 import copy
+import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 import pytest
+import yaml
 from pydantic import ValidationError
 from test_research_wiki_schema import LEGACY, props
 
 from fh_agent.research_atlas import private_reference_index as index
 from fh_agent.research_atlas.schema import Paper
-from fh_agent.research_atlas.validator import Atlas, load_registry
+from fh_agent.research_atlas.validator import (
+    Atlas,
+    load_registry,
+    validated_source_schema_version,
+)
 
 COMMIT = "a" * 40
 
@@ -74,6 +81,39 @@ def navigation(result):
 
 def signature(row):
     return tuple((v.edge_id, v.traversal_direction) for v in row.via)
+
+
+def test_index_source_schema_is_derived_and_private_records_need_no_migration(atlas):
+    current_snapshot = index.make_snapshot(sample_records(), atlas)
+    current = index.build_index(atlas, current_snapshot, COMMIT)
+    assert current.source_atlas_schema == "0.2"
+
+    registry_root = Path(__file__).resolve().parents[1] / "docs/research-atlas/registry"
+    payloads = [
+        yaml.safe_load((registry_root / name).read_text(encoding="utf-8"))
+        for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
+    ]
+    for payload in payloads:
+        payload["atlas_schema_version"] = "0.3"
+    source_schema = validated_source_schema_version(*payloads)
+    future_atlas = replace(atlas, source_atlas_schema=source_schema)
+    future = index.build_index(future_atlas, current_snapshot, COMMIT)
+
+    assert future.source_atlas_schema == "0.3"
+    assert future.private_input_fingerprint == current.private_input_fingerprint
+    assert future.rows == current.rows
+    assert future.model_dump(mode="json") == {
+        **current.model_dump(mode="json"),
+        "source_atlas_schema": "0.3",
+    }
+
+
+def test_current_02_declared_reference_index_bytes_are_unchanged(atlas):
+    empty = index.build_index(atlas, index.make_snapshot([], atlas), COMMIT)
+    assert empty.source_atlas_schema == "0.2"
+    assert hashlib.sha256(index.render_index(empty)).hexdigest() == (
+        "455128269b78e78c0eb1ba3aac527d5c0cf6f6ecc0c3b70415c64382583df40b"
+    )
 
 
 def test_a01_exact_resolution_and_closed_schema(atlas):

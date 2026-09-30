@@ -74,7 +74,7 @@ from .private_reference_index import (
     plain as reference_plain,
 )
 from .schema import Evidence, Relationship, TechnicalIdentity
-from .validator import Atlas, UniqueKeyLoader, load_registry
+from .validator import Atlas, AtlasSourceSchema, UniqueKeyLoader, load_registry
 from .wiki_schema import EpistemicRecord, Paper, ReadingNote, validate_wiki_records
 
 OWNER = "research-wiki-derived"
@@ -3066,7 +3066,7 @@ class ManifestV1(BaseModel):
     generated_by: Literal["research-wiki-derived"]
     source_repository: Literal["Planton361/autonomous-game-agent"]
     source_commit: COMMIT
-    source_atlas_schema: Literal["0.2"]
+    source_atlas_schema: AtlasSourceSchema
     source_sha256: SourceDigests
     owned_files: list[OwnedFile]
 
@@ -3169,7 +3169,12 @@ def _base_semantically_matches(actual: bytes, expected: bytes) -> bool:
     return _base_semantics(actual) == _base_semantics(expected)
 
 
-def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[PurePosixPath, bytes]:
+def views_tree(
+    commit: str,
+    public_base: bytes,
+    direct_base: bytes,
+    source_atlas_schema: AtlasSourceSchema,
+) -> dict[PurePosixPath, bytes]:
     """Retained v1 renderer; later manifests extend its Bases under the same owner."""
     technical = read_yaml(utf8(public_base))
     direct = read_yaml(utf8(direct_base))
@@ -3216,7 +3221,7 @@ def views_tree(commit: str, public_base: bytes, direct_base: bytes) -> dict[Pure
         generated_by=OWNER,
         source_repository=REPOSITORY,
         source_commit=commit,
-        source_atlas_schema="0.2",
+        source_atlas_schema=source_atlas_schema,
         source_sha256=SourceDigests(
             public_atlas_base=digest(public_base),
             research_wiki_direct_base=digest(direct_base),
@@ -3240,7 +3245,9 @@ def reference_views_tree(
     source_projection_present: bool,
     private_records: tuple[EpistemicRecord, ...] = (),
 ) -> dict[PurePosixPath, bytes]:
-    tree = views_tree(commit, public_base, direct_base)
+    if reference.source_atlas_schema != atlas.source_atlas_schema:
+        raise ProjectionError("Reference index source Atlas schema does not match loaded Atlas")
+    tree = views_tree(commit, public_base, direct_base, atlas.source_atlas_schema)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)

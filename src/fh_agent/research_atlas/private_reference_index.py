@@ -21,7 +21,7 @@ from .private_projection import (
     private_path,
     yaml_text,
 )
-from .validator import Atlas
+from .validator import Atlas, AtlasSourceSchema
 from .wiki_schema import EpistemicRecord, validate_wiki_records
 
 OWNER = "research-wiki-derived"
@@ -195,7 +195,7 @@ class ReferenceIndex(Closed):
     generated_by: Literal["research-wiki-derived"] = OWNER
     source_repository: Literal["Planton361/autonomous-game-agent"] = REPOSITORY
     source_commit: COMMIT
-    source_atlas_schema: Literal["0.2"] = "0.2"
+    source_atlas_schema: AtlasSourceSchema
     private_input_fingerprint: SHA256
     rows: tuple[Row, ...]
 
@@ -627,6 +627,7 @@ def build_index(atlas: Atlas, snapshot: Snapshot, commit: str) -> ReferenceIndex
                     navigation(process, "process")
     return ReferenceIndex(
         source_commit=commit,
+        source_atlas_schema=atlas.source_atlas_schema,
         private_input_fingerprint=fingerprint(snapshot),
         rows=tuple(rows[k] for k in sorted(rows)),
     )

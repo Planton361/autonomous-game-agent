@@ -1,24 +1,31 @@
 """Direct views only, using synthetic Git checkouts/vaults; never real private data."""
 
 import copy
+import hashlib
 import posixpath
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
 import pytest
 import yaml
+from pydantic import ValidationError
 from test_research_wiki_projection import commit, filesystem_state, git, snapshot, write_note
 
 from fh_agent.research_atlas import private_projection as technical
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas.assembly_scopes import PRIVATE_OBSERVE_SCOPE_PATH
 from fh_agent.research_atlas.schema import Relationship
-from fh_agent.research_atlas.validator import Atlas, load_registry
+from fh_agent.research_atlas.validator import (
+    Atlas,
+    load_registry,
+    validated_source_schema_version,
+)
 from fh_agent.research_atlas.wiki_schema import Process, validate_wiki_records
 from fh_agent.research_atlas.workspace import parse_frontmatter, render_base, workspace_tree
 
@@ -131,6 +138,16 @@ def outside_owned(vault):
         for p in vault.rglob("*")
         if p.is_file() and not p.is_relative_to(derived(vault))
     }
+
+
+def tree_digest(tree):
+    digest = hashlib.sha256()
+    for path, payload in sorted(tree.items(), key=lambda item: str(item[0])):
+        digest.update(str(path).encode())
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def change_manifest(vault, edit):
@@ -355,6 +372,63 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     for p in (views.DIRECT_BASE, views.TECHNICAL_BASE):
         assert f"[[{views.OWNED_ROOT / p}|" in text
     assert sha in text and "Process%20Seeds" in text and "Capability%20Matrix.md" in text
+
+
+def test_current_02_private_views_and_reference_index_bytes_are_unchanged():
+    atlas = load_registry(ATLAS)
+    commit = "a" * 40
+    snapshot = views.make_snapshot([], atlas)
+    reference = views.build_index(atlas, snapshot, commit)
+    tree = views.reference_views_tree(
+        commit,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        {},
+        snapshot,
+        False,
+    )
+    manifest = yaml.safe_load(tree[views.MANIFEST])
+    index_payload = yaml.safe_load(tree[views.REFERENCE_INDEX])
+
+    assert manifest["source_atlas_schema"] == "0.2"
+    assert index_payload["source_atlas_schema"] == "0.2"
+    assert tree_digest(tree) == "6ea15062080518c6c7ec8733af522486d709e3c2dde515f3ad1193bc472c2536"
+
+
+def test_synthetic_03_source_schema_propagates_through_private_views():
+    payloads = [
+        yaml.safe_load((ATLAS / "registry" / name).read_text(encoding="utf-8"))
+        for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
+    ]
+    for payload in payloads:
+        payload["atlas_schema_version"] = "0.3"
+    source_schema = validated_source_schema_version(*payloads)
+    atlas = replace(load_registry(ATLAS), source_atlas_schema=source_schema)
+    commit = "a" * 40
+    snapshot = views.make_snapshot([], atlas)
+    reference = views.build_index(atlas, snapshot, commit)
+    tree = views.reference_views_tree(
+        commit,
+        (ROOT / views.PUBLIC_SOURCE).read_bytes(),
+        (ROOT / views.DIRECT_SOURCE).read_bytes(),
+        reference,
+        atlas,
+        {},
+        snapshot,
+        False,
+    )
+    manifest = yaml.safe_load(tree[views.MANIFEST])
+    index_payload = yaml.safe_load(tree[views.REFERENCE_INDEX])
+
+    assert manifest["source_atlas_schema"] == "0.3"
+    assert index_payload["source_atlas_schema"] == "0.3"
+    assert views.ManifestV28.model_validate(manifest).source_atlas_schema == "0.3"
+    assert views.ReferenceIndex.model_validate(reference.model_dump()).source_atlas_schema == "0.3"
+    manifest["source_atlas_schema"] = "0.4"
+    with pytest.raises(ValidationError):
+        views.ManifestV28.model_validate(manifest)
 
 
 def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
@@ -1321,6 +1395,7 @@ def test_invalid_base_source_fails_with_validation_error(invalid, source):
             "a" * 40,
             invalid if source == "public" else public,
             invalid if source == "direct" else direct,
+            load_registry(ATLAS).source_atlas_schema,
         )
 
 
@@ -2012,7 +2087,10 @@ def test_a17_a19_private_outputs_preserve_public_and_authored(reference_setup):
 
 def install_v1(repo, vault, sha):
     tree = views.views_tree(
-        sha, (repo / views.PUBLIC_SOURCE).read_bytes(), (repo / views.DIRECT_SOURCE).read_bytes()
+        sha,
+        (repo / views.PUBLIC_SOURCE).read_bytes(),
+        (repo / views.DIRECT_SOURCE).read_bytes(),
+        load_registry(repo / "docs/research-atlas").source_atlas_schema,
     )
     for path, data in tree.items():
         target = derived(vault) / path

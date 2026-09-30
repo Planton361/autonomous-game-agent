@@ -20,7 +20,7 @@ from .assembly_scopes import (
     PUBLIC_OBSERVE_SCOPE_PATH,
 )
 from .schema import PREFIXES, Entity
-from .validator import Atlas, UniqueKeyLoader, load_registry
+from .validator import Atlas, AtlasSourceSchema, UniqueKeyLoader, load_registry
 from .wiki_schema import validate_wiki_records
 from .workspace import (
     ANATOMY_PATH,
@@ -85,7 +85,7 @@ class Manifest(BaseModel):
     generated_by: Literal["public-research-atlas"]
     source_repository: Literal["Planton361/autonomous-game-agent"]
     source_commit: COMMIT
-    source_atlas_schema: Literal["0.2"]
+    source_atlas_schema: AtlasSourceSchema
     source_registry_sha256: dict[str, SHA256]
     record_count: int = Field(ge=0)
     evidence_count: int = Field(ge=0)
@@ -229,7 +229,7 @@ def projection_tree(
             generated_by=OWNER,
             source_repository=REPOSITORY,
             source_commit=commit,
-            source_schema="0.2",
+            source_schema=atlas.source_atlas_schema,
             source_record_digest=source_digest,
         )
         return (
@@ -296,7 +296,7 @@ def projection_tree(
         generated_by=OWNER,
         source_repository=REPOSITORY,
         source_commit=commit,
-        source_schema="0.2",
+        source_schema=atlas.source_atlas_schema,
         source_record_digest=digest(yaml_text(entries).encode()),
     )
     tree[HOME] = (frontmatter(props) + home).encode()
@@ -314,7 +314,7 @@ def projection_tree(
         generated_by=OWNER,
         source_repository=REPOSITORY,
         source_commit=commit,
-        source_atlas_schema="0.2",
+        source_atlas_schema=atlas.source_atlas_schema,
         source_registry_sha256=registry_digests,
         record_count=sum(n.type != "Evidence" for n in atlas.entities.values()),
         evidence_count=sum(n.type == "Evidence" for n in atlas.entities.values()),

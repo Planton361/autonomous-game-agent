@@ -9,13 +9,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from fh_agent.research_atlas import private_projection as projection
-from fh_agent.research_atlas.validator import load_registry, validate_registry
+from fh_agent.research_atlas.validator import (
+    load_registry,
+    validate_registry,
+    validated_source_schema_version,
+)
 from fh_agent.research_atlas.wiki_schema import WIKI_PREFIXES, validate_wiki_records
 from fh_agent.research_atlas.workspace import MAP_PATH, parse_frontmatter, workspace_tree
 
@@ -68,6 +74,16 @@ def snapshot(root, *, authored=False):
     }
 
 
+def tree_digest(tree):
+    digest = hashlib.sha256()
+    for path, payload in sorted(tree.items(), key=lambda item: str(item[0])):
+        digest.update(str(path).encode())
+        digest.update(b"\0")
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def filesystem_state(root):
     # Includes directory creation, inode replacement, and mtimes, not just file bytes.
     return {
@@ -108,6 +124,47 @@ def setup(tmp_path):
 
 def generate(setup, *, check=False):
     return projection.project(*setup, check=check)
+
+
+def test_current_02_public_projection_bytes_are_unchanged():
+    atlas = load_registry(ATLAS)
+    registry_digests = {
+        name: projection.digest((ATLAS / "registry" / name).read_bytes())
+        for name in projection.REGISTRY_FILES
+    }
+    tree = projection.projection_tree(atlas, "a" * 40, registry_digests)
+    manifest = yaml.safe_load(tree[projection.MANIFEST])
+
+    assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.2"
+    assert tree_digest(tree) == "ea502d0897a85922a17154c703f27660007f6e5de684467c956498a6e0b41c14"
+
+
+def test_synthetic_03_source_schema_propagates_to_public_projection_metadata():
+    payloads = [
+        yaml.safe_load((ATLAS / "registry" / name).read_text(encoding="utf-8"))
+        for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
+    ]
+    for payload in payloads:
+        payload["atlas_schema_version"] = "0.3"
+    source_schema = validated_source_schema_version(*payloads)
+    atlas = replace(load_registry(ATLAS), source_atlas_schema=source_schema)
+    registry_digests = {
+        name: projection.digest((ATLAS / "registry" / name).read_bytes())
+        for name in projection.REGISTRY_FILES
+    }
+    tree = projection.projection_tree(atlas, "a" * 40, registry_digests)
+    manifest = yaml.safe_load(tree[projection.MANIFEST])
+    record = projection.markdown_parts(
+        tree[projection.private_path(atlas.entities["CMP-CORTEX"])].decode()
+    )[0]
+    index = projection.markdown_parts(tree[projection.HOME].decode())[0]
+
+    assert manifest["source_atlas_schema"] == "0.3"
+    assert record["source_schema"] == "0.3"
+    assert index["source_schema"] == "0.3"
+    manifest["source_atlas_schema"] = "0.4"
+    with pytest.raises(ValidationError):
+        projection.Manifest.model_validate(manifest)
 
 
 def test_authored_tree_invariance_determinism_and_provenance(setup):
