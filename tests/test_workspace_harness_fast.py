@@ -249,7 +249,8 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         assert f"> {subject.description}\n> \n> {identity_metadata}" in body
         assert "**Implementation:** " in first_view
         assert "**Verification:** " in first_view
-        assert views._derived_link(views.OBSERVE_SCOPE, "Back to Observe") in visible
+        assert "Back to Observe" not in visible
+        assert "## Functional Context" in visible
         for predicate in (
             "part_of",
             "consumes",
@@ -495,7 +496,14 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         headings = re.findall(r"^## (.+)$", fallback, re.M)
         expected = [
             "Overview / General",
-            "Local Anatomy",
+            *(
+                ["Explicit participants"]
+                if model.subject.type == "Function"
+                else [
+                    "Functional Context",
+                    *(["Local Anatomy"] if model.subject.type != "Function" else []),
+                ]
+            ),
             "Technical",
             "Related Objects",
             "Research",
@@ -520,14 +528,19 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
                 or "### Technical and decision support\n" in fallback
             )
         assert model.subject.description in fallback
-        status = model.subject.technical
-        assert (
-            f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}"
-            in fallback
-        )
-        assert (
-            f"**Verification:** {status.verification_status.replace('-', ' ').title()}" in fallback
-        )
+        if model.subject.type != "Function":
+            status = model.subject.technical
+            assert (
+                f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}"
+                in fallback
+            )
+            assert (
+                f"**Verification:** {status.verification_status.replace('-', ' ').title()}"
+                in fallback
+            )
+        else:
+            assert "**Type:** Function" in fallback
+            assert "## Local Anatomy" not in fallback
         # Flatten ordinary blockquote markers only, retaining every title, fact and link.
         plain = re.sub(r"^(?:> ?)+", "", fallback, flags=re.M)
         for label, identities in views._identity_page_human_relation_groups(atlas, model):
@@ -539,7 +552,12 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         if model.child_component_ids:
             depth = plain.split("### Go deeper\n", 1)[1].split("## Technical", 1)[0]
             for child in model.child_component_ids:
-                assert views._identity_page_human_link(atlas, child) in depth
+                assert (
+                    views._markdown_table_cell(views._identity_page_human_link(atlas, child))
+                    in depth
+                    if len(model.child_component_ids) >= 5
+                    else views._identity_page_human_link(atlas, child) in depth
+                )
         else:
             assert "Go deeper" not in fallback and "[!aga-depth]" not in fallback
         assert "[!aga-hero] Responsibility" in plain
@@ -576,7 +594,6 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         "aga-nav",
         "aga-grid",
         "aga-status",
-        "aga-depth",
         "aga-child",
         "aga-pillars",
         "aga-technical-entry",
@@ -1553,7 +1570,9 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     assert b"Research Landscape" in current_tree[views.K3_HOME]
     assert b"Research Landscape" in current_tree[views.INDEX]
     home_text = current_tree[views.K3_HOME].decode()
-    assert home_text.index("Open the Global Research Landscape") < home_text.index("Component Hubs")
+    assert home_text.index("Open the Global Research Landscape") < home_text.index(
+        "Preferred Component identities"
+    )
     for subject_id, paths in views.COMPONENT_HUB_PATHS.items():
         assert subject_id in text
         assert str(views.OWNED_ROOT / paths.research.with_suffix("")) in text
@@ -2137,7 +2156,7 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
     tree, _, reference, _ = identity_page_tree(atlas)
     paths = views.identity_page_paths(atlas)
     models = views.identity_page_models(atlas, reference, page_paths=paths)
-    assert len(models) == len(paths) == 50
+    assert len(models) == len(paths) == 58
     expected_counts = {
         "SYS-AGA": 17,
         "CMP-MEMORY": 6,
@@ -2158,7 +2177,14 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
             "> [!aga-hero]",
             "> [!aga-status]",
             "> [!aga-pillars]",
-            "## Local Anatomy",
+            *(
+                ["## Explicit participants"]
+                if model.subject.type == "Function"
+                else [
+                    "## Functional Context",
+                    *(["## Local Anatomy"] if model.subject.type != "Function" else []),
+                ]
+            ),
             "## Technical",
             "## Related Objects",
             "## Research",
@@ -2170,18 +2196,29 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
         positions = [visible.index(token) for token in order]
         assert positions == sorted(positions)
         if "## Visual Context" in visible:
-            assert visible.index("## Local Anatomy") < visible.index("## Visual Context")
+            if model.subject.type in {"System", "Component"}:
+                assert visible.index("## Local Anatomy") < visible.index("## Visual Context")
             assert visible.index("## Visual Context") < visible.index("## Technical")
         state = visible.split("> [!aga-status]", 1)[1].split("> [!aga-pillars]", 1)[0]
-        assert all(
-            f"**{axis}:**" in state for axis in ("Architecture", "Implementation", "Verification")
-        )
+        if model.subject.type != "Function":
+            assert all(
+                f"**{axis}:**" in state
+                for axis in ("Architecture", "Implementation", "Verification")
+            )
+        else:
+            assert "**Type:** Function" in state
         assert "**Uses:**" not in state and "**Produces:**" not in state
         anatomy = (
-            visible.split("## Local Anatomy", 1)[1]
-            .split("## Visual Context", 1)[0]
-            .split("## Technical", 1)[0]
+            (
+                visible.split("## Local Anatomy", 1)[1]
+                .split("## Visual Context", 1)[0]
+                .split("## Technical", 1)[0]
+            )
+            if model.subject.type != "Function"
+            else ""
         )
+        if model.subject.type == "Function":
+            assert "## Local Anatomy" not in visible
         if model.subject.type in {"System", "Component"}:
             count = expected_counts.get(identity, 0)
             assert f"Registered direct subcomponents: **{count}**." in anatomy
@@ -2195,17 +2232,23 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
                 assert "No registered direct subcomponents in this snapshot." in anatomy
                 assert "Go deeper" not in anatomy
             else:
-                visible_cards, _, remainder = anatomy.partition("> [!aga-depth]-")
-                assert visible_cards.count("> [!aga-child]") == min(count, 6)
-                assert remainder.count("> > [!aga-child]") == max(count - 6, 0)
+                assert "[!aga-depth]" not in anatomy
+                assert anatomy.count("> [!aga-child]") == (count if count <= 4 else 0)
+                if count >= 5:
+                    assert "| Direct Component | Responsibility |" in anatomy
                 links = [
-                    views._identity_page_human_link(atlas, child, paths) for child in expected_order
+                    (
+                        views._markdown_table_cell(
+                            views._identity_page_human_link(atlas, child, paths)
+                        )
+                        if count >= 5
+                        else views._identity_page_human_link(atlas, child, paths)
+                    )
+                    for child in expected_order
                 ]
                 assert [anatomy.index(link) for link in links] == sorted(
                     anatomy.index(link) for link in links
                 )
-                if count > 6:
-                    assert "11 additional direct subcomponents" in remainder
             assert "CMP-PERCEPTION-OCR" not in anatomy
             assert "CMP-PERCEPTION-SPATIAL" not in anatomy
         technical = visible.split("## Technical", 1)[1].split("## Related Objects", 1)[0]
@@ -2285,3 +2328,206 @@ def test_uip_title_polish_is_scoped_and_preserves_markdown_h1(atlas):
     assert "display:" not in declarations
     for identity, path in views.identity_page_paths(atlas).items():
         assert tree[path].decode().startswith(f"# {atlas.entities[identity].name}\n")
+
+
+FUNCTION_PARTICIPANTS = {
+    "FUNC-ACQUIRE": {"ENV-GAME-INSTANCE", "CMP-SCREEN-CAPTURE", "CMP-VISIBLE-STATE-BRIDGE"},
+    "FUNC-OBSERVE": {
+        "CMP-NO-SPOILER-FIREWALL",
+        "CMP-PERCEPTION",
+        "DAT-OBSERVATION",
+        "CMP-TEMPORAL-STATE",
+    },
+    "FUNC-RETAIN-RETRIEVE": {"CMP-EVIDENCE-LEDGER", "CMP-MEMORY", "CMP-MEM-RETRIEVAL"},
+    "FUNC-REASON": {"CMP-CORTEX"},
+    "FUNC-EXECUTIVE-CONTROL": {
+        "CMP-MANAGER",
+        "CMP-MANAGER-GROUNDING",
+        "CMP-MANAGER-SCHED-COMP",
+        "CON-SKILL-CONTRACT",
+    },
+    "FUNC-ACT": {"CMP-BODY", "CMP-BOUNDED-REFLEX", "CMP-SAFETY-FILTER", "CMP-INPUT-EXECUTOR"},
+    "FUNC-VERIFY": {"DAT-VISIBLE-OUTCOME", "CMP-INDEPENDENT-VERIFIER", "CON-VERIFIER-RESULT"},
+    "FUNC-BETWEEN-RUNS": {
+        "CMP-REPLAY-BUFFER",
+        "CMP-SKILL-TRAINER",
+        "DAT-CANDIDATE-BODY-VERSION",
+        "CMP-BODY-CERTIFICATION",
+    },
+}
+
+
+def section(page, heading, following):
+    return page.split(f"## {heading}\n", 1)[1].split(f"## {following}\n", 1)[0].replace(r"\|", "|")
+
+
+def test_uip_function_schema_exact_memberships_and_one_preferred_identity(atlas):
+    assert atlas.source_atlas_schema == "0.3"
+    assert {i for i, n in atlas.entities.items() if n.type == "Function"} == set(
+        FUNCTION_PARTICIPANTS
+    )
+    edges = [e for e in atlas.relationships if e.relation == "contributes_to_function"]
+    assert len(edges) == 26
+    assert all(e.functional_role is None and e.functional_order is None for e in edges)
+    tree, _, reference, _ = identity_page_tree(atlas)
+    assert yaml.safe_load(tree[views.MANIFEST])["source_atlas_schema"] == "0.3"
+    paths = views.identity_page_paths(atlas)
+    assert len(paths) == len(set(paths.values())) == 58
+    for function, expected in FUNCTION_PARTICIPANTS.items():
+        model = views.identity_page_model(atlas, reference, function, page_paths=paths)
+        assert model.subject.type == "Function"
+        assert (
+            model.technical_parent_ids == model.child_component_ids == model.literature_paths == ()
+        )
+        page = tree[paths[function]].decode()
+        assert page.startswith(f"# {model.subject.name}\n")
+        assert f"*Function · Stable ID `{function}`*" in page
+        assert "## Local Anatomy" not in page and "Go deeper" not in page
+        assert "Membership is non-containment" in page
+        participants = section(page, "Explicit participants", "Technical")
+        actual = set(re.findall(r"`((?:CMP|CON|DAT|ENV)-[A-Z0-9-]+)` ·", participants))
+        assert actual == expected
+        assert "Authored role" not in participants and "Authored order" not in participants
+        assert all(
+            views._identity_page_human_link(atlas, i, paths) in participants for i in expected
+        )
+        for i in expected:
+            context = section(tree[paths[i]].decode(), "Functional Context", "Technical")
+            assert views._identity_page_human_link(atlas, function, paths) in context
+            assert f"`{function}` · Function" in context
+        assert "## Technical\n" in page and "## Research\n" in page
+        assert "EVID-FUNCTION-SEMANTICS-137" in identity_page_audit_text(page)
+
+
+def test_function_context_is_exact_and_never_domain_assembly_or_ancestry_inferred(atlas):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    # The child shares technical ancestry and Observe navigation, but no Function relation.
+    child = page(atlas, "CMP-OBSERVATION-BUILDER")
+    assert "No explicit Function mapping" in section(child, "Functional Context", "Local Anatomy")
+    assert "FUNC-OBSERVE" not in child
+    changed = replace(
+        atlas,
+        relationships=tuple(
+            e
+            for e in atlas.relationships
+            if not (e.relation == "contributes_to_function" and e.source == "CMP-PERCEPTION")
+        ),
+    )
+    without = views.identity_page_model(changed, reference, "CMP-PERCEPTION")
+    original = views.identity_page_model(atlas, reference, "CMP-PERCEPTION")
+    assert without.technical_parent_ids == original.technical_parent_ids == ("SYS-AGA",)
+    assert without.child_component_ids == original.child_component_ids
+    text = views.render_identity_page(SOURCE_COMMIT, changed, without).decode()
+    assert "No explicit Function mapping" in section(text, "Functional Context", "Local Anatomy")
+    assert "FUNC-OBSERVE" not in text
+    assert section(text, "Research", "Gap Analysis") == section(
+        page(atlas, "CMP-PERCEPTION"), "Research", "Gap Analysis"
+    )
+    reordered = replace(
+        atlas,
+        relationships=tuple(reversed(atlas.relationships)),
+        entities=dict(reversed(list(atlas.entities.items()))),
+    )
+    assert page(reordered, "FUNC-OBSERVE") == page(atlas, "FUNC-OBSERVE")
+
+
+def test_function_membership_metadata_is_authored_only_and_research_is_not_inherited(atlas):
+    edges = tuple(
+        e.model_copy(update={"functional_role": "Integrity | <check>", "functional_order": 2})
+        if e.relation == "contributes_to_function" and e.source == "CMP-PERCEPTION"
+        else e
+        for e in atlas.relationships
+    )
+    changed = replace(atlas, relationships=edges)
+    technical = page(changed, "CMP-PERCEPTION")
+    functional = page(changed, "FUNC-OBSERVE")
+    for text, title in ((technical, "Functional Context"), (functional, "Explicit participants")):
+        context = section(text, title, "Technical")
+        assert "Authored role" in context and "Authored order" in context
+        assert "Integrity &#124; &#60;check&#62;" in context
+        assert " | 2 |" in context
+        assert "| — | — |" in context if title == "Explicit participants" else True
+    assert section(technical, "Research", "Gap Analysis") == section(
+        page(atlas, "CMP-PERCEPTION"), "Research", "Gap Analysis"
+    )
+    assert section(functional, "Research", "Gap Analysis") == section(
+        page(atlas, "FUNC-OBSERVE"), "Research", "Gap Analysis"
+    )
+    assert "No direct research question" in section(functional, "Research", "Gap Analysis")
+    assert "RQ-PERCEPTION" not in section(functional, "Research", "Gap Analysis")
+
+
+def test_preferred_function_routes_and_legacy_observe_are_non_structural(atlas):
+    tree, _, _, _ = identity_page_tree(atlas)
+    paths = views.identity_page_paths(atlas)
+    observe_link = views._identity_page_human_link(atlas, "FUNC-OBSERVE", paths)
+    perception = tree[paths["CMP-PERCEPTION"]].decode()
+    location = perception.split("**Location:**", 1)[1].split("## Overview", 1)[0]
+    assert "Observe" not in location and "FUNC-OBSERVE" not in location
+    assert observe_link in section(perception, "Functional Context", "Local Anatomy")
+    assert "Back to Observe" not in perception
+    assert "Functional context: " + observe_link in section(
+        perception, "Return Navigation", "unused"
+    )
+    compatibility = tree[views.OBSERVE_SCOPE].decode()
+    assert "Legacy Assembly compatibility surface" in compatibility
+    assert "Observe · FUNC-OBSERVE" in compatibility
+    home = tree[views.K3_HOME].decode()
+    assert observe_link in home
+    assert views._identity_page_human_link(atlas, "SYS-AGA", paths) in home
+    projection = technical_projection.projection_tree(atlas, SOURCE_COMMIT, {})
+    anatomy = projection[technical_projection.ANATOMY].decode()
+    assert views._derived_link(paths["FUNC-OBSERVE"], "Observe · Functional Context") in anatomy
+    assert "Observe Assembly Scope]]" not in anatomy
+    assert (
+        views._identity_page_human_link(atlas, "SYS-AGA", paths) in tree[views.HIERARCHY].decode()
+    )
+
+
+@pytest.mark.parametrize("count", [0, 1, 2, 3, 4, 5, 6])
+def test_local_anatomy_density_thresholds_keep_every_direct_child(atlas, count):
+    reference = build_index(atlas, make_snapshot([], atlas), SOURCE_COMMIT)
+    base = views.identity_page_model(atlas, reference, "CMP-MEMORY")
+    subset = replace(base, child_component_ids=base.child_component_ids[:count])
+    rendered = views.render_identity_page(SOURCE_COMMIT, atlas, subset).decode()
+    anatomy = section(rendered, "Local Anatomy", "Technical").split("## Visual Context", 1)[0]
+    assert f"Registered direct subcomponents: **{count}**." in anatomy
+    assert anatomy.count("[!aga-child]") == (count if count <= 4 else 0)
+    assert ("| Direct Component | Responsibility |" in anatomy) == (count >= 5)
+    assert ("No registered direct subcomponents" in anatomy) == (count == 0)
+    assert "[!aga-depth]" not in anatomy
+    for identity in subset.child_component_ids:
+        assert anatomy.count(views._identity_page_human_link(atlas, identity)) == 1
+
+
+def test_uip_native_tables_escape_wikilink_delimiters_and_function_name_collisions(atlas):
+    for identity, heading, expected_rows in (
+        ("SYS-AGA", "Local Anatomy", 17),
+        ("CMP-MEMORY", "Local Anatomy", 6),
+        ("FUNC-OBSERVE", "Explicit participants", 4),
+        ("CMP-PERCEPTION", "Functional Context", 1),
+    ):
+        raw = page(atlas, identity).split(f"## {heading}\n", 1)[1].split("## Technical", 1)[0]
+        rows = [line for line in raw.splitlines() if line.startswith("|")]
+        assert len(rows) == expected_rows + 2
+        assert all(len(re.split(r"(?<!\\)\|", row)) == 4 for row in rows)
+        assert all(r"\|" in row for row in rows[2:])
+    entities = dict(atlas.entities)
+    entities["FUNC-OBSERVE"] = entities["FUNC-OBSERVE"].model_copy(
+        update={"name": "Memory Retrieval"}
+    )
+    collision = replace(atlas, entities=entities)
+    paths = views.identity_page_paths(collision)
+    assert paths["FUNC-OBSERVE"] == PurePosixPath(
+        "identity-pages/Memory Retrieval — FUNC-OBSERVE.md"
+    )
+    assert paths["CMP-MEM-RETRIEVAL"] == views.MEMORY_WORKBENCH
+    assert len(paths) == len(set(paths.values()))
+    rendered = page(collision, "FUNC-OBSERVE")
+    assert "*Function · Stable ID `FUNC-OBSERVE`*" in rendered
+    assert (
+        views._identity_page_generated_metadata(rendered, paths["FUNC-OBSERVE"])[
+            "identity_page_registry_type"
+        ]
+        == "Function"
+    )

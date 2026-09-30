@@ -162,6 +162,21 @@ def projection_tree(
         PRIVATE_OBSERVE_SCOPE_PATH.with_suffix("")
     )
 
+    # Resolve normal navigation through the same durable Identity Page mapping.
+    # Import at render time: private_views uses this module's ownership primitives.
+    from .private_views import OWNED_ROOT as IDENTITY_ROOT
+    from .private_views import identity_page_paths
+
+    preferred_paths = identity_page_paths(atlas)
+    for identity, path in preferred_paths.items():
+        node = atlas.entities[identity]
+        public_target = str(note_path_for(node.id, node.type, node.name).with_suffix(""))
+        map_targets[public_target] = IDENTITY_ROOT / path.with_suffix("")
+    if "FUNC-OBSERVE" in preferred_paths:
+        map_targets[str(PUBLIC_OBSERVE_SCOPE_PATH.with_suffix(""))] = (
+            IDENTITY_ROOT / preferred_paths["FUNC-OBSERVE"].with_suffix("")
+        )
+
     memory_record = atlas.entities["CMP-MEM-RETRIEVAL"]
     memory_public_target = str(
         note_path_for(memory_record.id, memory_record.type, memory_record.name).with_suffix("")
@@ -202,6 +217,11 @@ def projection_tree(
                 destination = VERIFIER_HUB_TARGET.with_suffix("")
             if target == str(HERO_ASSET_PATH):
                 return f"[[{destination}]]"
+            if (
+                target == str(PUBLIC_OBSERVE_SCOPE_PATH.with_suffix(""))
+                and "FUNC-OBSERVE" in preferred_paths
+            ):
+                alias = "Observe · Functional Context"
             return f"[[{destination}|{alias or target}]]"
 
         return re.sub(r"\[\[([^\]]+)\]\]", link, text)
@@ -258,7 +278,7 @@ def projection_tree(
             )
         )
     public_map = render_map(atlas)
-    tree[MAP] = note(public_map, digest(public_map.encode()))
+    tree[MAP] = note(public_map, digest(public_map.encode()), map_targets)
     public_anatomy = render_agent_anatomy(atlas)
     tree[ANATOMY] = note(
         public_anatomy, digest(public_anatomy.encode()), map_targets, home_hub=True
@@ -287,7 +307,12 @@ def projection_tree(
     )
     home += (
         "\n".join(
-            "- " + private_link(private_path(n), n.id + " · " + n.name)
+            "- "
+            + (
+                f"[[{IDENTITY_ROOT / preferred_paths[n.id].with_suffix('')}|{n.name} · {n.id}]]"
+                if n.id in preferred_paths
+                else private_link(private_path(n), n.id + " · " + n.name)
+            )
             for _, n in sorted(atlas.entities.items())
         )
         + "\n"

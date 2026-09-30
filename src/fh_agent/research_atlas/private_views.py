@@ -73,7 +73,7 @@ from .private_reference_index import (
 from .private_reference_index import (
     plain as reference_plain,
 )
-from .schema import PREFIXES, Evidence, Relationship, TechnicalIdentity
+from .schema import PREFIXES, Evidence, Function, Relationship, TechnicalIdentity
 from .validator import Atlas, AtlasSourceSchema, UniqueKeyLoader, load_registry
 from .wiki_schema import EpistemicRecord, Paper, ReadingNote, validate_wiki_records
 
@@ -167,6 +167,7 @@ SUPPORTED_IDENTITY_PAGE_TYPES = frozenset(
         "DataArtifact",
         "MeasurementPoint",
         "Environment",
+        "Function",
     }
 )
 IDENTITY_PAGE_SCHEMA_VERSION = "1.1"
@@ -368,7 +369,7 @@ class TechnicalDetailModel:
 class IdentityPageModel:
     """One human-first view over an exact, allowlisted Registry identity."""
 
-    subject: TechnicalIdentity
+    subject: TechnicalIdentity | Function
     path: PurePosixPath
     technical_parent_ids: tuple[str, ...]
     child_component_ids: tuple[str, ...]
@@ -481,7 +482,7 @@ def identity_page_paths(atlas: Atlas) -> dict[str, PurePosixPath]:
     supported = {}
     for identity, node in sorted(atlas.entities.items()):
         if (
-            not isinstance(node, TechnicalIdentity)
+            not isinstance(node, (TechnicalIdentity, Function))
             or node.type not in SUPPORTED_IDENTITY_PAGE_TYPES
         ):
             continue
@@ -724,7 +725,7 @@ def hierarchy_tree(commit: str, atlas: Atlas) -> dict[PurePosixPath, bytes]:
     ]
 
     def branch(identity: str, depth: int) -> None:
-        entry.append("  " * depth + "- " + _hierarchy_link(atlas, identity))
+        entry.append("  " * depth + "- " + _identity_page_human_link(atlas, identity, page_paths))
         for child in sorted(children[identity], key=order):
             branch(child, depth + 1)
 
@@ -741,7 +742,10 @@ def hierarchy_tree(commit: str, atlas: Atlas) -> dict[PurePosixPath, bytes]:
         "",
     ]
     for identity in detached:
-        entry.append(f"- {_hierarchy_link(atlas, identity)} — `{technical[identity].type}`")
+        entry.append(
+            f"- {_identity_page_human_link(atlas, identity, page_paths)} — "
+            f"`{technical[identity].type}`"
+        )
     if not detached:
         entry.append("- None.")
     entry += [
@@ -759,7 +763,11 @@ def hierarchy_tree(commit: str, atlas: Atlas) -> dict[PurePosixPath, bytes]:
         members = sorted((i for i in technical if identity in groups[i]), key=order)
         entry.append(
             f"- {_technical_link(atlas, identity)}: "
-            + ("; ".join(_hierarchy_link(atlas, i) for i in members) if members else "No members.")
+            + (
+                "; ".join(_identity_page_human_link(atlas, i, page_paths) for i in members)
+                if members
+                else "No members."
+            )
         )
     entry += ["", f"{_derived_link(K3_HOME, 'Research Knowledge Home')}", ""]
     tree[HIERARCHY] = (frontmatter("entry") + "\n".join(entry)).encode()
@@ -1173,7 +1181,7 @@ def identity_page_model(
     if subject is None or subject.type not in SUPPORTED_IDENTITY_PAGE_TYPES:
         raise ProjectionError(f"Unsupported Identity Page subject: {identity_id}")
     if (
-        not isinstance(subject, TechnicalIdentity)
+        not isinstance(subject, (TechnicalIdentity, Function))
         or _identity_page_type_for_id(identity_id) != subject.type
     ):
         raise ProjectionError(f"Identity Page subject has the wrong Registry type: {identity_id}")
@@ -1547,6 +1555,13 @@ def _identity_page_location(
             for path in paths(parent, active | {identity})
         )
 
+    if model.subject.type == "Function":
+        return [
+            "**Location:** Functional context (non-containment).",
+            "- " + _derived_link(K3_HOME, "Research Knowledge Home"),
+            "Participants link back to their preferred Identity Pages below; "
+            "no technical parent is asserted.",
+        ]
     trails = paths(model.subject.id, frozenset())
     lines = ["**Location:**"]
     for trail in trails:
@@ -1560,6 +1575,80 @@ def _identity_page_location(
         )
     elif model.subject.type == "Component":
         lines.append("No technical parent is registered in this snapshot; no ancestry is inferred.")
+    return lines
+
+
+def _identity_page_function_edges(
+    model: IdentityPageModel, *, participants: bool = False
+) -> tuple[Relationship, ...]:
+    return tuple(
+        edge
+        for edge in model.direct_relationships
+        if edge.relation == "contributes_to_function"
+        and (edge.target if participants else edge.source) == model.subject.id
+    )
+
+
+def _identity_page_function_context(
+    atlas: Atlas,
+    model: IdentityPageModel,
+    page_paths: dict[str, PurePosixPath],
+    *,
+    participants: bool = False,
+) -> list[str]:
+    title = "Explicit participants" if participants else "Functional Context"
+    lines = [
+        "",
+        f"## {title}",
+        "",
+        "Authored Registry `contributes_to_function` only. Membership is non-containment: "
+        "it creates no technical ancestry, authority subordination or Research relevance.",
+    ]
+    edges = _identity_page_function_edges(model, participants=participants)
+    if not edges:
+        lines.extend(
+            [
+                "",
+                "No explicit functional participants are registered in this snapshot."
+                if participants
+                else "No explicit Function mapping is registered in this snapshot.",
+            ]
+        )
+        return lines
+    endpoint = "source" if participants else "target"
+    edges = sorted(
+        edges,
+        key=lambda edge: (
+            edge.functional_order is None,
+            edge.functional_order if edge.functional_order is not None else 0,
+            atlas.entities[getattr(edge, endpoint)].name.casefold(),
+            getattr(edge, endpoint),
+        ),
+    )
+    show_role = any(edge.functional_role is not None for edge in edges)
+    show_order = any(edge.functional_order is not None for edge in edges)
+    columns = ["Participant" if participants else "Function", "Stable ID / type"]
+    if show_role:
+        columns.append("Authored role")
+    if show_order:
+        columns.append("Authored order")
+    lines.extend(
+        ["", "| " + " | ".join(columns) + " |", "| " + " | ".join("---" for _ in columns) + " |"]
+    )
+    for edge in edges:
+        identity = getattr(edge, endpoint)
+        node = atlas.entities[identity]
+        cells = [
+            _identity_page_human_link(atlas, identity, page_paths),
+            f"`{identity}` · {node.type}",
+        ]
+        if show_role:
+            cells.append(
+                reference_plain(edge.functional_role) if edge.functional_role is not None else "—"
+            )
+        if show_order:
+            cells.append(str(edge.functional_order) if edge.functional_order is not None else "—")
+        lines.append("| " + " | ".join(_markdown_table_cell(cell) for cell in cells) + " |")
     return lines
 
 
@@ -1584,8 +1673,7 @@ def render_identity_page(
         raise ProjectionError("Identity Page model type is unsupported")
     registry_revision_value = registry_revision or registry_content_revision(atlas)
 
-    observe_link = _derived_link(OBSERVE_SCOPE, "Back to Observe")
-    status = subject.technical
+    status = subject.technical if isinstance(subject, TechnicalIdentity) else None
     supporting_evidence = _identity_page_supporting_evidence(atlas, model)
     implementation_evidence = tuple(
         evidence
@@ -1601,6 +1689,7 @@ def render_identity_page(
         "DataArtifact": "Meaning, registered producers and consumers.",
         "MeasurementPoint": "Measurement definition and registered instrumentation.",
         "Environment": "Environment boundary and registered technical context.",
+        "Function": "Purpose, responsibility and explicit functional participants.",
     }[subject.type]
     research_entry_text = (
         "Direct Research attachment is deferred for Environment."
@@ -1646,17 +1735,21 @@ def render_identity_page(
                 "",
             ]
         )
-    profile = _identity_page_callout(
-        "aga-status",
-        "Current state",
+    state_lines = (
         [
             f"**Architecture:** {status.architecture_authority.replace('-', ' ').capitalize()}",
             "",
             f"**Implementation:** {status.implementation_status.replace('-', ' ').title()}",
             "",
             f"**Verification:** {status.verification_status.replace('-', ' ').title()}",
-        ],
+        ]
+        if status is not None
+        else [
+            "**Type:** Function · explicit responsibility / process context.",
+            "Membership is a Registry declaration; it does not establish runtime implementation.",
+        ]
     )
+    profile = _identity_page_callout("aga-status", "Current state", state_lines)
     lines.extend(_identity_page_callout("aga-grid", "At a glance", profile))
     lines.extend(
         [
@@ -1686,7 +1779,12 @@ def render_identity_page(
             ),
         ]
     )
-    lines.extend(["", "## Local Anatomy", ""])
+    if subject.type == "Function":
+        lines.extend(_identity_page_function_context(atlas, model, paths, participants=True))
+    else:
+        lines.extend(_identity_page_function_context(atlas, model, paths))
+    if subject.type != "Function":
+        lines.extend(["", "## Local Anatomy", ""])
     if subject.type in {"System", "Component"}:
         children = model.child_component_ids
         lines.append(f"Registered direct subcomponents: **{len(children)}**.")
@@ -1694,28 +1792,28 @@ def render_identity_page(
             lines.append("No registered direct subcomponents in this snapshot.")
         else:
             lines.extend(["", "### Go deeper", ""])
-
-            def child_card(identity: str) -> list[str]:
-                child = atlas.entities[identity]
-                return _identity_page_callout(
-                    "aga-child", child.name, [human_link(identity), "", child.description]
-                )
-
-            for identity in children[:6]:
-                lines.extend([*child_card(identity), ""])
-            if len(children) > 6:
-                remainder = []
-                for identity in children[6:]:
-                    remainder.extend([*child_card(identity), ""])
-                lines.extend(
-                    _identity_page_callout(
-                        "aga-depth",
-                        f"{len(children) - 6} additional direct subcomponents",
-                        remainder,
-                        collapsed=True,
+            if len(children) >= 5:
+                lines.extend(["| Direct Component | Responsibility |", "| --- | --- |"])
+                for identity in children:
+                    child = atlas.entities[identity]
+                    lines.append(
+                        f"| {_markdown_table_cell(human_link(identity))} | "
+                        f"{reference_plain(child.description)} |"
                     )
-                )
-    else:
+            else:
+                for identity in children:
+                    child = atlas.entities[identity]
+                    lines.extend(
+                        [
+                            *_identity_page_callout(
+                                "aga-child",
+                                child.name,
+                                [human_link(identity), "", child.description],
+                            ),
+                            "",
+                        ]
+                    )
+    elif subject.type != "Function":
         lines.append("Not Component containment; typed connections appear under Related Objects.")
     visual = _identity_page_mermaid(atlas, model)
     if visual:
@@ -2019,8 +2117,12 @@ def render_identity_page(
     lines.extend(["", "## Return Navigation", ""])
     for identity in model.technical_parent_ids:
         lines.append("- Back up to " + human_link(identity))
-    if subject.id in IDENTITY_PAGE_PATHS:
-        lines.append("- " + observe_link)
+    if subject.type == "Function":
+        for edge in _identity_page_function_edges(model, participants=True):
+            lines.append("- Participant: " + human_link(edge.source))
+    else:
+        for edge in _identity_page_function_edges(model):
+            lines.append("- Functional context: " + human_link(edge.target))
     lines.extend(
         [
             "- " + _technical_surface_link(TECHNICAL_ANATOMY, "Agent Anatomy"),
@@ -3209,7 +3311,17 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
             "comparison and rollback during G6.",
             f"- {_technical_surface_link(TECHNICAL_MAP, 'System Anatomy · reference / rollback')}",
             "",
-            "## Component Hubs",
+            "## System and Functional Context",
+            "",
+            "- " + _identity_page_human_link(atlas, "SYS-AGA"),
+            *[
+                "- Functional context: " + _identity_page_human_link(atlas, identity)
+                for identity, node in sorted(atlas.entities.items())
+                if node.type == "Function"
+            ],
+            "Function membership is explicit non-containment and creates no Research relevance.",
+            "",
+            "## Preferred Component identities",
             "",
             "- "
             + _derived_link(
@@ -3697,6 +3809,16 @@ def reference_views_tree(
             "terminal path is inferred for it."
         ),
     )
+    if "FUNC-OBSERVE" in page_paths:
+        heading, separator, remainder = observe_body.partition("\n")
+        observe_body = (
+            heading + separator + "\nLegacy Assembly compatibility surface; "
+            "not technical ancestry or a preferred Function identity.\n\n"
+            + "Functional context: "
+            + observe_identity_link("FUNC-OBSERVE", "Observe · FUNC-OBSERVE")
+            + "\n"
+            + remainder
+        )
     observe_properties = dict(
         generated_by=OWNER,
         source_repository=REPOSITORY,

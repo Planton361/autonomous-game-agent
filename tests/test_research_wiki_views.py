@@ -445,7 +445,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "02326600851b8c3cdbcc20092a26c9093f0c46725c75e7241b460803d3c7be2d"
+    assert tree_digest(tree) == "6702eb853d25d9607620ebe4ba08a6a32f2874430ead5fd1101dc061d6624fa8"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -474,11 +474,11 @@ def test_current_03_source_schema_propagates_through_private_views():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert views.ManifestV28.model_validate(manifest).source_atlas_schema == "0.3"
+    assert views.ManifestV210.model_validate(manifest).source_atlas_schema == "0.3"
     assert views.ReferenceIndex.model_validate(reference.model_dump()).source_atlas_schema == "0.3"
     manifest["source_atlas_schema"] = "0.4"
     with pytest.raises(ValidationError):
-        views.ManifestV28.model_validate(manifest)
+        views.ManifestV210.model_validate(manifest)
 
 
 def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
@@ -550,7 +550,7 @@ def test_rm1_v28_pilot_paths_migrate_to_v29_without_adopting_new_paths(setup):
         if PurePosixPath(item["path"]).parent == PurePosixPath("identity-pages")
         and PurePosixPath(item["path"]) not in views.IDENTITY_PAGE_PAYLOADS
     }
-    assert len(added_paths) == 44
+    assert len(added_paths) == 52
     manifest["view_schema_version"] = "2.8"
     manifest["owned_files"] = [
         item for item in manifest["owned_files"] if PurePosixPath(item["path"]) not in added_paths
@@ -713,7 +713,8 @@ def test_v29_identity_migration_fails_closed_without_writes(setup):
     assert filesystem_state(vault) == before
 
 
-def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write(setup):
+@pytest.mark.parametrize("kind", ["Component", "Function"])
+def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write(setup, kind):
     repo, vault, sha = setup
     baseline = views.project(repo, vault, sha)
 
@@ -730,8 +731,10 @@ def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write
     original_nodes, original_edges = nodes_path.read_bytes(), edges_path.read_bytes()
     nodes = yaml.safe_load(original_nodes)
     edges = yaml.safe_load(original_edges)
-    template = next(node for node in nodes["nodes"] if node["id"] == "CMP-PERCEPTION")
-    synthetic = {**template, "id": "CMP-SYN-ADDED", "name": "Synthetic addition"}
+    template_id = "CMP-PERCEPTION" if kind == "Component" else "FUNC-OBSERVE"
+    template = next(node for node in nodes["nodes"] if node["id"] == template_id)
+    synthetic_id = "CMP-SYN-ADDED" if kind == "Component" else "FUNC-SYN-ADDED"
+    synthetic = {**template, "id": synthetic_id, "name": "Synthetic addition"}
     synthetic.update(
         description="Synthetic direct Component responsibility.",
         atlas_level=None,
@@ -740,7 +743,13 @@ def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write
     )
     nodes["nodes"].append(synthetic)
     edges["relationships"].append(
-        {"relation": "part_of", "source": "CMP-SYN-ADDED", "target": "CMP-PERCEPTION"}
+        {"relation": "part_of", "source": synthetic_id, "target": "CMP-PERCEPTION"}
+        if kind == "Component"
+        else {
+            "relation": "contributes_to_function",
+            "source": "CMP-PERCEPTION",
+            "target": synthetic_id,
+        }
     )
     nodes_path.write_text(technical.yaml_text(nodes))
     edges_path.write_text(technical.yaml_text(edges))
@@ -834,7 +843,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "## Authority, revision and limitations" in body
 
     first_view = body.split("## Exact Registry relations\n", 1)[0]
-    assert len(first_view.splitlines()) <= 27
+    assert len(first_view.splitlines()) <= 30
     assert (
         first_view.index("← Agent Anatomy")
         < first_view.index("**OBSERVE — Observation Integrity / State**")
@@ -909,7 +918,11 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
         for name in technical.REGISTRY_FILES
     }
     anatomy = technical.projection_tree(atlas, sha, digests)[technical.ANATOMY].decode()
-    assert f"[[{PRIVATE_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]" in anatomy
+    function_path = views.OWNED_ROOT / views.identity_page_paths(atlas)["FUNC-OBSERVE"].with_suffix(
+        ""
+    )
+    assert f"[[{function_path}|Observe · Functional Context]]" in anatomy
+    assert str(PRIVATE_OBSERVE_SCOPE_PATH.with_suffix("")) not in anatomy
     expected_back_link = (
         "[← Agent Anatomy](../../technical-atlas/system-map/Agent%20Anatomy.excalidraw.md)"
     )
@@ -1003,8 +1016,18 @@ def test_w02_hierarchy_direction_domain_separation_and_link_targets(setup):
     retrieval = tree[views._hierarchy_path("CMP-MEM-RETRIEVAL")].decode()
     verifier = tree[views._hierarchy_path("CMP-INDEPENDENT-VERIFIER")].decode()
     assert "# Technical Hierarchy" in entry
-    assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in entry
-    assert "Independent Verifier · CMP-INDEPENDENT-VERIFIER" in entry
+    assert (
+        views._identity_page_human_link(
+            load_registry(repo / "docs/research-atlas"), "CMP-MEM-RETRIEVAL"
+        )
+        in entry
+    )
+    assert (
+        views._identity_page_human_link(
+            load_registry(repo / "docs/research-atlas"), "CMP-INDEPENDENT-VERIFIER"
+        )
+        in entry
+    )
     assert "## Technical children" in memory
     assert "Open Overview" in retrieval
     assert "Memory Retrieval · CMP-MEM-RETRIEVAL" not in memory
@@ -1111,7 +1134,7 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
     home = tree[views.K3_HOME].decode()
     home_props, _ = technical.markdown_parts(tree[views.K3_HOME].decode())
     assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.6"
-    assert "Component Hubs" in home
+    assert "Preferred Component identities" in home
     assert "complete Identity Page with same-page Technical and Research" in home
 
     expected = (

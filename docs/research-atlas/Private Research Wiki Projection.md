@@ -653,7 +653,9 @@ Audit sections. Section navigation uses same-page anchors. The human Registry
 name leads, followed immediately by the existing responsibility description;
 type and stable ID remain quiet secondary metadata below it. The first view
 explains the identity and its agent role, implementation and verification
-state, useful human-labeled relations, and a `Back to Observe` route.
+state and useful human-labeled relations. UIP v1.1 replaces the old privileged
+`Back to Observe` route with authored Functional Context to `FUNC-OBSERVE`;
+Observe is a Function and is never technical ancestry.
 
 Human relation labels retain Registry direction: `part_of` is Part of /
 Contains; `consumes` is Uses / Used by; `supplies` is Produces / Produced by
@@ -775,7 +777,7 @@ uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
 ## RM-1 typed Identity Page rollout (manifest v2.10)
 
 Issue #114 extends the shared renderer to every current Registry System,
-Component, Interface, Contract, DataArtifact and MeasurementPoint. Environment
+Component, Interface, Contract, DataArtifact, MeasurementPoint and Function. Environment
 gets technical/context presentation with direct Research explicitly deferred.
 Domain and Assembly remain navigation surfaces. The four v2.8 pilot paths remain
 stable, as do the two expanded Component Hub Overview destinations. Every other
@@ -803,23 +805,55 @@ with full Technical and Research sections on each preferred page. Their existing
 Technical/Research subfiles remain auxiliary views of the same Stable ID.
 No duplicate preferred identity is created under `identity-pages/`.
 
-CONTROL [5901430463](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5901430463)
-bounds the UIP-1.0 convergence repair. Every preferred page has this source order:
-Identity / Orientation / State → Technical / Research entry cards → Local Anatomy
-→ optional Visual Context → Technical → Related Objects → Research → neutral
-Gap Analysis → Evidence / Provenance → collapsed Registry / Audit → Return Navigation.
-Architecture authority, implementation status and verification status remain
-three distinct state axes. Domain browse areas are presentation context only.
+CONTROL [5921713522](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5921713522)
+bounds the current UIP-v1.1 reconciliation with accepted #137 and merged #138.
+The UIP foundation retains Identity / Orientation / State → Technical / Research
+entry cards → type-correct context → optional Visual Context → Technical →
+Related Objects → Research → neutral Gap Analysis → Evidence / Provenance →
+collapsed Registry / Audit → Return Navigation. Architecture authority,
+implementation status and verification status remain separate for technical
+identities. Function has no technical status axes in the Registry; its state
+identifies the explicit responsibility/process context without inventing runtime
+implementation. Domain browse areas remain presentation context only.
 
-Local Anatomy derives only from validated Registry `part_of`. It gives an explicit
-direct-child count, orders children by case-folded human name then Stable ID,
-shows the first six native child cards, and puts any remainder in a native
-collapsed disclosure. The frozen production counts are System 17 (six visible,
-11 expandable), Memory six, Perception two, Manager two and Body one. The other
-24 Components explicitly state that no direct subcomponents are registered and
-omit Go deeper. OCR and Spatial Perception are not current child identities.
-Multiple parents and arbitrary-depth containment remain supported. Bottom Return
-Navigation uses only registered parents and existing navigation destinations.
+Technical preferred pages have an explicit Functional Context section derived
+only from authored `contributes_to_function`. It displays human Function links,
+Stable ID and type. Role and order columns appear only when authored; missing
+individual values remain undeclared. Display sorting is deterministic, using
+explicit order where present then human name / Stable ID, without assigning
+order to unordered memberships. Domain, Assembly, folder, YAML position, Graph
+position, technical adjacency and parent/child relations never create membership,
+role or order. Missing mapping is neutral.
+
+All eight Registry Function identities receive one preferred page through the
+same human-first resolver. Function pages retain type Function, purpose and
+responsibility, non-containment orientation, exact explicit participants and
+links back to their preferred pages, same-page Technical / Research, Related
+Objects, Evidence, Audit and Return Navigation. They have no Component Local
+Anatomy. Functional membership creates neither technical ancestry, authority
+subordination nor Research relevance. The 26 public memberships remain unchanged.
+
+Component Local Anatomy is populated only for System and Component, from
+validated `part_of`. Other technical types retain their neutral non-containment
+section; Function omits Local Anatomy entirely.
+It gives an explicit direct-child count and orders children by case-folded human
+name then Stable ID. Zero children has a neutral leaf state; 1–4 uses compact
+linked cards; 5+ uses a complete compact direct-child table first. No child is
+hidden or omitted. System 17 and Memory six use tables; Perception two, Manager
+two and Body one use cards. The other 24 Components explicitly state that no
+direct subcomponents are registered and omit Go deeper. OCR and Spatial
+Perception are not current child identities. Multiple parents and arbitrary-depth
+containment remain supported.
+
+Home, Agent Anatomy, its scoped projection and System navigation resolve normal
+identity destinations through the shared preferred-page resolver. Observe routes
+to `FUNC-OBSERVE` as Functional Context. The legacy `assembly-scopes/Observe.md`
+file remains an owned compatibility/navigation surface, labelled as such with a
+preferred Function link; it is not a competing preferred identity or technical
+parent. No broad Assembly cleanup is performed. Hub Overview destinations remain
+unique, and their Technical/Research subfiles remain auxiliary deep links.
+Bottom Return Navigation separates exact registered technical parents from
+Functional Context and participant returns.
 
 Technical preserves registered type-specific connections and supported source
 inspection notes. Parent/child navigation is confined to orientation/anatomy;
@@ -835,7 +869,8 @@ Technical and Research remain full same-page sections, preceded by paired entry
 cards in Technical then Research source order. The optional stylesheet places
 readable cards side by side and stacks them at narrow widths, without fixed
 heights or horizontal scrolling. `aga-child` is the additional finite card hook.
-Native Markdown remains complete with CSS disabled. Bounded Mermaid appears
+Native Markdown remains complete with CSS disabled, including Functional Context,
+Function participants and complete high-density child tables. Bounded Mermaid appears
 only in optional Visual Context for registered technical facts; it remains
 optional and its facts are available in anatomy, Related Objects and Audit.
 No Graph, Canvas, Excalidraw, HTML layout or plugin is required to read a page.
@@ -854,8 +889,10 @@ adds no path family or manifest version; v2.10 and marker v1.1 remain unchanged.
 generated page is removed when its new preferred path is written. An edited
 old page, an unowned destination, or an invalid owner marker blocks the entire
 write. Authored files remain untouched, and `--check` remains zero-write.
-The actual private vault is outside this repository repair; CONTROL must review
-this head before another G6.
+The actual private vault is outside this repository repair. Previously accepted G6
+remains valid only for unchanged behavior. Functional Context, Function pages,
+Local Anatomy density and Observe navigation await source/CI review and separately
+authorized task-based human G6; the old serial page-by-page sequence is not resumed.
 
 ## RA-4A fixture-only Zotero source projection
 

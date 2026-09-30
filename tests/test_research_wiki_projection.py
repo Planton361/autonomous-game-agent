@@ -135,7 +135,7 @@ def test_current_03_public_projection_uses_truthful_source_version():
     manifest = yaml.safe_load(tree[projection.MANIFEST])
 
     assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "6dcb35aea7553ce39775e745e2b51f1dd9d9a6ecdda97392a20b0b1571096a1d"
+    assert tree_digest(tree) == "a371a29ff4da147c32ab3bb42fba10c2c250ae6b09ba441302c012d927976d0c"
 
 
 def test_current_03_source_schema_propagates_to_public_projection_metadata():
@@ -522,6 +522,10 @@ def test_display_rename_keeps_private_path_and_resolver_links(setup, display_nam
     hub_target = str(projection.MEMORY_HUB_TARGET.with_suffix(""))
     verifier_hub_target = str(projection.VERIFIER_HUB_TARGET.with_suffix(""))
     targets.update({hub_target, verifier_hub_target})
+    from fh_agent.research_atlas.private_views import OWNED_ROOT, identity_page_paths
+
+    preferred = identity_page_paths(load_registry(repo / "docs/research-atlas"))
+    targets.update(str(OWNED_ROOT / p.with_suffix("")) for p in preferred.values())
     for data in tree.values():
         for target in re.findall(r"\[\[([^|\]]+)\|", data.decode()):
             assert target in targets
@@ -540,7 +544,16 @@ def test_private_map_preserves_public_semantics(setup):
     private = scene(tree[projection.MAP].decode())
     for original, projected in zip(public["elements"], private["elements"], strict=True):
         if original["link"]:
-            assert projected["link"].startswith("[[_generated/technical-atlas/records/")
+            from fh_agent.research_atlas.private_views import OWNED_ROOT, identity_page_paths
+
+            preferred = identity_page_paths(atlas)
+            identity = original["link"].partition("|")[2].partition(" · ")[0]
+            if identity in preferred:
+                assert projected["link"].startswith(
+                    f"[[{OWNED_ROOT / preferred[identity].with_suffix('')}|"
+                )
+            else:
+                assert projected["link"].startswith("[[_generated/technical-atlas/records/")
         assert {k: v for k, v in original.items() if k != "link"} == {
             k: v for k, v in projected.items() if k != "link"
         }
