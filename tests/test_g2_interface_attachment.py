@@ -5,19 +5,14 @@ from dataclasses import replace
 from pathlib import Path, PurePosixPath
 
 import pytest
-import yaml
 from pydantic import ValidationError
-from test_research_wiki_projection import SECRET, filesystem_state, git, write_note
 from test_research_wiki_schema import props
-from test_research_wiki_views import setup as setup
 
 from fh_agent.research_atlas import private_reference_index as index
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas.schema import Interface
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.wiki_schema import validate_wiki_records
-from fh_agent.research_atlas.workspace import workspace_tree
-from fh_agent.research_atlas.workspace_harness import check as check_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
 COMMIT = "a" * 40
@@ -316,57 +311,6 @@ def test_pilot_does_not_enable_other_interfaces(atlas):
     assert index.interface_attachment_rows(result) == ()
 
 
-def test_synthetic_projection_migration_authored_bytes_zero_write_and_export_denial(setup):
-    repo, vault, sha = setup
-    git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
-    for r in records():
-        write_note(vault / "authored" / (r["wiki_id"] + ".md"), r)
-    before = filesystem_state(vault)
-    outputs = views.project(repo, vault, sha)
-    after = filesystem_state(vault)
-    assert all(after[path][3] == value[3] for path, value in before.items() if value[3] is not None)
-    assert check_workspace(repo, vault) is not None
-    assert filesystem_state(vault) == after
-    manifest = yaml.safe_load(outputs[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
-    assert manifest["reference_index_schema_version"] == "1.1"
-    assert {entry["path"] for entry in manifest["owned_files"]} == {
-        str(p) for p in outputs if p != views.MANIFEST
-    }
-    assert all(SECRET.encode() not in payload for payload in outputs.values())
-    # Simulate intact v2.10/index-1.0 generated ownership, then migrate only derived output.
-    manifest["view_schema_version"] = "2.10"
-    manifest["reference_index_schema_version"] = "1.0"
-    root = vault / views.OWNED_ROOT
-    reference_path = root / views.REFERENCE_INDEX
-    old_index = reference_path.read_bytes().replace(
-        b"index_schema_version: '1.1'", b"index_schema_version: '1.0'"
-    )
-    reference_path.write_bytes(old_index)
-    for entry in manifest["owned_files"]:
-        if entry["path"] == str(views.REFERENCE_INDEX):
-            entry["sha256"] = index.digest(old_index)
-    (root / views.MANIFEST).write_text(yaml.safe_dump(manifest))
-    legacy_state = filesystem_state(vault)
-    with pytest.raises(views.ProjectionError, match="drift"):
-        views.project(repo, vault, sha, check=True)
-    assert filesystem_state(vault) == legacy_state
-    migrated = views.project(repo, vault, sha)
-    assert migrated == outputs
-    assert check_workspace(repo, vault) is not None
-    assert all(
-        filesystem_state(vault)[path][3] == value[3]
-        for path, value in before.items()
-        if value[3] is not None
-    )
-    public = workspace_tree(load_registry(repo / "docs/research-atlas"))
-    assert all(
-        owner not in payload
-        for owner in ("WPAPER-FIXTURE", "READ-FIXTURE", "WFIND-FIXTURE")
-        for payload in public.values()
-    )
-
-
 def test_nt_prerequisite_and_type_provenance_cannot_be_forged(atlas):
     result = build(atlas)
     path = next(r for r in result.rows if r.recipe == "N-T/K1/E2:forward/E9:forward")
@@ -411,3 +355,27 @@ def test_opaque_lists_do_not_create_transitive_research_closure(atlas):
     # The separate #137 private ResearchQuestion target contract remains absent and closed.
     with pytest.raises(index.ProjectionError, match="Invalid private identity or profile"):
         build(atlas, [props("research_question", technical_subject_refs=[TARGET])])
+
+
+def test_g2_manifest_is_finite_and_reuses_preferred_ownership(atlas):
+    import yaml
+
+    reference = build(atlas)
+    current = tree(atlas, reference)
+    empty = tree(atlas, build(atlas, []), [])
+    assert current.keys() == empty.keys()
+    manifest = yaml.safe_load(current[views.MANIFEST])
+    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["reference_index_schema_version"] == "1.1"
+    assert manifest["private_input_fingerprint"] == reference.private_input_fingerprint
+    owned = {entry["path"]: entry for entry in manifest["owned_files"]}
+    assert set(owned) == {str(p) for p in current if p != views.MANIFEST}
+    assert all(
+        entry["sha256"] == index.digest(current[PurePosixPath(path)])
+        for path, entry in owned.items()
+    )
+    assert all(
+        entry["ownership"] == views.STRICT_OWNERSHIP
+        for path, entry in owned.items()
+        if not path.endswith(".base")
+    )

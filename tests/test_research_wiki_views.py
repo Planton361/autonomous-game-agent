@@ -2677,3 +2677,59 @@ def test_engineering_catalog_failure_is_zero_write(setup, state):
     with pytest.raises(technical.ProjectionError):
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
+
+
+def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_denial(setup):
+    from test_g2_interface_attachment import records as g2_records
+    from test_research_wiki_projection import SECRET
+
+    from fh_agent.research_atlas.workspace_harness import check as check_workspace
+
+    repo, vault, sha = setup
+    git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
+    for r in g2_records():
+        write_note(vault / "authored" / (r["wiki_id"] + ".md"), r)
+    before = filesystem_state(vault)
+    outputs = views.project(repo, vault, sha)
+    after = filesystem_state(vault)
+    assert all(after[path][3] == value[3] for path, value in before.items() if value[3] is not None)
+    assert check_workspace(repo, vault) is not None
+    assert filesystem_state(vault) == after
+    manifest = yaml.safe_load(outputs[views.MANIFEST])
+    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["reference_index_schema_version"] == "1.1"
+    assert {entry["path"] for entry in manifest["owned_files"]} == {
+        str(p) for p in outputs if p != views.MANIFEST
+    }
+    assert all(SECRET.encode() not in payload for payload in outputs.values())
+    # Simulate intact v2.10/index-1.0 generated ownership, then migrate only derived output.
+    manifest["view_schema_version"] = "2.10"
+    manifest["reference_index_schema_version"] = "1.0"
+    root = vault / views.OWNED_ROOT
+    reference_path = root / views.REFERENCE_INDEX
+    old_index = reference_path.read_bytes().replace(
+        b"index_schema_version: '1.1'", b"index_schema_version: '1.0'"
+    )
+    reference_path.write_bytes(old_index)
+    for entry in manifest["owned_files"]:
+        if entry["path"] == str(views.REFERENCE_INDEX):
+            entry["sha256"] = views.digest(old_index)
+    (root / views.MANIFEST).write_text(yaml.safe_dump(manifest))
+    legacy_state = filesystem_state(vault)
+    with pytest.raises(views.ProjectionError, match="drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == legacy_state
+    migrated = views.project(repo, vault, sha)
+    assert migrated == outputs
+    assert check_workspace(repo, vault) is not None
+    assert all(
+        filesystem_state(vault)[path][3] == value[3]
+        for path, value in before.items()
+        if value[3] is not None
+    )
+    public = workspace_tree(load_registry(repo / "docs/research-atlas"))
+    assert all(
+        owner not in payload
+        for owner in ("WPAPER-FIXTURE", "READ-FIXTURE", "WFIND-FIXTURE")
+        for payload in public.values()
+    )
