@@ -700,6 +700,9 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "private_projection",
                         "private_views",
                         "private_reference_index",
+                        "research_presentation",
+                        "technical_reader",
+                        "reader_export",
                     }
                     continue
                 modules = [node.module or ""]
