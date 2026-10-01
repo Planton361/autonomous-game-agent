@@ -280,7 +280,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
 
     views.project(repo, vault, source_commit)
     current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
-    assert current["view_schema_version"] == "2.11"
+    assert current["view_schema_version"] == "2.12"
     current_details = {
         Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
     }

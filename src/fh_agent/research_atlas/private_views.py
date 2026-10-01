@@ -67,8 +67,8 @@ from .private_projection import (
 from .private_reference_index import (
     INDEX_SCHEMA_VERSION,
     NAVIGATION,
-    PILOT_INTERFACE,
     REFERENCE_INDEX,
+    TECHNICAL_TARGET_TYPES,
     Identity,
     ReferenceIndex,
     Row,
@@ -76,10 +76,10 @@ from .private_reference_index import (
     Via,
     build_index,
     component_navigation_rows,
-    interface_attachment_rows,
     make_snapshot,
     render_index,
     render_navigation,
+    technical_attachment_rows,
     technical_navigation_rows,
 )
 from .private_reference_index import (
@@ -379,6 +379,81 @@ class TechnicalDetailModel:
 
 
 @dataclass(frozen=True, slots=True)
+class AttachmentIndex:
+    """One role-preserving exact terminal lookup shared by all preferred pages."""
+
+    by_target: dict[str, tuple[Row, ...]]
+    paths_by_target: dict[str, tuple[Row, ...]]
+
+
+def attachment_index(reference: ReferenceIndex) -> AttachmentIndex:
+    attachments: dict[str, list[Row]] = {}
+    paths: dict[str, list[Row]] = {}
+    for row in technical_attachment_rows(reference):
+        attachments.setdefault(row.target_identifier, []).append(row)
+    # Revalidate the finite N-T contract once, separately from technical discovery.
+    for row in (
+        *technical_navigation_rows(reference),
+        *(r for r in reference.rows if r.navigation_view == "component"),
+    ):
+        paths.setdefault(row.target_identifier, []).append(row)
+    return AttachmentIndex(
+        {key: tuple(value) for key, value in attachments.items()},
+        {key: tuple(value) for key, value in paths.items()},
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeAttachment:
+    """A discovery surface keeps the original E9 row and independent technical provenance."""
+
+    attachment: Row
+    part_of_path: tuple[str, ...] = ()  # Scope first, exact Component target last.
+    relation: Relationship | None = None
+
+
+def component_descendant_paths(atlas: Atlas, scope: str) -> tuple[tuple[str, ...], ...]:
+    """Technical discovery only: explicit part_of, no Research edges or recipe expansion."""
+    if atlas.entities[scope].type not in {"System", "Component"}:
+        return ()
+    children: dict[str, set[str]] = {}
+    for edge in atlas.relationships:
+        if edge.relation != "part_of":
+            continue
+        child, parent = atlas.entities[edge.source], atlas.entities[edge.target]
+        if child.type == "Component" and parent.type in {"System", "Component"}:
+            children.setdefault(edge.target, set()).add(edge.source)
+    pending = [(scope,)]
+    paths: list[tuple[str, ...]] = []
+    while pending:
+        path = pending.pop()
+        for child in sorted(children.get(path[-1], ())):
+            if child in path:
+                raise ProjectionError("Cyclic technical part_of discovery")
+            descendant = (*path, child)
+            paths.append(descendant)
+            pending.append(descendant)
+    return tuple(sorted(paths))
+
+
+def related_research_relations(
+    atlas: Atlas, subject_id: str, edges: tuple[Relationship, ...]
+) -> tuple[Relationship, ...]:
+    """Reuse the finite Component typed lanes, excluding measured_at relevance propagation."""
+    if atlas.entities[subject_id].type != "Component":
+        return ()
+    return tuple(
+        edge
+        for edge in edges
+        if edge.relation != "measured_at"
+        and edge.relation
+        in _COMPONENT_LANE_RELATIONS.get(
+            atlas.entities[edge.target if edge.source == subject_id else edge.source].type, ()
+        )
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class IdentityPageModel:
     """One human-first view over an exact, allowlisted Registry identity."""
 
@@ -391,9 +466,10 @@ class IdentityPageModel:
     research_question_relationships: tuple[Relationship, ...]
     literature_paths: tuple[Row, ...]
     private_input_fingerprint: str
-    interface_attachments: tuple[Row, ...] = ()
+    direct_attachments: tuple[Row, ...] = ()
+    descendant_attachments: tuple[ScopeAttachment, ...] = ()
+    related_attachments: tuple[ScopeAttachment, ...] = ()
     technical_paths: tuple[Row, ...] = ()
-    related_scope_relation: Relationship | None = None
 
 
 def _derived_link(path: PurePosixPath, label: str) -> str:
@@ -599,7 +675,7 @@ def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dic
         "identity_page_registry_type": _identity_page_type_for_id(subject_id),
         "reference_index_schema_version": metadata.get("reference_index_schema_version"),
     }
-    if metadata.get("reference_index_schema_version") not in {"1.0", INDEX_SCHEMA_VERSION}:
+    if metadata.get("reference_index_schema_version") not in {"1.0", "1.1", INDEX_SCHEMA_VERSION}:
         return {}
     if version == IDENTITY_PAGE_SCHEMA_VERSION:
         expected["identity_page_path"] = str(relative)
@@ -1193,6 +1269,7 @@ def identity_page_model(
     identity_id: str,
     *,
     page_paths: dict[str, PurePosixPath] | None = None,
+    attachments: AttachmentIndex | None = None,
 ) -> IdentityPageModel:
     """Resolve one supported identity from exact Registry facts."""
     subject = atlas.entities.get(identity_id)
@@ -1258,22 +1335,22 @@ def identity_page_model(
             )
         )
 
-    # One explicit pilot join; technical adjacency never enters the Research index.
-    pilot = atlas.entities.get(PILOT_INTERFACE)
-    pilot_valid = isinstance(pilot, TechnicalIdentity) and pilot.type == "Interface"
-    related_scope_relation = next(
-        (
-            edge
-            for edge in direct_relationships
-            if identity_id == "CMP-MEM-RETRIEVAL"
-            and subject.type == "Component"
-            and pilot_valid
-            and (edge.source, edge.relation, edge.target)
-            == (identity_id, "supplies", PILOT_INTERFACE)
-        ),
-        None,
+    resolved = attachments if attachments is not None else attachment_index(reference)
+    by_target = resolved.by_target
+    descendants = tuple(
+        ScopeAttachment(row, part_of_path=trail)
+        for trail in component_descendant_paths(atlas, identity_id)
+        for row in by_target.get(trail[-1], ())
     )
-    attachment_scope = (identity_id == PILOT_INTERFACE and pilot_valid) or related_scope_relation
+    related = tuple(
+        ScopeAttachment(row, relation=edge)
+        for edge in related_research_relations(atlas, identity_id, direct_relationships)
+        for row in by_target.get(edge.target if edge.source == identity_id else edge.source, ())
+    )
+    displayed_targets = {
+        identity_id,
+        *(r.attachment.target_identifier for r in descendants + related),
+    }
 
     return IdentityPageModel(
         subject=subject,
@@ -1287,9 +1364,14 @@ def identity_page_model(
             component_navigation_rows(reference, identity_id) if subject.type == "Component" else ()
         ),
         private_input_fingerprint=reference.private_input_fingerprint,
-        interface_attachments=interface_attachment_rows(reference) if attachment_scope else (),
-        technical_paths=technical_navigation_rows(reference) if attachment_scope else (),
-        related_scope_relation=related_scope_relation,
+        direct_attachments=tuple(by_target.get(identity_id, ())),
+        descendant_attachments=descendants,
+        related_attachments=related,
+        technical_paths=tuple(
+            row
+            for target in sorted(displayed_targets)
+            for row in resolved.paths_by_target.get(target, ())
+        ),
     )
 
 
@@ -1301,8 +1383,9 @@ def identity_page_models(
 ) -> tuple[IdentityPageModel, ...]:
     """Build current supported identities; expanded Hubs keep their preferred pages."""
     paths = page_paths if page_paths is not None else identity_page_paths(atlas)
+    attachments = attachment_index(reference)
     return tuple(
-        identity_page_model(atlas, reference, identity, page_paths=paths)
+        identity_page_model(atlas, reference, identity, page_paths=paths, attachments=attachments)
         for identity in sorted(
             paths,
             key=lambda item: (atlas.entities[item].name.casefold(), item),
@@ -1690,50 +1773,175 @@ def _identity_page_function_context(
     return lines
 
 
-def _render_interface_research(
+def _render_technical_research(
     atlas: Atlas,
     model: IdentityPageModel,
     locators: dict[str, PurePosixPath],
     page_paths: dict[str, PurePosixPath],
 ) -> list[str]:
-    """Display exact E9 declarations; the related join remains independently technical."""
-    related = model.subject.id == "CMP-MEM-RETRIEVAL"
-    heading = "Related technical-scope Research" if related else "Directly attached Research"
-    lines = ["", "### " + heading, ""]
-    if related:
-        relation = model.related_scope_relation
-        if relation is None:
-            return lines + [
-                "No accepted one-hop technical relation is present in this snapshot.",
-                "",
-            ]
-        target_link = _identity_page_human_link(atlas, PILOT_INTERFACE, page_paths)
-        lines.extend(
-            [
-                f"Independent technical relation: `{relation.source}` — `{relation.relation}` → "
-                f"{target_link} (`{relation.target}`; type `Interface`).",
-                "Research remains attached to the Interface. Memory Retrieval does not inherit "
-                "the role or attachment; this is related navigation only.",
-                "",
-            ]
-        )
-    else:
-        target_link = _identity_page_human_link(atlas, PILOT_INTERFACE, page_paths)
-        lines.extend([f"Exact target: {target_link} (`{PILOT_INTERFACE}`; type `Interface`).", ""])
-    lines.extend(
-        [
-            "Roles belong only to the declaring private record. No parent, part_of ancestry, "
-            "Function membership, Domain, legacy Assembly, folder, backlink or graph proximity "
-            "creates Research relevance. These declarations establish no scientific support or "
-            "measurement validity. Literature coverage and research completeness "
-            "have not been assessed.",
+    """Three presentation bands; no derived display creates an attachment on this page."""
+    lines = [
+        "",
+        "Roles belong only to the declaring private record. No parent, part_of ancestry, "
+        "Function membership, Domain, legacy Assembly, folder, backlink or graph proximity "
+        "creates Research relevance. These declarations establish no scientific support or "
+        "measurement validity. Literature coverage and research completeness "
+        "have not been assessed.",
+        "",
+    ]
+    if model.subject.type == "MeasurementPoint":
+        lines += [
+            "MeasurementPoint attachment declares relevance only to this exact measurement scope. "
+            "It does not establish instrument validity, measurement execution, observed effect, "
+            "experimental result, scientific evidence or accepted Claim. Technical measured_at "
+            "relations do not propagate Research relevance.",
             "",
         ]
-    )
-    if not model.interface_attachments:
-        return lines + ["No matching declared Interface attachments in this snapshot.", ""]
+    if model.direct_attachments:
+        lines += [
+            "### Directly attached Research",
+            "",
+            "Exact target: "
+            + _identity_page_human_link(atlas, model.subject.id, page_paths)
+            + f" (`{model.subject.id}`; type `{model.subject.type}`).",
+            "",
+        ]
+        lines += _render_attachment_rows(
+            atlas, model, model.direct_attachments, locators, page_paths
+        )
+    else:
+        lines += ["No matching exact direct Research attachments in this snapshot.", ""]
+    if model.subject.type in {"System", "Component"}:
+        if model.descendant_attachments:
+            lines += [
+                "### Research attached below this scope",
+                "",
+                "Discovery only: this page does not inherit the descendant's role or attachment.",
+                "",
+            ]
+            groups: dict[tuple[str, str, tuple[str, ...]], list[Row]] = {}
+            for item in model.descendant_attachments:
+                row = item.attachment
+                key = (row.target_identifier, row.resolved_target_type, item.part_of_path)
+                groups.setdefault(key, []).append(row)
+            for (target, _target_type, path), rows in sorted(groups.items()):
+                lines += [
+                    f"#### {reference_plain(atlas.entities[target].name)}",
+                    "",
+                    "Exact part_of technical path (scope → descendant; "
+                    "each child declares part_of): "
+                    + " → ".join(f"`{identity}`" for identity in path),
+                    "",
+                ]
+                lines += _render_attachment_rows(atlas, model, tuple(rows), locators, page_paths)
+        else:
+            lines += [
+                "No Research attached to explicit Component descendants in this snapshot.",
+                "",
+            ]
+        if model.related_attachments:
+            lines += ["### Related technical-scope Research", ""]
+            related_groups: dict[tuple[str, str, str, str, str], list[Row]] = {}
+            for item in model.related_attachments:
+                relation = item.relation
+                assert relation is not None
+                row = item.attachment
+                key = (
+                    row.target_identifier,
+                    row.resolved_target_type,
+                    relation.source,
+                    relation.relation,
+                    relation.target,
+                )
+                related_groups.setdefault(key, []).append(row)
+            for (target, target_type, source, relation_name, endpoint), rows in sorted(
+                related_groups.items()
+            ):
+                lines += [
+                    f"#### {reference_plain(atlas.entities[target].name)}",
+                    "",
+                    f"Independent technical relation: `{source}` — "
+                    f"`{relation_name}` → `{endpoint}`.",
+                    "Exact related target: "
+                    + _identity_page_human_link(atlas, target, page_paths)
+                    + f" (`{target}`; type `{target_type}`).",
+                    f"Research remains attached to the {target_type}. "
+                    f"{model.subject.name} does not inherit the role or attachment; "
+                    "this is related navigation only.",
+                    "",
+                ]
+                lines += _render_attachment_rows(atlas, model, tuple(rows), locators, page_paths)
+        else:
+            lines += [
+                "No matching Research through an accepted one-hop technical relation "
+                "in this snapshot.",
+                "",
+            ]
+    return lines
+
+
+def _render_attachment_rows(
+    atlas: Atlas,
+    model: IdentityPageModel,
+    rows: tuple[Row, ...],
+    locators: dict[str, PurePosixPath],
+    page_paths: dict[str, PurePosixPath],
+) -> list[str]:
+    """Group presentation only; keep every exact role row in native collapsed Markdown."""
+    groups: dict[tuple[str, str, int, str, str], list[Row]] = {}
+    for row in rows:
+        key = (
+            row.source_wiki_id,
+            row.source_doc_type,
+            row.source_record_version,
+            row.target_identifier,
+            row.resolved_target_type,
+        )
+        groups.setdefault(key, []).append(row)
+    lines: list[str] = []
     source_path = OWNED_ROOT / model.path
-    for row in model.interface_attachments:
+    ordered = [
+        tuple(sorted(group, key=lambda row: (row.originating_role, row.row_id)))
+        for _key, group in sorted(groups.items())
+    ]
+    for group in ordered:
+        row = group[0]
+        owner = _component_research_link(atlas, row.source_wiki_id, locators, source_path)
+        target = _identity_page_human_link(atlas, row.target_identifier, page_paths)
+        roles = ", ".join(f"`{role}`" for role in sorted({r.originating_role for r in group}))
+        lines += [
+            f"- {owner} · `{row.source_wiki_id}` · type `{row.source_doc_type}` · "
+            f"revision `v{row.source_record_version}`.",
+            f"  - Exact technical target: {target} · `{row.target_identifier}` · "
+            f"type `{row.resolved_target_type}`.",
+            f"  - Authored Research roles: {roles}.",
+        ]
+    lines.append("")
+    for group in ordered:
+        row = group[0]
+        lines += [
+            f"> [!info]- Audit / provenance — {row.source_wiki_id} · "
+            f"v{row.source_record_version} · {row.target_identifier} · {row.resolved_target_type}",
+            ">",
+        ]
+        audit = _render_attachment_audit(atlas, model, group, locators, page_paths)
+        lines.extend("> " + line if line else ">" for line in audit)
+        lines.append("")
+    return lines
+
+
+def _render_attachment_audit(
+    atlas: Atlas,
+    model: IdentityPageModel,
+    rows: tuple[Row, ...],
+    locators: dict[str, PurePosixPath],
+    page_paths: dict[str, PurePosixPath],
+) -> list[str]:
+    """One role/owner/target renderer for all accepted technical classes and discovery bands."""
+    lines: list[str] = []
+    source_path = OWNED_ROOT / model.path
+    for row in rows:
+        target_link = _identity_page_human_link(atlas, row.target_identifier, page_paths)
         owner = _component_research_link(atlas, row.source_wiki_id, locators, source_path)
         lines.extend(
             [
@@ -1742,17 +1950,22 @@ def _render_interface_research(
                 f"revision `v{row.source_record_version}`.",
                 f"  - Exact authored role: `{row.originating_role}`.",
                 f"  - Original technical target: {target_link} · `{row.target_identifier}` · "
-                "type `Interface` · `resolved-public`.",
+                f"type `{row.resolved_target_type}` · `{row.target_resolution_status}`.",
                 "  - Terminal declaration: `E9:forward`; no semantic traversal after E9.",
                 f"  - Direct attachment audit row: `{row.row_id}`.",
             ]
         )
         for line in _component_via_edge_lines(row.via[-1], atlas, locators, source_path, 1):
             lines.append("  " + line)
-        matches = tuple(path for path in model.technical_paths if path.via[-1] == row.via[-1])
+        matches = tuple(
+            sorted(
+                (path for path in model.technical_paths if path.via[-1] == row.via[-1]),
+                key=lambda path: path.row_id,
+            )
+        )
         if not matches:
             lines.append(
-                "  - No resolved Paper-anchored finite N-T path; "
+                "  - No resolved Paper-anchored finite N-T path (or N-C Component path); "
                 "the exact declaration remains direct."
             )
         for path in matches:
@@ -2054,17 +2267,9 @@ def render_identity_page(
             "",
             "## Research",
             "",
-            (
-                "**Scope / availability:** exact private Interface role declarations and finite "
-                "N-T navigation; ResearchQuestion technical targeting remains a separate contract."
-                if subject.id == PILOT_INTERFACE
-                else "**Scope / availability:** direct Registry Research Questions and declared "
-                "Component literature paths; Interface attachments appear separately as related "
-                "technical-scope navigation through the exact supplies relation."
-                if subject.id == "CMP-MEM-RETRIEVAL"
-                else "**Scope / availability:** direct Registry Research Questions and declared "
-                "Component literature paths only; richer attachment is outside this slice."
-            ),
+            "**Scope / availability:** exact authored E9 declarations; direct, descendant and "
+            "bounded related discovery retain original owners, roles and targets. "
+            "ResearchQuestion technical targeting remains a separate contract.",
         ]
     )
     if hub is not None:
@@ -2115,19 +2320,17 @@ def render_identity_page(
                 "Reference Index snapshot; literature coverage and research completeness have "
                 "not been assessed."
             )
-    elif subject.id != PILOT_INTERFACE and subject.type != "Environment":
+    if subject.type in TECHNICAL_TARGET_TYPES:
+        lines.extend(_render_technical_research(atlas, model, locators or {}, paths))
+    elif subject.type == "Function":
         lines.extend(
             [
                 "",
-                "### Research targeting",
-                "",
-                "The current Reference Index resolves Component-terminal paths. Direct "
-                f"{subject.type} targeting is outside this slice; no inherited path is inferred. "
+                "Function membership does not aggregate Research or create direct attachment. "
                 "Literature coverage and research completeness have not been assessed.",
+                "",
             ]
         )
-    if subject.id in {PILOT_INTERFACE, "CMP-MEM-RETRIEVAL"}:
-        lines.extend(_render_interface_research(atlas, model, locators or {}, paths))
     lines.extend(
         [
             "",
@@ -3748,6 +3951,11 @@ class ManifestV211(ManifestV21):
     reference_index_schema_version: Literal["1.1"]
 
 
+class ManifestV212(ManifestV21):
+    view_schema_version: Literal["2.12"]
+    reference_index_schema_version: Literal["1.2"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -4025,13 +4233,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.11",
+        view_schema_version="2.12",
         reference_index_schema_version=reference.index_schema_version,
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV211.model_validate(data).model_dump(exclude_none=True)
+        ManifestV212.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -4183,6 +4391,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV210.model_validate(data)
         elif data.get("view_schema_version") == "2.11":
             manifest = ManifestV211.model_validate(data)
+        elif data.get("view_schema_version") == "2.12":
+            manifest = ManifestV212.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -4204,13 +4414,13 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and (
                         relative not in W07_PAYLOADS
                         or manifest.view_schema_version
-                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
+                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
-                        manifest.view_schema_version not in {"2.8", "2.9", "2.10", "2.11"}
+                        manifest.view_schema_version not in {"2.8", "2.9", "2.10", "2.11", "2.12"}
                         or relative in V27_INDEX_PAYLOADS
                     )
                 )
@@ -4230,6 +4440,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.9",
                     "2.10",
                     "2.11",
+                    "2.12",
                 }
                 and relative == REFERENCE_INDEX
             )
@@ -4246,28 +4457,28 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
+                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.7", "2.8", "2.9", "2.10", "2.11"}
+                manifest.view_schema_version in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                 and relative == HIERARCHY
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
             or (
                 manifest.view_schema_version
-                in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
+                in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12"}
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
             or (manifest.view_schema_version == "2.8" and relative in IDENTITY_PAGE_PAYLOADS)
@@ -4276,7 +4487,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and _identity_page_subject_for_path(relative) is not None
             )
             or (
-                manifest.view_schema_version in {"2.10", "2.11"}
+                manifest.view_schema_version in {"2.10", "2.11", "2.12"}
                 and _is_identity_page_path(relative)
             )
         ):
@@ -4379,7 +4590,7 @@ def project(
             metadata = read_yaml(utf8(data))
             owned = metadata.get("generated_by") == OWNER and metadata.get(
                 "index_schema_version"
-            ) in {"1.0", INDEX_SCHEMA_VERSION}
+            ) in {"1.0", "1.1", INDEX_SCHEMA_VERSION}
         elif relative.suffix == ".canvas":
             try:
                 canvas = json.loads(utf8(data))

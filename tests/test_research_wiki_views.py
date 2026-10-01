@@ -400,8 +400,8 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
-    assert manifest["reference_index_schema_version"] == "1.1"
+    assert manifest["view_schema_version"] == "2.12"
+    assert manifest["reference_index_schema_version"] == "1.2"
     assert (
         manifest["private_input_fingerprint"]
         == yaml.safe_load(tree[views.REFERENCE_INDEX])["private_input_fingerprint"]
@@ -450,7 +450,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "afea9925d340f5df3839d1c48e2e9ac4f3b14fdcc10ee6d2a2c7a1c28ba560b2"
+    assert tree_digest(tree) == "0007b12973bc36eca7d7563c87d998d87142eddad71fcec35861833be0ba60e2"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -479,11 +479,11 @@ def test_current_03_source_schema_propagates_through_private_views():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert views.ManifestV211.model_validate(manifest).source_atlas_schema == "0.3"
+    assert views.ManifestV212.model_validate(manifest).source_atlas_schema == "0.3"
     assert views.ReferenceIndex.model_validate(reference.model_dump()).source_atlas_schema == "0.3"
     manifest["source_atlas_schema"] = "0.4"
     with pytest.raises(ValidationError):
-        views.ManifestV211.model_validate(manifest)
+        views.ManifestV212.model_validate(manifest)
 
 
 def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
@@ -499,7 +499,7 @@ def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert str(views.OBSERVE_SCOPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     after = filesystem_state(vault)
@@ -533,7 +533,7 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert migrated_manifest["view_schema_version"] == "2.11"
+    assert migrated_manifest["view_schema_version"] == "2.12"
     assert views.IDENTITY_PAGE_PAYLOADS <= {
         PurePosixPath(item["path"]) for item in migrated_manifest["owned_files"]
     }
@@ -585,7 +585,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
         if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS
     }
 
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert owned == views.IDENTITY_PAGE_PAYLOADS
     for path in views.IDENTITY_PAGE_PAYLOADS:
         rendered = (derived(vault) / path).read_text()
@@ -673,7 +673,7 @@ def test_v29_stable_id_paths_migrate_to_human_first_without_authored_writes(setu
 
     migrated = views.project(repo, vault, sha)
     assert migrated == expected
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.11"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.12"
     assert old_paths["CMP-MEMORY"] == PurePosixPath("identity-pages/CMP-MEMORY.md")
     assert not (derived(vault) / old_paths["CMP-MEMORY"]).exists()
     memory = PurePosixPath("identity-pages/Memory.md")
@@ -909,7 +909,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "The Registry declares no Bridge → Firewall → Perception pipeline edge." in body
 
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.OBSERVE_SCOPE in owned
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
@@ -1130,7 +1130,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.11"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.12"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -1367,7 +1367,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1398,7 +1398,7 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1487,7 +1487,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert migrated_manifest["view_schema_version"] == "2.11"
+    assert migrated_manifest["view_schema_version"] == "2.12"
     assert str(views.LITERATURE_INSPECTION) in {
         item["path"] for item in migrated_manifest["owned_files"]
     }
@@ -1568,7 +1568,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -2392,7 +2392,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.11"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.12"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
@@ -2430,7 +2430,7 @@ def test_a22_yaml_owner_version_is_required(setup):
     views.project(repo, vault, sha)
     path = derived(vault) / views.REFERENCE_INDEX
     path.write_text(
-        path.read_text().replace("index_schema_version: '1.1'", "index_schema_version: '2.0'")
+        path.read_text().replace("index_schema_version: '1.2'", "index_schema_version: '2.0'")
     )
     assert "2.0" in path.read_text()
     assert_no_mutation(setup, lambda: views.project(repo, vault, sha), "owner marker")
@@ -2617,7 +2617,7 @@ def test_uip_legacy_hub_overviews_migrate_only_when_intact(setup, edited):
         assert filesystem_state(vault) == before
     else:
         migrated = views.project(repo, vault, sha)
-        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.11"
+        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.12"
         for identity, paths in views.COMPONENT_HUB_PATHS.items():
             page = migrated[paths.overview].decode()
             assert (
@@ -2679,8 +2679,11 @@ def test_engineering_catalog_failure_is_zero_write(setup, state):
     assert filesystem_state(vault) == before
 
 
-def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_denial(setup):
-    from test_g2_interface_attachment import records as g2_records
+@pytest.mark.parametrize("old_view,old_index_version", [("2.10", "1.0"), ("2.11", "1.1")])
+def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_denial(
+    setup, old_view, old_index_version
+):
+    from test_g2_interface_attachment import rollout_records as g2_records
     from test_research_wiki_projection import SECRET
 
     from fh_agent.research_atlas.workspace_harness import check as check_workspace
@@ -2696,24 +2699,28 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     assert check_workspace(repo, vault) is not None
     assert filesystem_state(vault) == after
     manifest = yaml.safe_load(outputs[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.11"
-    assert manifest["reference_index_schema_version"] == "1.1"
+    assert manifest["view_schema_version"] == "2.12"
+    assert manifest["reference_index_schema_version"] == "1.2"
     assert {entry["path"] for entry in manifest["owned_files"]} == {
         str(p) for p in outputs if p != views.MANIFEST
     }
     assert all(SECRET.encode() not in payload for payload in outputs.values())
-    # Simulate intact v2.10/index-1.0 generated ownership, then migrate only derived output.
-    manifest["view_schema_version"] = "2.10"
-    manifest["reference_index_schema_version"] = "1.0"
+    # Simulate historical generated ownership, including index and preferred-page markers.
+    manifest["view_schema_version"] = old_view
+    manifest["reference_index_schema_version"] = old_index_version
     root = vault / views.OWNED_ROOT
-    reference_path = root / views.REFERENCE_INDEX
-    old_index = reference_path.read_bytes().replace(
-        b"index_schema_version: '1.1'", b"index_schema_version: '1.0'"
-    )
-    reference_path.write_bytes(old_index)
     for entry in manifest["owned_files"]:
-        if entry["path"] == str(views.REFERENCE_INDEX):
-            entry["sha256"] = views.digest(old_index)
+        path = root / entry["path"]
+        payload = path.read_bytes()
+        legacy = payload.replace(
+            b"index_schema_version: '1.2'", f"index_schema_version: '{old_index_version}'".encode()
+        ).replace(
+            b"reference_index_schema_version: '1.2'",
+            f"reference_index_schema_version: '{old_index_version}'".encode(),
+        )
+        if legacy != payload:
+            path.write_bytes(legacy)
+            entry["sha256"] = views.digest(legacy)
     (root / views.MANIFEST).write_text(yaml.safe_dump(manifest))
     legacy_state = filesystem_state(vault)
     with pytest.raises(views.ProjectionError, match="drift"):

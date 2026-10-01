@@ -232,7 +232,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             "identity_page_registry_type": expected_type,
             "identity_page_path": str(path),
             "source_registry_revision": views.registry_content_revision(atlas),
-            "reference_index_schema_version": "1.1",
+            "reference_index_schema_version": "1.2",
             "private_input_fingerprint": reference.private_input_fingerprint,
         }
         assert rendered.count(views.IDENTITY_PAGE_METADATA_MARKER) == 1
@@ -370,8 +370,8 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     assert views._derived_link(detail_markdown, "Exact technical relations") in observation
     assert views._canvas_link(detail_canvas, "Visual relation map") in observation
     assert detail_markdown in tree and detail_canvas in tree
-    assert "DataArtifact targeting is outside this slice" in observation
-    assert "WPAPER-RM1-OBSERVATION" not in observation
+    assert "### Directly attached Research" in observation
+    assert "WPAPER-RM1-OBSERVATION" in observation
 
     for identity, expected_edges in audit_rows_by_identity.items():
         page_bytes = tree[views.IDENTITY_PAGE_PATHS[identity]]
@@ -405,10 +405,10 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             0
         ]
         for row in model.literature_paths:
-            assert row.row_id not in research_summary
+            assert row.row_id in research_summary
             assert f"`{row.row_id}`" in audit_text
             if row.recipe:
-                assert row.recipe not in research_summary
+                assert row.recipe in research_summary
                 assert f"`{row.recipe}`" in audit_text
 
     observe = tree[views.OBSERVE_SCOPE].decode()
@@ -425,7 +425,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
 
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
     assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
 
@@ -1234,7 +1234,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -1715,7 +1715,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -1756,7 +1756,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.11"
+    assert manifest["view_schema_version"] == "2.12"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
