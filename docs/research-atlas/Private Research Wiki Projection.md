@@ -653,7 +653,9 @@ Audit sections. Section navigation uses same-page anchors. The human Registry
 name leads, followed immediately by the existing responsibility description;
 type and stable ID remain quiet secondary metadata below it. The first view
 explains the identity and its agent role, implementation and verification
-state, useful human-labeled relations, and a `Back to Observe` route.
+state and useful human-labeled relations. UIP v1.1 replaces the old privileged
+`Back to Observe` route with authored Functional Context to `FUNC-OBSERVE`;
+Observe is a Function and is never technical ancestry.
 
 Human relation labels retain Registry direction: `part_of` is Part of /
 Contains; `consumes` is Uses / Used by; `supplies` is Produces / Produced by
@@ -706,7 +708,7 @@ for G6.
 ### Optional Identity Page presentation (Pattern B / Pattern A)
 
 Issue #113 CONTROL [release comment 5894355912](https://github.com/Planton361/autonomous-game-agent/issues/113#issuecomment-5894355912)
-extends only the four pilot pages with Pattern B: semantic Markdown, native
+established the four pilot pages with Pattern B: semantic Markdown, native
 Obsidian callouts, bounded Mermaid and one optional managed stylesheet.
 Pattern A is the mandatory native-only fallback; no community plugin is required.
 There are no visible Properties, styling frontmatter, Bases embeds or generated
@@ -716,11 +718,11 @@ The H1 and normal same-page H2/H3 sections stay in Markdown. The responsibility
 hero keeps the exact Registry description before quiet type/Stable ID metadata.
 On-this-page navigation links to Overview, Technical, Research, Evidence and
 Audit. At-a-glance cards contain textual implementation/verification state and
-human-labeled context. Only Perception has Go deeper, with its two exact Component
-children. Observation remains a DataArtifact cross-reference with Produced by /
+human-labeled context in that pilot baseline. The current UIP composition below
+replaces that context card with explicit Local Anatomy and Related Objects. Observation remains a DataArtifact cross-reference with Produced by /
 Used by summaries and unchanged W05 Markdown/Canvas destinations.
 
-Presentation hooks are exactly `aga-hero`, `aga-nav`, `aga-grid`, `aga-status`,
+The original pilot presentation hooks were `aga-hero`, `aga-nav`, `aga-grid`, `aga-status`,
 `aga-context`, `aga-depth`, `aga-research`, `aga-evidence` and `aga-audit`.
 Every callout has a readable title and content. The audit callout remains
 collapsed by default, with all exact predicates, IDs, revisions and provenance.
@@ -745,7 +747,19 @@ The sole managed presentation source is
 It styles only the finite public callout hooks: hero, cards, responsive grid,
 navigation links, badges and muted audit. It uses Obsidian/theme color variables,
 fluid sizing and a one-column narrow-screen fallback, without fonts, external
-resources, private selectors or content-hiding rules. It changes neither fact
+resources, private selectors or content-hiding rules. UIP adds scoped title polish
+only in Obsidian's existing visible-inline-title mode and when an inline title
+and an Identity Page hero coexist in the same preview/editor view. Reading View
+targets the direct rendered `.el-h1 > h1` block in `.markdown-preview-sizer`;
+Live Preview targets the CM6 `.cm-content > .cm-line.HyperMD-header-1` line.
+Both use body-text size, normal weight, muted color and local H1 variables, so
+nested heading tokens cannot retain the large H1 scale. The inline title is never
+targeted and the semantic H1 is neither removed nor hidden. Unrelated notes,
+embedded headings and source-only editing are outside these selectors. CSS-off
+and standalone Markdown retain the ordinary H1. No global setting is changed.
+Selector structure was checked against installed Obsidian 1.13.7 renderer/CSS
+and synthetic browser DOM fixtures; actual-vault visual acceptance still needs
+separately authorized CONTROL G6. It changes neither fact
 order nor semantic state. CSS is separate from the generator payload and manifest
 v2.8; the Workspace harness does not install or enable it. Actual-vault installation
 and enabling require a later exact-head CONTROL G6 authorization. The repository
@@ -759,6 +773,141 @@ contract checks, not a substitute for Reading View / Live Preview human G6.
 Native behavior follows [Obsidian callouts](https://obsidian.md/help/callouts)
 (unknown custom types fall back to ordinary native callouts); diagram syntax
 uses [Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html).
+
+## RM-1 typed Identity Page rollout (manifest v2.10)
+
+Issue #114 extends the shared renderer to every current Registry System,
+Component, Interface, Contract, DataArtifact, MeasurementPoint and Function. Environment
+gets technical/context presentation with direct Research explicitly deferred.
+Domain and Assembly remain navigation surfaces. The four v2.8 pilot paths remain
+stable, as do the two expanded Component Hub Overview destinations. Every other
+supported identity uses `identity-pages/<human Registry name>.md` when safe and
+unambiguous, so Obsidian's inline title is human-first. Stable ID remains the
+semantic identity in page content and hidden metadata. A display rename can
+change the preferred filename and updates all generated links.
+
+The path resolver normalizes names with Unicode NFKC, replaces separators,
+reserved filename and Obsidian link characters, and control characters with
+spaces, collapses whitespace, and strips surrounding spaces and periods. An
+empty or non-alphanumeric result becomes `Untitled`. Windows device names,
+duplicate or case-folded names, and names reserved by fixed pilot or Hub
+destinations receive ` — <Stable ID>` after the human stem. Any residual
+case-folded path collision or a filename over 240 UTF-8 bytes fails closed.
+Paths are sorted by Stable ID for
+deterministic output; no random suffixes are used.
+
+Only validated `part_of` Component edges create deeper navigation. Each page
+shows every ancestry trail and direct parent, including multiple valid parents;
+only exact direct Component children appear under Go deeper. A leaf omits that
+block. Domain, Assembly, folder and visual placement cannot supply ancestry.
+Typed non-Component pages remain cross-references. The two expanded Hub Overview paths now use the same complete UIP renderer,
+with full Technical and Research sections on each preferred page. Their existing
+Technical/Research subfiles remain auxiliary views of the same Stable ID.
+No duplicate preferred identity is created under `identity-pages/`.
+
+CONTROL [5921713522](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5921713522)
+bounds the current UIP-v1.1 reconciliation with accepted #137 and merged #138.
+The UIP foundation retains Identity / Orientation / State → Technical / Research
+entry cards → type-correct context → optional Visual Context → Technical →
+Related Objects → Research → neutral Gap Analysis → Evidence / Provenance →
+collapsed Registry / Audit → Return Navigation. Architecture authority,
+implementation status and verification status remain separate for technical
+identities. Function has no technical status axes in the Registry; its state
+identifies the explicit responsibility/process context without inventing runtime
+implementation. Domain browse areas remain presentation context only.
+
+Technical preferred pages have an explicit Functional Context section derived
+only from authored `contributes_to_function`. It displays human Function links,
+Stable ID and type. Role and order columns appear only when authored; missing
+individual values remain undeclared. Display sorting is deterministic, using
+explicit order where present then human name / Stable ID, without assigning
+order to unordered memberships. Domain, Assembly, folder, YAML position, Graph
+position, technical adjacency and parent/child relations never create membership,
+role or order. Missing mapping is neutral.
+
+All eight Registry Function identities receive one preferred page through the
+same human-first resolver. Function pages retain type Function, purpose and
+responsibility, non-containment orientation, exact explicit participants and
+links back to their preferred pages, same-page Technical / Research, Related
+Objects, Evidence, Audit and Return Navigation. They have no Component Local
+Anatomy. Functional membership creates neither technical ancestry, authority
+subordination nor Research relevance. The 26 public memberships remain unchanged.
+
+Component Local Anatomy is populated only for System and Component, from
+validated `part_of`. Other technical types retain their neutral non-containment
+section; Function omits Local Anatomy entirely.
+It gives an explicit direct-child count and orders children by case-folded human
+name then Stable ID. Zero children has a neutral leaf state; 1–4 uses compact
+linked cards; 5+ uses a complete compact direct-child table first. No child is
+hidden or omitted. System 17 and Memory six use tables; Perception two, Manager
+two and Body one use cards. The other 24 Components explicitly state that no
+direct subcomponents are registered and omit Go deeper. OCR and Spatial
+Perception are not current child identities. Multiple parents and arbitrary-depth
+containment remain supported.
+
+Home, Agent Anatomy, its scoped projection and System navigation resolve normal
+identity destinations through the shared preferred-page resolver. Observe routes
+to `FUNC-OBSERVE` as Functional Context. The legacy `assembly-scopes/Observe.md`
+file remains an owned compatibility/navigation surface, labelled as such with a
+preferred Function link; it is not a competing preferred identity or technical
+parent. No broad Assembly cleanup is performed. Hub Overview destinations remain
+unique, and their Technical/Research subfiles remain auxiliary deep links.
+Bottom Return Navigation separates exact registered technical parents from
+Functional Context and participant returns.
+
+Technical preserves registered type-specific connections and supported source
+inspection notes. Parent/child navigation is confined to orientation/anatomy;
+Interface, Contract, DataArtifact and MeasurementPoint relations are rendered
+once under Related Objects, without creating depth. Missing current provenance
+or design rationale has neutral unavailable text. Research begins with explicit
+scope/availability and retains only direct Research Questions and declared
+Component literature paths; Environment direct Research remains deferred.
+Gap Analysis says "Not assessed / no authorized gap assessment attached."
+No G2/G3/G4, literature absence, novelty, completeness or scientific claim is inferred.
+
+Technical and Research remain full same-page sections, preceded by paired entry
+cards in Technical then Research source order.
+CONTROL [5928242066](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5928242066)
+retains native Markdown thematic breaks before the exact Technical and Research
+H2s. One empty `<span class="aga-primary-section"></span>` between each divider
+and H2 identifies the real semantic heading for optional CSS. There is no
+replacement or duplicate heading. CSS-off retains dividers, H2s, anchors, order
+and all content/navigation. Bands combine spacing, padding, background, framing,
+a left accent and controlled stronger typography. Evidence and all other H2s
+have no marker and remain secondary.
+Native Obsidian 1.13.7 inspection in an isolated synthetic vault found Reading
+View `el-hr / el-p / el-h2` blocks and Live Preview a CM6 HTML widget, blank line,
+and `HyperMD-header-2` line. Local selectors survive virtualization of the hero.
+No plugin, fixed height, clipping, hidden content or horizontal scrolling is
+introduced. Journeys A–C remain accepted; the bounded visual re-check awaits
+CONTROL source/CI review. The actual private vault is not changed.
+ The optional stylesheet places
+readable cards side by side and stacks them at narrow widths, without fixed
+heights or horizontal scrolling. `aga-child` is the additional finite card hook.
+Native Markdown remains complete with CSS disabled, including Functional Context,
+Function participants and complete high-density child tables. Bounded Mermaid appears
+only in optional Visual Context for registered technical facts; it remains
+optional and its facts are available in anatomy, Related Objects and Audit.
+No Graph, Canvas, Excalidraw, HTML layout or plugin is required to read a page.
+The existing W05 auxiliary destinations remain unchanged. Evidence supports the
+page and is separated by technical/decision, research/scientific and other kinds;
+it is not a third equal pillar. Exact predicates and locators stay in Audit.
+
+Manifest v2.10 owns human-named Identity Page paths with a hidden v1.1 marker
+bound to the exact path, subject Stable ID, Registry type, source commit,
+Registry revision, Reference Index fingerprint, and generated owner. It accepts
+prior v2.9 Stable-ID paths with their v1.0 markers for migration. Existing
+generated Hub Overview frontmatter migrates in place to the path/ID/type-bound
+v1.1 marker only when its prior manifested bytes are intact. Edited Hub
+overviews fail closed, and unknown destinations are never adopted. The UIP repair
+adds no path family or manifest version; v2.10 and marker v1.1 remain unchanged. An intact old
+generated page is removed when its new preferred path is written. An edited
+old page, an unowned destination, or an invalid owner marker blocks the entire
+write. Authored files remain untouched, and `--check` remains zero-write.
+The actual private vault is outside this repository repair. Previously accepted G6
+remains valid only for unchanged behavior. Functional Context, Function pages,
+Local Anatomy density and Observe navigation await source/CI review and separately
+authorized task-based human G6; the old serial page-by-page sequence is not resumed.
 
 ## RA-4A fixture-only Zotero source projection
 

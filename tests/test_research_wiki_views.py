@@ -164,10 +164,27 @@ def install_legacy_workbench_paths(vault):
         (views.MEMORY_WORKBENCH, views.LEGACY_MEMORY_WORKBENCH),
         (views.VERIFIER_WORKBENCH, views.LEGACY_VERIFIER_WORKBENCH),
     )
+    atlas = load_registry(ATLAS)
     for current, legacy in pairs:
-        (root / current).rename(root / legacy)
+        identity = next(
+            identity
+            for identity, hub in views.COMPONENT_HUB_PATHS.items()
+            if hub.overview == current
+        )
+        metadata = views._identity_page_generated_metadata((root / current).read_text(), current)
+        data = views.render_component_hub_view(
+            metadata["source_commit"],
+            atlas,
+            views._component_hub_model(atlas, identity),
+            "overview",
+            views.make_snapshot([], atlas),
+            False,
+        )
+        (root / current).unlink()
+        (root / legacy).write_bytes(data)
         item = next(item for item in manifest["owned_files"] if item["path"] == str(current))
         item["path"] = str(legacy)
+        item["sha256"] = technical.digest(data)
     manifest["owned_files"].sort(key=lambda item: item["path"])
     manifest_path.write_text(technical.yaml_text(manifest))
 
@@ -202,9 +219,44 @@ def remove_observe_scope_for_legacy_manifest(vault, manifest):
 
 def remove_identity_pages_for_legacy_manifest(vault, manifest):
     for item in list(manifest["owned_files"]):
-        if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS:
+        if PurePosixPath(item["path"]).parent == PurePosixPath("identity-pages"):
             (derived(vault) / item["path"]).unlink()
             manifest["owned_files"].remove(item)
+
+
+def install_v29_stable_id_identity_paths(vault, atlas):
+    """Model the already-applied v2.9 owner marker and generic ID paths."""
+    root = derived(vault)
+    manifest_path = root / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_text())
+    old_paths = {}
+    for identity, current in views.identity_page_paths(atlas).items():
+        if identity in views.COMPONENT_HUB_PATHS:
+            continue
+        previous = (
+            current
+            if identity in views.IDENTITY_PAGE_PATHS
+            else PurePosixPath("identity-pages") / f"{identity}.md"
+        )
+        rendered = (root / current).read_text()
+        visible, _, _ = rendered.partition(views.IDENTITY_PAGE_METADATA_MARKER)
+        metadata = views._identity_page_generated_metadata(rendered, current)
+        metadata.pop("identity_page_path")
+        metadata["identity_page_schema_version"] = "1.0"
+        prior_bytes = (
+            visible + views.IDENTITY_PAGE_METADATA_MARKER + technical.yaml_text(metadata) + "-->\n"
+        ).encode()
+        if previous != current:
+            (root / current).unlink()
+        (root / previous).write_bytes(prior_bytes)
+        item = next(item for item in manifest["owned_files"] if item["path"] == str(current))
+        item["path"] = str(previous)
+        item["sha256"] = technical.digest(prior_bytes)
+        old_paths[identity] = previous
+    manifest["view_schema_version"] = "2.9"
+    manifest["owned_files"].sort(key=lambda item: item["path"])
+    manifest_path.write_text(technical.yaml_text(manifest))
+    return old_paths
 
 
 def downgrade_manifest_to_v26(vault):
@@ -324,7 +376,7 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.HIERARCHY,
     } | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(views.OBSERVE_SCOPE_PAYLOADS) | set(
         views.TECHNICAL_DETAIL_PAYLOADS
-    ) | set(views.IDENTITY_PAGE_PAYLOADS) | set(
+    ) | set(views.identity_page_paths(load_registry(repo / "docs/research-atlas")).values()) | set(
         views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas"))
     )
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
@@ -343,7 +395,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     assert manifest["reference_index_schema_version"] == "1.0"
     assert (
         manifest["private_input_fingerprint"]
@@ -393,7 +445,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "02326600851b8c3cdbcc20092a26c9093f0c46725c75e7241b460803d3c7be2d"
+    assert tree_digest(tree) == "58d741d0a0b1eb83240d943773f354cf032f5adda8054a6943db74e11034679f"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -422,11 +474,11 @@ def test_current_03_source_schema_propagates_through_private_views():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert views.ManifestV28.model_validate(manifest).source_atlas_schema == "0.3"
+    assert views.ManifestV210.model_validate(manifest).source_atlas_schema == "0.3"
     assert views.ReferenceIndex.model_validate(reference.model_dump()).source_atlas_schema == "0.3"
     manifest["source_atlas_schema"] = "0.4"
     with pytest.raises(ValidationError):
-        views.ManifestV28.model_validate(manifest)
+        views.ManifestV210.model_validate(manifest)
 
 
 def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
@@ -442,7 +494,7 @@ def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     assert str(views.OBSERVE_SCOPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     after = filesystem_state(vault)
@@ -460,9 +512,11 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     manifest["owned_files"] = [
         item
         for item in manifest["owned_files"]
-        if PurePosixPath(item["path"]) not in views.IDENTITY_PAGE_PAYLOADS
+        if PurePosixPath(item["path"]).parent != PurePosixPath("identity-pages")
     ]
-    for path in views.IDENTITY_PAGE_PAYLOADS:
+    for path in current:
+        if path.parent != PurePosixPath("identity-pages"):
+            continue
         (derived(vault) / path).unlink()
     manifest_path.write_bytes(technical.yaml_text(manifest).encode())
     before_check = filesystem_state(vault)
@@ -473,7 +527,7 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert migrated_manifest["view_schema_version"] == "2.8"
+    assert migrated_manifest["view_schema_version"] == "2.10"
     assert views.IDENTITY_PAGE_PAYLOADS <= {
         PurePosixPath(item["path"]) for item in migrated_manifest["owned_files"]
     }
@@ -482,6 +536,36 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     after = filesystem_state(vault)
     assert views.project(repo, vault, sha, check=True) == migrated
     assert filesystem_state(vault) == after
+
+
+def test_rm1_v28_pilot_paths_migrate_to_v29_without_adopting_new_paths(setup):
+    repo, vault, sha = setup
+    current = views.project(repo, vault, sha)
+    authored = outside_owned(vault)
+    manifest_path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_bytes())
+    added_paths = {
+        PurePosixPath(item["path"])
+        for item in manifest["owned_files"]
+        if PurePosixPath(item["path"]).parent == PurePosixPath("identity-pages")
+        and PurePosixPath(item["path"]) not in views.IDENTITY_PAGE_PAYLOADS
+    }
+    assert len(added_paths) == 52
+    manifest["view_schema_version"] = "2.8"
+    manifest["owned_files"] = [
+        item for item in manifest["owned_files"] if PurePosixPath(item["path"]) not in added_paths
+    ]
+    for path in added_paths:
+        (derived(vault) / path).unlink()
+    manifest_path.write_text(technical.yaml_text(manifest))
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    migrated = views.project(repo, vault, sha)
+    assert migrated == current
+    assert all((derived(vault) / path).is_file() for path in added_paths)
+    assert outside_owned(vault) == authored
 
 
 def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_write(setup):
@@ -494,7 +578,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
         if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS
     }
 
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     assert owned == views.IDENTITY_PAGE_PAYLOADS
     for path in views.IDENTITY_PAGE_PAYLOADS:
         rendered = (derived(vault) / path).read_text()
@@ -509,7 +593,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
 
 @pytest.mark.parametrize(
     "fault",
-    ("missing", "malformed", "wrong_owner", "wrong_subject", "wrong_type"),
+    ("missing", "malformed", "wrong_owner", "wrong_subject", "wrong_type", "wrong_path"),
 )
 def test_identity_page_hidden_metadata_fails_closed(setup, fault):
     repo, vault, sha = setup
@@ -531,6 +615,8 @@ def test_identity_page_hidden_metadata_fails_closed(setup, fault):
             metadata["identity_page_subject_id"] = "CMP-OBSERVATION-BUILDER"
         elif fault == "wrong_type":
             metadata["identity_page_registry_type"] = "DataArtifact"
+        elif fault == "wrong_path":
+            metadata["identity_page_path"] = "identity-pages/Other.md"
         changed = (
             visible + views.IDENTITY_PAGE_METADATA_MARKER + technical.yaml_text(metadata) + "-->\n"
         )
@@ -567,6 +653,174 @@ def test_identity_page_edits_and_unowned_paths_are_not_adopted(setup):
     assert filesystem_state(vault) == before_unowned
 
 
+def test_v29_stable_id_paths_migrate_to_human_first_without_authored_writes(setup):
+    repo, vault, sha = setup
+    expected = views.project(repo, vault, sha)
+    atlas = load_registry(repo / "docs/research-atlas")
+    old_paths = install_v29_stable_id_identity_paths(vault, atlas)
+    authored = outside_owned(vault)
+    before_check = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before_check
+
+    migrated = views.project(repo, vault, sha)
+    assert migrated == expected
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
+    assert old_paths["CMP-MEMORY"] == PurePosixPath("identity-pages/CMP-MEMORY.md")
+    assert not (derived(vault) / old_paths["CMP-MEMORY"]).exists()
+    memory = PurePosixPath("identity-pages/Memory.md")
+    assert memory in migrated
+    assert (
+        views._identity_page_generated_metadata(migrated[memory].decode(), memory)[
+            "identity_page_subject_id"
+        ]
+        == "CMP-MEMORY"
+    )
+    assert (
+        views._derived_link(memory, "Memory")
+        in migrated[views.identity_page_paths(atlas)["CMP-MEM-EPISODIC"]].decode()
+    )
+    assert (
+        "_generated/derived/identity-pages/CMP-MEMORY|"
+        not in migrated[views.identity_page_paths(atlas)["CMP-MEM-EPISODIC"]].decode()
+    )
+    assert outside_owned(vault) == authored
+    after = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == migrated
+    assert filesystem_state(vault) == after
+
+
+def test_v29_identity_migration_fails_closed_without_writes(setup):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    atlas = load_registry(repo / "docs/research-atlas")
+    old_paths = install_v29_stable_id_identity_paths(vault, atlas)
+    target = derived(vault) / old_paths["CMP-MEMORY"]
+    intact = target.read_bytes()
+    target.write_bytes(intact + b"Authored edit\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Identity Page was edited|owner marker"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before
+    target.write_bytes(intact)
+
+    destination = derived(vault) / "identity-pages/Memory.md"
+    destination.write_text("Authored destination\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == before
+
+
+@pytest.mark.parametrize("kind", ["Component", "Function"])
+def test_rm1_synthetic_add_rename_remove_preserves_authored_bytes_and_zero_write(setup, kind):
+    repo, vault, sha = setup
+    baseline = views.project(repo, vault, sha)
+
+    def authored_bytes():
+        return {
+            str(path.relative_to(vault)): path.read_bytes()
+            for path in vault.rglob("*")
+            if path.is_file() and not path.is_relative_to(vault / "_generated")
+        }
+
+    authored = authored_bytes()
+    nodes_path = repo / "docs/research-atlas/registry/nodes.yaml"
+    edges_path = repo / "docs/research-atlas/registry/relationships.yaml"
+    original_nodes, original_edges = nodes_path.read_bytes(), edges_path.read_bytes()
+    nodes = yaml.safe_load(original_nodes)
+    edges = yaml.safe_load(original_edges)
+    template_id = "CMP-PERCEPTION" if kind == "Component" else "FUNC-OBSERVE"
+    template = next(node for node in nodes["nodes"] if node["id"] == template_id)
+    synthetic_id = "CMP-SYN-ADDED" if kind == "Component" else "FUNC-SYN-ADDED"
+    synthetic = {**template, "id": synthetic_id, "name": "Synthetic addition"}
+    synthetic.update(
+        description="Synthetic direct Component responsibility.",
+        atlas_level=None,
+        overview_visibility=None,
+        overview_order=None,
+    )
+    nodes["nodes"].append(synthetic)
+    edges["relationships"].append(
+        {"relation": "part_of", "source": synthetic_id, "target": "CMP-PERCEPTION"}
+        if kind == "Component"
+        else {
+            "relation": "contributes_to_function",
+            "source": "CMP-PERCEPTION",
+            "target": synthetic_id,
+        }
+    )
+    nodes_path.write_text(technical.yaml_text(nodes))
+    edges_path.write_text(technical.yaml_text(edges))
+    added_sha = commit(repo)
+    technical.project(repo, vault, added_sha)
+    before_check = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Direct-view drift"):
+        views.project(repo, vault, added_sha, check=True)
+    assert filesystem_state(vault) == before_check
+    added = views.project(repo, vault, added_sha)
+    path = PurePosixPath("identity-pages/Synthetic addition.md")
+    assert path in added and path not in baseline
+    owned = {item["path"] for item in yaml.safe_load(added[views.MANIFEST])["owned_files"]}
+    assert str(path) in owned
+    assert "identity-pages/CMP-MEM-RETRIEVAL.md" not in owned
+    assert "identity-pages/CMP-INDEPENDENT-VERIFIER.md" not in owned
+    assert "Synthetic addition" in added[path].decode()
+    assert views.project(repo, vault, added_sha, check=True) == added
+    assert authored_bytes() == authored
+
+    synthetic["name"] = "Renamed synthetic Component"
+    nodes_path.write_text(technical.yaml_text(nodes))
+    renamed_sha = commit(repo)
+    technical.project(repo, vault, renamed_sha)
+    prior_page = derived(vault) / path
+    original_prior = prior_page.read_bytes()
+    prior_page.write_bytes(original_prior + b"Edited old generated page\n")
+    before_rejected_rename = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Identity Page was edited|owner marker"):
+        views.project(repo, vault, renamed_sha)
+    assert filesystem_state(vault) == before_rejected_rename
+    prior_page.write_bytes(original_prior)
+    renamed_path = PurePosixPath("identity-pages/Renamed synthetic Component.md")
+    occupied = derived(vault) / renamed_path
+    occupied.write_text("Authored destination\n")
+    before_occupied = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="Unknown/unowned derived files"):
+        views.project(repo, vault, renamed_sha)
+    assert filesystem_state(vault) == before_occupied
+    occupied.unlink()
+    renamed = views.project(repo, vault, renamed_sha)
+    assert path not in renamed and not (derived(vault) / path).exists()
+    assert renamed_path in renamed
+    pilot = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    assert (
+        views._derived_link(renamed_path, "Renamed synthetic Component") in renamed[pilot].decode()
+    )
+    assert views._derived_link(path, "Synthetic addition") not in renamed[pilot].decode()
+    assert "Renamed synthetic Component" in renamed[renamed_path].decode()
+    assert "Synthetic addition" not in renamed[renamed_path].decode()
+    assert authored_bytes() == authored
+
+    nodes_path.write_bytes(original_nodes)
+    edges_path.write_bytes(original_edges)
+    removed_sha = commit(repo)
+    technical.project(repo, vault, removed_sha)
+    edited_page = derived(vault) / renamed_path
+    edited_page.write_bytes(renamed[renamed_path] + b"Manual edit must survive\n")
+    before_rejected_remove = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="owner marker|Identity Page was edited"):
+        views.project(repo, vault, removed_sha)
+    assert filesystem_state(vault) == before_rejected_remove
+    edited_page.write_bytes(renamed[renamed_path])
+    removed = views.project(repo, vault, removed_sha)
+    assert renamed_path not in removed and not edited_page.exists()
+    assert authored_bytes() == authored
+    before_final_check = filesystem_state(vault)
+    assert views.project(repo, vault, removed_sha, check=True) == removed
+    assert filesystem_state(vault) == before_final_check
+
+
 def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinations(setup):
     repo, vault, sha = setup
     atlas = load_registry(repo / "docs/research-atlas")
@@ -589,7 +843,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "## Authority, revision and limitations" in body
 
     first_view = body.split("## Exact Registry relations\n", 1)[0]
-    assert len(first_view.splitlines()) <= 27
+    assert len(first_view.splitlines()) <= 30
     assert (
         first_view.index("← Agent Anatomy")
         < first_view.index("**OBSERVE — Observation Integrity / State**")
@@ -609,7 +863,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
         "DAT-OBSERVATION": "Open Observation",
     }
     for identity, label in expected_actions.items():
-        path = views.IDENTITY_PAGE_PATHS.get(identity)
+        path = views.identity_page_paths(atlas).get(identity)
         action_link = (
             views._derived_link(path, label)
             if path is not None
@@ -648,7 +902,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "The Registry declares no Bridge → Firewall → Perception pipeline edge." in body
 
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.OBSERVE_SCOPE in owned
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
@@ -664,7 +918,11 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
         for name in technical.REGISTRY_FILES
     }
     anatomy = technical.projection_tree(atlas, sha, digests)[technical.ANATOMY].decode()
-    assert f"[[{PRIVATE_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]" in anatomy
+    function_path = views.OWNED_ROOT / views.identity_page_paths(atlas)["FUNC-OBSERVE"].with_suffix(
+        ""
+    )
+    assert f"[[{function_path}|Observe · Functional Context]]" in anatomy
+    assert str(PRIVATE_OBSERVE_SCOPE_PATH.with_suffix("")) not in anatomy
     expected_back_link = (
         "[← Agent Anatomy](../../technical-atlas/system-map/Agent%20Anatomy.excalidraw.md)"
     )
@@ -758,8 +1016,18 @@ def test_w02_hierarchy_direction_domain_separation_and_link_targets(setup):
     retrieval = tree[views._hierarchy_path("CMP-MEM-RETRIEVAL")].decode()
     verifier = tree[views._hierarchy_path("CMP-INDEPENDENT-VERIFIER")].decode()
     assert "# Technical Hierarchy" in entry
-    assert "Memory Retrieval · CMP-MEM-RETRIEVAL" in entry
-    assert "Independent Verifier · CMP-INDEPENDENT-VERIFIER" in entry
+    assert (
+        views._identity_page_human_link(
+            load_registry(repo / "docs/research-atlas"), "CMP-MEM-RETRIEVAL"
+        )
+        in entry
+    )
+    assert (
+        views._identity_page_human_link(
+            load_registry(repo / "docs/research-atlas"), "CMP-INDEPENDENT-VERIFIER"
+        )
+        in entry
+    )
     assert "## Technical children" in memory
     assert "Open Overview" in retrieval
     assert "Memory Retrieval · CMP-MEM-RETRIEVAL" not in memory
@@ -855,7 +1123,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.8"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.10"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -866,8 +1134,8 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
     home = tree[views.K3_HOME].decode()
     home_props, _ = technical.markdown_parts(tree[views.K3_HOME].decode())
     assert home_props["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION == "1.6"
-    assert "Component Hubs" in home
-    assert "Overview and opens Technical or Research views of that same Component identity" in home
+    assert "Preferred Component identities" in home
+    assert "complete Identity Page with same-page Technical and Research" in home
 
     expected = (
         (
@@ -889,34 +1157,36 @@ def test_w04_hub_views_share_a_human_first_plain_markdown_contract(setup):
         )
         assert f"{title} · {identity}" in home
         for view, path in payloads:
-            properties, body = technical.markdown_parts(tree[path].decode())
-            assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION
-            assert properties["k3_surface"] == f"component-hub-{view}"
-            assert properties["k3_subject"] == identity
-            assert body.startswith(f"# {title}\n\n*Component Hub · {view.title()}*")
+            if view == "overview":
+                body = tree[path].decode()
+                metadata = views._identity_page_generated_metadata(body, path)
+                assert metadata["identity_page_subject_id"] == identity
+                assert metadata["identity_page_registry_type"] == "Component"
+                assert body.startswith(f"# {title}\n")
+                assert "## Technical" in body and "## Research" in body
+                assert "## Return Navigation" in body
+            else:
+                properties, body = technical.markdown_parts(tree[path].decode())
+                assert properties["k3_view_schema_version"] == views.K3_VIEW_SCHEMA_VERSION
+                assert properties["k3_surface"] == f"component-hub-{view}"
+                assert properties["k3_subject"] == identity
+                assert body.startswith(f"# {title}\n\n*Component Hub · {view.title()}*")
+                assert "**Views:**" in body
             assert f"`{identity}`" in body
-            assert "**Views:**" in body
             assert "Agent Anatomy" in body and "Technical Hierarchy" in body
             assert "Research Knowledge Home" in body
         overview = tree[paths.overview].decode()
-        assert "Open Technical" in overview and "Open Research" in overview
-        assert "declared Research Questions and literature paths" in overview
-
-    memory_overview = tree[views.MEMORY_WORKBENCH].decode()
-    parentage = memory_overview.split("**Technical parent(s)**", 1)[1].split("\n## ", 1)[0]
-    navigation = memory_overview.split("**Navigation location**", 1)[1].split("\n\n", 1)[0]
-    assert "SYS-AGA" in parentage and "CMP-MEMORY" not in parentage
-    assert "DOM-EVIDENCE-MEMORY" in navigation
-    assert "follows the Agent → presentation Domain → Component path" in memory_overview
-    assert "this is not technical ancestry" in memory_overview
-    assert "canonical-target" in memory_overview
-    assert "partial" in memory_overview and "unverified" in memory_overview
-
-    verifier_overview = tree[views.VERIFIER_WORKBENCH].decode()
-    verifier_parentage = verifier_overview.split("**Technical parent(s)**", 1)[1].split("\n## ", 1)[
-        0
-    ]
-    assert "SYS-AGA" in verifier_parentage and "DOM-VERIFY-LEARN" in verifier_overview
+        assert "Read Technical on this page" in overview
+        assert "Read Research on this page" in overview
+        assert "Technical auxiliary view" in overview and "Research auxiliary view" in overview
+        assert "No registered direct subcomponents" in overview
+        assert "Canonical target" in overview
+        status = load_registry(repo / "docs/research-atlas").entities[identity].technical
+        assert status.implementation_status.replace("-", " ").title() in overview
+        assert status.verification_status.replace("-", " ").title() in overview
+        return_navigation = overview.split("## Return Navigation", 1)[1]
+        assert "Autonomous Game Agent" in return_navigation
+        assert "Memory.md" not in return_navigation
 
 
 def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
@@ -928,6 +1198,9 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
         assert links
         for link in links:
             target = link.replace(r"\|", "|").partition("|")[0]
+            if target.startswith("#"):
+                assert target[1:] in tree[path].decode(), (path, target)
+                continue
             relative = PurePosixPath(target)
             if relative.suffix == ".excalidraw":
                 generated = PurePosixPath(f"{relative}.md")
@@ -1087,7 +1360,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1117,7 +1390,7 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1141,7 +1414,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     old_tree = {
         path: data
         for path, data in current.items()
-        if path not in {views.LITERATURE_INSPECTION, *views.IDENTITY_PAGE_PAYLOADS}
+        if path != views.LITERATURE_INSPECTION and path.parent != PurePosixPath("identity-pages")
     }
     old_tree.pop(views.OBSERVE_SCOPE)
 
@@ -1168,7 +1441,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
         not in {
             str(views.LITERATURE_INSPECTION),
             str(views.OBSERVE_SCOPE),
-            *(str(path) for path in views.IDENTITY_PAGE_PAYLOADS),
+            *(str(path) for path in current if path.parent == PurePosixPath("identity-pages")),
         }
     ]
     for item in manifest["owned_files"]:
@@ -1182,7 +1455,9 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     target = root / views.LITERATURE_INSPECTION
     target.unlink()
     (root / views.OBSERVE_SCOPE).unlink()
-    for path in views.IDENTITY_PAGE_PAYLOADS:
+    for path in current:
+        if path.parent != PurePosixPath("identity-pages"):
+            continue
         (root / path).unlink()
     for relative, data in old_tree.items():
         path = root / relative
@@ -1203,7 +1478,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert migrated_manifest["view_schema_version"] == "2.8"
+    assert migrated_manifest["view_schema_version"] == "2.10"
     assert str(views.LITERATURE_INSPECTION) in {
         item["path"] for item in migrated_manifest["owned_files"]
     }
@@ -1284,7 +1559,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.8"
+    assert manifest["view_schema_version"] == "2.10"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -2108,7 +2383,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.8"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
@@ -2296,3 +2571,54 @@ def test_a25_interrupted_owned_regeneration_is_detectable_and_recoverable(
     repaired = views.project(repo, vault, sha)
     assert repaired[views.MANIFEST] != old_manifest
     assert views.project(repo, vault, sha, check=True) == repaired
+
+
+@pytest.mark.parametrize("edited", [False, True])
+def test_uip_legacy_hub_overviews_migrate_only_when_intact(setup, edited):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    authored = outside_owned(vault)
+    atlas = load_registry(repo / "docs/research-atlas")
+    snapshot = views.make_snapshot([], atlas)
+    manifest_path = derived(vault) / views.MANIFEST
+    manifest = yaml.safe_load(manifest_path.read_bytes())
+    for identity, paths in views.COMPONENT_HUB_PATHS.items():
+        legacy = views.render_component_hub_view(
+            sha,
+            atlas,
+            views._component_hub_model(atlas, identity),
+            "overview",
+            snapshot,
+            False,
+        )
+        (derived(vault) / paths.overview).write_bytes(legacy)
+        item = next(item for item in manifest["owned_files"] if item["path"] == str(paths.overview))
+        item["sha256"] = technical.digest(legacy)
+    manifest_path.write_text(technical.yaml_text(manifest))
+    if edited:
+        with (derived(vault) / views.MEMORY_WORKBENCH).open("ab") as stream:
+            stream.write(b"\nAuthored edit must be preserved.\n")
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError, match="edited" if edited else "drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    if edited:
+        with pytest.raises(technical.ProjectionError, match="edited"):
+            views.project(repo, vault, sha)
+        assert filesystem_state(vault) == before
+    else:
+        migrated = views.project(repo, vault, sha)
+        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.10"
+        for identity, paths in views.COMPONENT_HUB_PATHS.items():
+            page = migrated[paths.overview].decode()
+            assert (
+                views._identity_page_generated_metadata(page, paths.overview)[
+                    "identity_page_subject_id"
+                ]
+                == identity
+            )
+            assert "## Technical" in page and "## Research" in page
+        after = filesystem_state(vault)
+        assert views.project(repo, vault, sha, check=True) == migrated
+        assert filesystem_state(vault) == after
+    assert outside_owned(vault) == authored
