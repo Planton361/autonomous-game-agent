@@ -127,6 +127,17 @@ def setup(tmp_path):
     return repo, vault, sha
 
 
+def remove_g4_payloads(vault, manifest):
+    """Historical manifest fixtures cannot contain later G4 generated files."""
+    for relative in views.SOURCE_PAYLOADS:
+        (vault / views.OWNED_ROOT / relative).unlink(missing_ok=True)
+    manifest["owned_files"] = [
+        item
+        for item in manifest["owned_files"]
+        if PurePosixPath(item["path"]) not in views.SOURCE_PAYLOADS
+    ]
+
+
 def derived(vault):
     return vault / views.OWNED_ROOT
 
@@ -255,6 +266,9 @@ def install_v29_stable_id_identity_paths(vault, atlas):
         old_paths[identity] = previous
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.9"
     manifest["reference_index_schema_version"] = "1.0"
     manifest["owned_files"].sort(key=lambda item: item["path"])
@@ -267,6 +281,9 @@ def downgrade_manifest_to_v26(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.6"
     manifest["reference_index_schema_version"] = "1.0"
     remove_observe_scope_for_legacy_manifest(vault, manifest)
@@ -279,6 +296,9 @@ def downgrade_manifest_to_v2(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.0"
     manifest["reference_index_schema_version"] = "1.0"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
@@ -305,6 +325,9 @@ def downgrade_manifest_to_v22(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.2"
     manifest["reference_index_schema_version"] = "1.0"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
@@ -325,6 +348,9 @@ def install_pre_w02_v21(vault):
     manifest = yaml.safe_load(path.read_text())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.1"
     manifest["reference_index_schema_version"] = "1.0"
     remove_w07_landscape_for_legacy_manifest(vault, manifest)
@@ -389,11 +415,11 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.REFERENCE_INDEX,
         views.NAVIGATION,
         views.HIERARCHY,
-    } | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(views.OBSERVE_SCOPE_PAYLOADS) | set(
-        views.TECHNICAL_DETAIL_PAYLOADS
-    ) | set(views.identity_page_paths(load_registry(repo / "docs/research-atlas")).values()) | set(
-        views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas"))
-    )
+    } | set(views.SOURCE_PAYLOADS) | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(
+        views.OBSERVE_SCOPE_PAYLOADS
+    ) | set(views.TECHNICAL_DETAIL_PAYLOADS) | set(
+        views.identity_page_paths(load_registry(repo / "docs/research-atlas")).values()
+    ) | set(views.hierarchy_tree(sha, load_registry(repo / "docs/research-atlas")))
     assert views.OWNED_ROOT == PurePosixPath("_generated/derived")
     assert outside_owned(vault) == before
     first = snapshot(derived(vault))
@@ -410,7 +436,7 @@ def test_manifest_exact_commit_schema_digests_and_sources(setup):
     repo, vault, sha = setup
     tree = views.project(repo, vault, sha)
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert (
         manifest["private_input_fingerprint"]
@@ -460,7 +486,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "093b05b5918002d5d9ec0a54c6cc94b64c6581951a0dbc4fdc1b920ba731453c"
+    assert tree_digest(tree) == "bc343814e7e9c56cd2404092d3bab8df85197e254131a71b502107a3bf80f4e4"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -489,11 +515,11 @@ def test_current_03_source_schema_propagates_through_private_views():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert views.ManifestV213.model_validate(manifest).source_atlas_schema == "0.3"
+    assert views.ManifestV214.model_validate(manifest).source_atlas_schema == "0.3"
     assert views.ReferenceIndex.model_validate(reference.model_dump()).source_atlas_schema == "0.3"
     manifest["source_atlas_schema"] = "0.4"
     with pytest.raises(ValidationError):
-        views.ManifestV213.model_validate(manifest)
+        views.ManifestV214.model_validate(manifest)
 
 
 def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
@@ -509,7 +535,7 @@ def test_observe_scope_migrates_from_v26_with_zero_write_check(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert str(views.OBSERVE_SCOPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     after = filesystem_state(vault)
@@ -525,6 +551,9 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
     manifest = yaml.safe_load(manifest_path.read_bytes())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.7"
     manifest["reference_index_schema_version"] = "1.0"
     manifest["owned_files"] = [
@@ -545,7 +574,7 @@ def test_identity_pages_migrate_from_v27_and_check_without_writes(setup):
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert migrated_manifest["view_schema_version"] == "2.13"
+    assert migrated_manifest["view_schema_version"] == "2.14"
     assert views.IDENTITY_PAGE_PAYLOADS <= {
         PurePosixPath(item["path"]) for item in migrated_manifest["owned_files"]
     }
@@ -571,6 +600,9 @@ def test_rm1_v28_pilot_paths_migrate_to_v29_without_adopting_new_paths(setup):
     assert len(added_paths) == 52
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.8"
     manifest["reference_index_schema_version"] = "1.0"
     manifest["owned_files"] = [
@@ -599,7 +631,7 @@ def test_identity_page_hidden_metadata_owns_exact_v28_paths_and_check_is_zero_wr
         if PurePosixPath(item["path"]) in views.IDENTITY_PAGE_PAYLOADS
     }
 
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert owned == views.IDENTITY_PAGE_PAYLOADS
     for path in views.IDENTITY_PAGE_PAYLOADS:
         rendered = (derived(vault) / path).read_text()
@@ -687,7 +719,7 @@ def test_v29_stable_id_paths_migrate_to_human_first_without_authored_writes(setu
 
     migrated = views.project(repo, vault, sha)
     assert migrated == expected
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.13"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.14"
     assert old_paths["CMP-MEMORY"] == PurePosixPath("identity-pages/CMP-MEMORY.md")
     assert not (derived(vault) / old_paths["CMP-MEMORY"]).exists()
     memory = PurePosixPath("identity-pages/Memory.md")
@@ -922,7 +954,7 @@ def test_observe_scope_uses_finite_private_ownership_and_existing_w05_destinatio
     assert "The Registry declares no Bridge → Firewall → Perception pipeline edge." in body
 
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.OBSERVE_SCOPE in owned
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
@@ -1143,7 +1175,7 @@ def test_w02_v21_migration_check_is_zero_write_and_authored_bytes_survive(setup)
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     tree = views.project(repo, vault, sha)
-    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.13"
+    assert yaml.safe_load(tree[views.MANIFEST])["view_schema_version"] == "2.14"
     assert views.project(repo, vault, sha, check=True) == tree
     assert outside_owned(vault) == authored
 
@@ -1382,7 +1414,7 @@ def test_w04_v22_manifest_migrates_with_finite_hub_ownership(setup):
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert views.K3_PAYLOADS <= owned
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1397,6 +1429,9 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     def downgrade(manifest):
         manifest.pop("presentation_fingerprint_version", None)
         manifest.pop("presentation_input_fingerprint", None)
+        manifest.pop("source_resolution_fingerprint_version", None)
+        manifest.pop("source_resolution_input_fingerprint", None)
+        remove_g4_payloads(vault, manifest)
         manifest["view_schema_version"] = "2.4"
         manifest["reference_index_schema_version"] = "1.0"
         remove_identity_pages_for_legacy_manifest(vault, manifest)
@@ -1415,7 +1450,7 @@ def test_w07_landscape_manifest_migrates_v24_with_finite_ownership(setup):
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert str(views.RESEARCH_LANDSCAPE) in {item["path"] for item in manifest["owned_files"]}
     assert outside_owned(vault) == authored_before
     assert views.project(repo, vault, sha, check=True) == migrated
@@ -1441,6 +1476,8 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
         for path, data in current.items()
         if path != views.LITERATURE_INSPECTION and path.parent != PurePosixPath("identity-pages")
     }
+    for path in views.SOURCE_PAYLOADS:
+        old_tree.pop(path)
     old_tree.pop(views.OBSERVE_SCOPE)
 
     landscape_section = (
@@ -1460,6 +1497,9 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     manifest = views.read_yaml(old_tree[views.MANIFEST].decode())
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.5"
     manifest["reference_index_schema_version"] = "1.0"
     manifest["owned_files"] = [
@@ -1506,7 +1546,7 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
 
     migrated = views.project(repo, vault, sha)
     migrated_manifest = views.read_yaml(migrated[views.MANIFEST].decode())
-    assert migrated_manifest["view_schema_version"] == "2.13"
+    assert migrated_manifest["view_schema_version"] == "2.14"
     assert str(views.LITERATURE_INSPECTION) in {
         item["path"] for item in migrated_manifest["owned_files"]
     }
@@ -1587,7 +1627,7 @@ def test_obsidian_normalized_v2_bases_allow_legacy_workbench_migration(setup):
 
     migrated = views.project(repo, vault, sha)
     manifest = yaml.safe_load(migrated[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     for base in views.OBSIDIAN_MANAGED_BASES:
         assert (derived(vault) / base).read_bytes() == migrated[base]
     for current in (views.MEMORY_WORKBENCH, views.VERIFIER_WORKBENCH):
@@ -2411,7 +2451,7 @@ def test_a21_v1_write_migration_and_zero_write_check(reference_setup):
     assert views.HIERARCHY in migrated
     assert migrated[views.DIRECT_BASE] == old[views.DIRECT_BASE]
     assert migrated[views.TECHNICAL_BASE] == old[views.TECHNICAL_BASE]
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.13"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.14"
     assert views.project(repo, vault, sha, check=True) == migrated
 
 
@@ -2636,7 +2676,7 @@ def test_uip_legacy_hub_overviews_migrate_only_when_intact(setup, edited):
         assert filesystem_state(vault) == before
     else:
         migrated = views.project(repo, vault, sha)
-        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.13"
+        assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.14"
         for identity, paths in views.COMPONENT_HUB_PATHS.items():
             page = migrated[paths.overview].decode()
             assert (
@@ -2718,7 +2758,7 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     assert check_workspace(repo, vault) is not None
     assert filesystem_state(vault) == after
     manifest = yaml.safe_load(outputs[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert {entry["path"] for entry in manifest["owned_files"]} == {
         str(p) for p in outputs if p != views.MANIFEST
@@ -2727,6 +2767,9 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     # Simulate historical generated ownership, including index and preferred-page markers.
     manifest.pop("presentation_fingerprint_version", None)
     manifest.pop("presentation_input_fingerprint", None)
+    manifest.pop("source_resolution_fingerprint_version", None)
+    manifest.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, manifest)
     manifest["view_schema_version"] = old_view
     manifest["reference_index_schema_version"] = old_index_version
     root = vault / views.OWNED_ROOT
@@ -2778,12 +2821,15 @@ def test_human_reader_v212_migration_body_independence_private_export_and_zero_w
     outputs = views.project(repo, vault, sha)
     assert outside_owned(vault) == authored_before
     current = yaml.safe_load(outputs[views.MANIFEST])
-    assert current["view_schema_version"] == "2.13"
+    assert current["view_schema_version"] == "2.14"
     assert current["presentation_fingerprint_version"] == "1.0"
     historical = copy.deepcopy(current)
     historical["view_schema_version"] = "2.12"
     historical.pop("presentation_fingerprint_version")
     historical.pop("presentation_input_fingerprint")
+    historical.pop("source_resolution_fingerprint_version", None)
+    historical.pop("source_resolution_input_fingerprint", None)
+    remove_g4_payloads(vault, historical)
     manifest_path = derived(vault) / views.MANIFEST
     manifest_path.write_text(yaml.safe_dump(historical))
     before = filesystem_state(vault)
@@ -2829,3 +2875,135 @@ def test_human_reader_v212_migration_body_independence_private_export_and_zero_w
         for record in reader_records()
         for payload in public.values()
     )
+
+
+def test_g4_catalog_projection_historical_migration_zero_write_and_private_isolation(setup):
+    import json
+
+    from source_resolution_fixtures import FIXTURE, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import CATALOG_INPUT, SOURCE_DETAIL, SOURCE_INDEX
+    from fh_agent.research_atlas.workspace_harness import WorkspaceError
+    from fh_agent.research_atlas.workspace_harness import check as workspace_check
+
+    repo, vault, sha = setup
+    git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
+    # Real physical synthetic test root; no operator PRIVATE_VAULT lookup or synced-vault access.
+    baseline = views.project(repo, vault, sha)
+    manifest = yaml.safe_load(baseline[views.MANIFEST])
+    remove_g4_payloads(vault, manifest)
+    manifest.pop("source_resolution_fingerprint_version")
+    manifest.pop("source_resolution_input_fingerprint")
+    manifest["view_schema_version"] = "2.13"
+    (derived(vault) / views.MANIFEST).write_text(technical.yaml_text(manifest))
+    before = filesystem_state(vault)
+    with pytest.raises(WorkspaceError, match="drift"):
+        workspace_check(repo, vault)
+    assert filesystem_state(vault) == before
+    empty = views.project(repo, vault, sha)
+    assert b"Project source catalog unavailable" in empty[SOURCE_DETAIL]
+    assert b"srcf-a7k2" not in b"".join(empty.values())
+    (vault / CATALOG_INPUT).write_bytes(FIXTURE.read_bytes())
+    for record in synthetic_records():
+        write_note(
+            vault / "authored" / (record.title + ".md"),
+            record.model_dump(mode="json", exclude_unset=True),
+        )
+    before_authored = outside_owned(vault)
+    public_before = snapshot(repo)
+    outputs = views.project(repo, vault, sha)
+    assert outside_owned(vault) == before_authored and snapshot(repo) == public_before
+    before = filesystem_state(vault)
+    assert workspace_check(repo, vault) is not None
+    assert filesystem_state(vault) == before
+    source_index = yaml.safe_load(outputs[SOURCE_INDEX])
+    current = yaml.safe_load(outputs[views.MANIFEST])
+    assert current["view_schema_version"] == "2.14"
+    assert (
+        current["source_resolution_input_fingerprint"]
+        == source_index["source_resolution_input_fingerprint"]
+    )
+    note = vault / "authored" / "Synthetic — Reading Preprint v1.md"
+    note.write_text(
+        note.read_text() + "\nBody-only fictional annotation; never a resolver input.\n"
+    )
+    before = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == outputs
+    assert filesystem_state(vault) == before
+    authored_read_bytes = note.read_bytes()
+    # A changed explicit preference causes drift, but the exact older read provenance stays.
+    catalog = json.loads((vault / CATALOG_INPUT).read_text())
+    catalog["families"][0]["preferred_version_ref"] = "srcv-b8q3"
+    (vault / CATALOG_INPUT).write_text(json.dumps(catalog))
+    before = filesystem_state(vault)
+    with pytest.raises(WorkspaceError, match="drift"):
+        workspace_check(repo, vault)
+    assert filesystem_state(vault) == before
+    changed = views.project(repo, vault, sha)
+    assert changed[SOURCE_INDEX] != outputs[SOURCE_INDEX]
+    _, _, records = views.authored_snapshot(vault, load_registry(repo / "docs/research-atlas"))
+    reading = next(r for r in records if r.wiki_id == "READ-SOURCE-PROOF")
+    assert reading.version_read == "srcv-b8q3"
+    assert note.read_bytes() == authored_read_bytes  # No authored source/version rewriting.
+    public = workspace_tree(load_registry(repo / "docs/research-atlas"))
+    assert all(
+        "srcf-a7k2" not in payload
+        and "srcv-b8q3" not in payload
+        and "Hierarchical Visual State Representations" not in payload
+        for payload in public.values()
+    )
+    assert snapshot(repo) == public_before
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "edited-index",
+        "edited-detail",
+        "lost-owner",
+        "unowned",
+        "catalog",
+        "symlink",
+        "missing-history",
+        "pruned-history",
+    ],
+)
+def test_g4_source_preflight_failures_never_write_or_adopt(setup, fault):
+    import json
+
+    from source_resolution_fixtures import FIXTURE
+
+    from fh_agent.research_atlas.source_resolution import CATALOG_INPUT, SOURCE_DETAIL, SOURCE_INDEX
+
+    repo, vault, sha = setup
+    (vault / CATALOG_INPUT).write_bytes(FIXTURE.read_bytes())
+    tree = views.project(repo, vault, sha)
+    target = derived(vault) / (
+        SOURCE_INDEX if fault in {"edited-index", "missing-history"} else SOURCE_DETAIL
+    )
+    if fault in {"edited-index", "edited-detail"}:
+        target.write_bytes(target.read_bytes() + b"\n# fictional human edit\n")
+    elif fault == "lost-owner":
+        target.write_text(target.read_text().replace(views.OWNER, "unknown-owner"))
+    elif fault == "unowned":
+        (derived(vault) / "indexes/unowned-source.md").write_text("authored bytes")
+    elif fault == "catalog":
+        (vault / CATALOG_INPUT).write_text('{"source_catalog_schema_version":"unknown"}')
+    elif fault == "symlink":
+        (vault / CATALOG_INPUT).unlink()
+        (vault / CATALOG_INPUT).symlink_to(FIXTURE)
+    elif fault == "missing-history":
+        target.unlink()
+        data = json.loads((vault / CATALOG_INPUT).read_text())
+        data["families"][0]["title"] = "Changed fictional source"
+        (vault / CATALOG_INPUT).write_text(json.dumps(data))
+    else:
+        data = json.loads((vault / CATALOG_INPUT).read_text())
+        data["versions"] = data["versions"][:3]
+        (vault / CATALOG_INPUT).write_text(json.dumps(data))
+    before = filesystem_state(vault)
+    for check in (True, False):
+        with pytest.raises(views.ProjectionError):
+            views.project(repo, vault, sha, check=check)
+        assert filesystem_state(vault) == before
+    assert tree[SOURCE_INDEX]  # Original finite source payload existed; never silently adopted.

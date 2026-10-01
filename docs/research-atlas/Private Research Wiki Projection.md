@@ -1164,3 +1164,17 @@ Reader PDF uses the managed print rule or the documented private reader-export
 projection when CSS is unavailable. Complete audit remains on the original page.
 Implementation does not apply to the actual synced vault; task-based human G6
 follows CONTROL exact-head source/CI acceptance.
+
+## G4 explicit project source resolution (#123, manifest v2.14)
+
+The [Private Source Resolution Contract](Private%20Source%20Resolution%20Contract.md)
+extends the Human-First Paper preview/W10 inspection with one optional authored
+private catalog, exact `srcf-*` / `srcv-*` bindings and Source details. It adds two
+fixed private payloads and a separate source-resolution fingerprint under the
+same writer/owner; historical manifest 1.0–2.13 migration and zero-write checks
+remain supported. RA-2 fields and existing reference/presentation fingerprint
+semantics remain unchanged. An absent catalog stays unavailable; RA-4A is never
+substituted. Version read remains independent from an authored preferred version.
+Source statuses create diagnostics only. No actual synced-vault application or
+synthetic corpus population occurs during implementation; bounded human G6 follows
+CONTROL exact-head source/CI acceptance.

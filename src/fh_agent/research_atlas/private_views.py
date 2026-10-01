@@ -97,6 +97,18 @@ from .research_presentation import (
     record_link,
 )
 from .schema import PREFIXES, Evidence, Function, Relationship, TechnicalIdentity
+from .source_presentation import SourceReader
+from .source_resolution import (
+    SOURCE_DETAIL,
+    SOURCE_FINGERPRINT_VERSION,
+    SOURCE_INDEX,
+    SOURCE_PAYLOADS,
+    SourceCatalog,
+    SourceIndex,
+    SourceResolver,
+    load_catalog,
+    validate_source_history,
+)
 from .technical_reader import PROTOTYPES
 from .validator import Atlas, AtlasSourceSchema, UniqueKeyLoader, load_registry
 from .wiki_schema import EpistemicRecord, Paper, ReadingNote, validate_wiki_records
@@ -2133,11 +2145,13 @@ def render_identity_page(
     locators: dict[str, PurePosixPath] | None = None,
     private_records: tuple[EpistemicRecord, ...] = (),
     presentation_revision: str | None = None,
+    source_reader: SourceReader | None = None,
 ) -> bytes:
     """Human-first reader with one complete, native collapsed audit projection."""
     paths = page_paths if page_paths is not None else identity_page_paths(atlas)
     locators = locators or {}
     presentation_revision = presentation_revision or presentation_fingerprint(private_records)
+    source_reader = source_reader or SourceReader(SourceResolver(None))
     # Existing exact detail renderer keeps the complete Registry and G2 audit contract.
     audit_lines, metadata = _identity_page_audit(
         commit, atlas, model, registry_revision=registry_revision, page_paths=paths
@@ -2278,7 +2292,17 @@ def render_identity_page(
         lines += ["Direct Environment Research attachment is deferred.", ""]
     if model.direct_attachments:
         previews = paper_previews(
-            subject.id, model.direct_attachments, model.technical_paths, private_records, link
+            subject.id,
+            model.direct_attachments,
+            model.technical_paths,
+            private_records,
+            link,
+            lambda paper, reading: source_reader.summary(
+                source_reader.resolver.reading(reading, private_records)
+                if reading is not None
+                else source_reader.resolver.paper(paper),
+                OWNED_ROOT / model.path,
+            ),
         )
         lines += previews
         owners: dict[str, set[str]] = {}
@@ -3380,10 +3404,49 @@ def _render_literature_record(
     record: Paper | ReadingNote,
     fields: tuple[str, ...],
     locators: dict[str, PurePosixPath],
+    source_reader: SourceReader,
+    records: tuple[EpistemicRecord, ...],
 ) -> list[str]:
-    authored = _landscape_authored_link(record, locators, OWNED_ROOT / LITERATURE_INSPECTION)
-    lines = [
+    authored = record_link(record, locators, OWNED_ROOT / LITERATURE_INSPECTION)
+    binding = (
+        source_reader.resolver.paper(record)
+        if isinstance(record, Paper)
+        else source_reader.resolver.reading(record, records)
+    )
+    lines = [f"### {authored}", ""]
+    lines += source_reader.summary(binding, OWNED_ROOT / LITERATURE_INSPECTION)
+    if isinstance(record, ReadingNote):
+        lines += [
+            f"**Reading state:** {record.reading_depth.replace('_', ' ')}; "
+            f"{record.document_maturity.replace('_', ' ')}.",
+            "",
+        ]
+        if record.read_date is not None:
+            lines += [f"**Read date:** {record.read_date.isoformat()}.", ""]
+        if record.checked_sections:
+            lines += ["**Checked sections:** " + ", ".join(record.checked_sections) + ".", ""]
+        for paper in sorted(records, key=lambda r: r.wiki_id):
+            if isinstance(paper, Paper) and paper.wiki_id in (
+                record.paper_refs or record.source_refs
+            ):
+                lines += [
+                    "**Return to Paper:** "
+                    + record_link(paper, locators, OWNED_ROOT / LITERATURE_INSPECTION),
+                    "",
+                ]
+    else:
+        for reading in sorted(records, key=lambda r: r.wiki_id):
+            if isinstance(reading, ReadingNote) and record.wiki_id in (
+                reading.paper_refs or reading.source_refs
+            ):
+                lines += [
+                    "**ReadingNote:** "
+                    + record_link(reading, locators, OWNED_ROOT / LITERATURE_INSPECTION),
+                    "",
+                ]
+    audit = [
         f"- {authored}",
+        f"  - Stable ID: `{record.wiki_id}`",
         f"  - Record class: `{record.doc_type}` · Record version: `{record.record_version}`",
         f"  - Document maturity: `{record.document_maturity}`",
         "  - Profile: `RA-2` · Epistemic schema version: "
@@ -3399,9 +3462,12 @@ def _render_literature_record(
             continue
         present_fields.append((field, value))
     if present_fields:
-        lines.append("  - Existing accepted structured fields:")
+        audit.append("  - Existing accepted structured fields:")
         for field, value in present_fields:
-            lines.append(f"    - `{field}`: {_literature_literal(value)}")
+            audit.append(f"    - `{field}`: {_literature_literal(value)}")
+    lines += ["> [!aga-audit]- Exact authored source / record audit", ">"]
+    lines += ["> " + line for line in audit]
+    lines += [""]
     return lines
 
 
@@ -3410,8 +3476,10 @@ def render_literature_inspection(
     snapshot: Snapshot,
     locators: dict[str, PurePosixPath],
     records: tuple[EpistemicRecord, ...],
+    source_reader: SourceReader | None = None,
 ) -> bytes:
     """Render current accepted Paper and ReadingNote fields without reading note bodies."""
+    source_reader = source_reader or SourceReader(SourceResolver(None))
     snapshot_records = {
         record.wiki_id: record for record in snapshot.records if record.profile == "ra2"
     }
@@ -3452,7 +3520,7 @@ def render_literature_inspection(
         [
             "A generated inspection of accepted RA-2 Paper and ReadingNote records in this "
             "snapshot. Structured values are displayed as stored. This page does not read "
-            "ReadingNote bodies, interpret prose, resolve source identities, or assess "
+            "ReadingNote bodies, interpret prose, or assess "
             "research quality, evidence, coverage, relevance, novelty, or priority.",
             "",
             "## Paper/source records",
@@ -3463,18 +3531,28 @@ def render_literature_inspection(
         body.extend(["No current matching records are present in this snapshot.", ""])
     else:
         for record in paper_records:
-            body.extend(_render_literature_record(record, LITERATURE_PAPER_FIELDS, locators))
+            body.extend(
+                _render_literature_record(
+                    record, LITERATURE_PAPER_FIELDS, locators, source_reader, records
+                )
+            )
         body.append("")
     body.extend(["## ReadingNote records", ""])
     if not reading_records:
         body.extend(["No current matching records are present in this snapshot.", ""])
     else:
         for record in reading_records:
-            body.extend(_render_literature_record(record, LITERATURE_READING_NOTE_FIELDS, locators))
+            body.extend(
+                _render_literature_record(
+                    record, LITERATURE_READING_NOTE_FIELDS, locators, source_reader, records
+                )
+            )
         body.append("")
     body.extend(
         [
             "## Existing reference navigation and audit",
+            "",
+            f"- {_derived_link(SOURCE_DETAIL, 'Source detail / Audit')}",
             "",
             f"- {_derived_link(NAVIGATION, 'Declared Literature Navigation')}",
             f"- [[{OWNED_ROOT / NAVIGATION.with_suffix('')}#Direct Reference Audit|"
@@ -3482,7 +3560,8 @@ def render_literature_inspection(
             f"- {_derived_link(INDEX, 'Direct Views Index')}",
             "",
             "These existing routes retain their current deterministic reference and audit "
-            "semantics. This page adds no source-resolution or reference-traversal behavior.",
+            "semantics. Source resolution uses only the explicit private G4 catalog; "
+            "reference traversal is unchanged.",
             "",
             "## Return navigation",
             "",
@@ -3940,6 +4019,12 @@ class ManifestV213(ManifestV212):
     presentation_input_fingerprint: SHA256
 
 
+class ManifestV214(ManifestV213):
+    view_schema_version: Literal["2.14"]
+    source_resolution_fingerprint_version: Literal["1.0"]
+    source_resolution_input_fingerprint: SHA256
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -4076,6 +4161,7 @@ def reference_views_tree(
     private_records: tuple[EpistemicRecord, ...] = (),
     *,
     engineering_bindings: tuple[Binding, ...] = (),
+    source_catalog: SourceCatalog | None = None,
 ) -> dict[PurePosixPath, bytes]:
     if reference.source_atlas_schema != atlas.source_atlas_schema:
         raise ProjectionError("Reference index source Atlas schema does not match loaded Atlas")
@@ -4083,6 +4169,9 @@ def reference_views_tree(
         Catalog(presentation_binding_version="1.0", bindings=engineering_bindings), atlas
     )
     technical_navigation_rows(reference)  # Fail closed before constructing any projected output.
+    source_resolver = SourceResolver(source_catalog)
+    source_reader = SourceReader(source_resolver)
+    source_index = source_resolver.index(commit, private_records)
     tree = views_tree(commit, public_base, direct_base, atlas.source_atlas_schema)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
@@ -4092,8 +4181,10 @@ def reference_views_tree(
         commit, atlas, snapshot, locators, private_records
     )
     tree[LITERATURE_INSPECTION] = render_literature_inspection(
-        commit, snapshot, locators, private_records
+        commit, snapshot, locators, private_records, source_reader
     )
+    tree[SOURCE_INDEX] = yaml_text(source_index.model_dump(mode="json")).encode()
+    tree[SOURCE_DETAIL] = source_reader.detail(source_index, private_records, locators)
     hubs = {
         subject_id: _component_hub_model(atlas, subject_id) for subject_id in COMPONENT_HUB_PATHS
     }
@@ -4141,6 +4232,7 @@ def reference_views_tree(
             locators=locators,
             private_records=private_records,
             presentation_revision=presentation_revision,
+            source_reader=source_reader,
         )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
@@ -4205,6 +4297,7 @@ def reference_views_tree(
         + f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}\n"
         + f"- {_derived_link(RESEARCH_LANDSCAPE, 'Research Landscape')}\n"
         + f"- {_derived_link(LITERATURE_INSPECTION, 'Literature Inspection')}\n"
+        + f"- {_derived_link(SOURCE_DETAIL, 'Source detail / Audit')}\n"
         + f"- {_derived_link(HIERARCHY, 'Technical Hierarchy')}\n"
     ).encode()
     data = old.model_dump()
@@ -4220,7 +4313,9 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.13",
+        view_schema_version="2.14",
+        source_resolution_fingerprint_version=SOURCE_FINGERPRINT_VERSION,
+        source_resolution_input_fingerprint=source_index.source_resolution_input_fingerprint,
         presentation_fingerprint_version=PRESENTATION_FINGERPRINT_VERSION,
         presentation_input_fingerprint=presentation_revision,
         reference_index_schema_version=reference.index_schema_version,
@@ -4228,7 +4323,7 @@ def reference_views_tree(
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV213.model_validate(data).model_dump(exclude_none=True)
+        ManifestV214.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -4384,6 +4479,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV212.model_validate(data)
         elif data.get("view_schema_version") == "2.13":
             manifest = ManifestV213.model_validate(data)
+        elif data.get("view_schema_version") == "2.14":
+            manifest = ManifestV214.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -4394,9 +4491,12 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
+        if relative in SOURCE_PAYLOADS and manifest.view_schema_version != "2.14":
+            raise ProjectionError("Historical manifest cannot own G4 source payloads")
         # V1 cannot claim YAML; later versions add one fixed YAML payload, not a subtree.
         if not (
-            len(relative.parts) == 2
+            (manifest.view_schema_version == "2.14" and relative in SOURCE_PAYLOADS)
+            or len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
                 or (
@@ -4405,15 +4505,27 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and (
                         relative not in W07_PAYLOADS
                         or manifest.view_schema_version
-                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13"}
+                        in {
+                            "2.5",
+                            "2.6",
+                            "2.7",
+                            "2.8",
+                            "2.9",
+                            "2.10",
+                            "2.11",
+                            "2.12",
+                            "2.13",
+                            "2.14",
+                        }
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
                         manifest.view_schema_version
-                        not in {"2.8", "2.9", "2.10", "2.11", "2.12", "2.13"}
+                        not in {"2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
                         or relative in V27_INDEX_PAYLOADS
+                        or (manifest.view_schema_version == "2.14" and relative == SOURCE_DETAIL)
                     )
                 )
             )
@@ -4434,6 +4546,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.11",
                     "2.12",
                     "2.13",
+                    "2.14",
                 }
                 and relative == REFERENCE_INDEX
             )
@@ -4451,12 +4564,12 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             )
             or (
                 manifest.view_schema_version
-                in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13"}
+                in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
                 manifest.view_schema_version
-                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13"}
+                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
@@ -4474,6 +4587,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.11",
                     "2.12",
                     "2.13",
+                    "2.14",
                 }
                 and relative == HIERARCHY
             )
@@ -4492,6 +4606,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.11",
                     "2.12",
                     "2.13",
+                    "2.14",
                 }
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
@@ -4499,7 +4614,19 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             )
             or (
                 manifest.view_schema_version
-                in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13"}
+                in {
+                    "2.4",
+                    "2.5",
+                    "2.6",
+                    "2.7",
+                    "2.8",
+                    "2.9",
+                    "2.10",
+                    "2.11",
+                    "2.12",
+                    "2.13",
+                    "2.14",
+                }
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
             or (manifest.view_schema_version == "2.8" and relative in IDENTITY_PAGE_PAYLOADS)
@@ -4508,7 +4635,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and _identity_page_subject_for_path(relative) is not None
             )
             or (
-                manifest.view_schema_version in {"2.10", "2.11", "2.12", "2.13"}
+                manifest.view_schema_version in {"2.10", "2.11", "2.12", "2.13", "2.14"}
                 and _is_identity_page_path(relative)
             )
         ):
@@ -4575,6 +4702,7 @@ def project(
         (vault / PurePosixPath("_generated/zotero/manifest/projection.yaml")).is_file(),
         private_records,
         engineering_bindings=parse_catalog(source_bytes(repo, CATALOG_PATH), atlas),
+        source_catalog=load_catalog(vault),
     )
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")
@@ -4607,6 +4735,16 @@ def project(
                 raise ProjectionError(
                     "Prior-owned Base changed semantically; preserve or restore it"
                 )
+        elif relative in SOURCE_PAYLOADS:
+            metadata = (
+                read_yaml(utf8(data)) if relative == SOURCE_INDEX else markdown_parts(utf8(data))[0]
+            )
+            owned = (
+                metadata.get("generated_by") == OWNER
+                and metadata.get("source_resolution_schema_version") == "1.0"
+            )
+            if digest(data) != item.sha256 and data != tree.get(relative):
+                raise ProjectionError("Prior-owned source view was edited; preserve or restore it")
         elif relative == REFERENCE_INDEX:
             metadata = read_yaml(utf8(data))
             owned = metadata.get("generated_by") == OWNER and metadata.get(
@@ -4654,6 +4792,17 @@ def project(
             raise ProjectionError("Prior-owned view lost its owner marker; preserve or restore it")
         if relative.suffix != ".base" and relative not in tree and digest(data) != item.sha256:
             raise ProjectionError("Obsolete owned view was edited; preserve edits before cleanup")
+    if SOURCE_INDEX in prior:
+        source_path = target_path(root, SOURCE_INDEX)
+        source_data = source_path.read_bytes() if source_path.is_file() else tree[SOURCE_INDEX]
+        if not source_path.is_file() and digest(source_data) != prior[SOURCE_INDEX].sha256:
+            raise ProjectionError("Missing source history index; restore its manifested bytes")
+        try:
+            previous_source = SourceIndex.model_validate(read_yaml(utf8(source_data)))
+        except ValidationError as exc:
+            raise ProjectionError("Invalid prior source history index; restore it") from exc
+        current_source = SourceIndex.model_validate(read_yaml(utf8(tree[SOURCE_INDEX])))
+        validate_source_history(previous_source.catalog, current_source.catalog)
     if check:
         if actual != tree.keys() or any(
             (

@@ -371,7 +371,7 @@ def test_g2_manifest_is_finite_and_reuses_preferred_ownership(atlas):
     empty = tree(atlas, build(atlas, []), [])
     assert current.keys() == empty.keys()
     manifest = yaml.safe_load(current[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.13"
+    assert manifest["view_schema_version"] == "2.14"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert manifest["private_input_fingerprint"] == reference.private_input_fingerprint
     owned = {entry["path"]: entry for entry in manifest["owned_files"]}
@@ -1284,7 +1284,7 @@ def test_g3_in_review_attribution_read_provenance_and_independent_synthesis(atla
         "Project-authored limitation / applicability",
         "document draft",
         "Version read",
-        "Fictional version 1",
+        "Unresolved exact version",
         "Read date",
         "2026-09-01",
         "Checked sections",
@@ -1497,3 +1497,514 @@ def test_reader_derivative_preserves_private_note_link_destinations():
     assert "[[identity-pages/Observation Builder|Open component]]" in projected
     assert "[[_generated/derived/identity-pages/Perception#Sources & audit|Open]]" in projected
     assert "secret" not in projected
+
+
+# #123 G4 source proof stays in this already-required validate file.
+# All source inputs below are committed fictional fixtures; no real vault/source access.
+
+
+def test_g4_exact_family_version_and_read_provenance():
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import SourceResolver
+
+    records = synthetic_records()
+    resolver = SourceResolver(synthetic_catalog())
+    paper, reading = records[:2]
+    before = tuple(r.model_dump(mode="json") for r in records)
+    assert resolver.paper(paper).family.target_ref == "srcf-a7k2"
+    assert [r.target_ref for r in resolver.paper(paper).related_versions] == [
+        "srcv-b8q3",
+        "srcv-c9r4",
+    ]
+    assert resolver.reading(reading, records).version_read.target_ref == "srcv-b8q3"
+    preferred = resolver.preferred(resolver.family("srcf-a7k2"))
+    assert preferred.target_ref == "srcv-c9r4"  # Never substitutes for the version read.
+    assert resolver.version("srcv-c9r4").relations[0].relation == "published_from"
+    assert resolver.paper(records[3]).family.status == "unresolved"
+    assert resolver.paper(records[4]).family.status == "conflict"
+    assert resolver.paper(records[4]).family.target_ref is None
+    assert resolver.preferred(resolver.family("srcf-f6p3")).status == "rejected"
+    assert (
+        "preferred-version-cross-family"
+        in resolver.preferred(resolver.family("srcf-f6p3")).diagnostics
+    )
+    assert {"retracted", "superseded"} <= set(
+        resolver.version_diagnostics(resolver.version("srcv-b8q3"))
+    )
+    assert "corrected" in resolver.version_diagnostics(resolver.version("srcv-c9r4"))
+    assert {"withdrawn", "attachment-unavailable"} <= set(
+        resolver.version_diagnostics(resolver.version("srcv-g7t4"))
+    )
+    assert tuple(r.model_dump(mode="json") for r in records) == before
+    assert records[2].review_state == "domain_accepted"
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "Hierarchical Visual State Representations",
+        "Hierarchical Visual State Representation",
+        "doi:10.9999/FICTIONAL-hv",
+        "doi:10.9999/fictional-hv/",
+        "10.9999/fictional-hv",
+        "https://example.invalid/hierarchical/published",
+        "url:https://example.invalid/hierarchical/published/",
+        "srcv-b8q4",
+        "newest",
+        "published",
+        "2025",
+        "zsrc-a7k2",
+        "zsv-b8q3",
+        "zatt-c9r4",
+    ],
+)
+def test_g4_no_fuzzy_title_doi_url_date_adapter_or_nearest_fallback(reference):
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceResolver
+
+    resolver = SourceResolver(synthetic_catalog())
+    for expected in ("family", "version"):
+        result = resolver.resolve(reference, expected)
+        assert result.status == "unresolved" and result.target_ref is None
+
+
+@pytest.mark.parametrize(
+    "scheme,value,target,expected",
+    [
+        ("doi", "10.9999/fictional-hv", "srcf-a7k2", "family"),
+        ("arxiv", "fictional-v1", "srcv-b8q3", "version"),
+        ("url", "https://example.invalid/hierarchical/published", "srcv-c9r4", "version"),
+        ("opaque", "fictional-source-alias", "srcf-a7k2", "family"),
+    ],
+)
+def test_g4_aliases_are_explicit_exact_bindings(scheme, value, target, expected):
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceResolver
+
+    reference = value if scheme == "opaque" else scheme + ":" + value
+    assert SourceResolver(synthetic_catalog()).resolve(reference, expected).target_ref == target
+
+
+@pytest.mark.parametrize("same_target", [False, True])
+def test_g4_duplicate_alias_never_selects_first_newest_or_deduplicates(same_target):
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, SourceResolver
+
+    data = synthetic_catalog().model_dump(mode="json")
+    data["bindings"] = [
+        dict(scheme="opaque", value="collision", target_ref=identity)
+        for identity in ("srcv-b8q3", "srcv-b8q3" if same_target else "srcv-c9r4")
+    ]
+    for bindings in (data["bindings"], list(reversed(data["bindings"]))):
+        data["bindings"] = bindings
+        result = SourceResolver(SourceCatalog.model_validate(data)).resolve("collision", "version")
+        assert result.status == "conflict" and result.target_ref is None
+        assert len(result.candidate_refs) == 2
+
+
+@pytest.mark.parametrize(
+    "preference,diagnostic",
+    [
+        (None, "preferred-version-missing"),
+        ("srcv-missing", "preferred-version-unresolved"),
+        ("doi:10.9999/fictional-collision", "preferred-version-conflict"),
+        ("srcv-g7t4", "preferred-version-cross-family"),
+        ("srcv-b8q3", "preferred-version-retracted"),
+    ],
+)
+def test_g4_preference_diagnostics_never_rewrite_version_read(preference, diagnostic):
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, SourceResolver
+
+    data = synthetic_catalog().model_dump(mode="json")
+    data["families"][0]["preferred_version_ref"] = preference
+    resolver = SourceResolver(SourceCatalog.model_validate(data))
+    result = resolver.preferred(resolver.family("srcf-a7k2"))
+    assert diagnostic in result.diagnostics
+    if result.status != "resolved":
+        assert result.target_ref is None
+    assert resolver.reading(
+        synthetic_records()[1], synthetic_records()
+    ).version_read.target_ref == ("srcv-b8q3")
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "extra",
+        "version-extra",
+        "binding-extra",
+        "missing-family",
+        "duplicate-family",
+        "duplicate-version",
+        "unbound-family",
+        "cross-relation",
+        "missing-relation",
+        "self-relation",
+        "date",
+        "filename",
+        "mtime",
+        "local-path",
+        "body",
+        "annotation",
+        "derived-id",
+        "adapter-id",
+        "reserved-alias",
+        "dangling-alias",
+        "wrong-kind",
+    ],
+)
+def test_g4_closed_catalog_rejects_malformed_and_inferred_identity(fault):
+    from pydantic import ValidationError
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog
+
+    data = synthetic_catalog().model_dump(mode="json")
+    if fault in {"extra", "date", "filename", "mtime", "local-path", "body", "annotation"}:
+        data[fault] = "/private/tmp/fictional.pdf" if fault == "local-path" else "unconsumed"
+    elif fault == "version-extra":
+        data["versions"][0]["current_known_version"] = "srcv-c9r4"
+    elif fault == "binding-extra":
+        data["bindings"][0]["confidence"] = 1.0
+    elif fault == "missing-family":
+        del data["versions"][0]["source_family_ref"]
+    elif fault == "duplicate-family":
+        data["families"].append(data["families"][0])
+    elif fault == "duplicate-version":
+        data["versions"].append(data["versions"][0])
+    elif fault == "unbound-family":
+        data["versions"][0]["source_family_ref"] = "srcf-missing"
+    elif fault in {"cross-relation", "missing-relation", "self-relation"}:
+        data["versions"][1]["relations"][0]["target_version_ref"] = {
+            "cross-relation": "srcv-g7t4",
+            "missing-relation": "srcv-missing",
+            "self-relation": "srcv-c9r4",
+        }[fault]
+    elif fault == "derived-id":
+        data["families"][0]["source_family_id"] = "Hierarchical Visual State Representations"
+    elif fault == "adapter-id":
+        data["families"][0]["source_family_id"] = "zsrc-a7k2"
+    elif fault == "reserved-alias":
+        data["bindings"].append(dict(scheme="opaque", value="srcv-b8q3", target_ref="srcv-c9r4"))
+    elif fault == "dangling-alias":
+        data["bindings"][0]["target_ref"] = "srcf-missing"
+    else:
+        data["versions"][0]["kind"] = "newest"
+    with pytest.raises(ValidationError):
+        SourceCatalog.model_validate(data)
+
+
+def test_g4_fingerprints_and_outputs_are_order_invariant_and_separate(atlas):
+    from source_resolution_fixtures import synthetic_catalog, synthetic_locators, synthetic_records
+
+    from fh_agent.research_atlas.research_presentation import presentation_fingerprint
+    from fh_agent.research_atlas.source_presentation import SourceReader
+    from fh_agent.research_atlas.source_resolution import (
+        SourceCatalog,
+        SourceResolver,
+        source_fingerprint,
+    )
+
+    records, catalog = synthetic_records(), synthetic_catalog()
+    data = catalog.model_dump(mode="json")
+    for key in ("families", "versions", "bindings"):
+        data[key].reverse()
+    for version in data["versions"]:
+        version["relations"].reverse()
+    reordered = SourceCatalog.model_validate(data)
+    resolver, other = SourceResolver(catalog), SourceResolver(reordered)
+    assert resolver.index(COMMIT, records) == other.index(COMMIT, records[::-1])
+    locators = synthetic_locators(records)
+    assert SourceReader(resolver).detail(resolver.index(COMMIT, records), records, locators) == (
+        SourceReader(other).detail(other.index(COMMIT, records[::-1]), records[::-1], locators)
+    )
+    assert source_fingerprint(catalog, records) == source_fingerprint(reordered, records[::-1])
+    snapshot = index.make_snapshot(
+        [r.model_dump(mode="json", exclude_unset=True) for r in records], atlas
+    )
+    reference = index.build_index(atlas, snapshot, COMMIT)
+    ref_before, presentation_before = (
+        reference.private_input_fingerprint,
+        presentation_fingerprint(records),
+    )
+    data["versions"][0]["status"] = "retracted"
+    changed = SourceCatalog.model_validate(data)
+    assert source_fingerprint(changed, records) != source_fingerprint(catalog, records)
+    assert index.build_index(atlas, snapshot, COMMIT).private_input_fingerprint == ref_before
+    assert presentation_fingerprint(records) == presentation_before
+    # RA-2 bibliography/title/annotations do not become source-resolution authority.
+    altered = (
+        records[0].model_copy(
+            update={"title": "Different title", "doi": "10.0000/new", "tags": ["unconsumed"]}
+        ),
+        *records[1:],
+    )
+    assert source_fingerprint(catalog, altered) == source_fingerprint(catalog, records)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "title",
+        "label",
+        "kind",
+        "status",
+        "availability",
+        "locator",
+        "relation",
+        "preferred",
+        "alias",
+        "related",
+        "read",
+    ],
+)
+def test_g4_consumed_source_inputs_change_source_fingerprint(change):
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, source_fingerprint
+
+    catalog, records = synthetic_catalog(), synthetic_records()
+    data = catalog.model_dump(mode="json")
+    if change == "title":
+        data["families"][0]["title"] = "Edited fictional title"
+    elif change == "preferred":
+        data["families"][0]["preferred_version_ref"] = "srcv-b8q3"
+    elif change == "alias":
+        data["bindings"][0]["value"] = "10.9999/edited"
+    elif change == "relation":
+        data["versions"][1]["relations"].pop()
+    elif change == "related":
+        records = (
+            records[0].model_copy(update={"related_version_refs": ["srcv-c9r4"]}),
+            *records[1:],
+        )
+    elif change == "read":
+        records = (
+            records[0],
+            records[1].model_copy(update={"version_read": "srcv-c9r4"}),
+            *records[2:],
+        )
+    else:
+        data["versions"][0][change] = {
+            "label": "Edited version label",
+            "kind": "other",
+            "status": "available",
+            "availability": "unknown",
+            "locator": {"page": "7"},
+        }[change]
+    assert source_fingerprint(SourceCatalog.model_validate(data), records) != source_fingerprint(
+        catalog, synthetic_records()
+    )
+
+
+def test_g4_human_first_preview_detail_and_historical_navigation(atlas):
+    from source_resolution_fixtures import synthetic_catalog, synthetic_locators, synthetic_records
+
+    from fh_agent.research_atlas.source_presentation import SourceReader
+    from fh_agent.research_atlas.source_resolution import SOURCE_DETAIL, SourceResolver
+
+    records = synthetic_records()
+    locators = synthetic_locators(records)
+    resolver = SourceResolver(synthetic_catalog())
+    reader = SourceReader(resolver)
+    snapshot = index.make_snapshot(
+        [r.model_dump(mode="json", exclude_unset=True) for r in records], atlas
+    )
+    reference = index.build_index(atlas, snapshot, COMMIT)
+    model = next(
+        m
+        for m in views.identity_page_models(atlas, reference)
+        if m.subject.id == "CMP-OBSERVATION-BUILDER"
+    )
+    page = views.render_identity_page(
+        COMMIT,
+        atlas,
+        model,
+        private_records=records,
+        locators=locators,
+        source_reader=reader,
+    )
+    normal = views.reader_export(page).decode()
+    assert "Synthetic — Hierarchical Visual State Representations" in normal
+    assert "**Version read:** [Preprint v1]" in normal
+    assert "**Preferred for navigation:** [Published version]" in normal
+    assert "**Warning — Preprint v1:**" in normal and "Retracted version" in normal
+    assert "correction exists" in normal
+    assert "srcf-" not in normal and "srcv-" not in normal
+    assert "source_resolution_input_fingerprint" not in normal
+    detail = reader.detail(resolver.index(COMMIT, records), records, locators).decode()
+    before_audit = detail.split("## Source detail / Audit")[0]
+    assert "published from →" in before_audit and "supersedes →" in before_audit
+    assert (
+        "corrects →" in before_audit
+        and "Version — Hierarchical Visual State Representations — Preprint v1" in before_audit
+    )
+    assert "Read as this exact version" in before_audit
+    assert "WPAPER-SOURCE-PROOF.md" in before_audit and "READ-SOURCE-PROOF.md" in before_audit
+    assert "preference rejected" in before_audit and "no candidate selected" in before_audit
+    assert '"source_resolution_input_fingerprint"' in detail
+    assert '"version_read"' in detail and "srcv-b8q3" in detail
+    assert SOURCE_DETAIL.name in normal.replace("%20", " ")
+    inspection = views.render_literature_inspection(COMMIT, snapshot, locators, records, reader)
+    assert b"**Version read:** [Preprint v1]" in inspection
+    assert b"**Return to Paper:**" in inspection and b"**ReadingNote:**" in inspection
+
+
+def test_g4_reading_source_refs_preserve_exact_paper_or_family_binding():
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import SourceResolver
+
+    records = synthetic_records()
+    resolver = SourceResolver(synthetic_catalog())
+    reading = records[1]
+    for reference in ("WPAPER-SOURCE-PROOF", "srcf-a7k2", "doi:10.9999/fictional-hv"):
+        changed = reading.model_copy(update={"paper_refs": [], "source_refs": [reference]})
+        result = resolver.reading(changed, records)
+        assert result.family.target_ref == "srcf-a7k2"
+        assert result.version_read.target_ref == "srcv-b8q3"
+    wrong = reading.model_copy(update={"version_read": "srcv-g7t4"})
+    result = resolver.reading(wrong, records).version_read
+    assert result.status == "rejected" and result.target_ref is None
+
+
+def test_g4_source_status_has_no_scientific_or_public_effect(atlas):
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, SourceResolver
+    from fh_agent.research_atlas.workspace import workspace_tree
+
+    scientific = validate_wiki_records([props("decision_draft")], atlas.entities.keys())
+    records = (*synthetic_records(), *scientific)
+    before = tuple(r.model_dump(mode="json") for r in records)
+    public_before = workspace_tree(atlas)
+    data = synthetic_catalog().model_dump(mode="json")
+    for status in ("available", "retracted", "withdrawn", "unknown"):
+        data["versions"][0]["status"] = status
+        SourceResolver(SourceCatalog.model_validate(data)).index(COMMIT, records)
+        assert tuple(r.model_dump(mode="json") for r in records) == before
+        assert workspace_tree(atlas) == public_before
+    for output in public_before.values():
+        assert "srcf-a7k2" not in output and "srcv-b8q3" not in output
+        assert "Hierarchical Visual State Representations" not in output
+    # Source resolution has no Finding/Decision/Claim input or output mutation path.
+    assert records[2].review_state == "domain_accepted"
+    assert records[-1].decision_record_state == scientific[0].decision_record_state
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"source_catalog_schema_version":"1.0","source_catalog_schema_version":"1.0"}',
+        '{"source_catalog_schema_version":NaN}',
+        '{"source_catalog_schema_version":Infinity}',
+        '{"source_catalog_schema_version":null}',
+        "[]",
+        "not JSON",
+    ],
+)
+def test_g4_catalog_loader_fails_closed_without_echoing_private_values(tmp_path, payload):
+    from fh_agent.research_atlas.source_resolution import CATALOG_INPUT, load_catalog
+
+    (tmp_path / CATALOG_INPUT).write_text(payload)
+    with pytest.raises(views.ProjectionError, match="Invalid private source catalog") as failure:
+        load_catalog(tmp_path)
+    assert payload not in str(failure.value) and str(tmp_path) not in str(failure.value)
+
+
+def test_g4_catalog_paths_mtime_bodies_and_adapters_never_define_identity(tmp_path):
+    import os
+
+    from source_resolution_fixtures import FIXTURE, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import (
+        CATALOG_INPUT,
+        SourceResolver,
+        load_catalog,
+        source_fingerprint,
+    )
+
+    roots = [tmp_path / "original", tmp_path / "moved"]
+    for root in roots:
+        root.mkdir()
+        (root / CATALOG_INPUT).write_bytes(FIXTURE.read_bytes())
+        (root / "annotations.md").write_text("Private fictional annotation; not resolver input")
+    first = load_catalog(roots[0])
+    os.utime(roots[1] / CATALOG_INPUT, (100, 200))
+    second = load_catalog(roots[1])
+    assert first == second
+    assert source_fingerprint(first, synthetic_records()) == source_fingerprint(
+        second, synthetic_records()
+    )
+    (roots[1] / CATALOG_INPUT).rename(roots[1] / "different-filename.json")
+    assert load_catalog(roots[1]) is None  # No directory or filename fallback.
+    assert SourceResolver(None).resolve("srcf-a7k2", "family").status == "unresolved"
+    (roots[1] / CATALOG_INPUT).symlink_to(roots[0] / CATALOG_INPUT)
+    with pytest.raises(views.ProjectionError):
+        load_catalog(roots[1])
+
+
+def test_g4_dates_and_bibliography_never_establish_membership_or_relations():
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, SourceResolver
+
+    data = synthetic_catalog().model_dump(mode="json")
+    data["families"][1]["title"] = data["families"][0]["title"]
+    data["versions"][0]["label"] = data["versions"][3]["label"]
+    for version in data["versions"]:
+        version["relations"] = []
+    resolver = SourceResolver(SourceCatalog.model_validate(data))
+    assert (
+        resolver.version("srcv-b8q3").source_family_ref
+        != resolver.version("srcv-g7t4").source_family_ref
+    )
+    assert all(not version.relations for version in resolver.versions.values())
+    assert "superseded" not in resolver.version_diagnostics(resolver.version("srcv-b8q3"))
+    data["versions"][0]["publication_date"] = "2025-01-01"
+    with pytest.raises(ValidationError):
+        SourceCatalog.model_validate(data)
+
+
+def test_g4_history_rejects_removal_and_family_reassignment():
+    from source_resolution_fixtures import synthetic_catalog
+
+    from fh_agent.research_atlas.source_resolution import SourceCatalog, validate_source_history
+
+    catalog = synthetic_catalog()
+    with pytest.raises(views.ProjectionError, match="history"):
+        validate_source_history(catalog, None)
+    data = catalog.model_dump(mode="json")
+    data["versions"][3]["source_family_ref"] = "srcf-a7k2"
+    with pytest.raises(views.ProjectionError, match="family membership"):
+        validate_source_history(catalog, SourceCatalog.model_validate(data))
+    data = catalog.model_dump(mode="json")
+    data["families"][0]["preferred_version_ref"] = "srcv-b8q3"
+    validate_source_history(catalog, SourceCatalog.model_validate(data))
+
+
+@pytest.mark.parametrize(
+    "payload_path", ["indexes/Source Details.md", "indexes/source-resolution-index.yaml"]
+)
+def test_g4_historical_manifest_cannot_adopt_source_payloads(atlas, tmp_path, payload_path):
+    import yaml
+
+    outputs = tree(atlas, build(atlas, []), [])
+    manifest = yaml.safe_load(outputs[views.MANIFEST])
+    manifest.pop("source_resolution_fingerprint_version")
+    manifest.pop("source_resolution_input_fingerprint")
+    manifest["view_schema_version"] = "2.13"
+    manifest["owned_files"] = [
+        item for item in manifest["owned_files"] if item["path"] == payload_path
+    ]
+    destination = tmp_path / views.MANIFEST
+    destination.parent.mkdir(parents=True)
+    destination.write_text(yaml.safe_dump(manifest))
+    with pytest.raises(views.ProjectionError, match="Historical manifest cannot own G4"):
+        views.validate_prior(tmp_path)

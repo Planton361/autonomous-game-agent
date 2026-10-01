@@ -97,6 +97,7 @@ def paper_previews(
     paths: tuple[Row, ...],
     records: tuple[EpistemicRecord, ...],
     link: Callable[[EpistemicRecord], str],
+    source_summary: Callable[[Paper, ReadingNote | None], list[str]] | None = None,
 ) -> list[str]:
     """Join only exact terminal owners to Paper-anchored finite paths and authored contexts."""
     by_id = {record.wiki_id: record for record in records}
@@ -137,6 +138,7 @@ def paper_previews(
             if paper_id in sparse_papers:
                 continue
             sparse_papers.add(paper_id)
+        selected_reading = None
         lines += [f"#### {link(paper)}", ""]
         if paper.authors or paper.publication_year:
             lines += [
@@ -218,6 +220,7 @@ def paper_previews(
                     "",
                 ]
             else:
+                selected_reading = reading
                 lines += [
                     "**Reading provenance:** "
                     + link(reading)
@@ -228,7 +231,7 @@ def paper_previews(
                     + ".",
                     "",
                 ]
-                if reading.version_read is not None:
+                if reading.version_read is not None and source_summary is None:
                     lines += ["**Version read:** " + literal(reading.version_read) + ".", ""]
                 if reading.read_date is not None:
                     lines += [f"**Read date:** {reading.read_date.isoformat()}.", ""]
@@ -240,12 +243,14 @@ def paper_previews(
         lines += [
             "**Paper state:** " + paper.document_maturity.replace("_", " ") + ".",
             "",
-            "**Source:** "
+            ("**Source:** " if source_summary is None else "**Paper detail:** ")
             + link(paper)
             + "; exact source/version references in authored detail and audit.",
             "",
         ]
-        # URL/DOI are displayed literally, never resolved or replaced (G4 remains separate).
+        if source_summary is not None:
+            lines += source_summary(paper, selected_reading)
+        # Authored bibliography stays literal; only explicit catalog aliases resolve.
         if paper.url:
             lines += ["**Authored source URL:** " + literal(paper.url), ""]
         if paper.doi:
