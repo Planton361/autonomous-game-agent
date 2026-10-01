@@ -3,6 +3,7 @@
 import copy
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 
 import pytest
 from pydantic import ValidationError
@@ -1113,6 +1114,34 @@ def reader_tree(atlas, authored=None):
     return tree(atlas, build(atlas, authored), authored, locators)
 
 
+@pytest.fixture(scope="module")
+def reader_baseline(atlas):
+    return MappingProxyType(reader_tree(atlas))
+
+
+@pytest.fixture(scope="module")
+def reader_annotations(atlas):
+    authored = reader_records()
+    for record in authored:
+        record["aliases"] = ["Unconsumed synthetic alias"]
+        record["tags"] = ["Unconsumed synthetic annotation"]
+    return MappingProxyType(reader_tree(atlas, authored))
+
+
+def reader_orientation(atlas, authored):
+    from fh_agent.research_atlas.research_presentation import orientation_previews, record_link
+
+    locators = {r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored}
+    return "\n".join(
+        orientation_previews(
+            validate_wiki_records(authored, atlas.entities.keys()),
+            lambda record: record_link(
+                record, locators, views.OWNED_ROOT / views.RESEARCH_LANDSCAPE
+            ),
+        )
+    )
+
+
 def reader_page(atlas, authored, identity="CMP-PERCEPTION"):
     """Exercise the actual page renderer without building unused sibling views."""
     reference = build(atlas, authored)
@@ -1127,12 +1156,12 @@ def reader_page(atlas, authored, identity="CMP-PERCEPTION"):
     )
 
 
-def test_human_reader_order_titles_role_labels_and_complete_audit(atlas):
+def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_baseline):
     from fh_agent.research_atlas.research_presentation import ROLE_LABELS
     from fh_agent.research_atlas.technical_reader import PROTOTYPES
 
     authored = reader_records()
-    outputs = reader_tree(atlas, authored)
+    outputs = reader_baseline
     path = views.identity_page_paths(atlas)["CMP-PERCEPTION"]
     page = outputs[path]
     normal = views.reader_export(page).decode()
@@ -1177,10 +1206,11 @@ def test_human_reader_order_titles_role_labels_and_complete_audit(atlas):
     assert len(normal) < len(page) and "```yaml" not in normal
     assert reader_tree(atlas, list(reversed(authored))) == outputs
     assert reader_page(atlas, authored) == page
+    assert reader_orientation(atlas, authored) in outputs[views.RESEARCH_LANDSCAPE].decode()
 
 
-def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas):
-    outputs = reader_tree(atlas)
+def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas, reader_baseline):
+    outputs = reader_baseline
     paths = views.identity_page_paths(atlas)
     normal = views.reader_export(outputs[paths["CMP-PERCEPTION"]]).decode()
     assert "Research available — open component" in normal
@@ -1200,9 +1230,7 @@ def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas)
             research_direct_subject_refs=["CMP-PERCEPTION"],
         )
     ]
-    question_page = views.reader_export(
-        reader_tree(atlas, authored)[paths["CMP-PERCEPTION"]]
-    ).decode()
+    question_page = views.reader_export(reader_page(atlas, authored)).decode()
     assert "Synthetic unbound question" not in question_page
     assert "No explicit Research Question is currently attached to this subject." in question_page
 
@@ -1267,10 +1295,7 @@ def test_g3_in_review_attribution_read_provenance_and_independent_synthesis(atla
         "Fictional independently authored synthesis" in outputs[views.RESEARCH_LANDSCAPE].decode()
     )
     missing = [r for r in authored if r["wiki_id"] != "WFIND-READER-A"]
-    assert (
-        "Fictional independently authored synthesis"
-        not in reader_tree(atlas, missing)[views.RESEARCH_LANDSCAPE].decode()
-    )
+    assert "Fictional independently authored synthesis" not in reader_orientation(atlas, missing)
 
 
 def test_g3_context_is_terminal_owner_role_target_exact_and_v02_opt_in(atlas):
@@ -1347,7 +1372,9 @@ def test_g3_consumed_structured_field_changes_separate_presentation_fingerprint(
         ("reading_note_ref", None),
     ],
 )
-def test_g3_context_fields_and_body_independence(atlas, field, value):
+def test_g3_context_fields_and_body_independence(
+    atlas, field, value, reader_baseline, reader_annotations
+):
     from fh_agent.research_atlas.research_presentation import presentation_fingerprint
 
     authored = reader_records()
@@ -1371,7 +1398,7 @@ def test_g3_context_fields_and_body_independence(atlas, field, value):
     assert presentation_fingerprint(validated(changed)) == presentation_fingerprint(
         validated(authored)
     )
-    assert reader_tree(atlas, changed) == reader_tree(atlas, authored)
+    assert reader_annotations == reader_baseline
 
 
 def test_reader_all_five_human_role_labels_and_legacy_profile_roundtrip(atlas):
@@ -1415,11 +1442,10 @@ def test_g3_orientation_inputs_fingerprint_and_no_component_target_inference(atl
     assert presentation_fingerprint(validated) != presentation_fingerprint(
         validate_wiki_records(after, atlas.entities.keys())
     )
-    outputs = reader_tree(atlas, before)
-    assert "Synthetic literal orientation." in outputs[views.RESEARCH_LANDSCAPE].decode()
+    assert "Synthetic literal orientation." in reader_orientation(atlas, before)
     assert (
         "Synthetic literal orientation."
-        not in views.reader_export(outputs[views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]]).decode()
+        not in views.reader_export(reader_page(atlas, before)).decode()
     )
 
 
