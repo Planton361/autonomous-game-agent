@@ -42,6 +42,7 @@ def setup(tmp_path: Path) -> tuple[Path, Path, str]:
     vault.mkdir()
     for relative in (
         Path("docs/research-atlas/registry"),
+        Path(views.CATALOG_PATH),
         Path("docs/research-atlas/Generated/Atlas Views.base"),
         Path("docs/research-atlas/Wiki Views"),
         Path("docs/research-atlas/Process Seeds"),
@@ -247,7 +248,17 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
     manifest_path = derived_root / views.MANIFEST
     prior = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
     detail_paths = set(views.TECHNICAL_DETAIL_PAYLOADS)
-    old_paths = detail_paths | {views.RESEARCH_LANDSCAPE, views.LITERATURE_INSPECTION}
+    # Reconstruct a genuine v2.3 fixture, excluding every subsequently owned surface.
+    atlas = views.load_registry(repo / "docs/research-atlas")
+    hub_overviews = {paths.overview for paths in views.COMPONENT_HUB_PATHS.values()}
+    later_identity_paths = set(views.identity_page_paths(atlas).values()) - hub_overviews
+    old_paths = (
+        detail_paths
+        | views.W07_PAYLOADS
+        | views.W10_PAYLOADS
+        | views.OBSERVE_SCOPE_PAYLOADS
+        | later_identity_paths
+    )
     for relative in old_paths:
         (derived_root / relative).unlink()
     prior["view_schema_version"] = "2.3"
@@ -268,7 +279,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
 
     views.project(repo, vault, source_commit)
     current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
-    assert current["view_schema_version"] == "2.6"
+    assert current["view_schema_version"] == "2.10"
     current_details = {
         Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
     }

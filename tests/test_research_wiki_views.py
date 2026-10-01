@@ -103,7 +103,7 @@ def setup(tmp_path):
     repo = tmp_path / "public"
     repo.mkdir()
     shutil.copytree(ATLAS / "registry", repo / "docs/research-atlas/registry")
-    for relative in (views.PUBLIC_SOURCE, views.DIRECT_SOURCE):
+    for relative in (views.PUBLIC_SOURCE, views.DIRECT_SOURCE, views.CATALOG_PATH):
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / relative, target)
@@ -445,7 +445,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "58d741d0a0b1eb83240d943773f354cf032f5adda8054a6943db74e11034679f"
+    assert tree_digest(tree) == "4a8fc52cea4fb7411911f452c896e3f7399cc4d7b9aee06a40bed679d6bbdbe4"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -2622,3 +2622,49 @@ def test_uip_legacy_hub_overviews_migrate_only_when_intact(setup, edited):
         assert views.project(repo, vault, sha, check=True) == migrated
         assert filesystem_state(vault) == after
     assert outside_owned(vault) == authored
+
+
+def test_engineering_catalog_migration_preserves_authored_bytes_and_zero_write(setup, monkeypatch):
+    repo, vault, sha = setup
+    before = outside_owned(vault)
+    parse = views.parse_catalog
+    monkeypatch.setattr(views, "parse_catalog", lambda _data, _atlas: ())
+    old = views.project(repo, vault, sha)
+    monkeypatch.setattr(views, "parse_catalog", parse)
+    new = views.project(repo, vault, sha)
+    perception = views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
+    assert old[perception] != new[perception]
+    assert outside_owned(vault) == before
+    state = filesystem_state(vault)
+    assert views.project(repo, vault, sha, check=True) == new
+    assert filesystem_state(vault) == state
+    path = derived(vault) / perception
+    path.write_bytes(path.read_bytes() + b"authored edit\n")
+    state = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError):
+        views.project(repo, vault, sha)
+    assert filesystem_state(vault) == state
+
+
+@pytest.mark.parametrize("state", ["missing", "dirty", "duplicate", "wrong-subject"])
+def test_engineering_catalog_failure_is_zero_write(setup, state):
+    repo, vault, sha = setup
+    views.project(repo, vault, sha)
+    path = repo / views.CATALOG_PATH
+    if state == "missing":
+        path.unlink()
+    elif state == "dirty":
+        path.write_bytes(path.read_bytes() + b"# uncommitted\n")
+    else:
+        data = yaml.safe_load(path.read_bytes())
+        if state == "duplicate":
+            data["bindings"].append(data["bindings"][0])
+        else:
+            data["bindings"][0]["subject_id"] = "CMP-CORTEX"
+        path.write_text(yaml.safe_dump(data))
+        sha = commit(repo)
+        technical.project(repo, vault, sha)
+    before = filesystem_state(vault)
+    with pytest.raises(technical.ProjectionError):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before

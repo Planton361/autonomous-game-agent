@@ -23,6 +23,14 @@ from .assembly_scopes import (
     registry_content_revision,
     render_observe_scope,
 )
+from .engineering_provenance import (
+    CATALOG_PATH,
+    Binding,
+    Catalog,
+    parse_catalog,
+    render_panel,
+    validated_bindings,
+)
 from .private_projection import ANATOMY as TECHNICAL_ANATOMY
 from .private_projection import (
     COMMIT,
@@ -86,6 +94,7 @@ INDEX = PurePosixPath("indexes/Direct Views Index.md")
 PUBLIC_SOURCE = PurePosixPath("docs/research-atlas/Generated/Atlas Views.base")
 DIRECT_SOURCE = PurePosixPath("docs/research-atlas/Wiki Views/Research Wiki Direct Views.base")
 SOURCE_PATHS = (
+    str(CATALOG_PATH),
     str(PUBLIC_SOURCE),
     "docs/research-atlas/Wiki Views",
     "docs/research-atlas/Process Seeds",
@@ -1659,6 +1668,7 @@ def render_identity_page(
     *,
     registry_revision: str | None = None,
     page_paths: dict[str, PurePosixPath] | None = None,
+    engineering_bindings: tuple[Binding, ...] = (),
 ) -> bytes:
     """Render the shared human-first page grammar over the exact Registry snapshot."""
     subject = model.subject
@@ -1831,13 +1841,7 @@ def render_identity_page(
             "",
         ]
     )
-    lines.extend(
-        [
-            "Current implementation provenance beyond the registered source inspection "
-            "is unavailable.",
-            "Accepted design rationale / best-practice inputs are not attached in this slice.",
-        ]
-    )
+    lines.extend(render_panel(subject.id, engineering_bindings))
     # Explicit accepted baseline limitations, never inferred from status or missing data.
     limitation_ids = {
         "CMP-PERCEPTION": {"EVID-48-OCR-LIMIT", "EVID-48-SPATIAL-LIMIT"},
@@ -3742,9 +3746,14 @@ def reference_views_tree(
     snapshot: Snapshot,
     source_projection_present: bool,
     private_records: tuple[EpistemicRecord, ...] = (),
+    *,
+    engineering_bindings: tuple[Binding, ...] = (),
 ) -> dict[PurePosixPath, bytes]:
     if reference.source_atlas_schema != atlas.source_atlas_schema:
         raise ProjectionError("Reference index source Atlas schema does not match loaded Atlas")
+    engineering_bindings = validated_bindings(
+        Catalog(presentation_binding_version="1.0", bindings=engineering_bindings), atlas
+    )
     tree = views_tree(commit, public_base, direct_base, atlas.source_atlas_schema)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
@@ -3793,7 +3802,12 @@ def reference_views_tree(
         ):
             raise ProjectionError("Identity Page path collision with existing derived surface")
         tree[page.path] = render_identity_page(
-            commit, atlas, page, registry_revision=revision, page_paths=page_paths
+            commit,
+            atlas,
+            page,
+            registry_revision=revision,
+            page_paths=page_paths,
+            engineering_bindings=engineering_bindings,
         )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
@@ -4171,6 +4185,7 @@ def project(
         snapshot,
         (vault / PurePosixPath("_generated/zotero/manifest/projection.yaml")).is_file(),
         private_records,
+        engineering_bindings=parse_catalog(source_bytes(repo, CATALOG_PATH), atlas),
     )
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")
