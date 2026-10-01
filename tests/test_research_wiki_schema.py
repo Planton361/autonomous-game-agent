@@ -133,7 +133,7 @@ def test_missing_common_field(field):
         validate(data)
 
 
-@pytest.mark.parametrize("value", [None, "", "0.2", 0.1])
+@pytest.mark.parametrize("value", [None, "", "0.3", 0.1])
 def test_bad_profile_version_cannot_fall_back_to_legacy(value):
     with pytest.raises(ValueError):
         validate(props(epistemic_schema_version=value))
@@ -718,7 +718,9 @@ def test_template_contracts_and_public_safe_placeholders(filename):
     assert set(required) | set(optional) <= set(model_fields)
     # Expose every permitted property; ReadingNote documents its exclusive alternative.
     alternatives = {"source_refs"} if kind == "reading_note" else set()
-    assert set(required) | set(optional) | alternatives == set(model_fields)
+    # These frozen templates remain RA-2 0.1; G3 is separately opt-in 0.2.
+    presentation_fields = {f for f in model_fields if f.startswith("presentation_")}
+    assert set(required) | set(optional) | alternatives == set(model_fields) - presentation_fields
     assert {name for name, field in model_fields.items() if field.is_required()} <= set(required)
     assert "atlas_id" not in required and "atlas_id" not in optional
     assert not re.search(r"(?:/home/|/Users/|/private/|[A-Z]:[\\/])", text)

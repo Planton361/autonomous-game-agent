@@ -194,3 +194,11 @@ body.show-inline-title
     padding: 1rem;
   }
 }
+
+/* Normal native Obsidian PDF is a reader projection, even if audit was opened.
+   Audit-complete Markdown remains on the preferred page. No clipping/font tricks. */
+@media print {
+  .callout[data-callout="aga-audit"] {
+    display: none;
+  }
+}
