@@ -113,7 +113,7 @@ def test_current_03_declared_reference_index_schema_is_truthful(atlas):
     empty = index.build_index(atlas, index.make_snapshot([], atlas), COMMIT)
     assert empty.source_atlas_schema == "0.3"
     assert hashlib.sha256(index.render_index(empty)).hexdigest() == (
-        "2528c909be095568d26fd42b76849436261644163bb6899362098b6eb350e205"
+        "19267ce55bcdf65c9d5badb18033a2104b06a534332a33cd46e2832f5c0da994"
     )
 
 

@@ -96,7 +96,10 @@ Diagnostic = Literal[
     "reading-source-not-matched",
 ]
 View = Literal["component", "rq", "process", "technical"]
-INDEX_SCHEMA_VERSION = "1.1"
+INDEX_SCHEMA_VERSION = "1.2"
+TECHNICAL_TARGET_TYPES = frozenset(
+    {"System", "Component", "Interface", "Contract", "DataArtifact", "MeasurementPoint"}
+)
 PILOT_INTERFACE = "IF-MEM-CORTEX"
 Direction = Literal["forward", "inverse"]
 EdgeID = Literal[
@@ -229,7 +232,8 @@ class RowContent(Closed):
                 {self.navigation_start.identifier, *(v.traverse_to.identifier for v in self.via)}
             )
             != len(self.via) + 1
-            or not exact_interface_attachment(self)
+            or not exact_technical_attachment(self)
+            or terminal_view(self.via[-1].traverse_to) != "technical"
             or not valid_technical_prefix(self)
         ):
             raise ValueError("Invalid finite N-T terminal recipe")
@@ -241,7 +245,7 @@ class Row(RowContent):
 
 
 class ReferenceIndex(Closed):
-    index_schema_version: Literal["1.1"] = INDEX_SCHEMA_VERSION
+    index_schema_version: Literal["1.2"] = INDEX_SCHEMA_VERSION
     generated_by: Literal["research-wiki-derived"] = OWNER
     source_repository: Literal["Planton361/autonomous-game-agent"] = REPOSITORY
     source_commit: COMMIT
@@ -368,15 +372,11 @@ def question(identity: Identity) -> bool:
 
 
 def terminal_view(identity: Identity) -> View | None:
-    if identity.identifier == PILOT_INTERFACE:
-        return (
-            "technical"
-            if identity.resolution_status == "resolved-public"
-            and identity.resolved_type == "Interface"
-            else None
-        )
-    if identity.resolution_status == "resolved-public" and identity.resolved_type == "Component":
-        return "component"
+    if identity.resolution_status == "resolved-public":
+        if identity.resolved_type == "Component":
+            return "component"  # Preserve the existing N-C family exactly.
+        if identity.resolved_type in TECHNICAL_TARGET_TYPES:
+            return "technical"
     if question(identity):
         return "rq"
     if private_type(identity, "process"):
@@ -730,16 +730,15 @@ def component_navigation_rows(index: ReferenceIndex, component_id: str) -> tuple
     )
 
 
-def exact_interface_attachment(row: RowContent) -> bool:
+def exact_technical_attachment(row: RowContent) -> bool:
     """Match an authored terminal declaration, never a technical-scope rollup."""
     if not row.via:
         return False
     last = row.via[-1]
     return (
         row.path_eligible
-        and row.target_identifier == PILOT_INTERFACE
+        and row.resolved_target_type in TECHNICAL_TARGET_TYPES
         and row.target_resolution_status == "resolved-public"
-        and row.resolved_target_type == "Interface"
         and row.target_record_version is None
         and row.target_profile is None
         and row.source_doc_type in {"paper", "reading_note", "finding"}
@@ -751,14 +750,14 @@ def exact_interface_attachment(row: RowContent) -> bool:
         and last.declaring_record_version == row.source_record_version
         and last.declaring_doc_type == row.source_doc_type
         and last.property == last.role == row.originating_role
-        and last.declared_target_identifier == PILOT_INTERFACE
+        and last.declared_target_identifier == row.target_identifier
         and last.declared_target_resolution_status == "resolved-public"
-        and last.declared_target_type == "Interface"
+        and last.declared_target_type == row.resolved_target_type
         and last.declared_target_record_version is None
         and last.declared_target_profile is None
-        and last.traverse_to.identifier == PILOT_INTERFACE
+        and last.traverse_to.identifier == row.target_identifier
         and last.traverse_to.resolution_status == "resolved-public"
-        and last.traverse_to.resolved_type == "Interface"
+        and last.traverse_to.resolved_type == row.resolved_target_type
         and last.traverse_to.record_version is None
         and last.traverse_to.profile is None
         and last.traverse_from.identifier == row.source_wiki_id
@@ -823,7 +822,7 @@ def valid_technical_prefix(row: RowContent) -> bool:
     return tuple(prerequisites) == row.prerequisite_refs
 
 
-def interface_attachment_rows(index: ReferenceIndex) -> tuple[Row, ...]:
+def technical_attachment_rows(index: ReferenceIndex) -> tuple[Row, ...]:
     """Every exact P/R/F declaration, including records without a resolved Paper anchor."""
     return tuple(
         sorted(
@@ -832,10 +831,19 @@ def interface_attachment_rows(index: ReferenceIndex) -> tuple[Row, ...]:
                 for r in index.rows
                 if r.row_kind == "declared-reference"
                 and len(r.via) == 1
-                and exact_interface_attachment(r)
+                and exact_technical_attachment(r)
             ),
             key=lambda r: (r.source_wiki_id, r.originating_property, r.row_id),
         )
+    )
+
+
+def interface_attachment_rows(index: ReferenceIndex) -> tuple[Row, ...]:
+    """Compatibility selector for the completed exact Interface pilot."""
+    return tuple(
+        row
+        for row in technical_attachment_rows(index)
+        if row.target_identifier == PILOT_INTERFACE and row.resolved_target_type == "Interface"
     )
 
 
@@ -854,7 +862,7 @@ WARNING = (
     "or literature coverage. An empty view means no matching declared paths in this snapshot."
 )
 VIEW_NAMES: dict[View, str] = {
-    "technical": "Literature by exact Interface — terminal declared role paths",
+    "technical": "Literature by exact technical subject — terminal declared role paths",
     "component": "Literature by Component — declared role paths (derived navigation)",
     "rq": "Literature by RQ — declared reference paths (derived navigation)",
     "process": "Literature by Process — declared reference paths (derived navigation)",

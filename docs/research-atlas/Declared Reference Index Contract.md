@@ -303,7 +303,7 @@ Acceptance coverage is A01–A20/A27 in the pure-index tests, A14–A26 in write
 integration tests, a synthetic committed-repo CLI lifecycle, and A28 through the
 unchanged RA-1/RA-2/RA-3A/Atlas regression suites. No real private vault is tested.
 
-## RM-3 G2 Interface pilot — current index 1.1 / view manifest 2.11
+## RM-3 G2 Interface pilot — historical index 1.1 / view manifest 2.11
 
 Issue #120 and CONTROL amendment
 [5932696558](https://github.com/Planton361/autonomous-game-agent/issues/120#issuecomment-5932696558)
@@ -415,3 +415,116 @@ applied during implementation; actual-vault G6 requires subsequent CONTROL
 exact-head review and authorization. Registry hierarchy, Function identities and
 memberships, `part_of`, `contributes_to_function`, engineering-provenance panels,
 compatibility routes and canonical/protocol sources remain unchanged.
+
+## RM-3 G2 exact-target rollout — current index 1.2 / view manifest 2.12
+
+Issue #121 together with CONTROL amendment
+[5932698089](https://github.com/Planton361/autonomous-game-agent/issues/121#issuecomment-5932698089)
+expands the accepted #120 pilot by actual resolved target type. The obsolete
+Assembly-union requirement is superseded. The sole generated owner, RA-2
+schemas and five literal role fields remain unchanged; no authored migration is
+required. The generated index minor version records expanded terminal eligibility,
+not a new row field, Research role or public Registry relation.
+
+### Exact E9 terminal resolver
+
+`technical_attachment_rows()` selects exact one-hop authored E9 audit rows from
+private Paper, ReadingNote and Finding only, using one
+`exact_technical_attachment()` predicate for all accepted public target types:
+System, Component (including real subcomponents represented as Component),
+Interface, Contract, DataArtifact and MeasurementPoint. Actual resolution and type
+are required; an ID prefix cannot authorize a target. Unsupported actual types
+fail closed; unresolved references remain diagnostic audit rows. Domain, Function
+and legacy Assembly are not direct targets; Environment remains deferred.
+
+E1–E8 and N-C/N-Q/N-P remain unchanged. Component continues to use N-C; the other
+five accepted technical classes reuse exactly the existing N-T K0–K3 recipes.
+Both use the same E9 role predicate and attachment selector. N-T still has at
+most three traversed hops and the global finite maximum remains four. Every
+finite N-T recipe is revalidated at projection boundaries, including typed
+prefixes, contiguous endpoints, prerequisites and exact terminal provenance.
+E9 is terminal, including in `NavigationPath.extend()`. No Research recursion,
+BFS/DFS, transitive closure, sixth role, inherited role or semantic continuation
+is introduced. Existing RQ/Process terminals retain their older navigation
+semantics; they are not technical attachments under G2.
+
+### Three distinct preferred-page presentations
+
+`AttachmentIndex` resolves the exact audit rows and finite paths once per
+preferred-page collection, without per-type scientific semantics. Every displayed
+item keeps its declaring record/type/revision, exact authored property/role,
+original target ID, actual type, resolution, terminal E9, audit row ID and matching
+finite navigation/prerequisite provenance. A missing Paper anchor does not erase
+an exact authored attachment or fabricate a navigation path.
+
+1. **Directly attached Research** appears only for E9 declarations whose original
+   target equals the preferred page's exact durable subject. Empty unrelated
+   subjects retain a neutral snapshot state.
+2. **Research attached below this scope** is discovery on System/Component pages
+   only. An independently explicit Registry `part_of` path must lead through real
+   Component descendants. The displayed ordered path begins at the scope and ends
+   at the original Component target; each child declares `part_of` its preceding
+   parent. All distinct valid paths are retained deterministically, including
+   multiple parents. A cycle fails closed. No role or E9 edge is created on the
+   scope. Technical hierarchy discovery is separate from finite Research recipes;
+   it follows no Research edge, folder or other Registry relation.
+3. **Related technical-scope Research** is a separate one-hop join on Component
+   pages, reusing the existing finite typed Component lane contract. It shows the
+   independent relation in its authored direction, exact related subject,
+   original E9 target and role, and explicit non-inheritance text. No second hop
+   or general graph-neighbor algorithm exists. Removing a relation removes only
+   that derived display; it changes neither E9 nor the private fingerprint.
+
+The existing lane allowlists are reused without extension:
+
+| Related endpoint actual type | Permitted existing independent relation |
+| --- | --- |
+| Interface | `supplies`, `consumes` |
+| Contract | `supplies`, `consumes`, `constrains`, `executes`, `verifies` |
+| DataArtifact | `supplies`, `consumes`, `observes`, `updates`, `retrieves_from`, `derived_from` |
+
+MeasurementPoint's technical `measured_at` lane is deliberately excluded from
+Research discovery: it must not propagate declared relevance. Component/System
+neighbors have no new adjacency lane. Function, Domain and legacy Assembly
+aggregate no Research; their membership/navigation remains independent.
+The completed Interface direct and Memory Retrieval `supplies` presentation
+remains available through this same resolver, with the original E9 row IDs.
+
+A MeasurementPoint attachment declares relevance only to that exact measurement
+scope. It establishes no instrument validity, measurement execution, observed
+effect, experimental result, scientific evidence or accepted Claim. Its preferred
+page states this boundary explicitly.
+
+No Research relevance is created from parent/System membership, Function,
+Domain, Assembly, folders, backlinks, Graph position, title/ID similarity,
+arbitrary adjacency, public RQ proximity or transitive Research closure.
+Synthesis relevance is not inferred from constituent Findings. Private
+ResearchQuestion technical many-to-many targeting remains absent and separate
+before #119 Graph; no RQ target field or substitute public targeting authority is
+introduced.
+
+### Ownership, migration and evidence
+
+Index 1.2 and manifest 2.12 have the same closed field sets and finite owned paths
+as 1.1/2.11, including the same preferred routes and Identity Page marker v1.1.
+Historical manifests 1.0–2.11 retain their own exact reference-version/path
+contracts. Index and preferred-page owner markers admit only historical 1.0/1.1
+and current 1.2 reference versions. Unknown/edited/unowned output fails closed
+before writes. Intact historical generated output can regenerate; authored bytes
+remain untouched. Check mode reports drift with zero writes.
+
+Fingerprint schema 1.0 and consumed private fields are unchanged. Literal
+role/target/revision changes affect it; excluded body/title/locator changes do
+not. Locators affect Markdown/manifest bytes only. Registry technical relations
+remain independent of the private fingerprint and E9 rows. Output is deterministic
+under reordered Registry/private inputs. Public export receives no private input.
+
+Fast acceptance in `test_g2_interface_attachment.py` covers the full 3-record ×
+6-type × 5-role matrix, adversarial targets, exact provenance, finite recipes,
+separate discovery bands, measurement/RQ boundaries and an in-memory synthetic
+24-branch, six-level Component hierarchy (144 synthetic Components). No Registry
+records are added. This is technical boundedness evidence only; counts and
+execution time are not scientific metrics/results. Existing integration-tier
+lifecycle proofs cover historical 2.10/1.0 and 2.11/1.1 ownership, authored-byte
+preservation, workspace zero-write checks and public-export denial. No test-tier
+or validate threshold change is required.

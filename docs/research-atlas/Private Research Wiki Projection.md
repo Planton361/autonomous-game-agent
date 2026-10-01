@@ -1036,10 +1036,10 @@ The source commit binds the catalog version, and owned page digests cover its re
 content. `workspace --check` remains zero-write. This Delivery does not apply to the
 actual private vault; human presentation acceptance requires a later CONTROL gate.
 
-## RM-3 G2 exact Interface attachment (manifest v2.11)
+## RM-3 G2 exact Interface attachment (historical manifest v2.11)
 
-The current private generated index/view contract is
-[Declared Reference Index 1.1](Declared%20Reference%20Index%20Contract.md#rm-3-g2-interface-pilot--current-index-11--view-manifest-211).
+The accepted #120 pilot private generated index/view contract was
+[Declared Reference Index 1.1](Declared%20Reference%20Index%20Contract.md#rm-3-g2-interface-pilot--historical-index-11--view-manifest-211).
 It supersedes historical Component-only eligibility solely for exact Interface
 `IF-MEM-CORTEX` under amended #120. Existing RA-2 fields, literal five-role
 semantics and authored bytes remain unchanged; there is no RA-2 migration.
@@ -1064,3 +1064,45 @@ and related separation, failed joins, invalid recipes, terminal E9, no inherited
 relevance, deterministic bytes, input/reference fingerprints, migration,
 authored preservation, zero-write checks and public-export denial. No actual
 private vault is used during this Delivery; human G6 remains pending CONTROL.
+
+## RM-3 G2 exact-target rollout (current manifest v2.12)
+
+The current contract is
+[Declared Reference Index 1.2](Declared%20Reference%20Index%20Contract.md#rm-3-g2-exact-target-rollout--current-index-12--view-manifest-212).
+Under amended #121, the existing preferred pages for System, Component,
+Interface, Contract, DataArtifact and MeasurementPoint expose exact private
+Paper/ReadingNote/Finding E9 declarations through one role-preserving resolver.
+All five RA-2 role fields remain literal. The renderer separately labels direct
+attachment, explicit Component `part_of` descendant discovery, and bounded
+one-hop related typed-lane discovery. Derived displays retain the original
+owner/role/target and state that this page does not inherit the attachment.
+MeasurementPoint relevance establishes neither validity nor a result;
+`measured_at` creates no related Research. Function/Domain/legacy Assembly
+aggregate no Research, and Environment stays deferred. RQ technical targeting
+remains a separate contract.
+
+Manifest 2.12/index 1.2 explicitly record this eligibility/presentation extension.
+The sole owner, finite paths, preferred routes, page marker, RA-2 schemas,
+fingerprints, historical ownership checks, strict edited/unowned rejection,
+authored-byte preservation and zero-write check remain intact. There are no new
+Hubs or technical identities, public schema/Registry, hierarchy, Function,
+canonical/protocol, engineering-provenance or runtime changes.
+
+### Safe human G6 after CONTROL exact-head review
+
+Implementation does not apply to the actual synced private vault. After CONTROL
+review and authorization, G6 has two parts:
+
+- Actual synced vault: supported workspace apply/check, migration safety,
+  truthful real Research state, and no synthetic fixture contamination.
+- Disposable synthetic vault: use a physical macOS root such as
+  `/private/tmp/aga-g2-rollout-g6-vault` (not symlinked `/tmp`).
+  `tests/test_g2_interface_attachment.py::rollout_records()` supplies synthetic
+  Paper/ReadingNote/Finding input targeting existing identities only. Inspect
+  Component direct, System/parent descendant, IF-MEM-CORTEX direct, DataArtifact
+  direct, MeasurementPoint direct and one Component related-lane case. Confirm
+  the three labels, actual descendant path, original targets/roles and
+  non-inheritance text in native Markdown and preferred-page return links.
+
+These fixtures are technical acceptance inputs, never literature evidence.
+No Assembly-union G6 is required. Human G6 and merge remain subsequent gates.
