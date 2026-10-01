@@ -845,3 +845,164 @@ def test_part_of_discovery_preserves_multiple_paths_and_rejects_cycles(atlas):
     )
     with pytest.raises(views.ProjectionError, match="Cyclic technical part_of"):
         views.component_descendant_paths(cyclic, "SYS-AGA")
+
+
+def test_progressive_disclosure_three_records_fifteen_exact_role_audits(atlas):
+    reference = build(atlas)
+    model = views.identity_page_model(atlas, reference, TARGET)
+    paths = views.identity_page_paths(atlas)
+    locators = {
+        r["wiki_id"]: PurePosixPath("synthetic") / (r["wiki_id"] + ".md") for r in records()
+    }
+    rendered = views._render_attachment_rows(
+        atlas, model, model.direct_attachments, locators, paths
+    )
+    page = "\n".join(rendered)
+    summary = page.split("> [!info]-", 1)[0]
+    assert len([line for line in summary.splitlines() if line.startswith("- ")]) == 3
+    assert "Declaring private record / exact role owner:" not in summary
+    assert page.count("> [!info]- Audit / provenance") == 3
+    assert page.count("> - Declaring private record / exact role owner:") == 15
+    assert page.count(">   - Direct attachment audit row:") == 15
+    for owner in ("WPAPER-FIXTURE", "READ-FIXTURE", "WFIND-FIXTURE"):
+        assert summary.count(f"`{owner}`") == 1
+    role_lines = [line for line in summary.splitlines() if "Authored Research roles:" in line]
+    assert len(role_lines) == 3
+    assert all(all(f"`{role}`" in line for role in index.ROLES) for line in role_lines)
+    assert summary.count(f"`{TARGET}`") == 3 and "type `Interface`" in summary
+    assert "revision `v1`" in summary
+    # Removing only native quote prefixes recovers every original audit block verbatim.
+    unquoted = "\n".join(line[2:] if line.startswith("> ") else "" for line in rendered)
+    for row in model.direct_attachments:
+        audit = views._render_attachment_audit(atlas, model, (row,), locators, paths)
+        assert "\n".join(audit).strip() in unquoted
+        assert row.row_id in page and row.originating_role in page
+    for path in model.technical_paths:
+        assert path.recipe in page and path.row_id in page
+    assert "E9:forward" in page and "N-T/K0/" in page and "N-T/K3/" in page
+    assert "Prerequisite (not traversed)" in page and "property `" in page
+    assert "synthetic/" in page and str(paths[TARGET].with_suffix("")) in page
+    # No CSS, optional plugin, JavaScript or custom HTML carries any attachment content.
+    assert not any(token in page for token in ("<details", "<script", "<div", "style=", "```"))
+    reordered = replace(model, technical_paths=tuple(reversed(model.technical_paths)))
+    assert (
+        views._render_attachment_rows(
+            atlas, reordered, tuple(reversed(model.direct_attachments)), locators, paths
+        )
+        == rendered
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source_wiki_id": "WPAPER-OTHER"},
+        {"source_record_version": 2},
+        {"source_doc_type": "reading_note"},
+        {"target_identifier": "SYS-AGA", "resolved_target_type": "System"},
+        {"resolved_target_type": "Contract"},
+    ],
+)
+def test_summary_grouping_never_merges_exact_id_revision_target_or_type(atlas, changes):
+    reference = build(atlas)
+    model = views.identity_page_model(atlas, reference, TARGET)
+    row = next(row for row in model.direct_attachments if row.source_doc_type == "paper")
+    distinct = row.model_copy(update=changes)
+    rendered = "\n".join(
+        views._render_attachment_rows(
+            atlas, model, (row, distinct), {}, views.identity_page_paths(atlas)
+        )
+    )
+    summary = rendered.split("> [!info]-", 1)[0]
+    assert len([line for line in summary.splitlines() if line.startswith("- ")]) == 2
+    assert rendered.count("> [!info]-") == 2
+    assert rendered.count("Direct attachment audit row:") == 2
+    for value in changes.values():
+        assert str(value) in summary
+
+
+def test_descendant_paths_and_related_relations_once_per_exact_group(atlas, rollout):
+    from fh_agent.research_atlas.schema import Relationship
+
+    reference, outputs = rollout
+    paths = views.identity_page_paths(atlas)
+    system = outputs[paths["SYS-AGA"]].decode()
+    below = system.split("### Research attached below this scope", 1)[1].split(
+        "## Gap Analysis", 1
+    )[0]
+    assert below.count("Exact part_of technical path") == 1
+    assert below.count("#### Observation Builder") == 1
+    assert "`SYS-AGA` → `CMP-PERCEPTION` → `CMP-OBSERVATION-BUILDER`" in below
+    assert below.count("Authored Research roles:") == 3
+    assert below.count("Direct attachment audit row:") == 15
+    assert "this page does not inherit the descendant's role or attachment" in below
+    assert "N-C/K0/E9:forward" in below
+    # Distinct paths to the same target must both remain in the human view.
+    extra_path = replace(
+        atlas,
+        relationships=(
+            *atlas.relationships,
+            Relationship(source="CMP-OBSERVATION-BUILDER", relation="part_of", target="SYS-AGA"),
+        ),
+    )
+    model = views.identity_page_model(extra_path, reference, "SYS-AGA")
+    rendered = "\n".join(views._render_technical_research(extra_path, model, {}, paths))
+    assert rendered.count("Exact part_of technical path") == 2
+    assert rendered.count("Direct attachment audit row:") == 45  # 15 direct + 2 × 15 below.
+    # Distinct independent relations to one target each retain their own records/audits.
+    extra_relation = replace(
+        atlas,
+        relationships=(
+            *atlas.relationships,
+            Relationship(source="CMP-MEM-RETRIEVAL", relation="consumes", target=TARGET),
+        ),
+    )
+    related_reference = build(extra_relation)
+    model = views.identity_page_model(extra_relation, related_reference, "CMP-MEM-RETRIEVAL")
+    rendered = "\n".join(views._render_technical_research(extra_relation, model, {}, paths))
+    assert rendered.count("Independent technical relation:") == 2
+    assert rendered.count("#### Memory to Cortex") == 2
+    assert rendered.count("Authored Research roles:") == 6
+    assert rendered.count("Direct attachment audit row:") == 30
+    assert "does not inherit the role or attachment" in rendered
+    reordered = replace(
+        model,
+        related_attachments=tuple(reversed(model.related_attachments)),
+        technical_paths=tuple(reversed(model.technical_paths)),
+    )
+    assert (
+        "\n".join(views._render_technical_research(extra_relation, reordered, {}, paths))
+        == rendered
+    )
+    reordered = replace(model, related_attachments=())
+    assert "No matching Research through an accepted one-hop technical relation" in "\n".join(
+        views._render_technical_research(extra_relation, reordered, {}, paths)
+    )
+    descendant_model = views.identity_page_model(extra_path, reference, "SYS-AGA")
+    assert views._render_technical_research(
+        extra_path, descendant_model, {}, paths
+    ) == views._render_technical_research(
+        extra_path,
+        replace(
+            descendant_model,
+            descendant_attachments=tuple(reversed(descendant_model.descendant_attachments)),
+            technical_paths=tuple(reversed(descendant_model.technical_paths)),
+        ),
+        {},
+        paths,
+    )
+
+
+def test_sparse_attachment_native_card_and_truthful_empty_state(atlas):
+    paths = views.identity_page_paths(atlas)
+    reference = build(atlas, [props("paper", research_direct_subject_refs=[TARGET])])
+    model = views.identity_page_model(atlas, reference, TARGET)
+    rendered = "\n".join(views._render_technical_research(atlas, model, {}, paths))
+    assert rendered.count("Authored Research roles:") == 1
+    assert rendered.count("> [!info]- Audit / provenance") == 1
+    assert "| ---" not in rendered
+    assert "Exact technical target:" in rendered and TARGET in rendered
+    empty = views.identity_page_model(atlas, build(atlas, []), TARGET)
+    rendered = "\n".join(views._render_technical_research(atlas, empty, {}, paths))
+    assert "No matching exact direct Research attachments in this snapshot." in rendered
+    assert "Authored Research roles:" not in rendered and "[!info]" not in rendered

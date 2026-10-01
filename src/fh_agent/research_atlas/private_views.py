@@ -1819,16 +1819,21 @@ def _render_technical_research(
                 "Discovery only: this page does not inherit the descendant's role or attachment.",
                 "",
             ]
+            groups: dict[tuple[str, str, tuple[str, ...]], list[Row]] = {}
             for item in model.descendant_attachments:
+                row = item.attachment
+                key = (row.target_identifier, row.resolved_target_type, item.part_of_path)
+                groups.setdefault(key, []).append(row)
+            for (target, _target_type, path), rows in sorted(groups.items()):
                 lines += [
+                    f"#### {reference_plain(atlas.entities[target].name)}",
+                    "",
                     "Exact part_of technical path (scope → descendant; "
                     "each child declares part_of): "
-                    + " → ".join(f"`{identity}`" for identity in item.part_of_path),
+                    + " → ".join(f"`{identity}`" for identity in path),
                     "",
                 ]
-                lines += _render_attachment_rows(
-                    atlas, model, (item.attachment,), locators, page_paths
-                )
+                lines += _render_attachment_rows(atlas, model, tuple(rows), locators, page_paths)
         else:
             lines += [
                 "No Research attached to explicit Component descendants in this snapshot.",
@@ -1836,25 +1841,36 @@ def _render_technical_research(
             ]
         if model.related_attachments:
             lines += ["### Related technical-scope Research", ""]
+            related_groups: dict[tuple[str, str, str, str, str], list[Row]] = {}
             for item in model.related_attachments:
                 relation = item.relation
                 assert relation is not None
-                target = item.attachment.target_identifier
+                row = item.attachment
+                key = (
+                    row.target_identifier,
+                    row.resolved_target_type,
+                    relation.source,
+                    relation.relation,
+                    relation.target,
+                )
+                related_groups.setdefault(key, []).append(row)
+            for (target, target_type, source, relation_name, endpoint), rows in sorted(
+                related_groups.items()
+            ):
                 lines += [
-                    f"Independent technical relation: `{relation.source}` — "
-                    f"`{relation.relation}` → "
-                    f"`{relation.target}`.",
+                    f"#### {reference_plain(atlas.entities[target].name)}",
+                    "",
+                    f"Independent technical relation: `{source}` — "
+                    f"`{relation_name}` → `{endpoint}`.",
                     "Exact related target: "
                     + _identity_page_human_link(atlas, target, page_paths)
-                    + f" (`{target}`; type `{item.attachment.resolved_target_type}`).",
-                    f"Research remains attached to the {item.attachment.resolved_target_type}. "
+                    + f" (`{target}`; type `{target_type}`).",
+                    f"Research remains attached to the {target_type}. "
                     f"{model.subject.name} does not inherit the role or attachment; "
                     "this is related navigation only.",
                     "",
                 ]
-                lines += _render_attachment_rows(
-                    atlas, model, (item.attachment,), locators, page_paths
-                )
+                lines += _render_attachment_rows(atlas, model, tuple(rows), locators, page_paths)
         else:
             lines += [
                 "No matching Research through an accepted one-hop technical relation "
@@ -1865,6 +1881,56 @@ def _render_technical_research(
 
 
 def _render_attachment_rows(
+    atlas: Atlas,
+    model: IdentityPageModel,
+    rows: tuple[Row, ...],
+    locators: dict[str, PurePosixPath],
+    page_paths: dict[str, PurePosixPath],
+) -> list[str]:
+    """Group presentation only; keep every exact role row in native collapsed Markdown."""
+    groups: dict[tuple[str, str, int, str, str], list[Row]] = {}
+    for row in rows:
+        key = (
+            row.source_wiki_id,
+            row.source_doc_type,
+            row.source_record_version,
+            row.target_identifier,
+            row.resolved_target_type,
+        )
+        groups.setdefault(key, []).append(row)
+    lines: list[str] = []
+    source_path = OWNED_ROOT / model.path
+    ordered = [
+        tuple(sorted(group, key=lambda row: (row.originating_role, row.row_id)))
+        for _key, group in sorted(groups.items())
+    ]
+    for group in ordered:
+        row = group[0]
+        owner = _component_research_link(atlas, row.source_wiki_id, locators, source_path)
+        target = _identity_page_human_link(atlas, row.target_identifier, page_paths)
+        roles = ", ".join(f"`{role}`" for role in sorted({r.originating_role for r in group}))
+        lines += [
+            f"- {owner} · `{row.source_wiki_id}` · type `{row.source_doc_type}` · "
+            f"revision `v{row.source_record_version}`.",
+            f"  - Exact technical target: {target} · `{row.target_identifier}` · "
+            f"type `{row.resolved_target_type}`.",
+            f"  - Authored Research roles: {roles}.",
+        ]
+    lines.append("")
+    for group in ordered:
+        row = group[0]
+        lines += [
+            f"> [!info]- Audit / provenance — {row.source_wiki_id} · "
+            f"v{row.source_record_version} · {row.target_identifier} · {row.resolved_target_type}",
+            ">",
+        ]
+        audit = _render_attachment_audit(atlas, model, group, locators, page_paths)
+        lines.extend("> " + line if line else ">" for line in audit)
+        lines.append("")
+    return lines
+
+
+def _render_attachment_audit(
     atlas: Atlas,
     model: IdentityPageModel,
     rows: tuple[Row, ...],
@@ -1891,7 +1957,12 @@ def _render_attachment_rows(
         )
         for line in _component_via_edge_lines(row.via[-1], atlas, locators, source_path, 1):
             lines.append("  " + line)
-        matches = tuple(path for path in model.technical_paths if path.via[-1] == row.via[-1])
+        matches = tuple(
+            sorted(
+                (path for path in model.technical_paths if path.via[-1] == row.via[-1]),
+                key=lambda path: path.row_id,
+            )
+        )
         if not matches:
             lines.append(
                 "  - No resolved Paper-anchored finite N-T path (or N-C Component path); "

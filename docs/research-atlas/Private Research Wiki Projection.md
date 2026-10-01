@@ -1088,6 +1088,48 @@ authored-byte preservation and zero-write check remain intact. There are no new
 Hubs or technical identities, public schema/Registry, hierarchy, Function,
 canonical/protocol, engineering-provenance or runtime changes.
 
+### Research attachment progressive disclosure
+
+The #121 presentation repair under
+[CONTROL G6 comment 5936882445](https://github.com/Planton361/autonomous-game-agent/issues/121#issuecomment-5936882445)
+uses two levels within the existing Research bands. Compact native Markdown
+list cards show the linked declaring record, stable ID, type, exact revision,
+linked original technical target, target type and all literal authored roles.
+Cards group only identical record ID/type/revision and target ID/type; a record
+with five roles at one target has one card. Different revisions or targets
+remain separate. All cards in a group precede the audit callouts.
+
+Every original role-specific attachment retains its complete audit block inside
+a native collapsed callout:
+
+```markdown
+> [!info]- Audit / provenance — READ-FIXTURE · v1 · IF-MEM-CORTEX · Interface
+>
+> - Declaring private record / exact role owner: …
+>   - Exact authored role: …
+>   - Original technical target: …
+>   - Terminal declaration: `E9:forward`; no semantic traversal after E9.
+>   - Direct attachment audit row: …
+```
+
+The generated callout also retains the original linked Via traversal,
+Paper-anchored N-C/N-T recipes, navigation row IDs and prerequisite declarations
+for each role row. Grouping changes no reference/index rows or semantics.
+Descendant cards sit under the exact target heading and one `part_of` path per
+distinct target/type/path. Related cards sit under the exact target heading and
+one independent authored technical relation per target/type/relation. Both
+bands keep explicit non-inheritance text. Empty bands retain their neutral
+snapshot statements; a single record/role uses the same concise card grammar.
+
+Reading View and Live Preview use native Obsidian collapsed callouts. With CSS
+off, summaries, links and reachable audits remain native Markdown. Plain
+Markdown readers may display the audit as a blockquote; no information depends
+on CSS, optional plugins, JavaScript, HTML disclosure or clipping. No new page
+hierarchy, preferred destination or ownership/migration contract is introduced.
+After CONTROL source review, the bounded human readability re-check covers
+Observation Builder direct, System descendant and one related band; previously
+accepted attachment semantics do not need a repeated full G6 journey.
+
 ### Safe human G6 after CONTROL exact-head review
 
 Implementation does not apply to the actual synced private vault. After CONTROL
