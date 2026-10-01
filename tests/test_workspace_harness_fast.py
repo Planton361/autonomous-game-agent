@@ -2644,3 +2644,219 @@ def test_primary_h2_bands_are_local_to_marked_native_headings():
     assert not re.search(
         r"(?<![\w-])(?:display|height|overflow|visibility|opacity|clip|content)\s*:", declarations
     )
+
+
+def engineering_seed(atlas):
+    from fh_agent.research_atlas.engineering_provenance import CATALOG_PATH, parse_catalog
+
+    return parse_catalog((ROOT / CATALOG_PATH).read_bytes(), atlas)
+
+
+def engineering_page(atlas, bindings, subject="CMP-PERCEPTION"):
+    snapshot = make_snapshot([], atlas)
+    reference = build_index(atlas, snapshot, SOURCE_COMMIT)
+    model = views.identity_page_model(atlas, reference, subject)
+    return views.render_identity_page(
+        SOURCE_COMMIT, atlas, model, engineering_bindings=bindings
+    ).decode()
+
+
+def test_engineering_many_to_many_and_separate_roles(atlas):
+    bindings = engineering_seed(atlas)
+    assert {binding.subject_id for binding in bindings} == {"CMP-PERCEPTION", "DAT-OBSERVATION"}
+    for subject in ("CMP-PERCEPTION", "DAT-OBSERVATION"):
+        page = engineering_page(atlas, bindings, subject)
+        panel = page.split("> [!info]- Engineering provenance", 1)[1].split(
+            "### Implementation notes", 1
+        )[0]
+        assert "**Implementation source**" in panel
+        assert "**PR / change provenance**" in panel
+        assert "**Documentation**" in panel
+        assert "**Accepted rationale / Decision**" in panel
+        assert "**Technical verification**" in panel
+        assert "Introduction: **unknown / unavailable**" in panel
+        assert "Explicit documented reference: [133]" in panel
+        assert "**Accepted Decision record**" in panel
+        assert "not current live status" in panel
+        assert "technical checks are not experiments" in panel
+        assert "2026-10-01" in panel
+        assert "36326a78783b40c94838a0944832ac63853a4a93" in panel
+        assert page.index("Engineering provenance") < page.index("## Research")
+        assert "src/fh_agent/observation/" in panel
+        assert "docs/canonical/02_ARCHITECTURE_CANONICAL.md" in panel
+    # The same explicitly documented PR and documentation artifact bind both subjects.
+    assert (
+        sum(bool(binding.reference and "/pull/133" in binding.reference) for binding in bindings)
+        == 2
+    )
+    assert sum(binding.role == "documented" for binding in bindings) == 4
+
+
+@pytest.mark.parametrize(
+    "mutation, message",
+    [
+        ({"subject_id": "CMP-MISSING"}, "Missing or unsupported"),
+        ({"subject_id": "CMP-CORTEX"}, "Wrong-subject"),
+        ({"evidence_id": "EVID-MISSING"}, "Missing engineering Evidence"),
+        ({"subject_id": "RQ-PROGRAM-AB-001"}, "Missing or unsupported"),
+        ({"path": "src/fh_agent/planner/cortex.py"}, "exact Evidence locator"),
+    ],
+)
+def test_engineering_references_fail_closed(atlas, mutation, message):
+    from fh_agent.research_atlas.engineering_provenance import Catalog, validated_bindings
+
+    binding = next(item for item in engineering_seed(atlas) if item.role == "implementation")
+    with pytest.raises(ProjectionError, match=message):
+        validated_bindings(
+            Catalog(
+                presentation_binding_version="1.0", bindings=(binding.model_copy(update=mutation),)
+            ),
+            atlas,
+        )
+
+
+def test_engineering_duplicates_fail_even_with_different_inspection(atlas):
+    from fh_agent.research_atlas.engineering_provenance import Catalog, validated_bindings
+
+    binding = engineering_seed(atlas)[0]
+    with pytest.raises(ProjectionError, match="Duplicate"):
+        validated_bindings(
+            Catalog(
+                presentation_binding_version="1.0",
+                bindings=(binding, binding.model_copy(update={"inspected_revision": "b" * 40})),
+            ),
+            atlas,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"subject_id": None},
+        {"inspected_revision": "main"},
+        {"checked_date": "not-a-date"},
+        {"path": "."},
+        {"path": "src"},
+        {"path": "../private/secret.md"},
+        {"path": "/private/secret.md"},
+        {"path": "private/secret.md"},
+        {"reference": "https://example.com/private"},
+        {"private_research_payload": "SYNTHETIC-SECRET"},
+        {"role": "decision", "accepted_reference": None},
+    ],
+)
+def test_engineering_closed_public_contract(atlas, mutation):
+    from pydantic import ValidationError
+
+    from fh_agent.research_atlas.engineering_provenance import Binding
+
+    data = engineering_seed(atlas)[0].model_dump()
+    data.update(mutation)
+    with pytest.raises(ValidationError):
+        Binding.model_validate(data)
+
+
+def test_engineering_merge_does_not_accept_rationale(atlas):
+    bindings = tuple(item for item in engineering_seed(atlas) if item.role != "decision")
+    page = engineering_page(atlas, bindings)
+    assert "PR status at inspection: **merged**" in page
+    assert "Rationale: **unknown / unavailable**" in page
+    assert "**Accepted Decision record**" not in page
+    assert "Introduction: **unknown / unavailable**" in page
+    # Unknown states are bounded inside a collapsed panel, not repeated empty lanes.
+    empty = engineering_page(atlas, ())
+    assert "**Implementation source**" not in empty
+    assert "**Documentation**" not in empty
+    assert "**Technical verification**" not in empty
+
+
+def test_engineering_revision_date_and_input_order_are_deterministic(atlas):
+    from datetime import date
+
+    from fh_agent.research_atlas.engineering_provenance import Catalog, validated_bindings
+
+    bindings = engineering_seed(atlas)
+    ordered = validated_bindings(
+        Catalog(presentation_binding_version="1.0", bindings=bindings), atlas
+    )
+    reversed_order = validated_bindings(
+        Catalog(presentation_binding_version="1.0", bindings=tuple(reversed(bindings))), atlas
+    )
+    assert engineering_page(atlas, ordered) == engineering_page(atlas, reversed_order)
+    changed = tuple(
+        item.model_copy(update={"inspected_revision": "b" * 40, "checked_date": date(2026, 10, 2)})
+        for item in bindings
+    )
+    new_page = engineering_page(atlas, changed)
+    assert new_page != engineering_page(atlas, ordered)
+    assert "b" * 40 in new_page and "2026-10-02" in new_page
+    assert new_page == engineering_page(atlas, changed)
+
+
+def test_engineering_cannot_promote_scientific_evidence(atlas):
+    from fh_agent.research_atlas.engineering_provenance import Catalog, validated_bindings
+
+    binding = engineering_seed(atlas)[0]
+    evidence = atlas.entities[binding.evidence_id]
+    changed = replace(
+        atlas,
+        entities={
+            identity: item.model_copy(update={"provenance_kind": "primary_literature"})
+            if identity == evidence.id
+            else item
+            for identity, item in atlas.entities.items()
+        },
+    )
+    with pytest.raises(ProjectionError, match="Scientific/private"):
+        validated_bindings(
+            Catalog(presentation_binding_version="1.0", bindings=(binding,)), changed
+        )
+
+
+def test_engineering_preserves_all_preferred_routes_and_semantics(atlas):
+    bindings = engineering_seed(atlas)
+    paths = views.identity_page_paths(atlas)
+    before_registry = views.registry_content_revision(atlas)
+    for subject, path in paths.items():
+        before = engineering_page(atlas, (), subject)
+        after = engineering_page(atlas, bindings, subject)
+        assert path == views.identity_page_paths(atlas)[subject]
+
+        # Only the collapsed provenance payload changes; all navigation/Research stays exact.
+        def remove_panel(text):
+            return re.sub(r"> \[!info\]- Engineering provenance\n(?:>[^\n]*\n)*", "", text)
+
+        assert remove_panel(before) == remove_panel(after)
+        assert "SYNTHETIC-SECRET" not in after
+    assert views.registry_content_revision(atlas) == before_registry
+    assert atlas.source_atlas_schema == "0.3"
+    assert sum(node.type == "Function" for node in atlas.entities.values()) == 8
+    assert sum(edge.relation == "contributes_to_function" for edge in atlas.relationships) == 26
+
+
+def test_engineering_explicit_change_roles_are_not_generic_related_pr(atlas):
+    from fh_agent.research_atlas.engineering_provenance import Binding, Catalog, validated_bindings
+
+    documented = next(
+        item for item in engineering_seed(atlas) if item.reference and "/pull/" in item.reference
+    )
+    data = documented.model_dump()
+    introduced = Binding.model_validate(dict(data, role="introduced"))
+    modified = Binding.model_validate(dict(data, role="modified"))
+    bindings = validated_bindings(
+        Catalog(presentation_binding_version="1.0", bindings=(introduced, modified)), atlas
+    )
+    page = engineering_page(atlas, bindings)
+    assert "**Introduced**" in page and "**Modified**" in page
+    assert "Introduction: **unknown / unavailable**" not in page
+    assert "Rationale: **unknown / unavailable**" in page
+    assert "**Accepted Decision record**" not in page
+
+
+def test_engineering_malformed_or_missing_subject_catalog_fails_closed(atlas):
+    from fh_agent.research_atlas.engineering_provenance import parse_catalog
+
+    with pytest.raises(ProjectionError, match="Invalid public engineering"):
+        parse_catalog(b'presentation_binding_version: "1.0"\nbindings: [{}]\n', atlas)
+    with pytest.raises(ProjectionError):
+        parse_catalog(b'presentation_binding_version: "1.0"\nbindings: [\n', atlas)

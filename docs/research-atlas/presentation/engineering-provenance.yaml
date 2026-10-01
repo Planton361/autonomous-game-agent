@@ -1,0 +1,98 @@
+# Explicit public presentation mappings, separate from Registry semantics.
+# Introduction is intentionally unbound: inspected initial commits have no verified PR.
+presentation_binding_version: '1.0'
+bindings:
+- subject_id: CMP-PERCEPTION
+  role: implementation
+  evidence_id: EVID-48-BUILDER
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: src/fh_agent/observation/observation_builder.py
+  locator: ObservationBuilder.build (partial orchestration; not learned perception)
+- subject_id: CMP-PERCEPTION
+  role: documented
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  locator: 3. Perception and Observation (normative documentation; not runtime verification)
+- subject_id: CMP-PERCEPTION
+  role: documented
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/research-atlas/Private Research Wiki Projection.md
+  locator: 'RM-1 typed Identity Page rollout: preferred-page presentation only; PR #133 documents this
+    subject'
+  reference: https://github.com/Planton361/autonomous-game-agent/pull/133
+  inspected_pr_status: merged
+- subject_id: CMP-PERCEPTION
+  role: decision
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/research-atlas/Private Research Wiki Projection.md
+  locator: 'UIP-v1.1 rationale: one durable identity / one preferred page; type-correct semantics; not
+    runtime algorithm rationale'
+  reference: https://github.com/Planton361/autonomous-game-agent/issues/137
+  accepted_reference: https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426
+- subject_id: CMP-PERCEPTION
+  role: verification
+  evidence_id: EVID-48-BUILDER
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: tests/test_observation_builder.py
+  locator: '3 synthetic unit tests executed 2026-10-01 on inspected revision: JSON/evidence linkage, forbidden
+    bridge rejection, visible-sprite normalization; PASS; no Live or scientific validation'
+- subject_id: DAT-OBSERVATION
+  role: implementation
+  evidence_id: EVID-48-OBSERVATION
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: src/fh_agent/observation/schemas.py
+  locator: Observation (visible-state payload)
+- subject_id: DAT-OBSERVATION
+  role: documented
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+  locator: 3. Perception and Observation (normative documentation; not runtime verification)
+- subject_id: DAT-OBSERVATION
+  role: documented
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/research-atlas/Private Research Wiki Projection.md
+  locator: 'RM-1 typed Identity Page rollout: preferred-page presentation only; PR #133 documents this
+    subject'
+  reference: https://github.com/Planton361/autonomous-game-agent/pull/133
+  inspected_pr_status: merged
+- subject_id: DAT-OBSERVATION
+  role: decision
+  evidence_id: EVID-48-CANON-INGRESS
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: docs/research-atlas/Private Research Wiki Projection.md
+  locator: 'UIP-v1.1 rationale: one durable identity / one preferred page; type-correct semantics; not
+    runtime algorithm rationale'
+  reference: https://github.com/Planton361/autonomous-game-agent/issues/137
+  accepted_reference: https://github.com/Planton361/autonomous-game-agent/issues/137#issuecomment-5915268426
+- subject_id: DAT-OBSERVATION
+  role: verification
+  evidence_id: EVID-48-TEST-OBSERVATION
+  repository: Planton361/autonomous-game-agent
+  inspected_revision: 36326a78783b40c94838a0944832ac63853a4a93
+  checked_date: '2026-10-01'
+  path: tests/test_observation_builder.py
+  locator: '3 synthetic unit tests executed 2026-10-01 on inspected revision: JSON/evidence linkage, forbidden
+    bridge rejection, visible-sprite normalization; PASS; no Live or scientific validation'
