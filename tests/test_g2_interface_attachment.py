@@ -3,6 +3,7 @@
 import copy
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 
 import pytest
 from pydantic import ValidationError
@@ -119,7 +120,7 @@ def test_direct_and_related_preferred_pages_and_native_links(atlas):
     # All attachment facts/navigation are native Markdown; CSS/Mermaid supplies none.
     assert "Exact authored role:" in direct and "Direct attachment audit row:" in direct
     assert (
-        "Gap Analysis" in direct
+        "Gap-assessment status" in direct
         and "Not assessed / no authorized gap assessment attached." in direct
     )
 
@@ -370,7 +371,7 @@ def test_g2_manifest_is_finite_and_reuses_preferred_ownership(atlas):
     empty = tree(atlas, build(atlas, []), [])
     assert current.keys() == empty.keys()
     manifest = yaml.safe_load(current[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.12"
+    assert manifest["view_schema_version"] == "2.13"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert manifest["private_input_fingerprint"] == reference.private_input_fingerprint
     owned = {entry["path"]: entry for entry in manifest["owned_files"]}
@@ -1006,3 +1007,493 @@ def test_sparse_attachment_native_card_and_truthful_empty_state(atlas):
     rendered = "\n".join(views._render_technical_research(atlas, empty, {}, paths))
     assert "No matching exact direct Research attachments in this snapshot." in rendered
     assert "Authored Research roles:" not in rendered and "[!info]" not in rendered
+
+
+# #122 G3 / human reader: entirely fictional, opt-in, never real literature.
+def reader_records():
+    target = "CMP-PERCEPTION"
+    result = []
+    for suffix, title, subject, origin in (
+        ("A", "Synthetic — Hierarchical Visual State Representations", target, "authors_result"),
+        (
+            "B",
+            "Synthetic — Evidence-linked Observation Assembly",
+            "CMP-OBSERVATION-BUILDER",
+            "authors_result",
+        ),
+        ("C", "Synthetic — Limits of Sparse Visual Signals", target, "our_inference"),
+    ):
+        paper_id, finding_id, reading_id = (
+            p + "-READER-" + suffix for p in ("WPAPER", "WFIND", "READ")
+        )
+        contexts = [
+            dict(
+                role=index.ROLES[0],
+                target_ref=subject,
+                why_relevant="Fictional example: relevant to visible observation assembly.",
+                finding_ref=finding_id,
+                reading_note_ref=reading_id,
+            )
+        ]
+        targets = [subject]
+        if suffix == "A":
+            # One Paper, two separately authored contexts, including original W09 proof target.
+            targets.append("CMP-MEM-RETRIEVAL")
+            contexts.append(
+                dict(
+                    role=index.ROLES[0],
+                    target_ref=targets[-1],
+                    why_relevant="Fictional example: inspect evidence retrieval separately.",
+                    finding_ref=finding_id,
+                    reading_note_ref=reading_id,
+                )
+            )
+        result += [
+            props(
+                "paper",
+                wiki_id=paper_id,
+                title=title,
+                epistemic_schema_version="0.2",
+                document_maturity="domain_accepted",
+                authors=["Fictional Doe et al."],
+                publication_year=2025,
+                research_direct_subject_refs=targets,
+                presentation_contexts=contexts,
+                source_refs=["fictional-source-" + suffix],
+                url="https://example.invalid/fictional-" + suffix,
+            ),
+            props(
+                "reading_note",
+                wiki_id=reading_id,
+                title="Synthetic reading record " + suffix,
+                paper_refs=[paper_id],
+                version_read="Fictional version 1",
+                read_date="2026-09-01",
+                reading_depth="methods_checked",
+                checked_sections=["methods"],
+                document_maturity="draft",
+            ),
+            props(
+                "finding",
+                wiki_id=finding_id,
+                title="Synthetic attributed finding " + suffix,
+                epistemic_schema_version="0.2",
+                document_maturity="domain_accepted",
+                review_state="domain_accepted",
+                claim_origin=origin,
+                source_refs=[paper_id],
+                reading_note_refs=[reading_id],
+                presentation_statement=(
+                    "Fictional example: evidence-linked signals can be assembled."
+                ),
+                presentation_limitation=(
+                    "Fictional limitation: no real experiment or literature result."
+                ),
+            ),
+        ]
+    result += [
+        props(
+            "synthesis",
+            wiki_id="SYN-READER",
+            title="Synthetic independent synthesis",
+            epistemic_schema_version="0.2",
+            document_maturity="domain_accepted",
+            finding_refs=["WFIND-READER-A"],
+            presentation_summary=(
+                "Fictional independently authored synthesis; no consensus inferred."
+            ),
+            presentation_limitation="Synthetic only; no accepted project claim.",
+        )
+    ]
+    return result
+
+
+def reader_tree(atlas, authored=None):
+    authored = reader_records() if authored is None else authored
+    locators = {r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored}
+    return tree(atlas, build(atlas, authored), authored, locators)
+
+
+@pytest.fixture(scope="module")
+def reader_baseline(atlas):
+    return MappingProxyType(reader_tree(atlas))
+
+
+@pytest.fixture(scope="module")
+def reader_annotations(atlas):
+    authored = reader_records()
+    for record in authored:
+        record["aliases"] = ["Unconsumed synthetic alias"]
+        record["tags"] = ["Unconsumed synthetic annotation"]
+    return MappingProxyType(reader_tree(atlas, authored))
+
+
+def reader_orientation(atlas, authored):
+    from fh_agent.research_atlas.research_presentation import orientation_previews, record_link
+
+    locators = {r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored}
+    return "\n".join(
+        orientation_previews(
+            validate_wiki_records(authored, atlas.entities.keys()),
+            lambda record: record_link(
+                record, locators, views.OWNED_ROOT / views.RESEARCH_LANDSCAPE
+            ),
+        )
+    )
+
+
+def reader_page(atlas, authored, identity="CMP-PERCEPTION"):
+    """Exercise the actual page renderer without building unused sibling views."""
+    reference = build(atlas, authored)
+    paths = views.identity_page_paths(atlas)
+    return views.render_identity_page(
+        COMMIT,
+        atlas,
+        views.identity_page_model(atlas, reference, identity, page_paths=paths),
+        page_paths=paths,
+        locators={r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored},
+        private_records=validate_wiki_records(authored, atlas.entities.keys()),
+    )
+
+
+def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_baseline):
+    from fh_agent.research_atlas.research_presentation import ROLE_LABELS
+    from fh_agent.research_atlas.technical_reader import PROTOTYPES
+
+    authored = reader_records()
+    outputs = reader_baseline
+    path = views.identity_page_paths(atlas)["CMP-PERCEPTION"]
+    page = outputs[path]
+    normal = views.reader_export(page).decode()
+    headings = [
+        "What this is",
+        "Responsibility / why it exists",
+        "How it works",
+        "Inputs / outputs / important connections",
+        "Subcomponents / go deeper",
+        "Current implementation state",
+        "Important limitations",
+        "Research Questions",
+        "Relevant Research / Literature",
+        "Gap-assessment status",
+        "Sources & verification",
+    ]
+    positions = [
+        normal.index("### " + h if h != "Sources & verification" else "## " + h) for h in headings
+    ]
+    assert positions == sorted(positions)
+    assert page.decode().index("# Perception") < page.decode().index("CMP-PERCEPTION")
+    assert "Engineering provenance" not in normal
+    assert "EVID-" not in normal and "WPAPER-" not in normal and "WFIND-" not in normal
+    assert all(role not in normal for role in index.ROLES)
+    assert ROLE_LABELS[index.ROLES[0]] in normal
+    assert "Synthetic — Hierarchical Visual State Representations" in normal
+    for value in (
+        PROTOTYPES["CMP-PERCEPTION"].implementation,
+        PROTOTYPES["CMP-PERCEPTION"].limitations,
+    ):
+        assert normal.count(value) == 1
+    assert "one durable identity" not in normal
+    assert "No explicit Research Question is currently attached to this subject." in normal
+    assert "Fictional Doe et al. (2025)" in normal
+    audit = page.decode().split("> [!aga-audit]- Full audit", 1)[1]
+    for value in ("CMP-PERCEPTION", "EVID-48-BUILDER", "E9:forward", "N-C/K0", COMMIT):
+        assert value in audit
+    for row in index.technical_attachment_rows(build(atlas, authored)):
+        if row.target_identifier != "CMP-PERCEPTION":
+            continue
+        assert row.row_id in audit and row.originating_role in audit
+    assert len(normal) < len(page) and "```yaml" not in normal
+    assert reader_tree(atlas, list(reversed(authored))) == outputs
+    assert reader_page(atlas, authored) == page
+    assert reader_orientation(atlas, authored) in outputs[views.RESEARCH_LANDSCAPE].decode()
+
+
+def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas, reader_baseline):
+    outputs = reader_baseline
+    paths = views.identity_page_paths(atlas)
+    normal = views.reader_export(outputs[paths["CMP-PERCEPTION"]]).decode()
+    assert "Research available — open component" in normal
+    assert str(paths["CMP-OBSERVATION-BUILDER"].with_suffix("")) + "|Open component]]" in normal
+    assert "Synthetic — Evidence-linked Observation Assembly" not in normal
+    assert "Fictional example: relevant" in normal  # only own direct context
+    system = views.reader_export(outputs[paths["SYS-AGA"]]).decode()
+    assert "Hierarchical Visual State Representations" not in system
+    assert "Authored Research roles" not in system and "Direct attachment audit row" not in system
+    assert "Research in subcomponents" in system and "Observation Builder" in system
+    assert "No explicit Research Question is currently attached to this subject." in system
+    # RQ not inferred from a private role, body, Domain, Function or scientific proximity.
+    authored = reader_records() + [
+        props(
+            "research_question",
+            title="Synthetic unbound question",
+            research_direct_subject_refs=["CMP-PERCEPTION"],
+        )
+    ]
+    question_page = views.reader_export(reader_page(atlas, authored)).decode()
+    assert "Synthetic unbound question" not in question_page
+    assert "No explicit Research Question is currently attached to this subject." in question_page
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "absent",
+        "wrong-paper",
+        "draft-review",
+        "checked-review",
+        "archived",
+        "draft-owner",
+    ],
+)
+def test_g3_explicit_selection_and_restrictive_eligibility(atlas, mutation):
+    authored = reader_records()[:3]
+    context = authored[0]["presentation_contexts"][0]
+    if mutation == "missing":
+        context["finding_ref"] = "WFIND-MISSING"
+    elif mutation == "absent":
+        context["finding_ref"] = None
+    elif mutation == "wrong-paper":
+        authored[2]["source_refs"] = ["WPAPER-OTHER"]
+    elif mutation in {"draft-review", "checked-review"}:
+        authored[2]["review_state"] = mutation.split("-")[0]
+    elif mutation == "archived":
+        authored[2]["document_maturity"] = "archived"
+    elif mutation == "draft-owner":
+        authored[0]["document_maturity"] = "draft"
+    normal = views.reader_export(reader_page(atlas, authored)).decode()
+    assert authored[2]["presentation_statement"] not in normal
+    assert authored[2]["presentation_limitation"] not in normal
+    if mutation == "absent":
+        assert "No Finding explicitly selected" in normal
+    elif mutation != "draft-owner":
+        assert "no replacement selected" in normal
+
+
+def test_g3_in_review_attribution_read_provenance_and_independent_synthesis(atlas):
+    authored = reader_records()
+    authored[2]["document_maturity"] = "in_review"
+    authored[2]["review_state"] = "checked"
+    outputs = reader_tree(atlas, authored)
+    page = views.reader_export(outputs[views.identity_page_paths(atlas)["CMP-PERCEPTION"]]).decode()
+    for label in (
+        "Source-reported finding (in review)",
+        "Author-reported limitation / applicability",
+        "Project inference",
+        "Project-authored limitation / applicability",
+        "document draft",
+        "Version read",
+        "Fictional version 1",
+        "Read date",
+        "2026-09-01",
+        "Checked sections",
+    ):
+        assert label in page
+    assert "Fictional independently authored synthesis" not in page
+    assert (
+        "Fictional independently authored synthesis" in outputs[views.RESEARCH_LANDSCAPE].decode()
+    )
+    missing = [r for r in authored if r["wiki_id"] != "WFIND-READER-A"]
+    assert "Fictional independently authored synthesis" not in reader_orientation(atlas, missing)
+
+
+def test_g3_context_is_terminal_owner_role_target_exact_and_v02_opt_in(atlas):
+    for changes in ({"target_ref": "CMP-CORTEX"}, {"role": index.ROLES[1]}):
+        authored = reader_records()
+        authored[0]["presentation_contexts"][0].update(changes)
+        with pytest.raises(views.ProjectionError, match="Invalid private identity"):
+            build(atlas, authored)
+    authored = reader_records()
+    authored[0]["epistemic_schema_version"] = "0.1"
+    with pytest.raises(views.ProjectionError, match="Invalid private identity"):
+        build(atlas, authored)
+    authored = reader_records()[:3]
+    # Paper declares only its other context; ReadingNote declares Perception but has no context.
+    authored[0]["research_direct_subject_refs"] = ["CMP-MEM-RETRIEVAL"]
+    authored[0]["presentation_contexts"] = authored[0]["presentation_contexts"][1:]
+    authored[1]["research_direct_subject_refs"] = ["CMP-PERCEPTION"]
+    authored[1]["document_maturity"] = "domain_accepted"
+    normal = views.reader_export(reader_page(atlas, authored)).decode()
+    assert "Fictional example: inspect evidence retrieval separately." not in normal
+    assert "No authored relevance context or selected Finding" in normal
+
+
+@pytest.mark.parametrize(
+    "owner,field,value",
+    [
+        (0, "title", "Synthetic changed title"),
+        (0, "authors", ["Fictional Smith"]),
+        (0, "publication_year", 2024),
+        (0, "url", "https://example.invalid/changed"),
+        (0, "doi", "fictional-doi"),
+        (0, "source_refs", ["fictional-changed"]),
+        (0, "document_maturity", "archived"),
+        (0, "record_version", 2),
+        (1, "reading_depth", "relevant_fulltext_checked"),
+        (1, "checked_sections", ["methods", "limitations"]),
+        (1, "version_read", "Fictional version 2"),
+        (1, "read_date", "2026-09-02"),
+        (1, "document_maturity", "in_review"),
+        (2, "presentation_statement", "Fictional edited statement."),
+        (2, "presentation_limitation", "Fictional edited limitation."),
+        (2, "claim_origin", "our_inference"),
+        (2, "review_state", "checked"),
+        (9, "presentation_summary", "Fictional edited synthesis."),
+        (9, "presentation_limitation", "Fictional edited synthesis limitation."),
+        (9, "finding_refs", ["WFIND-READER-C"]),
+    ],
+)
+def test_g3_consumed_structured_field_changes_separate_presentation_fingerprint(
+    atlas, owner, field, value
+):
+    from fh_agent.research_atlas.research_presentation import presentation_fingerprint
+
+    before = reader_records()
+    after = copy.deepcopy(before)
+    after[owner][field] = value
+
+    def validated(authored):
+        return validate_wiki_records(authored, atlas.entities.keys())
+
+    assert presentation_fingerprint(validated(before)) != presentation_fingerprint(validated(after))
+    if field not in index.PROPERTIES and field != "record_version":
+        assert (
+            build(atlas, before).private_input_fingerprint
+            == build(atlas, after).private_input_fingerprint
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("why_relevant", "Fictional edited context."),
+        ("finding_ref", "WFIND-READER-C"),
+        ("reading_note_ref", None),
+    ],
+)
+def test_g3_context_fields_and_body_independence(
+    atlas, field, value, reader_baseline, reader_annotations
+):
+    from fh_agent.research_atlas.research_presentation import presentation_fingerprint
+
+    authored = reader_records()
+    changed = copy.deepcopy(authored)
+    changed[0]["presentation_contexts"][0][field] = value
+
+    def validated(data):
+        return validate_wiki_records(data, atlas.entities.keys())
+
+    assert presentation_fingerprint(validated(changed)) != presentation_fingerprint(
+        validated(authored)
+    )
+    assert (
+        build(atlas, changed).private_input_fingerprint
+        == build(atlas, authored).private_input_fingerprint
+    )
+    changed = copy.deepcopy(authored)
+    for r in changed:
+        r["aliases"] = ["Unconsumed synthetic alias"]
+        r["tags"] = ["Unconsumed synthetic annotation"]
+    assert presentation_fingerprint(validated(changed)) == presentation_fingerprint(
+        validated(authored)
+    )
+    assert reader_annotations == reader_baseline
+
+
+def test_reader_all_five_human_role_labels_and_legacy_profile_roundtrip(atlas):
+    from fh_agent.research_atlas.research_presentation import ROLE_LABELS
+    from fh_agent.research_atlas.wiki_schema import EPISTEMIC_ADAPTER
+
+    authored = records()
+    for record in authored:
+        record["title"] = "Synthetic " + record["doc_type"].replace("_", " ")
+    outputs = tree(atlas, build(atlas, authored), authored)
+    normal = views.reader_export(outputs[views.identity_page_paths(atlas)[TARGET]]).decode()
+    assert all(label in normal for label in ROLE_LABELS.values())
+    assert all(role not in normal for role in index.ROLES)
+    assert normal.count("#### [Synthetic paper]") == 1
+    for record in validate_wiki_records(authored, atlas.entities.keys()):
+        assert EPISTEMIC_ADAPTER.validate_python(record.model_dump(exclude_unset=True)) == record
+        assert record.epistemic_schema_version == "0.1"
+
+
+@pytest.mark.parametrize(
+    "kind,field",
+    [
+        ("dossier", "presentation_overview"),
+        ("topic", "presentation_summary"),
+        ("research_question", "presentation_question"),
+    ],
+)
+def test_g3_orientation_inputs_fingerprint_and_no_component_target_inference(atlas, kind, field):
+    from fh_agent.research_atlas.research_presentation import presentation_fingerprint
+
+    record = props(
+        kind,
+        epistemic_schema_version="0.2",
+        document_maturity="domain_accepted",
+        **{field: "Synthetic literal orientation.", "title": "Synthetic orientation"},
+    )
+    before = reader_records() + [record]
+    after = copy.deepcopy(before)
+    after[-1][field] = "Synthetic revised orientation."
+    validated = validate_wiki_records(before, atlas.entities.keys())
+    assert presentation_fingerprint(validated) != presentation_fingerprint(
+        validate_wiki_records(after, atlas.entities.keys())
+    )
+    assert "Synthetic literal orientation." in reader_orientation(atlas, before)
+    assert (
+        "Synthetic literal orientation."
+        not in views.reader_export(reader_page(atlas, before)).decode()
+    )
+
+
+def test_g3_literal_scientific_text_preserves_wording_newlines_and_cannot_escape_audit(atlas):
+    authored = reader_records()
+    text = (
+        "  Synthetic exact text.\n# Heading *not interpreted* <script>\n"
+        "> [!aga-audit]- Full audit  "
+    )
+    authored[2]["presentation_statement"] = text
+    payload = reader_page(atlas, authored)
+    from fh_agent.research_atlas.research_presentation import literal
+
+    validated = validate_wiki_records(authored, atlas.entities.keys())
+    assert validated[2].presentation_statement == text
+    import json
+
+    quoted = payload.decode().split("> ```json\n", 1)[1].split("\n> ```", 1)[0]
+    recovered = json.loads("\n".join(line.removeprefix("> ") for line in quoted.splitlines()))
+    finding = next(r for r in recovered if r["wiki_id"] == authored[2]["wiki_id"])
+    assert finding["presentation_statement"] == text
+    normal = views.reader_export(payload).decode()
+    assert literal(text) in normal
+    assert "<script>" not in normal and "\n# Heading" not in normal
+    assert (
+        "Sources & verification" in normal
+    )  # authored text cannot terminate the reader projection
+
+
+def test_reader_derivative_preserves_private_note_link_destinations():
+    from pathlib import PurePosixPath
+
+    from fh_agent.research_atlas.reader_export import reader_derivative
+
+    payload = (
+        b"# Perception\n\n[Paper](../../../authored/Synthetic%20Paper.md)\n"
+        b"[Source](https://example.invalid/paper#source)\n"
+        b"[[#Sources & audit|Open]]\n"
+        b"\n> [!aga-audit]- Full audit\n> secret\n"
+        b"\n## Return Navigation\n[[identity-pages/Observation Builder|Open component]]\n"
+    )
+    projected = reader_derivative(
+        payload,
+        PurePosixPath("_generated/derived/identity-pages/Perception.md"),
+        PurePosixPath("reader-exports/Perception.md"),
+    ).decode()
+    assert "[Paper](../authored/Synthetic%20Paper.md)" in projected
+    assert "[Source](https://example.invalid/paper#source)" in projected
+    assert "[[identity-pages/Observation Builder|Open component]]" in projected
+    assert "[[_generated/derived/identity-pages/Perception#Sources & audit|Open]]" in projected
+    assert "secret" not in projected

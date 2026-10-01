@@ -1148,3 +1148,19 @@ review and authorization, G6 has two parts:
 
 These fixtures are technical acceptance inputs, never literature evidence.
 No Assembly-union G6 is required. Human G6 and merge remain subsequent gates.
+
+## Human-first reader / G3 (#122, current manifest v2.13)
+
+The [Human-first reader and G3 contract](G3%20Reader%20Presentation%20Contract.md)
+supersedes the earlier preferred-page *presentation* order and attachment density
+above. Exact #121 index 1.2, roles, hierarchy, ownership and attachment semantics
+remain authoritative and unchanged. Engineering provenance moves into collapsed
+Sources & audit. Opt-in RA-2 0.2 permits accepted G3 authored fields; existing 0.1
+records/templates require no migration. Manifest 2.13 adds a separate versioned
+presentation fingerprint without changing the reference fingerprint. The same
+finite paths/owner and strict historical migration checks remain in force.
+
+Reader PDF uses the managed print rule or the documented private reader-export
+projection when CSS is unavailable. Complete audit remains on the original page.
+Implementation does not apply to the actual synced vault; task-based human G6
+follows CONTROL exact-head source/CI acceptance.

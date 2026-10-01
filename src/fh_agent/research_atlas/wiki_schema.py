@@ -52,12 +52,38 @@ QuestionStage = Literal["idea", "researchable", "literature_mapped", "candidate"
 DecisionState = Literal["none", "accepted", "deprioritized", "killed", "superseded"]
 
 
+PresentationText = Annotated[str, StringConstraints(strict=True, min_length=1)]
+
+
+class PresentationContext(BaseModel):
+    """G3 context belongs to this record's exact authored role declaration."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    role: Literal[
+        "research_direct_subject_refs",
+        "research_method_or_baseline_refs",
+        "research_measurement_relevance_refs",
+        "research_project_transfer_refs",
+        "research_adjacent_context_refs",
+    ]
+    target_ref: Text
+    why_relevant: PresentationText
+    finding_ref: Text | None = None
+    reading_note_ref: Text | None = None
+
+    @model_validator(mode="after")
+    def nonblank(self) -> "PresentationContext":
+        if not self.why_relevant.strip():
+            raise ValueError("Presentation context requires nonblank authored relevance")
+        return self
+
+
 class EpistemicRecord(WikiRecord):
     """Explicit RA-2 profile. Body adequacy and actual review remain human gates."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    epistemic_schema_version: Literal["0.1"]
+    epistemic_schema_version: Literal["0.1", "0.2"]
     title: Text
     record_version: int = Field(strict=True, gt=0)
     document_maturity: Literal["draft", "in_review", "domain_accepted", "superseded", "archived"]
@@ -75,6 +101,26 @@ class EpistemicRecord(WikiRecord):
 
     @model_validator(mode="after")
     def lineage(self) -> "EpistemicRecord":
+        for name in type(self).model_fields:
+            value = getattr(self, name)
+            if name.startswith("presentation_") and isinstance(value, str) and not value.strip():
+                raise ValueError("Presentation text must be nonblank")
+        presentation = {
+            name
+            for name in type(self).model_fields
+            if name.startswith("presentation_") and getattr(self, name) not in (None, [])
+        }
+        if presentation and self.epistemic_schema_version != "0.2":
+            raise ValueError("G3 presentation fields require opt-in RA-2 0.2")
+        contexts = getattr(self, "presentation_contexts", ())
+        seen = set()
+        for context in contexts:
+            if context.target_ref not in getattr(self, context.role):
+                raise ValueError("Presentation context must match this owner's exact role/target")
+            key = (context.role, context.target_ref)
+            if key in seen:
+                raise ValueError("Duplicate presentation owner/role/target context")
+            seen.add(key)
         if self.document_maturity == "superseded" and not self.supersedes_refs:
             raise ValueError("superseded document requires explicit supersedes_refs lineage")
         return self
@@ -82,6 +128,7 @@ class EpistemicRecord(WikiRecord):
 
 class Dossier(EpistemicRecord):
     doc_type: Literal["dossier"]
+    presentation_overview: PresentationText | None = None
     subject_refs: Texts = Field(default_factory=list)
     process_refs: Texts = Field(default_factory=list)
     rq_refs: Texts = Field(default_factory=list)
@@ -107,6 +154,7 @@ class Process(EpistemicRecord):
 
 class Topic(EpistemicRecord):
     doc_type: Literal["topic"]
+    presentation_summary: PresentationText | None = None
     synonyms: Texts = Field(default_factory=list)
     paper_refs: Texts = Field(default_factory=list)
     finding_refs: Texts = Field(default_factory=list)
@@ -116,6 +164,7 @@ class Topic(EpistemicRecord):
 
 class ReadingNote(EpistemicRecord):
     doc_type: Literal["reading_note"]
+    presentation_contexts: list[PresentationContext] = Field(default_factory=list, strict=True)
     paper_refs: Texts = Field(default_factory=list)
     source_refs: Texts = Field(default_factory=list)
     version_read: Text | None
@@ -171,6 +220,8 @@ class ReadingNote(EpistemicRecord):
 
 class Synthesis(EpistemicRecord):
     doc_type: Literal["synthesis"]
+    presentation_limitation: PresentationText | None = None
+    presentation_summary: PresentationText | None = None
     finding_refs: NonemptyRefs
     search_refs: Texts = Field(default_factory=list)
     rq_refs: Texts = Field(default_factory=list)
@@ -200,6 +251,7 @@ class JournalEntry(EpistemicRecord):
 
 class Paper(EpistemicRecord):
     doc_type: Literal["paper"]
+    presentation_contexts: list[PresentationContext] = Field(default_factory=list, strict=True)
     source_refs: NonemptyRefs
     doi: Text | None = None
     url: Text | None = None
@@ -212,6 +264,9 @@ class Paper(EpistemicRecord):
 
 class Finding(EpistemicRecord):
     doc_type: Literal["finding"]
+    presentation_statement: PresentationText | None = None
+    presentation_limitation: PresentationText | None = None
+    presentation_contexts: list[PresentationContext] = Field(default_factory=list, strict=True)
     claim_origin: Literal[
         "authors_result", "authors_limitation", "our_inference", "own_empirical_result"
     ]
@@ -254,6 +309,7 @@ class Candidate(EpistemicRecord):
 
 class ResearchQuestion(Candidate):
     doc_type: Literal["research_question"]
+    presentation_question: PresentationText | None = None
     experiment_lead_refs: Texts = Field(default_factory=list)
 
 
