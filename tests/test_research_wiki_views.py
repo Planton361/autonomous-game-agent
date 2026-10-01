@@ -445,7 +445,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "bcaf5519209a760d82aac675aaf3f00286f8dca0f270fd73830e932adb9e35e6"
+    assert tree_digest(tree) == "58d741d0a0b1eb83240d943773f354cf032f5adda8054a6943db74e11034679f"
 
 
 def test_current_03_source_schema_propagates_through_private_views():

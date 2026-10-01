@@ -491,7 +491,9 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         visible = page.split(views.IDENTITY_PAGE_METADATA_MARKER)[0]
         fallback = re.sub(r"```mermaid\n.*?```\n", "", visible, flags=re.S)
         hooks.update(re.findall(r"\[!(aga-[a-z-]+)\]", fallback))
-        assert "<" not in fallback and "css" not in fallback
+        assert fallback.count('<span class="aga-primary-section"></span>') == 2
+        assert "<" not in fallback.replace('<span class="aga-primary-section"></span>', "")
+        assert "css" not in fallback
         assert not fallback.startswith("---")
         headings = re.findall(r"^## (.+)$", fallback, re.M)
         expected = [
@@ -709,7 +711,7 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
     asset = ROOT / "docs/research-atlas/presentation/aga-identity-pages.css"
     assert list(asset.parent.glob("*.css")) == [asset]
     data = asset.read_bytes()
-    assert data == asset.read_bytes() and len(data) < 6000
+    assert data == asset.read_bytes() and len(data) < 8000
     css = re.sub(r"/\*.*?\*/", "", data.decode(), flags=re.S)
     hooks = set(re.findall(r'data-callout="([^"]+)"', css))
     assert hooks == {
@@ -762,6 +764,14 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "cm-line",
         "not",
         "markdown-embed",
+        "el-p",
+        "aga-primary-section",
+        "data-heading",
+        "Technical",
+        "Research",
+        "cm-html-embed",
+        "br",
+        "only-child",
     }
     for block in css.split("{")[:-1]:
         selector = block.rsplit("}", 1)[-1]
@@ -796,6 +806,10 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "--h1-weight",
         "--h1-color",
         "--h1-line-height",
+        "box-sizing",
+        "--h2-size",
+        "--h2-weight",
+        "--h2-line-height",
         "--hr-color",
         "--hr-thickness",
         "display",
@@ -2549,8 +2563,12 @@ def test_full_primary_sections_keep_native_h2s_and_scannable_css_off_dividers(at
         < headings.index("Research")
         < headings.index("Evidence / Provenance")
     )
-    # The sole presentation hook is a native thematic break, used at both full sections.
-    assert re.findall(r"^---\n\n## (.+)$", visible, re.M) == ["Technical", "Research"]
+    marker = '<span class="aga-primary-section"></span>'
+    assert re.findall(r"^---\n\n" + re.escape(marker) + r"\n\n## (.+)$", visible, re.M) == [
+        "Technical",
+        "Research",
+    ]
+    assert visible.count(marker) == 2
     assert len(re.findall(r"^---$", visible, re.M)) == 2
     assert "\n---\n\n## Evidence / Provenance" not in visible
     assert "[!aga-technical-entry] TECHNICAL — How does it work?" in visible
@@ -2559,7 +2577,7 @@ def test_full_primary_sections_keep_native_h2s_and_scannable_css_off_dividers(at
     assert visible.index("[!aga-research-entry]") < visible.index("\n## Research\n")
     assert "[[#Technical|Read Technical on this page]]" in visible
     assert "[[#Research|Read Research on this page]]" in visible
-    assert "<" not in visible  # No HTML replacement, wrapper, or plugin is needed.
+    assert "<" not in visible.replace(marker, "")  # Real Markdown H2s remain.
     assert "## Evidence / Provenance\n" in visible and "## Return Navigation\n" in visible
     if identity == "FUNC-OBSERVE":
         assert "*Function · Stable ID `FUNC-OBSERVE`*" in visible
@@ -2571,24 +2589,58 @@ def test_full_primary_sections_keep_native_h2s_and_scannable_css_off_dividers(at
 
 def test_full_primary_section_css_scopes_native_rules_in_both_obsidian_modes():
     css = (ROOT / "docs/research-atlas/presentation/aga-identity-pages.css").read_text()
-    rule = css.split("/* Native thematic breaks", 1)[1].split("/* Narrow panes", 1)[0]
+    rule = css.split("/* Native thematic breaks", 1)[1].split("/* Primary H2 bands", 1)[0]
     rule = re.sub(r"/\*.*?\*/", "", "/* Native thematic breaks" + rule, flags=re.S)
     selectors, declarations = rule.split("{", 1)
-    selectors = [s.strip() for s in selectors.split(",")]
+    selectors = [s.strip() for s in selectors.split(",\n")]
     assert len(selectors) == 2
     guard = ':has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))'
     assert all(guard in selector for selector in selectors)
     assert selectors[0].startswith(".markdown-preview-view")
     assert "> .markdown-preview-sizer > .el-hr > hr" in selectors[0]
     assert selectors[1].startswith(".markdown-source-view.mod-cm6.is-live-preview")
-    assert ".cm-content > .cm-line.HyperMD-hr" in selectors[1]
+    assert ".cm-content > .cm-line:is(.HyperMD-hr, .hr)" in selectors[1]
     assert "--hr-thickness: 0.2rem;" in declarations
     assert "margin-block: 2rem 0.75rem;" in declarations
     assert "--hr-color: var(--text-muted);" in declarations
     assert not re.search(
-        r"(?:display|height|overflow|visibility|opacity|clip|content)\s*:", declarations
+        r"(?<![\w-])(?:display|height|overflow|visibility|opacity|clip|content)\s*:", declarations
     )
     assert "Evidence" not in selectors and "h2" not in selectors
     assert "aga-technical-entry" not in selectors and "aga-research-entry" not in selectors
     assert "@media (max-width: 40rem)" in css
     assert "grid-template-columns: minmax(0, 1fr);" in css
+
+
+def test_primary_h2_bands_are_local_to_marked_native_headings():
+    css = (ROOT / "docs/research-atlas/presentation/aga-identity-pages.css").read_text()
+    rule = css.split("/* Primary H2 bands", 1)[1].split("/* Narrow panes", 1)[0]
+    selectors, declarations = rule.split("*/", 1)[1].split("{", 1)
+    reading, live = selectors.split(",\n")
+    assert "> .el-hr + .el-p:has(> p > .aga-primary-section) + .el-h2" in reading
+    assert '> h2:is([data-heading="Technical"], [data-heading="Research"])' in reading
+    assert ".markdown-source-view.mod-cm6.is-live-preview .cm-content" in live
+    assert "> .cm-line:has(> .cm-html-embed > .aga-primary-section)" in live
+    assert "+ .cm-line:has(> br:only-child) + .cm-line.HyperMD-header-2" in live
+    assert "aga-hero" not in selectors and selectors.count("aga-primary-section") == 2
+    for other in (
+        "Evidence",
+        "Functional Context",
+        "Local Anatomy",
+        "Related Objects",
+        "Gap Analysis",
+    ):
+        assert other not in selectors
+    for declaration in (
+        "margin-block: 1.5rem 1rem;",
+        "padding: 0.65rem 0.9rem;",
+        "border-inline-start: 0.3rem solid",
+        "background: var(--background-secondary);",
+        "--h2-weight: 700;",
+        "box-sizing: border-box;",
+        "overflow-wrap: anywhere;",
+    ):
+        assert declaration in declarations
+    assert not re.search(
+        r"(?<![\w-])(?:display|height|overflow|visibility|opacity|clip|content)\s*:", declarations
+    )

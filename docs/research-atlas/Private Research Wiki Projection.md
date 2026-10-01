@@ -867,20 +867,20 @@ No G2/G3/G4, literature absence, novelty, completeness or scientific claim is in
 
 Technical and Research remain full same-page sections, preceded by paired entry
 cards in Technical then Research source order.
-CONTROL [5922295739](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5922295739)
-adds one minimal presentation hook: a native Markdown thematic break (`---`)
-immediately before each full `## Technical` and `## Research` heading. Both H2s,
-their order, content and entry cards remain intact. CSS-off therefore retains
-explicit section dividers without HTML or plugins. The optional stylesheet gives
-these rules 2rem upper spacing, 0.75rem lower spacing and a 0.2rem rule thickness,
-using text-muted color as an additional cue. Direct-content selectors require
-the Identity Page hero and exclude embedded notes. Reading View targets the
-native `el-hr` block; Live Preview targets the native `HyperMD-hr` line in CM6,
-including the caret-visible syntax state. Evidence has no primary-section
-hook and remains supporting. No fixed heights, widths, clipping or hidden
-content are added; wide/narrow source order and responsive entry cards remain
-unchanged. Journeys A–C remain accepted; this repair awaits only the bounded
-Technical/Research visual re-check after CONTROL source/CI review.
+CONTROL [5928242066](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5928242066)
+retains native Markdown thematic breaks before the exact Technical and Research
+H2s. One empty `<span class="aga-primary-section"></span>` between each divider
+and H2 identifies the real semantic heading for optional CSS. There is no
+replacement or duplicate heading. CSS-off retains dividers, H2s, anchors, order
+and all content/navigation. Bands combine spacing, padding, background, framing,
+a left accent and controlled stronger typography. Evidence and all other H2s
+have no marker and remain secondary.
+Native Obsidian 1.13.7 inspection in an isolated synthetic vault found Reading
+View `el-hr / el-p / el-h2` blocks and Live Preview a CM6 HTML widget, blank line,
+and `HyperMD-header-2` line. Local selectors survive virtualization of the hero.
+No plugin, fixed height, clipping, hidden content or horizontal scrolling is
+introduced. Journeys A–C remain accepted; the bounded visual re-check awaits
+CONTROL source/CI review. The actual private vault is not changed.
  The optional stylesheet places
 readable cards side by side and stacks them at narrow widths, without fixed
 heights or horizontal scrolling. `aga-child` is the additional finite card hook.

@@ -1818,7 +1818,19 @@ def render_identity_page(
     visual = _identity_page_mermaid(atlas, model)
     if visual:
         lines.extend(["", "## Visual Context", "", *visual])
-    lines.extend(["", "---", "", "## Technical", "", f"### {technical_entry_text.rstrip('.')}", ""])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            '<span class="aga-primary-section"></span>',
+            "",
+            "## Technical",
+            "",
+            f"### {technical_entry_text.rstrip('.')}",
+            "",
+        ]
+    )
     lines.extend(
         [
             "Current implementation provenance beyond the registered source inspection "
@@ -1913,6 +1925,8 @@ def render_identity_page(
         [
             "",
             "---",
+            "",
+            '<span class="aga-primary-section"></span>',
             "",
             "## Research",
             "",

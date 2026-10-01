@@ -151,10 +151,37 @@ body.show-inline-title
 .markdown-preview-view:has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
   > .markdown-preview-sizer > .el-hr > hr,
 .markdown-source-view.mod-cm6.is-live-preview:has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
-  .cm-content > .cm-line.HyperMD-hr {
+  .cm-content > .cm-line:is(.HyperMD-hr, .hr) {
   --hr-color: var(--text-muted);
   --hr-thickness: 0.2rem;
   margin-block: 2rem 0.75rem;
+}
+
+/* Primary H2 bands. One empty local marker follows each dedicated divider.
+   Native Obsidian 1.13.7 renders it in an el-p block / CM6 HTML widget, with
+   one blank CM6 line before the real heading. Local scope survives editor
+   virtualization of the hero and excludes embedded content. */
+.markdown-preview-view > .markdown-preview-sizer
+  > .el-hr + .el-p:has(> p > .aga-primary-section) + .el-h2
+  > h2:is([data-heading="Technical"], [data-heading="Research"]),
+.markdown-source-view.mod-cm6.is-live-preview .cm-content
+  > .cm-line:has(> .cm-html-embed > .aga-primary-section)
+  + .cm-line:has(> br:only-child) + .cm-line.HyperMD-header-2 {
+  --h2-size: 1.65em;
+  --h2-weight: 700;
+  --h2-line-height: 1.3;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  margin-block: 1.5rem 1rem;
+  padding: 0.65rem 0.9rem;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-inline-start: 0.3rem solid var(--interactive-accent);
+  border-radius: 0.35rem;
+  font-size: var(--h2-size);
+  font-weight: var(--h2-weight);
+  line-height: var(--h2-line-height);
 }
 
 /* Narrow panes and mobile keep the same reading order and all content. */
