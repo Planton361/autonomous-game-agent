@@ -302,3 +302,116 @@ new dependency, Zotero, corpus population, RA-4, D7, gameplay or input is involv
 Acceptance coverage is A01–A20/A27 in the pure-index tests, A14–A26 in writer
 integration tests, a synthetic committed-repo CLI lifecycle, and A28 through the
 unchanged RA-1/RA-2/RA-3A/Atlas regression suites. No real private vault is tested.
+
+## RM-3 G2 Interface pilot — current index 1.1 / view manifest 2.11
+
+Issue #120 and CONTROL amendment
+[5932696558](https://github.com/Planton361/autonomous-game-agent/issues/120#issuecomment-5932696558)
+supersede the historical Component-only terminal boundary above only for this
+pilot. Accepted #105 disposition
+[5839496369](https://github.com/Planton361/autonomous-game-agent/issues/105#issuecomment-5839496369)
+provides the semantics. No public Registry, Atlas schema 0.3, RA-2 field or
+canonical/protocol change is needed.
+
+### Terminal eligibility and finite representation
+
+E1–E8 and existing N-C/N-Q/N-P recipes remain unchanged. E9 additionally admits
+exact public identity `IF-MEM-CORTEX` only when its resolved Registry type is
+`Interface`. Another Interface is outside this pilot; an identifier prefix does
+not establish type. A wrong actual type at the pilot ID fails closed. Unresolved
+references remain diagnostic audit data. The existing role-reference audit type
+check remains unconstrained; unsupported resolved role targets retain
+`outside-path-allowlist`, never an eligible N-T path.
+
+The closed generated index advances to `index_schema_version: "1.1"`, adding
+only `navigation_view: technical` and family `N-T`. No row/edge/identity fields
+are added. Exactly these finite recipes are accepted:
+
+| Prefix | N-T recipe suffix |
+| --- | --- |
+| K0 | E9 forward |
+| K1 | E1 inverse or E2 forward; then E9 forward |
+| K2 | E3 inverse; then E9 forward |
+| K3 | E1 inverse or E2 forward; E4 forward or E5 inverse; E9 forward |
+
+Every suffix ends at the exact Interface. The maximum N-T path has three hops;
+the existing global maximum remains four. Typed prefix declarations, ordered
+contiguous endpoints, actual terminal owner/role/type/target, cycle rejection and
+E2's exact E1 confirmation are validated. Invalid finite N-T recipes fail before
+projection. E9 cannot be extended even through the internal path builder. There
+is no recursive walker, arbitrary BFS/DFS, transitive Research closure, role
+inheritance or semantic traversal after E9.
+
+All five existing roles remain literal and complete: `research_direct_subject_refs`,
+`research_method_or_baseline_refs`, `research_measurement_relevance_refs`,
+`research_project_transfer_refs`, `research_adjacent_context_refs`. In particular,
+method/baseline remains combined and measurement relevance establishes no
+measurement validity. No role is inferred from another role or from navigation.
+
+### Primary direct presentation and bounded related display
+
+The existing preferred Interface Identity Page displays **Directly attached
+Research**. It selects every eligible exact authored E9 audit declaration from
+private Paper/ReadingNote/Finding, independently of Paper-anchor resolution.
+Thus an unresolved source does not hide an otherwise exact Interface declaration
+or fabricate a literature path. Matching N-T navigation paths are separately
+shown with their full ordered provenance and prerequisites. A derived Paper
+navigation path does not change the directly authored attachment's owner.
+
+Each displayed attachment preserves the declaring private record, its type and
+revision (the exact role owner), verbatim role/property, original target
+`IF-MEM-CORTEX`, type `Interface`, resolution, terminal declaration and audit row
+ID. Each matching N-T path preserves recipe, path kind, row ID, every ordered
+`via` descriptor and E2 prerequisite. Authored body/editor metadata is not mined
+to invent an owner or a scientific claim.
+
+The existing Memory Retrieval preferred page displays the same declarations only
+as **Related technical-scope Research**, gated by the independent exact Registry
+triple `CMP-MEM-RETRIEVAL --supplies--> IF-MEM-CORTEX`. It displays that relation
+separately, links to the same preferred Interface, and retains the original
+Interface target and role. Removing that triple removes the related display but
+changes neither E9 nor the private reference fingerprint. No Research record →
+Memory Retrieval attachment is generated. No second preferred page is created;
+W05 and existing Hub child views remain auxiliary.
+
+No parent Component, `part_of` ancestry, Function membership, Domain, legacy
+Assembly, folder, backlink or graph proximity propagates Research relevance.
+Unrelated preferred pages retain their neutral Research state and existing
+routes. Native Markdown preserves the complete facts and links without CSS or
+Mermaid. Empty states describe only this snapshot, never literature absence,
+novelty, gap, completeness or scientific weakness.
+
+ResearchQuestion ↔ technical-subject many-to-many targeting from accepted #137
+remains a separate RM-3 contract. This pilot adds no RQ target field and does not
+satisfy or infer that requirement. Technical existence, implementation provenance
+and Research declarations remain separate from accepted scientific evidence.
+
+### Ownership, fingerprints and privacy
+
+The current manifest is `view_schema_version: "2.11"`, with
+`reference_index_schema_version: "1.1"`. It owns precisely the same finite paths
+as 2.10; there is no new file, subtree, preferred route, writer or owner. Valid
+historical 1.0–2.10 manifests retain their original closed reference-version and
+path checks. Index owner markers accept only historical 1.0 or current 1.1;
+Identity Page v1.1 owner markers likewise admit those two reference versions,
+retaining exact path/ID/type binding. Unknown versions/owners fail closed.
+Write mode regenerates validated generated output; check mode reports migration
+drift without directories, temporary files, replacement, cleanup or writes.
+Authored records require no migration and remain byte-preserved.
+
+The structured private fingerprint remains schema 1.0 and hashes the same
+validated identity/type/profile/revision/reference sets. New terminal eligibility
+changes generated rows, not authored input selection or fingerprint semantics.
+Relevant role/target/revision changes affect the fingerprint; body/title-only
+edits do not. Locator changes affect Markdown/manifest bytes, not YAML or the
+fingerprint. Input/Registry order does not affect bytes. Public technical
+relations affect the related view through existing Registry revision provenance,
+never by entering private Research edges or the private fingerprint.
+
+Only synthetic private fixtures prove this pilot; they assert no real reading,
+literature evidence, scientific claim or gap. Private projection remains
+export-denied. Public rendering has no private input path. No private vault was
+applied during implementation; actual-vault G6 requires subsequent CONTROL
+exact-head review and authorization. Registry hierarchy, Function identities and
+memberships, `part_of`, `contributes_to_function`, engineering-provenance panels,
+compatibility routes and canonical/protocol sources remain unchanged.

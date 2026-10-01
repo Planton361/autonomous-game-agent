@@ -20,6 +20,7 @@ tests/test_evidence_store.py
 tests/test_firewall_allowlist.py
 tests/test_grounded_cortex_submission.py
 tests/test_grounding.py
+tests/test_g2_interface_attachment.py
 tests/test_import.py
 tests/test_input_executor_safety.py
 tests/test_manager_dry_run.py

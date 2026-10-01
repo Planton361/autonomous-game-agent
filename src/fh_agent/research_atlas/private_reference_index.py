@@ -10,7 +10,7 @@ from pathlib import PurePosixPath, PureWindowsPath
 from typing import Literal
 from urllib.parse import quote
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .private_projection import (
     COMMIT,
@@ -95,7 +95,9 @@ Diagnostic = Literal[
     "outside-path-allowlist",
     "reading-source-not-matched",
 ]
-View = Literal["component", "rq", "process"]
+View = Literal["component", "rq", "process", "technical"]
+INDEX_SCHEMA_VERSION = "1.1"
+PILOT_INTERFACE = "IF-MEM-CORTEX"
 Direction = Literal["forward", "inverse"]
 EdgeID = Literal[
     "E1",
@@ -185,13 +187,61 @@ class RowContent(Closed):
     via: tuple[Via, ...]
     prerequisite_refs: tuple[Via, ...]
 
+    @model_validator(mode="after")
+    def finite_technical_recipe(self) -> "RowContent":
+        """N-T is a closed extension; reject malformed or nonterminal recipes."""
+        if self.navigation_view != "technical" and not (self.recipe or "").startswith("N-T/"):
+            return self
+        signatures = {
+            "K0": {()},
+            "K1": {("E1:inverse",), ("E2:forward",)},
+            "K2": {("E3:inverse",)},
+            "K3": {
+                (first, second)
+                for first in ("E1:inverse", "E2:forward")
+                for second in ("E4:forward", "E5:inverse")
+            },
+        }
+        parts = (self.recipe or "").split("/")
+        signature = tuple(f"{v.edge_id}:{v.traversal_direction}" for v in self.via)
+        if (
+            self.row_kind != "navigation-path"
+            or self.navigation_view != "technical"
+            or len(parts) < 3
+            or parts[0] != "N-T"
+            or parts[1] not in signatures
+            or tuple(parts[2:]) != signature
+            or signature[-1:] != ("E9:forward",)
+            or signature[:-1] not in signatures[parts[1]]
+            or not self.path_eligible
+            or self.diagnostic_codes
+            or self.expected_target_types
+            or self.type_check != "not-constrained"
+            or self.path_kind != ("direct" if len(self.via) == 1 else "derived")
+            or self.navigation_start is None
+            or not paper(self.navigation_start)
+            or self.via[0].traverse_from != self.navigation_start
+            or any(
+                a.traverse_to != b.traverse_from
+                for a, b in zip(self.via, self.via[1:], strict=False)
+            )
+            or len(
+                {self.navigation_start.identifier, *(v.traverse_to.identifier for v in self.via)}
+            )
+            != len(self.via) + 1
+            or not exact_interface_attachment(self)
+            or not valid_technical_prefix(self)
+        ):
+            raise ValueError("Invalid finite N-T terminal recipe")
+        return self
+
 
 class Row(RowContent):
     row_id: SHA256
 
 
 class ReferenceIndex(Closed):
-    index_schema_version: Literal["1.0"] = "1.0"
+    index_schema_version: Literal["1.1"] = INDEX_SCHEMA_VERSION
     generated_by: Literal["research-wiki-derived"] = OWNER
     source_repository: Literal["Planton361/autonomous-game-agent"] = REPOSITORY
     source_commit: COMMIT
@@ -318,6 +368,13 @@ def question(identity: Identity) -> bool:
 
 
 def terminal_view(identity: Identity) -> View | None:
+    if identity.identifier == PILOT_INTERFACE:
+        return (
+            "technical"
+            if identity.resolution_status == "resolved-public"
+            and identity.resolved_type == "Interface"
+            else None
+        )
     if identity.resolution_status == "resolved-public" and identity.resolved_type == "Component":
         return "component"
     if question(identity):
@@ -486,7 +543,8 @@ class NavigationPath:
     def extend(self, hop: Hop, prefix: str | None = None) -> "NavigationPath | None":
         seen = {self.start.identifier, *(h.via.traverse_to.identifier for h in self.hops)}
         if (
-            len(self.hops) >= 4
+            any(h.via.edge_id == "E9" for h in self.hops)
+            or len(self.hops) >= 4
             or hop.via.traverse_from != self.end
             or hop.via.traverse_to.identifier in seen
         ):
@@ -514,7 +572,7 @@ def row_content(
     )
     recipe = None
     if path:
-        family = {"component": "N-C", "rq": "N-Q", "process": "N-P"}[view]
+        family = {"component": "N-C", "rq": "N-Q", "process": "N-P", "technical": "N-T"}[view]
         recipe = "/".join(
             [family, path.prefix, *[f"{v.edge_id}:{v.traversal_direction}" for v in via]]
         )
@@ -672,12 +730,131 @@ def component_navigation_rows(index: ReferenceIndex, component_id: str) -> tuple
     )
 
 
+def exact_interface_attachment(row: RowContent) -> bool:
+    """Match an authored terminal declaration, never a technical-scope rollup."""
+    if not row.via:
+        return False
+    last = row.via[-1]
+    return (
+        row.path_eligible
+        and row.target_identifier == PILOT_INTERFACE
+        and row.target_resolution_status == "resolved-public"
+        and row.resolved_target_type == "Interface"
+        and row.target_record_version is None
+        and row.target_profile is None
+        and row.source_doc_type in {"paper", "reading_note", "finding"}
+        and row.originating_role in ROLES
+        and row.originating_property == row.originating_role
+        and last.edge_id == "E9"
+        and last.traversal_direction == "forward"
+        and last.declaring_wiki_id == row.source_wiki_id
+        and last.declaring_record_version == row.source_record_version
+        and last.declaring_doc_type == row.source_doc_type
+        and last.property == last.role == row.originating_role
+        and last.declared_target_identifier == PILOT_INTERFACE
+        and last.declared_target_resolution_status == "resolved-public"
+        and last.declared_target_type == "Interface"
+        and last.declared_target_record_version is None
+        and last.declared_target_profile is None
+        and last.traverse_to.identifier == PILOT_INTERFACE
+        and last.traverse_to.resolution_status == "resolved-public"
+        and last.traverse_to.resolved_type == "Interface"
+        and last.traverse_to.record_version is None
+        and last.traverse_to.profile is None
+        and last.traverse_from.identifier == row.source_wiki_id
+        and last.traverse_from.resolution_status == "resolved-private"
+        and last.traverse_from.profile == "ra2"
+        and last.traverse_from.resolved_type == row.source_doc_type
+        and last.traverse_from.record_version == row.source_record_version
+    )
+
+
+def valid_technical_prefix(row: RowContent) -> bool:
+    """Check typed E1–E5 declarations and E2 confirmation for the closed N-T suffix."""
+    prerequisites = []
+    predicates = {"E1": e1, "E2": e2, "E3": e3, "E4": e4, "E5": e5}
+    for via in row.via[:-1]:
+        source = SnapshotRecord(
+            wiki_id=via.declaring_wiki_id,
+            doc_type=via.declaring_doc_type,
+            profile="ra2",
+            record_version=via.declaring_record_version,
+            references={},
+        )
+        declared = via.traverse_to if via.traversal_direction == "forward" else via.traverse_from
+        owner = via.traverse_from if via.traversal_direction == "forward" else via.traverse_to
+        if (
+            via.role is not None
+            or owner.resolution_status != "resolved-private"
+            or owner.profile != "ra2"
+            or owner.identifier != source.wiki_id
+            or owner.resolved_type != source.doc_type
+            or owner.record_version != source.record_version
+            or declared.identifier != via.declared_target_identifier
+            or declared.resolution_status != via.declared_target_resolution_status
+            or declared.resolved_type != via.declared_target_type
+            or declared.record_version != via.declared_target_record_version
+            or declared.profile != via.declared_target_profile
+            or not predicates[via.edge_id](source, via.property, declared)
+        ):
+            return False
+        if via.edge_id == "E2":
+            confirmations = [
+                p
+                for p in row.prerequisite_refs
+                if p.edge_id == "E1"
+                and p.traversal_direction == "forward"
+                and p.declaring_wiki_id == declared.identifier
+                and p.declaring_doc_type == "reading_note"
+                and p.declaring_record_version == declared.record_version
+                and p.property in {"paper_refs", "source_refs"}
+                and p.role is None
+                and p.traverse_from == declared
+                and p.traverse_to == owner
+                and p.declared_target_identifier == owner.identifier
+                and p.declared_target_type == owner.resolved_type
+                and p.declared_target_resolution_status == owner.resolution_status
+                and p.declared_target_record_version == owner.record_version
+                and p.declared_target_profile == owner.profile
+            ]
+            if len(confirmations) != 1:
+                return False
+            prerequisites.extend(confirmations)
+    return tuple(prerequisites) == row.prerequisite_refs
+
+
+def interface_attachment_rows(index: ReferenceIndex) -> tuple[Row, ...]:
+    """Every exact P/R/F declaration, including records without a resolved Paper anchor."""
+    return tuple(
+        sorted(
+            (
+                r
+                for r in index.rows
+                if r.row_kind == "declared-reference"
+                and len(r.via) == 1
+                and exact_interface_attachment(r)
+            ),
+            key=lambda r: (r.source_wiki_id, r.originating_property, r.row_id),
+        )
+    )
+
+
+def technical_navigation_rows(index: ReferenceIndex) -> tuple[Row, ...]:
+    """Revalidate closed N-T recipes at projection boundaries (copies can skip validation)."""
+    return tuple(
+        Row.model_validate(r.model_dump())
+        for r in index.rows
+        if r.navigation_view == "technical" or (r.recipe or "").startswith("N-T/")
+    )
+
+
 WARNING = (
     "Declared reference paths only. Roles belong to the named declaring record and are not "
     "inherited by the paper. These paths do not establish support, implementation evaluation "
     "or literature coverage. An empty view means no matching declared paths in this snapshot."
 )
 VIEW_NAMES: dict[View, str] = {
+    "technical": "Literature by exact Interface — terminal declared role paths",
     "component": "Literature by Component — declared role paths (derived navigation)",
     "rq": "Literature by RQ — declared reference paths (derived navigation)",
     "process": "Literature by Process — declared reference paths (derived navigation)",
