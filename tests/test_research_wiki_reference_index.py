@@ -113,7 +113,7 @@ def test_current_03_declared_reference_index_schema_is_truthful(atlas):
     empty = index.build_index(atlas, index.make_snapshot([], atlas), COMMIT)
     assert empty.source_atlas_schema == "0.3"
     assert hashlib.sha256(index.render_index(empty)).hexdigest() == (
-        "978cb40d2d1f029bb2bb7e03bc400ff5978b1ac06ada9fd5f10f91bc616bf508"
+        "2528c909be095568d26fd42b76849436261644163bb6899362098b6eb350e205"
     )
 
 
@@ -468,7 +468,7 @@ def test_a17_a18_markdown_injection_and_private_locator_encoding(atlas):
     assert malicious not in text and "<script>" not in text and "file:x" not in text
     assert "Notes/a%20%5Bb%5D%23%28c%29%7C.md" in text
     assert "&#124;" in text and "&#96;" in text and "&#91;" in text
-    assert text.count(index.WARNING) == 3
+    assert text.count(index.WARNING) == 4
     for locator in (PurePosixPath("/private/x.md"), PurePosixPath("../x.md")):
         with pytest.raises(index.ProjectionError, match="locator"):
             index.render_navigation(result, atlas, {"WFIND-FIXTURE": locator})
@@ -479,7 +479,7 @@ def test_a27_empty_and_unresolved_only_are_valid(atlas):
         result = build(atlas, records)
         assert navigation(result) == []
         text = index.render_navigation(result, atlas, {}).decode()
-        assert text.count("No matching declared paths in this snapshot.") == 3
+        assert text.count("No matching declared paths in this snapshot.") == 4
         assert "Direct Reference Audit" in text
         assert index.render_index(result) == index.render_index(build(atlas, records))
 

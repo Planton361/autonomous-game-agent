@@ -65,7 +65,9 @@ from .private_projection import (
     project as technical_projection,
 )
 from .private_reference_index import (
+    INDEX_SCHEMA_VERSION,
     NAVIGATION,
+    PILOT_INTERFACE,
     REFERENCE_INDEX,
     Identity,
     ReferenceIndex,
@@ -74,9 +76,11 @@ from .private_reference_index import (
     Via,
     build_index,
     component_navigation_rows,
+    interface_attachment_rows,
     make_snapshot,
     render_index,
     render_navigation,
+    technical_navigation_rows,
 )
 from .private_reference_index import (
     plain as reference_plain,
@@ -387,6 +391,9 @@ class IdentityPageModel:
     research_question_relationships: tuple[Relationship, ...]
     literature_paths: tuple[Row, ...]
     private_input_fingerprint: str
+    interface_attachments: tuple[Row, ...] = ()
+    technical_paths: tuple[Row, ...] = ()
+    related_scope_relation: Relationship | None = None
 
 
 def _derived_link(path: PurePosixPath, label: str) -> str:
@@ -590,8 +597,10 @@ def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dic
         "identity_page_schema_version": version,
         "identity_page_subject_id": subject_id,
         "identity_page_registry_type": _identity_page_type_for_id(subject_id),
-        "reference_index_schema_version": "1.0",
+        "reference_index_schema_version": metadata.get("reference_index_schema_version"),
     }
+    if metadata.get("reference_index_schema_version") not in {"1.0", INDEX_SCHEMA_VERSION}:
+        return {}
     if version == IDENTITY_PAGE_SCHEMA_VERSION:
         expected["identity_page_path"] = str(relative)
     if set(metadata) != required_fields or any(
@@ -1249,6 +1258,23 @@ def identity_page_model(
             )
         )
 
+    # One explicit pilot join; technical adjacency never enters the Research index.
+    pilot = atlas.entities.get(PILOT_INTERFACE)
+    pilot_valid = isinstance(pilot, TechnicalIdentity) and pilot.type == "Interface"
+    related_scope_relation = next(
+        (
+            edge
+            for edge in direct_relationships
+            if identity_id == "CMP-MEM-RETRIEVAL"
+            and subject.type == "Component"
+            and pilot_valid
+            and (edge.source, edge.relation, edge.target)
+            == (identity_id, "supplies", PILOT_INTERFACE)
+        ),
+        None,
+    )
+    attachment_scope = (identity_id == PILOT_INTERFACE and pilot_valid) or related_scope_relation
+
     return IdentityPageModel(
         subject=subject,
         path=path,
@@ -1261,6 +1287,9 @@ def identity_page_model(
             component_navigation_rows(reference, identity_id) if subject.type == "Component" else ()
         ),
         private_input_fingerprint=reference.private_input_fingerprint,
+        interface_attachments=interface_attachment_rows(reference) if attachment_scope else (),
+        technical_paths=technical_navigation_rows(reference) if attachment_scope else (),
+        related_scope_relation=related_scope_relation,
     )
 
 
@@ -1661,6 +1690,96 @@ def _identity_page_function_context(
     return lines
 
 
+def _render_interface_research(
+    atlas: Atlas,
+    model: IdentityPageModel,
+    locators: dict[str, PurePosixPath],
+    page_paths: dict[str, PurePosixPath],
+) -> list[str]:
+    """Display exact E9 declarations; the related join remains independently technical."""
+    related = model.subject.id == "CMP-MEM-RETRIEVAL"
+    heading = "Related technical-scope Research" if related else "Directly attached Research"
+    lines = ["", "### " + heading, ""]
+    if related:
+        relation = model.related_scope_relation
+        if relation is None:
+            return lines + [
+                "No accepted one-hop technical relation is present in this snapshot.",
+                "",
+            ]
+        target_link = _identity_page_human_link(atlas, PILOT_INTERFACE, page_paths)
+        lines.extend(
+            [
+                f"Independent technical relation: `{relation.source}` — `{relation.relation}` → "
+                f"{target_link} (`{relation.target}`; type `Interface`).",
+                "Research remains attached to the Interface. Memory Retrieval does not inherit "
+                "the role or attachment; this is related navigation only.",
+                "",
+            ]
+        )
+    else:
+        target_link = _identity_page_human_link(atlas, PILOT_INTERFACE, page_paths)
+        lines.extend([f"Exact target: {target_link} (`{PILOT_INTERFACE}`; type `Interface`).", ""])
+    lines.extend(
+        [
+            "Roles belong only to the declaring private record. No parent, part_of ancestry, "
+            "Function membership, Domain, legacy Assembly, folder, backlink or graph proximity "
+            "creates Research relevance. These declarations establish no scientific support or "
+            "measurement validity. Literature coverage and research completeness "
+            "have not been assessed.",
+            "",
+        ]
+    )
+    if not model.interface_attachments:
+        return lines + ["No matching declared Interface attachments in this snapshot.", ""]
+    source_path = OWNED_ROOT / model.path
+    for row in model.interface_attachments:
+        owner = _component_research_link(atlas, row.source_wiki_id, locators, source_path)
+        lines.extend(
+            [
+                f"- Declaring private record / exact role owner: {owner} · "
+                f"`{row.source_wiki_id}` · type `{row.source_doc_type}` · "
+                f"revision `v{row.source_record_version}`.",
+                f"  - Exact authored role: `{row.originating_role}`.",
+                f"  - Original technical target: {target_link} · `{row.target_identifier}` · "
+                "type `Interface` · `resolved-public`.",
+                "  - Terminal declaration: `E9:forward`; no semantic traversal after E9.",
+                f"  - Direct attachment audit row: `{row.row_id}`.",
+            ]
+        )
+        for line in _component_via_edge_lines(row.via[-1], atlas, locators, source_path, 1):
+            lines.append("  " + line)
+        matches = tuple(path for path in model.technical_paths if path.via[-1] == row.via[-1])
+        if not matches:
+            lines.append(
+                "  - No resolved Paper-anchored finite N-T path; "
+                "the exact declaration remains direct."
+            )
+        for path in matches:
+            lines.extend(
+                [
+                    f"  - Paper-anchored navigation: `{path.recipe}` · `{path.path_kind}` · "
+                    f"row `{path.row_id}` (navigation kind does not change attachment ownership).",
+                ]
+            )
+            for number, edge in enumerate(path.via, 1):
+                lines.extend(
+                    "    " + line
+                    for line in _component_via_edge_lines(
+                        edge, atlas, locators, source_path, number
+                    )
+                )
+            for number, edge in enumerate(path.prerequisite_refs, 1):
+                lines.append("    - Prerequisite (not traversed):")
+                lines.extend(
+                    "      " + line
+                    for line in _component_via_edge_lines(
+                        edge, atlas, locators, source_path, number
+                    )
+                )
+    return lines + [""]
+
+
 def render_identity_page(
     commit: str,
     atlas: Atlas,
@@ -1669,6 +1788,7 @@ def render_identity_page(
     registry_revision: str | None = None,
     page_paths: dict[str, PurePosixPath] | None = None,
     engineering_bindings: tuple[Binding, ...] = (),
+    locators: dict[str, PurePosixPath] | None = None,
 ) -> bytes:
     """Render the shared human-first page grammar over the exact Registry snapshot."""
     subject = model.subject
@@ -1934,8 +2054,17 @@ def render_identity_page(
             "",
             "## Research",
             "",
-            "**Scope / availability:** direct Registry Research Questions and declared "
-            "Component literature paths only; richer attachment is outside this slice.",
+            (
+                "**Scope / availability:** exact private Interface role declarations and finite "
+                "N-T navigation; ResearchQuestion technical targeting remains a separate contract."
+                if subject.id == PILOT_INTERFACE
+                else "**Scope / availability:** direct Registry Research Questions and declared "
+                "Component literature paths; Interface attachments appear separately as related "
+                "technical-scope navigation through the exact supplies relation."
+                if subject.id == "CMP-MEM-RETRIEVAL"
+                else "**Scope / availability:** direct Registry Research Questions and declared "
+                "Component literature paths only; richer attachment is outside this slice."
+            ),
         ]
     )
     if hub is not None:
@@ -1986,7 +2115,7 @@ def render_identity_page(
                 "Reference Index snapshot; literature coverage and research completeness have "
                 "not been assessed."
             )
-    elif subject.type != "Environment":
+    elif subject.id != PILOT_INTERFACE and subject.type != "Environment":
         lines.extend(
             [
                 "",
@@ -1997,6 +2126,8 @@ def render_identity_page(
                 "Literature coverage and research completeness have not been assessed.",
             ]
         )
+    if subject.id in {PILOT_INTERFACE, "CMP-MEM-RETRIEVAL"}:
+        lines.extend(_render_interface_research(atlas, model, locators or {}, paths))
     lines.extend(
         [
             "",
@@ -2159,7 +2290,7 @@ def render_identity_page(
         "identity_page_registry_type": subject.type,
         "identity_page_path": str(model.path),
         "source_registry_revision": registry_revision_value,
-        "reference_index_schema_version": "1.0",
+        "reference_index_schema_version": INDEX_SCHEMA_VERSION,
         "private_input_fingerprint": model.private_input_fingerprint,
     }
     hidden_metadata = IDENTITY_PAGE_METADATA_MARKER + yaml_text(metadata) + "-->\n"
@@ -3612,6 +3743,11 @@ class ManifestV210(ManifestV21):
     view_schema_version: Literal["2.10"]
 
 
+class ManifestV211(ManifestV21):
+    view_schema_version: Literal["2.11"]
+    reference_index_schema_version: Literal["1.1"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -3754,6 +3890,7 @@ def reference_views_tree(
     engineering_bindings = validated_bindings(
         Catalog(presentation_binding_version="1.0", bindings=engineering_bindings), atlas
     )
+    technical_navigation_rows(reference)  # Fail closed before constructing any projected output.
     tree = views_tree(commit, public_base, direct_base, atlas.source_atlas_schema)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
@@ -3808,6 +3945,7 @@ def reference_views_tree(
             registry_revision=revision,
             page_paths=page_paths,
             engineering_bindings=engineering_bindings,
+            locators=locators,
         )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
@@ -3887,13 +4025,13 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.10",
-        reference_index_schema_version="1.0",
+        view_schema_version="2.11",
+        reference_index_schema_version=reference.index_schema_version,
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV210.model_validate(data).model_dump(exclude_none=True)
+        ManifestV211.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -4043,6 +4181,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV29.model_validate(data)
         elif data.get("view_schema_version") == "2.10":
             manifest = ManifestV210.model_validate(data)
+        elif data.get("view_schema_version") == "2.11":
+            manifest = ManifestV211.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -4064,20 +4204,33 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and (
                         relative not in W07_PAYLOADS
                         or manifest.view_schema_version
-                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
+                        in {"2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.6" or relative in V26_INDEX_PAYLOADS)
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
-                        manifest.view_schema_version not in {"2.8", "2.9", "2.10"}
+                        manifest.view_schema_version not in {"2.8", "2.9", "2.10", "2.11"}
                         or relative in V27_INDEX_PAYLOADS
                     )
                 )
             )
             or (
                 manifest.view_schema_version
-                in {"2.0", "2.1", "2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
+                in {
+                    "2.0",
+                    "2.1",
+                    "2.2",
+                    "2.3",
+                    "2.4",
+                    "2.5",
+                    "2.6",
+                    "2.7",
+                    "2.8",
+                    "2.9",
+                    "2.10",
+                    "2.11",
+                }
                 and relative == REFERENCE_INDEX
             )
             or (
@@ -4093,27 +4246,28 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9", "2.10"}
+                manifest.view_schema_version in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
-                manifest.view_schema_version in {"2.7", "2.8", "2.9", "2.10"}
+                manifest.view_schema_version in {"2.7", "2.8", "2.9", "2.10", "2.11"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
                 and relative == HIERARCHY
             )
             or (
                 manifest.view_schema_version
-                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
+                in {"2.2", "2.3", "2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
                 and re.fullmatch(r"[A-Z0-9]+(?:-[A-Z0-9]+)+", relative.stem)
             )
             or (
-                manifest.view_schema_version in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10"}
+                manifest.view_schema_version
+                in {"2.4", "2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"}
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
             or (manifest.view_schema_version == "2.8" and relative in IDENTITY_PAGE_PAYLOADS)
@@ -4121,7 +4275,10 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 manifest.view_schema_version == "2.9"
                 and _identity_page_subject_for_path(relative) is not None
             )
-            or (manifest.view_schema_version == "2.10" and _is_identity_page_path(relative))
+            or (
+                manifest.view_schema_version in {"2.10", "2.11"}
+                and _is_identity_page_path(relative)
+            )
         ):
             raise ProjectionError("Invalid direct-view ownership path/type")
         if isinstance(item, OwnedFileV21):
@@ -4220,10 +4377,9 @@ def project(
                 )
         elif relative == REFERENCE_INDEX:
             metadata = read_yaml(utf8(data))
-            owned = (
-                metadata.get("generated_by") == OWNER
-                and metadata.get("index_schema_version") == "1.0"
-            )
+            owned = metadata.get("generated_by") == OWNER and metadata.get(
+                "index_schema_version"
+            ) in {"1.0", INDEX_SCHEMA_VERSION}
         elif relative.suffix == ".canvas":
             try:
                 canvas = json.loads(utf8(data))

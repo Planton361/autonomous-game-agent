@@ -1035,3 +1035,32 @@ edited/unowned fail-closed behavior and authored-byte preservation still apply.
 The source commit binds the catalog version, and owned page digests cover its rendered
 content. `workspace --check` remains zero-write. This Delivery does not apply to the
 actual private vault; human presentation acceptance requires a later CONTROL gate.
+
+## RM-3 G2 exact Interface attachment (manifest v2.11)
+
+The current private generated index/view contract is
+[Declared Reference Index 1.1](Declared%20Reference%20Index%20Contract.md#rm-3-g2-interface-pilot--current-index-11--view-manifest-211).
+It supersedes historical Component-only eligibility solely for exact Interface
+`IF-MEM-CORTEX` under amended #120. Existing RA-2 fields, literal five-role
+semantics and authored bytes remain unchanged; there is no RA-2 migration.
+
+The same preferred Interface page now shows **Directly attached Research** from
+exact private Paper/ReadingNote/Finding E9 declarations. The same Memory
+Retrieval preferred page shows them only as **Related technical-scope Research**
+through the exact separately displayed `supplies` relation. Each item retains
+its declaring record/role owner, revision, role, original Interface target/type,
+terminal audit and matching finite N-T path/prerequisite provenance. No role or
+attachment is inherited by Memory Retrieval or any parent/Function/Domain.
+Unrelated identities keep their existing neutral states. ResearchQuestion target
+bindings remain a separate future RM-3 gate.
+
+Manifest 2.11/reference index 1.1 reuse exactly the 2.10 finite ownership paths,
+preferred routes, renderer and owner. Prior 1.0–2.10 manifests remain readable
+for bounded generated-output regeneration; `workspace check` never migrates or
+writes. No authored byte, public schema/Registry, Function relation,
+engineering-provenance panel, stylesheet or canonical/protocol source changes.
+Native Markdown contains all facts and navigation. Synthetic tests cover direct
+and related separation, failed joins, invalid recipes, terminal E9, no inherited
+relevance, deterministic bytes, input/reference fingerprints, migration,
+authored preservation, zero-write checks and public-export denial. No actual
+private vault is used during this Delivery; human G6 remains pending CONTROL.
