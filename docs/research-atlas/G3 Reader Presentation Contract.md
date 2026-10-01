@@ -114,6 +114,9 @@ relevance, inferred consensus, source resolution or G4/G5 expansion occurs.
 Direct-view manifest **2.13** adds `presentation_fingerprint_version: "1.0"` and
 `presentation_input_fingerprint`. The closed reference index remains **1.2**, and
 its existing `private_input_fingerprint` and all E1–E9/N-C/N-T meanings remain intact.
+Structured audit inputs use deterministic JSON with literal recoverable values.
+The projection computes the presentation hash once and reuses it across pages and
+the manifest; individual page rendering computes the same hash independently.
 The separate presentation hash uses sorted record identities and canonical JSON
 for consumed structured identity/title/state/reference, bibliography, read metadata
 and G3 fields. Bodies, aliases/tags, filenames, local paths, mtimes and annotations

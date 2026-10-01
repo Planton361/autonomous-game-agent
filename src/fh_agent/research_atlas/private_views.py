@@ -2132,10 +2132,12 @@ def render_identity_page(
     engineering_bindings: tuple[Binding, ...] = (),
     locators: dict[str, PurePosixPath] | None = None,
     private_records: tuple[EpistemicRecord, ...] = (),
+    presentation_revision: str | None = None,
 ) -> bytes:
     """Human-first reader with one complete, native collapsed audit projection."""
     paths = page_paths if page_paths is not None else identity_page_paths(atlas)
     locators = locators or {}
+    presentation_revision = presentation_revision or presentation_fingerprint(private_records)
     # Existing exact detail renderer keeps the complete Registry and G2 audit contract.
     audit_lines, metadata = _identity_page_audit(
         commit, atlas, model, registry_revision=registry_revision, page_paths=paths
@@ -2401,12 +2403,12 @@ def render_identity_page(
     audit += [
         "",
         f"Presentation input fingerprint "
-        f"v{PRESENTATION_FINGERPRINT_VERSION}: `{presentation_fingerprint(private_records)}`",
+        f"v{PRESENTATION_FINGERPRINT_VERSION}: `{presentation_revision}`",
         "",
         "### Structured Research presentation inputs",
         "",
-        "```yaml",
-        yaml_text(
+        "```json",
+        json.dumps(
             [
                 r.model_dump(
                     mode="json",
@@ -2417,8 +2419,11 @@ def render_identity_page(
                 )
                 for r in sorted(private_records, key=lambda record: record.wiki_id)
                 if r.wiki_id in audit_record_ids
-            ]
-        ).rstrip(),
+            ],
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
+        ),
         "```",
     ]
     lines += _identity_page_callout("aga-audit", "Full audit", audit, collapsed=True)
@@ -4119,6 +4124,7 @@ def reference_views_tree(
         tree[canvas_path] = render_technical_detail_canvas(atlas, detail)
     revision = registry_content_revision(atlas)
     page_paths = identity_page_paths(atlas)
+    presentation_revision = presentation_fingerprint(private_records)
     for page in identity_page_models(atlas, reference, page_paths=page_paths):
         if page.path in tree and (
             page.subject.id not in COMPONENT_HUB_PATHS
@@ -4134,6 +4140,7 @@ def reference_views_tree(
             engineering_bindings=engineering_bindings,
             locators=locators,
             private_records=private_records,
+            presentation_revision=presentation_revision,
         )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
@@ -4215,7 +4222,7 @@ def reference_views_tree(
     data.update(
         view_schema_version="2.13",
         presentation_fingerprint_version=PRESENTATION_FINGERPRINT_VERSION,
-        presentation_input_fingerprint=presentation_fingerprint(private_records),
+        presentation_input_fingerprint=presentation_revision,
         reference_index_schema_version=reference.index_schema_version,
         private_input_fingerprint=reference.private_input_fingerprint,
         owned_files=owned_files,

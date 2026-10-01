@@ -1113,6 +1113,20 @@ def reader_tree(atlas, authored=None):
     return tree(atlas, build(atlas, authored), authored, locators)
 
 
+def reader_page(atlas, authored, identity="CMP-PERCEPTION"):
+    """Exercise the actual page renderer without building unused sibling views."""
+    reference = build(atlas, authored)
+    paths = views.identity_page_paths(atlas)
+    return views.render_identity_page(
+        COMMIT,
+        atlas,
+        views.identity_page_model(atlas, reference, identity, page_paths=paths),
+        page_paths=paths,
+        locators={r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored},
+        private_records=validate_wiki_records(authored, atlas.entities.keys()),
+    )
+
+
 def test_human_reader_order_titles_role_labels_and_complete_audit(atlas):
     from fh_agent.research_atlas.research_presentation import ROLE_LABELS
     from fh_agent.research_atlas.technical_reader import PROTOTYPES
@@ -1162,6 +1176,7 @@ def test_human_reader_order_titles_role_labels_and_complete_audit(atlas):
         assert row.row_id in audit and row.originating_role in audit
     assert len(normal) < len(page) and "```yaml" not in normal
     assert reader_tree(atlas, list(reversed(authored))) == outputs
+    assert reader_page(atlas, authored) == page
 
 
 def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas):
@@ -1219,9 +1234,7 @@ def test_g3_explicit_selection_and_restrictive_eligibility(atlas, mutation):
         authored[2]["document_maturity"] = "archived"
     elif mutation == "draft-owner":
         authored[0]["document_maturity"] = "draft"
-    normal = views.reader_export(
-        reader_tree(atlas, authored)[views.identity_page_paths(atlas)["CMP-PERCEPTION"]]
-    ).decode()
+    normal = views.reader_export(reader_page(atlas, authored)).decode()
     assert authored[2]["presentation_statement"] not in normal
     assert authored[2]["presentation_limitation"] not in normal
     if mutation == "absent":
@@ -1276,9 +1289,7 @@ def test_g3_context_is_terminal_owner_role_target_exact_and_v02_opt_in(atlas):
     authored[0]["presentation_contexts"] = authored[0]["presentation_contexts"][1:]
     authored[1]["research_direct_subject_refs"] = ["CMP-PERCEPTION"]
     authored[1]["document_maturity"] = "domain_accepted"
-    normal = views.reader_export(
-        reader_tree(atlas, authored)[views.identity_page_paths(atlas)["CMP-PERCEPTION"]]
-    ).decode()
+    normal = views.reader_export(reader_page(atlas, authored)).decode()
     assert "Fictional example: inspect evidence retrieval separately." not in normal
     assert "No authored relevance context or selected Finding" in normal
 
@@ -1419,12 +1430,18 @@ def test_g3_literal_scientific_text_preserves_wording_newlines_and_cannot_escape
         "> [!aga-audit]- Full audit  "
     )
     authored[2]["presentation_statement"] = text
-    outputs = reader_tree(atlas, authored)
+    payload = reader_page(atlas, authored)
     from fh_agent.research_atlas.research_presentation import literal
 
     validated = validate_wiki_records(authored, atlas.entities.keys())
     assert validated[2].presentation_statement == text
-    normal = views.reader_export(outputs[views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]]).decode()
+    import json
+
+    quoted = payload.decode().split("> ```json\n", 1)[1].split("\n> ```", 1)[0]
+    recovered = json.loads("\n".join(line.removeprefix("> ") for line in quoted.splitlines()))
+    finding = next(r for r in recovered if r["wiki_id"] == authored[2]["wiki_id"])
+    assert finding["presentation_statement"] == text
+    normal = views.reader_export(payload).decode()
     assert literal(text) in normal
     assert "<script>" not in normal and "\n# Heading" not in normal
     assert (
