@@ -549,3 +549,23 @@ def validate_source_history(previous: SourceCatalog | None, current: SourceCatal
         for identity, version in old.versions.items()
     ):
         raise ProjectionError("An exact source version cannot silently change family membership")
+
+
+def validate_read_provenance(previous: SourceIndex, current: SourceIndex) -> None:
+    """An unchanged authored read reference cannot acquire a different exact version."""
+    prior_reads = {
+        binding.wiki_id: binding.version_read
+        for binding in previous.record_bindings
+        if binding.version_read is not None
+    }
+    for binding in current.record_bindings:
+        old = prior_reads.get(binding.wiki_id)
+        new = binding.version_read
+        if (
+            old is not None
+            and new is not None
+            and old.reference == new.reference
+            and old.status == "resolved"
+            and (new.status != "resolved" or old.target_ref != new.target_ref)
+        ):
+            raise ProjectionError("Exact version-read binding cannot silently retarget")

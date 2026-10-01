@@ -3007,3 +3007,32 @@ def test_g4_source_preflight_failures_never_write_or_adopt(setup, fault):
             views.project(repo, vault, sha, check=check)
         assert filesystem_state(vault) == before
     assert tree[SOURCE_INDEX]  # Original finite source payload existed; never silently adopted.
+
+
+def test_g4_alias_retarget_of_unchanged_read_is_zero_write_rejected(setup):
+    import json
+
+    from source_resolution_fixtures import FIXTURE, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import CATALOG_INPUT
+
+    repo, vault, sha = setup
+    (vault / CATALOG_INPUT).write_bytes(FIXTURE.read_bytes())
+    for record in synthetic_records():
+        if record.doc_type == "reading_note":
+            record = record.model_copy(update={"version_read": "arxiv:fictional-v1"})
+        write_note(
+            vault / "authored" / (record.wiki_id + ".md"),
+            record.model_dump(mode="json", exclude_unset=True),
+        )
+    views.project(repo, vault, sha)
+    data = json.loads((vault / CATALOG_INPUT).read_text())
+    next(b for b in data["bindings"] if b["scheme"] == "arxiv")["target_ref"] = "srcv-c9r4"
+    (vault / CATALOG_INPUT).write_text(json.dumps(data))
+    before = filesystem_state(vault)
+    for check in (True, False):
+        with pytest.raises(
+            views.ProjectionError, match="version-read binding cannot silently retarget"
+        ):
+            views.project(repo, vault, sha, check=check)
+        assert filesystem_state(vault) == before

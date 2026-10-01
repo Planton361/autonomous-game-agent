@@ -180,6 +180,12 @@ cannot silently move to another family. Removing a prior catalog, family or
 version blocks rather than pruning historical provenance. Status/preference/
 labels can be explicitly edited. Missing history index may be rebuilt only when
 its bytes exactly reproduce the prior manifested digest; otherwise restore it.
+An unchanged ReadingNote `version_read` reference also cannot resolve to a different
+exact version after an alias-binding edit; such a retarget blocks before derived
+writes. Losing that recorded resolution through alias removal/conflict also blocks,
+so an intermediate unresolved state cannot erase the historical binding. Initially
+unresolved/conflicting references remain diagnostics without substitution.
+An explicitly authored read-reference change is not an automatic migration.
 This is historical source navigation safety, not automatic scientific review.
 The Workspace harness still restores only generated roots, not authored inputs.
 

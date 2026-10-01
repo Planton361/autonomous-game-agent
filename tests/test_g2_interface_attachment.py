@@ -1889,7 +1889,8 @@ def test_g4_source_status_has_no_scientific_or_public_effect(atlas):
         data["versions"][0]["status"] = status
         SourceResolver(SourceCatalog.model_validate(data)).index(COMMIT, records)
         assert tuple(r.model_dump(mode="json") for r in records) == before
-        assert workspace_tree(atlas) == public_before
+    # Public rendering consumes only Atlas; compare once after every source-status case.
+    assert workspace_tree(atlas) == public_before
     for output in public_before.values():
         assert "srcf-a7k2" not in output and "srcv-b8q3" not in output
         assert "Hierarchical Visual State Representations" not in output
@@ -1995,16 +1996,65 @@ def test_g4_history_rejects_removal_and_family_reassignment():
 def test_g4_historical_manifest_cannot_adopt_source_payloads(atlas, tmp_path, payload_path):
     import yaml
 
-    outputs = tree(atlas, build(atlas, []), [])
-    manifest = yaml.safe_load(outputs[views.MANIFEST])
-    manifest.pop("source_resolution_fingerprint_version")
-    manifest.pop("source_resolution_input_fingerprint")
-    manifest["view_schema_version"] = "2.13"
-    manifest["owned_files"] = [
-        item for item in manifest["owned_files"] if item["path"] == payload_path
-    ]
+    manifest = views.ManifestV213(
+        view_schema_version="2.13",
+        generated_by=views.OWNER,
+        source_repository=views.REPOSITORY,
+        source_commit=COMMIT,
+        source_atlas_schema=atlas.source_atlas_schema,
+        source_sha256=views.SourceDigests(
+            public_atlas_base="a" * 64, research_wiki_direct_base="b" * 64
+        ),
+        reference_index_schema_version="1.2",
+        private_input_fingerprint="c" * 64,
+        presentation_fingerprint_version="1.0",
+        presentation_input_fingerprint="d" * 64,
+        owned_files=[
+            views.OwnedFileV21(path=payload_path, sha256="e" * 64, ownership="strict-bytes")
+        ],
+    ).model_dump(mode="json")
     destination = tmp_path / views.MANIFEST
     destination.parent.mkdir(parents=True)
     destination.write_text(yaml.safe_dump(manifest))
     with pytest.raises(views.ProjectionError, match="Historical manifest cannot own G4"):
         views.validate_prior(tmp_path)
+
+
+def test_g4_unchanged_read_alias_cannot_silently_retarget():
+    from source_resolution_fixtures import synthetic_catalog, synthetic_records
+
+    from fh_agent.research_atlas.source_resolution import (
+        SourceCatalog,
+        SourceResolver,
+        validate_read_provenance,
+    )
+
+    original = synthetic_records()
+    reading = original[1].model_copy(update={"version_read": "arxiv:fictional-v1"})
+    records = (original[0], reading, *original[2:])
+    catalog = synthetic_catalog()
+    before = SourceResolver(catalog).index(COMMIT, records)
+    data = catalog.model_dump(mode="json")
+    next(b for b in data["bindings"] if b["scheme"] == "arxiv")["target_ref"] = "srcv-c9r4"
+    after = SourceResolver(SourceCatalog.model_validate(data)).index(COMMIT, records)
+    with pytest.raises(
+        views.ProjectionError, match="version-read binding cannot silently retarget"
+    ):
+        validate_read_provenance(before, after)
+    # Conflict or removal cannot erase the recorded target and enable a later retarget.
+    for bindings in (
+        [b for b in data["bindings"] if b["scheme"] != "arxiv"],
+        [*data["bindings"], dict(scheme="arxiv", value="fictional-v1", target_ref="srcv-b8q3")],
+    ):
+        invalid = {**data, "bindings": bindings}
+        with pytest.raises(views.ProjectionError, match="version-read binding"):
+            validate_read_provenance(
+                before, SourceResolver(SourceCatalog.model_validate(invalid)).index(COMMIT, records)
+            )
+    assert reading.version_read == "arxiv:fictional-v1"
+    # Preferred-version edits remain allowed and never enter read-version resolution.
+    data = catalog.model_dump(mode="json")
+    data["families"][0]["preferred_version_ref"] = "srcv-b8q3"
+    validate_read_provenance(
+        before, SourceResolver(SourceCatalog.model_validate(data)).index(COMMIT, records)
+    )

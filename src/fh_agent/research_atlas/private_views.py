@@ -107,6 +107,7 @@ from .source_resolution import (
     SourceIndex,
     SourceResolver,
     load_catalog,
+    validate_read_provenance,
     validate_source_history,
 )
 from .technical_reader import PROTOTYPES
@@ -4803,6 +4804,7 @@ def project(
             raise ProjectionError("Invalid prior source history index; restore it") from exc
         current_source = SourceIndex.model_validate(read_yaml(utf8(tree[SOURCE_INDEX])))
         validate_source_history(previous_source.catalog, current_source.catalog)
+        validate_read_provenance(previous_source, current_source)
     if check:
         if actual != tree.keys() or any(
             (
