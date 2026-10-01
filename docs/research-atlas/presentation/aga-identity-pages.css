@@ -144,6 +144,19 @@ body.show-inline-title
   font-size: 0.9em;
 }
 
+/* Native thematic breaks mark the two full primary sections, never the entry
+   cards or Evidence. Direct-content scope excludes embedded notes; the hero
+   guard excludes unrelated pages. CM6 keeps this rule on the native hr line
+   whether the caret shows Markdown syntax or Live Preview renders an hr. */
+.markdown-preview-view:has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
+  > .markdown-preview-sizer > .el-hr > hr,
+.markdown-source-view.mod-cm6.is-live-preview:has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))
+  .cm-content > .cm-line.HyperMD-hr {
+  --hr-color: var(--text-muted);
+  --hr-thickness: 0.2rem;
+  margin-block: 2rem 0.75rem;
+}
+
 /* Narrow panes and mobile keep the same reading order and all content. */
 @media (max-width: 40rem) {
   .callout:is([data-callout="aga-grid"], [data-callout="aga-pillars"]) > .callout-content {

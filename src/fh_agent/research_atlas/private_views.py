@@ -1818,7 +1818,7 @@ def render_identity_page(
     visual = _identity_page_mermaid(atlas, model)
     if visual:
         lines.extend(["", "## Visual Context", "", *visual])
-    lines.extend(["", "## Technical", "", f"### {technical_entry_text.rstrip('.')}", ""])
+    lines.extend(["", "---", "", "## Technical", "", f"### {technical_entry_text.rstrip('.')}", ""])
     lines.extend(
         [
             "Current implementation provenance beyond the registered source inspection "
@@ -1911,6 +1911,8 @@ def render_identity_page(
         lines.append("No direct typed Related Object relation is registered in this snapshot.")
     lines.extend(
         [
+            "",
+            "---",
             "",
             "## Research",
             "",

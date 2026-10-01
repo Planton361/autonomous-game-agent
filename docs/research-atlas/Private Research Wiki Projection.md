@@ -866,7 +866,22 @@ Gap Analysis says "Not assessed / no authorized gap assessment attached."
 No G2/G3/G4, literature absence, novelty, completeness or scientific claim is inferred.
 
 Technical and Research remain full same-page sections, preceded by paired entry
-cards in Technical then Research source order. The optional stylesheet places
+cards in Technical then Research source order.
+CONTROL [5922295739](https://github.com/Planton361/autonomous-game-agent/issues/114#issuecomment-5922295739)
+adds one minimal presentation hook: a native Markdown thematic break (`---`)
+immediately before each full `## Technical` and `## Research` heading. Both H2s,
+their order, content and entry cards remain intact. CSS-off therefore retains
+explicit section dividers without HTML or plugins. The optional stylesheet gives
+these rules 2rem upper spacing, 0.75rem lower spacing and a 0.2rem rule thickness,
+using text-muted color as an additional cue. Direct-content selectors require
+the Identity Page hero and exclude embedded notes. Reading View targets the
+native `el-hr` block; Live Preview targets the native `HyperMD-hr` line in CM6,
+including the caret-visible syntax state. Evidence has no primary-section
+hook and remains supporting. No fixed heights, widths, clipping or hidden
+content are added; wide/narrow source order and responsive entry cards remain
+unchanged. Journeys A–C remain accepted; this repair awaits only the bounded
+Technical/Research visual re-check after CONTROL source/CI review.
+ The optional stylesheet places
 readable cards side by side and stacks them at narrow widths, without fixed
 heights or horizontal scrolling. `aga-child` is the additional finite card hook.
 Native Markdown remains complete with CSS disabled, including Functional Context,

@@ -709,7 +709,7 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
     asset = ROOT / "docs/research-atlas/presentation/aga-identity-pages.css"
     assert list(asset.parent.glob("*.css")) == [asset]
     data = asset.read_bytes()
-    assert data == asset.read_bytes() and len(data) < 5000
+    assert data == asset.read_bytes() and len(data) < 6000
     css = re.sub(r"/\*.*?\*/", "", data.decode(), flags=re.S)
     hooks = set(re.findall(r'data-callout="([^"]+)"', css))
     assert hooks == {
@@ -753,6 +753,9 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "show-inline-title",
         "markdown-preview-sizer",
         "el-h",
+        "el-hr",
+        "hr",
+        "HyperMD-hr",
         "mod-cm",
         "is-live-preview",
         "cm-content",
@@ -793,6 +796,8 @@ def test_identity_page_css_is_finite_optional_and_presentation_only():
         "--h1-weight",
         "--h1-color",
         "--h1-line-height",
+        "--hr-color",
+        "--hr-thickness",
         "display",
         "text-decoration",
         "outline",
@@ -2531,3 +2536,59 @@ def test_uip_native_tables_escape_wikilink_delimiters_and_function_name_collisio
         ]
         == "Function"
     )
+
+
+@pytest.mark.parametrize("identity", ["CMP-PERCEPTION", "FUNC-OBSERVE"])
+def test_full_primary_sections_keep_native_h2s_and_scannable_css_off_dividers(atlas, identity):
+    rendered = page(atlas, identity)
+    visible = rendered.split(views.IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+    headings = re.findall(r"^## (.+)$", visible, re.M)
+    assert headings.count("Technical") == headings.count("Research") == 1
+    assert (
+        headings.index("Technical")
+        < headings.index("Research")
+        < headings.index("Evidence / Provenance")
+    )
+    # The sole presentation hook is a native thematic break, used at both full sections.
+    assert re.findall(r"^---\n\n## (.+)$", visible, re.M) == ["Technical", "Research"]
+    assert len(re.findall(r"^---$", visible, re.M)) == 2
+    assert "\n---\n\n## Evidence / Provenance" not in visible
+    assert "[!aga-technical-entry] TECHNICAL — How does it work?" in visible
+    assert "[!aga-research-entry] RESEARCH — What do we know or need to know?" in visible
+    assert visible.index("[!aga-technical-entry]") < visible.index("\n## Technical\n")
+    assert visible.index("[!aga-research-entry]") < visible.index("\n## Research\n")
+    assert "[[#Technical|Read Technical on this page]]" in visible
+    assert "[[#Research|Read Research on this page]]" in visible
+    assert "<" not in visible  # No HTML replacement, wrapper, or plugin is needed.
+    assert "## Evidence / Provenance\n" in visible and "## Return Navigation\n" in visible
+    if identity == "FUNC-OBSERVE":
+        assert "*Function · Stable ID `FUNC-OBSERVE`*" in visible
+        assert "## Local Anatomy" not in visible
+    else:
+        assert "*Component · Stable ID `CMP-PERCEPTION`*" in visible
+        assert "Registered direct subcomponents: **2**." in visible
+
+
+def test_full_primary_section_css_scopes_native_rules_in_both_obsidian_modes():
+    css = (ROOT / "docs/research-atlas/presentation/aga-identity-pages.css").read_text()
+    rule = css.split("/* Native thematic breaks", 1)[1].split("/* Narrow panes", 1)[0]
+    rule = re.sub(r"/\*.*?\*/", "", "/* Native thematic breaks" + rule, flags=re.S)
+    selectors, declarations = rule.split("{", 1)
+    selectors = [s.strip() for s in selectors.split(",")]
+    assert len(selectors) == 2
+    guard = ':has(.callout[data-callout="aga-hero"]:not(.markdown-embed .callout))'
+    assert all(guard in selector for selector in selectors)
+    assert selectors[0].startswith(".markdown-preview-view")
+    assert "> .markdown-preview-sizer > .el-hr > hr" in selectors[0]
+    assert selectors[1].startswith(".markdown-source-view.mod-cm6.is-live-preview")
+    assert ".cm-content > .cm-line.HyperMD-hr" in selectors[1]
+    assert "--hr-thickness: 0.2rem;" in declarations
+    assert "margin-block: 2rem 0.75rem;" in declarations
+    assert "--hr-color: var(--text-muted);" in declarations
+    assert not re.search(
+        r"(?:display|height|overflow|visibility|opacity|clip|content)\s*:", declarations
+    )
+    assert "Evidence" not in selectors and "h2" not in selectors
+    assert "aga-technical-entry" not in selectors and "aga-research-entry" not in selectors
+    assert "@media (max-width: 40rem)" in css
+    assert "grid-template-columns: minmax(0, 1fr);" in css
