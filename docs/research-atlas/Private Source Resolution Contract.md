@@ -228,3 +228,11 @@ After CONTROL exact-head source/CI acceptance and human G6 authorization:
    without opening raw Audit. No screenshot marathon; no real reading claim.
 
 G6, CONTROL acceptance, user merge and Issue closure remain subsequent gates.
+
+## Accepted #125 reader overlay
+
+The [RQ Reader Contract](RQ%20Reader%20Contract.md) adds curated RQ navigation and
+exact family-bound Zotero item links under manifest 2.15. Source-resolution
+fingerprint 1.0, catalog semantics, checked-version provenance and historical
+ownership safeguards remain unchanged. Component pages now expose RQ cards;
+Source Details and Literature Inspection remain maintenance destinations.

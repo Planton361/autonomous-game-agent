@@ -1178,3 +1178,16 @@ substituted. Version read remains independent from an authored preferred version
 Source statuses create diagnostics only. No actual synced-vault application or
 synthetic corpus population occurs during implementation; bounded human G6 follows
 CONTROL exact-head source/CI acceptance.
+
+## RQ-centered reader (#125, manifest v2.15)
+
+The accepted [RQ Reader Contract](RQ%20Reader%20Contract.md) adds explicit RA-2 0.3
+RQ-owned analysis and exact technical-subject binding, compact Component RQ cards,
+and one preferred generated RQ page per durable identity. The new finite page
+family is `research-questions/<human title>.md` under the same derived owner. Hidden
+metadata avoids authored-envelope discovery and visible Properties machinery.
+Presentation fingerprint advances to 1.1; reference/source fingerprints and
+source catalog behavior stay unchanged. No old authored record is migrated.
+Strict ownership, historical migration, single writer, per-file atomic replacement,
+manifest-last behavior, zero-write check and restore-point harness remain intact.
+Actual-vault application and human G6 await CONTROL exact-head acceptance.

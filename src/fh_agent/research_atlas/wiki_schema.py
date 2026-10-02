@@ -7,6 +7,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
+from .rq_schema import PresentationAnalysis, SourceLocation
+
 WIKI_PREFIXES = {
     "dossier": "DOS",
     "process": "PROC",
@@ -83,7 +85,7 @@ class EpistemicRecord(WikiRecord):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    epistemic_schema_version: Literal["0.1", "0.2"]
+    epistemic_schema_version: Literal["0.1", "0.2", "0.3"]
     title: Text
     record_version: int = Field(strict=True, gt=0)
     document_maturity: Literal["draft", "in_review", "domain_accepted", "superseded", "archived"]
@@ -110,8 +112,20 @@ class EpistemicRecord(WikiRecord):
             for name in type(self).model_fields
             if name.startswith("presentation_") and getattr(self, name) not in (None, [])
         }
-        if presentation and self.epistemic_schema_version != "0.2":
+        if presentation and self.epistemic_schema_version not in {"0.2", "0.3"}:
             raise ValueError("G3 presentation fields require opt-in RA-2 0.2")
+        if self.epistemic_schema_version != "0.3" and (
+            getattr(self, "presentation_analysis", None) is not None
+            or getattr(self, "presentation_source_locations", [])
+        ):
+            raise ValueError("RQ analysis/source locations require opt-in RA-2 0.3")
+        if self.epistemic_schema_version == "0.3" and self.doc_type == "research_question":
+            refs = self.research_direct_subject_refs
+            if len(refs) != len(set(refs)):
+                raise ValueError("Duplicate exact RQ subject")
+            analysis = getattr(self, "presentation_analysis", None)
+            if analysis and any(c.target_ref not in refs for c in analysis.subject_contexts):
+                raise ValueError("Subject context requires an exact declared binding")
         contexts = getattr(self, "presentation_contexts", ())
         seen = set()
         for context in contexts:
@@ -263,6 +277,7 @@ class Paper(EpistemicRecord):
 
 
 class Finding(EpistemicRecord):
+    presentation_source_locations: list[SourceLocation] = Field(default_factory=list, strict=True)
     doc_type: Literal["finding"]
     presentation_statement: PresentationText | None = None
     presentation_limitation: PresentationText | None = None
@@ -308,6 +323,20 @@ class Candidate(EpistemicRecord):
 
 
 class ResearchQuestion(Candidate):
+    presentation_analysis: PresentationAnalysis | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def exact_subject_literals(cls, values: object) -> object:
+        if isinstance(values, dict) and values.get("epistemic_schema_version") == "0.3":
+            refs = values.get("research_direct_subject_refs", [])
+            if not isinstance(refs, list) or any(
+                not isinstance(ref, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:._-]*", ref)
+                for ref in refs
+            ):
+                raise ValueError("Exact safe RQ subject identifier list required")
+        return values
+
     doc_type: Literal["research_question"]
     presentation_question: PresentationText | None = None
     experiment_lead_refs: Texts = Field(default_factory=list)

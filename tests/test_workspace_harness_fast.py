@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 import pytest
 import yaml
+from projection_test_cache import cached_full_projections  # noqa: F401
 from test_research_wiki_schema import props as wiki_props
 
 from fh_agent.research_atlas import private_projection as technical_projection
@@ -38,7 +39,7 @@ DETAIL_ENDPOINTS = (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def atlas():
     return load_registry(ROOT / "docs/research-atlas")
 
@@ -270,7 +271,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             in visible
         )
         assert rendered.endswith("-->\n")
-        if identity in {"CMP-PERCEPTION", "DAT-OBSERVATION"}:
+        if identity == "DAT-OBSERVATION":
             assert secret_title in normal  # G3 bibliographic titles are now allowed private inputs.
         else:
             assert secret_title not in normal
@@ -402,7 +403,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
 
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.14"
+    assert manifest["view_schema_version"] == "2.15"
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
     assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
 
@@ -480,7 +481,11 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         ]
         assert headings == expected
         assert normal.index("### Responsibility") < normal.index("### How it works")
-        assert normal.index("### Research Questions") < normal.index("### Relevant Research")
+        if model.subject.type == "Component":
+            assert "### Relevant Research" not in normal
+            assert "### Gap-assessment status" not in normal
+        else:
+            assert normal.index("### Research Questions") < normal.index("### Relevant Research")
         for label, identities in views._identity_page_human_relation_groups(atlas, model):
             if label in {"Part of", "Contains", "Browse area"}:
                 continue
@@ -492,7 +497,10 @@ def test_identity_page_native_fallback_keeps_semantics_and_outline(atlas):
         assert "Exact Registry relations" in identity_page_audit_text(page)
         assert "Evidence source locators" in identity_page_audit_text(page)
         assert "[!aga-audit]- Full audit" in page and "[!aga-audit]" not in normal
-        assert "Not assessed / no authorized gap assessment attached." in normal
+        if model.subject.type != "Component":
+            assert "Not assessed / no authorized gap assessment attached." in normal
+        else:
+            assert "Not assessed / no authorized gap assessment attached." not in normal
         if model.subject.type == "Environment":
             assert "Direct Environment Research attachment is deferred" in normal
         if model.subject.id in {"CMP-PERCEPTION", "CMP-PERCEPTION-UI-STATE"}:
@@ -1136,7 +1144,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.14"
+    assert manifest["view_schema_version"] == "2.15"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -1617,7 +1625,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.14"
+    assert manifest["view_schema_version"] == "2.15"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -1658,7 +1666,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.14"
+    assert manifest["view_schema_version"] == "2.15"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -2107,6 +2115,9 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
             "### Gap-assessment status",
             "## Sources & verification",
         ]
+        if model.subject.type == "Component":
+            order.remove("### Relevant Research")
+            order.remove("### Gap-assessment status")
         assert [normal.index(token) for token in order] == sorted(
             normal.index(token) for token in order
         )
@@ -2151,7 +2162,10 @@ def test_uip_complete_preferred_pages_and_frozen_local_anatomy(atlas):
                     )
                     if other_label not in {"Part of", "Contains", "Browse area"}
                 )
-        assert "Not assessed / no authorized gap assessment attached." in normal
+        if model.subject.type != "Component":
+            assert "Not assessed / no authorized gap assessment attached." in normal
+        else:
+            assert "Not assessed / no authorized gap assessment attached." not in normal
         bottom = visible.split("## Return Navigation", 1)[1]
         assert "Research Knowledge Home" in bottom
         for parent in model.technical_parent_ids:
@@ -2234,6 +2248,7 @@ def section(page, heading, following):
             views.reader_export(page.encode())
             .decode()
             .split("## Research\n", 1)[1]
+            .split("## Sources & verification", 1)[0]
             .split("### Gap-assessment status", 1)[0]
         )
     if heading == "Return Navigation":

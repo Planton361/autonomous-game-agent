@@ -168,3 +168,12 @@ Observation Builder; understand question availability, Paper relevance, attribut
 Finding/limitation/read state; open Sources & audit; produce one concise reader
 PDF/Markdown export. No screenshot marathon. Real Research, private RQ targeting,
 Gap computation, Graph, actual-vault application and merge remain separate gates.
+
+## Accepted #125 RQ reader overlay
+
+The later [RQ Reader Contract](RQ%20Reader%20Contract.md) supersedes the Component
+reader's inline Paper previews and unassessed gap placeholder with compact exact
+RQ cards. G3 presentation functions, attribution and historical 0.1/0.2 validation
+remain intact. Manifest 2.15 and presentation fingerprint 1.1 implement the later
+accepted opt-in 0.3 inputs; the historical 2.13 description above remains the G3
+baseline, not the current manifest version.

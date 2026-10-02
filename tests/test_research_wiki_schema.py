@@ -133,7 +133,7 @@ def test_missing_common_field(field):
         validate(data)
 
 
-@pytest.mark.parametrize("value", [None, "", "0.3", 0.1])
+@pytest.mark.parametrize("value", [None, "", "0.4", 0.1])
 def test_bad_profile_version_cannot_fall_back_to_legacy(value):
     with pytest.raises(ValueError):
         validate(props(epistemic_schema_version=value))
@@ -700,8 +700,8 @@ def test_template_contracts_and_public_safe_placeholders(filename):
     for heading in headings:
         assert "\n## " + heading + "\n" in text
     blocks = re.findall(r"```yaml\n(.*?)\n```", text, re.S)
-    assert len(blocks) == 2
-    required, optional = [yaml.safe_load(block) for block in blocks]
+    assert len(blocks) == (3 if kind in {"finding", "research_question"} else 2)
+    required, optional = [yaml.safe_load(block) for block in blocks[:2]]
     assert not (required.keys() & optional.keys())
     assert required["doc_type"] == kind
     assert required["wiki_id"] == WIKI_PREFIXES[kind] + "-<UNIQUE-ID>"
@@ -714,6 +714,10 @@ def test_template_contracts_and_public_safe_placeholders(filename):
     if kind == "journal_entry":
         required["entry_date"] = "2026-09-09"
     record = validate(required | optional)
+    if len(blocks) == 3:
+        opt_in = yaml.safe_load(blocks[2])
+        assert opt_in["epistemic_schema_version"] == "0.3"
+        assert validate(required | optional | opt_in).epistemic_schema_version == "0.3"
     model_fields = type(record).model_fields
     assert set(required) | set(optional) <= set(model_fields)
     # Expose every permitted property; ReadingNote documents its exclusive alternative.

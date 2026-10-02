@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from .private_projection import ProjectionError, no_symlink_boundary, validate_private_vault
 from .private_views import OWNED_ROOT, _identity_page_generated_metadata, reader_export
+from .rq_presentation import rq_metadata
 
 
 def reader_derivative(payload: bytes, page: PurePosixPath, output: PurePosixPath) -> bytes:
@@ -48,7 +49,10 @@ def export_reader(repo: Path, vault: Path, page: PurePosixPath, output: PurePosi
     source = root / page
     payload = source.read_bytes()
     relative = page.relative_to(OWNED_ROOT)
-    if not _identity_page_generated_metadata(payload.decode(), relative):
+    if not (
+        _identity_page_generated_metadata(payload.decode(), relative)
+        or rq_metadata(payload.decode(), relative)
+    ):
         raise ProjectionError("Reader source must have valid generated Identity Page ownership")
     destination = root / output
     if destination.exists():

@@ -124,3 +124,29 @@ Record previous/new question_stage, revision/date/reason and stage-gate review; 
 Every accepted/deprioritized/killed/superseded state needs a versioned Decision ref; accepted requires candidate. Kill is limited to exact candidate revision and then-current search/review state, never Component/Topic/Method/Paper area. SCI reviews bounded candidates; Anton decides program/study/resource changes. Preserve old states; reopening is explicit new review, not history rewriting.
 
 `<TO BE AUTHORED; NOT REVIEWED>`
+
+## Optional RQ reader profile (RA-2 0.3)
+
+Opt in explicitly; retain this same `wiki_id`. This is the RQ's sole authored
+scientific input, not a second analysis note. See the
+[RQ Reader Contract](../RQ%20Reader%20Contract.md) for eligibility and exact fields.
+Only 0.3 gives this RQ's own `research_direct_subject_refs` exact technical-target
+semantics. Unbound questions remain valid. No old authored records are migrated.
+
+```yaml
+epistemic_schema_version: "0.3"
+research_direct_subject_refs: []
+presentation_question: null
+presentation_analysis:
+  subject_contexts: []
+  literature_rows: []
+  nearest_work_rows: []
+  establishes: []
+  conclusion: null
+  zotero_corpus: null
+```
+
+Empty selections mean no literature explicitly curated or compared, not no
+relevant literature or prior art. Author a conclusion only under its explicit
+comparison/evidence/review contract. `next_scientific_work` is guidance, never
+execution authorization. The complete bibliography, PDFs and reading stay in Zotero.

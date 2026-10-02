@@ -135,3 +135,20 @@ authors_result: checked primary result and relevant method via ReadingNote. auth
 not reviewed. checked requires a documented source/claim check; domain_accepted requires scoped SCI review, not universal truth. Record actor/role/date/revision/scope/result and reservations. Material changes require a new revision and human reset to draft; prior acceptance remains historical.
 
 `<TO BE AUTHORED; NOT REVIEWED>`
+
+## Optional source passage bindings (RA-2 0.3)
+
+Existing 0.1/0.2 G3 records stay valid. For source-backed statements selected by
+an opted-in RQ reader, explicitly opt this Finding into `0.3` and supply locations:
+
+```yaml
+epistemic_schema_version: "0.3"
+presentation_source_locations: []
+```
+
+Each nonempty entry has `reading_note_ref` and at least one literal `page` or
+`section`. The exact note must already be in `reading_note_refs`, bind the source
+Paper/family, and retain its actual resolved `version_read`, date and checked
+scope. No preferred version substitution or PDF/body-derived locator occurs.
+Human review establishes passage adequacy; structural provenance is not truth
+certification. See the [RQ Reader Contract](../RQ%20Reader%20Contract.md).

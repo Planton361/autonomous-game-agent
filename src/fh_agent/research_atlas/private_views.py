@@ -96,6 +96,7 @@ from .research_presentation import (
     presentation_fingerprint,
     record_link,
 )
+from .rq_presentation import RQ_METADATA_MARKER, RQ_ROOT, RQReader, is_rq_path, rq_metadata
 from .schema import PREFIXES, Evidence, Function, Relationship, TechnicalIdentity
 from .source_presentation import SourceReader
 from .source_resolution import (
@@ -641,6 +642,25 @@ def identity_page_paths(atlas: Atlas) -> dict[str, PurePosixPath]:
     if len({str(path).casefold() for path in paths.values()}) != len(paths):
         raise ProjectionError("Identity Page path collision")
     return {identity: paths[identity] for identity in sorted(paths)}
+
+
+def rq_page_paths(records: tuple[EpistemicRecord, ...]) -> dict[str, PurePosixPath]:
+    """Reuse portable human naming, with durable identity disambiguation only when needed."""
+    questions = [r for r in records if r.doc_type == "research_question"]
+    stems = {r.wiki_id: _identity_filename_stem(r.title) for r in questions}
+    counts: dict[str, int] = {}
+    for stem, _ in stems.values():
+        counts[stem.casefold()] = counts.get(stem.casefold(), 0) + 1
+    paths = {}
+    for identity, (stem, reserved) in sorted(stems.items()):
+        name = stem + (" — " + identity if reserved or counts[stem.casefold()] > 1 else "")
+        path = RQ_ROOT / (name + ".md")
+        if not is_rq_path(path) or str(path).casefold() in {
+            str(p).casefold() for p in paths.values()
+        }:
+            raise ProjectionError("Unsafe or colliding preferred RQ path")
+        paths[identity] = path
+    return paths
 
 
 def _identity_page_generated_metadata(text: str, relative: PurePosixPath) -> dict:
@@ -2150,9 +2170,13 @@ def render_identity_page(
 ) -> bytes:
     """Human-first reader with one complete, native collapsed audit projection."""
     paths = page_paths if page_paths is not None else identity_page_paths(atlas)
-    locators = locators or {}
+    locators = dict(locators or {})
+    locators.update(
+        {identity: OWNED_ROOT / path for identity, path in rq_page_paths(private_records).items()}
+    )
     presentation_revision = presentation_revision or presentation_fingerprint(private_records)
     source_reader = source_reader or SourceReader(SourceResolver(None))
+    rq_reader = RQReader(atlas, private_records, source_reader)
     # Existing exact detail renderer keeps the complete Registry and G2 audit contract.
     audit_lines, metadata = _identity_page_audit(
         commit, atlas, model, registry_revision=registry_revision, page_paths=paths
@@ -2274,89 +2298,110 @@ def render_identity_page(
         "### Research Questions",
         "",
     ]
-    if model.research_question_relationships:
+    if subject.type == "Component":
+        questions = [
+            r
+            for r in private_records
+            if r.doc_type == "research_question" and subject.id in rq_reader.subjects(r)
+        ]
+        for rq in sorted(questions, key=lambda r: (r.title.casefold(), r.wiki_id)):
+            lines += rq_reader.card(rq, subject.id, link)
         for edge in model.research_question_relationships:
             question = atlas.entities[edge.target]
             lines += ["- " + human(question.id) + " — " + question.description]
+        if not questions and not model.research_question_relationships:
+            lines += ["No explicit Research Question is currently attached to this subject.", ""]
+        lines += ["", "## Sources & verification", ""]
     else:
-        lines += ["No explicit Research Question is currently attached to this subject."]
-    lines += [
-        "",
-        "### Relevant Research / Literature",
-        "",
-        "#### Research on this component"
-        if subject.type == "Component"
-        else "#### Research on this subject",
-        "",
-    ]
-    if subject.type == "Environment":
-        lines += ["Direct Environment Research attachment is deferred.", ""]
-    if model.direct_attachments:
-        previews = paper_previews(
-            subject.id,
-            model.direct_attachments,
-            model.technical_paths,
-            private_records,
-            link,
-            lambda paper, reading: source_reader.summary(
-                source_reader.resolver.reading(reading, private_records)
-                if reading is not None
-                else source_reader.resolver.paper(paper),
-                OWNED_ROOT / model.path,
-            ),
-        )
-        lines += previews
-        owners: dict[str, set[str]] = {}
-        for row in model.direct_attachments:
-            owners.setdefault(row.source_wiki_id, set()).add(row.originating_role)
-        by_id = {r.wiki_id: r for r in private_records}
-        for owner, roles in sorted(owners.items()):
-            record = by_id.get(owner)
-            title = link(record) if record else "Authored Research record (detail in audit)"
-            lines += ["- " + title + " — " + ", ".join(ROLE_LABELS[r] for r in sorted(roles)) + "."]
-    else:
-        lines += ["No directly attached Research is available in this snapshot."]
-    if subject.type in {"System", "Component"}:
-        for title, items in (
-            ("Research in subcomponents", model.descendant_attachments),
-            ("Related research through connected technical objects", model.related_attachments),
-        ):
-            lines += ["", "#### " + title, ""]
-            targets: dict[str, set[str]] = {}
-            for item in items:
-                targets.setdefault(item.attachment.target_identifier, set()).add(
-                    item.attachment.source_wiki_id
-                )
-            for target, owners in sorted(targets.items()):
-                lines += [
-                    "- "
-                    + human(target)
-                    + f" — Research available ({len(owners)} authored records); open "
-                    + ("component." if atlas.entities[target].type == "Component" else "subject.")
-                ]
-            if not targets:
-                lines += ["No matching Research is available in this snapshot."]
-            if targets:
-                lines += [
-                    "",
-                    "Research remains attached to those subjects; this page provides "
-                    "navigation only.",
-                ]
-    if subject.type == "MeasurementPoint":
+        if model.research_question_relationships:
+            for edge in model.research_question_relationships:
+                question = atlas.entities[edge.target]
+                lines += ["- " + human(question.id) + " — " + question.description]
+        else:
+            lines += ["No explicit Research Question is currently attached to this subject."]
         lines += [
             "",
-            "Declared Research relevance does not establish instrument "
-            "validity, measurement execution or a scientific result.",
+            "### Relevant Research / Literature",
+            "",
+            "#### Research on this component"
+            if subject.type == "Component"
+            else "#### Research on this subject",
+            "",
         ]
-    lines += [
-        "",
-        "### Gap-assessment status",
-        "",
-        "Not assessed / no authorized gap assessment attached.",
-        "",
-        "## Sources & verification",
-        "",
-    ]
+        if subject.type == "Environment":
+            lines += ["Direct Environment Research attachment is deferred.", ""]
+        if model.direct_attachments:
+            previews = paper_previews(
+                subject.id,
+                model.direct_attachments,
+                model.technical_paths,
+                private_records,
+                link,
+                lambda paper, reading: source_reader.summary(
+                    source_reader.resolver.reading(reading, private_records)
+                    if reading is not None
+                    else source_reader.resolver.paper(paper),
+                    OWNED_ROOT / model.path,
+                ),
+            )
+            lines += previews
+            owners: dict[str, set[str]] = {}
+            for row in model.direct_attachments:
+                owners.setdefault(row.source_wiki_id, set()).add(row.originating_role)
+            by_id = {r.wiki_id: r for r in private_records}
+            for owner, roles in sorted(owners.items()):
+                record = by_id.get(owner)
+                title = link(record) if record else "Authored Research record (detail in audit)"
+                lines += [
+                    "- " + title + " — " + ", ".join(ROLE_LABELS[r] for r in sorted(roles)) + "."
+                ]
+        else:
+            lines += ["No directly attached Research is available in this snapshot."]
+        if subject.type in {"System", "Component"}:
+            for title, items in (
+                ("Research in subcomponents", model.descendant_attachments),
+                ("Related research through connected technical objects", model.related_attachments),
+            ):
+                lines += ["", "#### " + title, ""]
+                targets: dict[str, set[str]] = {}
+                for item in items:
+                    targets.setdefault(item.attachment.target_identifier, set()).add(
+                        item.attachment.source_wiki_id
+                    )
+                for target, owners in sorted(targets.items()):
+                    lines += [
+                        "- "
+                        + human(target)
+                        + f" — Research available ({len(owners)} authored records); open "
+                        + (
+                            "component."
+                            if atlas.entities[target].type == "Component"
+                            else "subject."
+                        )
+                    ]
+                if not targets:
+                    lines += ["No matching Research is available in this snapshot."]
+                if targets:
+                    lines += [
+                        "",
+                        "Research remains attached to those subjects; this page provides "
+                        "navigation only.",
+                    ]
+        if subject.type == "MeasurementPoint":
+            lines += [
+                "",
+                "Declared Research relevance does not establish instrument "
+                "validity, measurement execution or a scientific result.",
+            ]
+        lines += [
+            "",
+            "### Gap-assessment status",
+            "",
+            "Not assessed / no authorized gap assessment attached.",
+            "",
+            "## Sources & verification",
+            "",
+        ]
     selected = [b for b in engineering_bindings if b.subject_id == subject.id]
     for title, roles in (
         ("Implementation source", {"implementation"}),
@@ -2373,7 +2418,9 @@ def render_identity_page(
             )
         ]
     lines += [
-        "- Research sources — [[#Relevant Research / Literature|Open]]",
+        "- Research sources — [[#Research Questions|Open]]"
+        if subject.type == "Component"
+        else "- Research sources — [[#Relevant Research / Literature|Open]]",
         "- Full audit — [[#Sources & audit|Open]]",
         "",
         "## Sources & audit",
@@ -2487,7 +2534,9 @@ def reader_export(page: bytes) -> bytes:
     _, return_separator, returns = after.partition("\n## Return Navigation\n")
     if not return_separator:
         raise ProjectionError("Reader export requires the complete generated page")
-    returns = returns.split(IDENTITY_PAGE_METADATA_MARKER, 1)[0]
+    returns = returns.split(IDENTITY_PAGE_METADATA_MARKER, 1)[0].split(RQ_METADATA_MARKER, 1)[0]
+    if before.startswith("---\n"):
+        before = markdown_parts(before)[1]
     return (
         before
         + "\nFull audit remains available on the original private page.\n"
@@ -4026,6 +4075,11 @@ class ManifestV214(ManifestV213):
     source_resolution_input_fingerprint: SHA256
 
 
+class ManifestV215(ManifestV214):
+    view_schema_version: Literal["2.15"]
+    presentation_fingerprint_version: Literal["1.1"]
+
+
 def _canonical_property_id(value: object) -> object:
     if isinstance(value, str) and value.startswith("note."):
         return value.removeprefix("note.")
@@ -4173,6 +4227,11 @@ def reference_views_tree(
     source_resolver = SourceResolver(source_catalog)
     source_reader = SourceReader(source_resolver)
     source_index = source_resolver.index(commit, private_records)
+    authored_locators = dict(locators)
+    locators = dict(locators)
+    rq_paths = rq_page_paths(private_records)
+    for identity, path in rq_paths.items():
+        locators[identity] = OWNED_ROOT / path
     tree = views_tree(commit, public_base, direct_base, atlas.source_atlas_schema)
     old = ManifestV1.model_validate(read_yaml(utf8(tree.pop(MANIFEST))))
     tree[REFERENCE_INDEX] = render_index(reference)
@@ -4235,6 +4294,17 @@ def reference_views_tree(
             presentation_revision=presentation_revision,
             source_reader=source_reader,
         )
+    rq_reader = RQReader(atlas, private_records, source_reader)
+    for record in private_records:
+        if record.doc_type == "research_question":
+            tree[rq_paths[record.wiki_id]] = rq_reader.render(
+                record,
+                commit,
+                locators,
+                lambda ref: _identity_page_human_link(atlas, ref, page_paths),
+                presentation_revision,
+                authored_locators=authored_locators,
+            )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
 
@@ -4314,7 +4384,7 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.14",
+        view_schema_version="2.15",
         source_resolution_fingerprint_version=SOURCE_FINGERPRINT_VERSION,
         source_resolution_input_fingerprint=source_index.source_resolution_input_fingerprint,
         presentation_fingerprint_version=PRESENTATION_FINGERPRINT_VERSION,
@@ -4324,7 +4394,7 @@ def reference_views_tree(
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV214.model_validate(data).model_dump(exclude_none=True)
+        ManifestV215.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -4482,6 +4552,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV213.model_validate(data)
         elif data.get("view_schema_version") == "2.14":
             manifest = ManifestV214.model_validate(data)
+        elif data.get("view_schema_version") == "2.15":
+            manifest = ManifestV215.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -4492,11 +4564,19 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
-        if relative in SOURCE_PAYLOADS and manifest.view_schema_version != "2.14":
+        if relative in SOURCE_PAYLOADS and manifest.view_schema_version not in {"2.14", "2.15"}:
             raise ProjectionError("Historical manifest cannot own G4 source payloads")
         # V1 cannot claim YAML; later versions add one fixed YAML payload, not a subtree.
+        if relative.parent == RQ_ROOT:
+            if manifest.view_schema_version != "2.15" or not is_rq_path(relative):
+                raise ProjectionError("Historical manifest cannot own RQ reader pages")
         if not (
-            (manifest.view_schema_version == "2.14" and relative in SOURCE_PAYLOADS)
+            (
+                manifest.view_schema_version == "2.15"
+                and relative.parent == RQ_ROOT
+                and is_rq_path(relative)
+            )
+            or (manifest.view_schema_version in {"2.14", "2.15"} and relative in SOURCE_PAYLOADS)
             or len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
@@ -4517,6 +4597,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                             "2.12",
                             "2.13",
                             "2.14",
+                            "2.15",
                         }
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
@@ -4524,9 +4605,12 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
                         manifest.view_schema_version
-                        not in {"2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
+                        not in {"2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
                         or relative in V27_INDEX_PAYLOADS
-                        or (manifest.view_schema_version == "2.14" and relative == SOURCE_DETAIL)
+                        or (
+                            manifest.view_schema_version in {"2.14", "2.15"}
+                            and relative == SOURCE_DETAIL
+                        )
                     )
                 )
             )
@@ -4548,6 +4632,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.12",
                     "2.13",
                     "2.14",
+                    "2.15",
                 }
                 and relative == REFERENCE_INDEX
             )
@@ -4565,12 +4650,12 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             )
             or (
                 manifest.view_schema_version
-                in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
+                in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
                 manifest.view_schema_version
-                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14"}
+                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
@@ -4589,6 +4674,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.12",
                     "2.13",
                     "2.14",
+                    "2.15",
                 }
                 and relative == HIERARCHY
             )
@@ -4608,6 +4694,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.12",
                     "2.13",
                     "2.14",
+                    "2.15",
                 }
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
@@ -4627,6 +4714,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.12",
                     "2.13",
                     "2.14",
+                    "2.15",
                 }
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
@@ -4636,7 +4724,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and _identity_page_subject_for_path(relative) is not None
             )
             or (
-                manifest.view_schema_version in {"2.10", "2.11", "2.12", "2.13", "2.14"}
+                manifest.view_schema_version in {"2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
                 and _is_identity_page_path(relative)
             )
         ):
@@ -4746,6 +4834,10 @@ def project(
             )
             if digest(data) != item.sha256 and data != tree.get(relative):
                 raise ProjectionError("Prior-owned source view was edited; preserve or restore it")
+        elif relative.parent == RQ_ROOT:
+            owned = bool(rq_metadata(utf8(data), relative))
+            if digest(data) != item.sha256 and data != tree.get(relative):
+                raise ProjectionError("Prior-owned RQ page was edited; preserve or restore it")
         elif relative == REFERENCE_INDEX:
             metadata = read_yaml(utf8(data))
             owned = metadata.get("generated_by") == OWNER and metadata.get(

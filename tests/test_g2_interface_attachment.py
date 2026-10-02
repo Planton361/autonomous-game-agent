@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 
 import pytest
+from projection_test_cache import cached_full_projections  # noqa: F401
 from pydantic import ValidationError
 from test_research_wiki_schema import props
 
@@ -371,7 +372,7 @@ def test_g2_manifest_is_finite_and_reuses_preferred_ownership(atlas):
     empty = tree(atlas, build(atlas, []), [])
     assert current.keys() == empty.keys()
     manifest = yaml.safe_load(current[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.14"
+    assert manifest["view_schema_version"] == "2.15"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert manifest["private_input_fingerprint"] == reference.private_input_fingerprint
     owned = {entry["path"]: entry for entry in manifest["owned_files"]}
@@ -1156,6 +1157,33 @@ def reader_page(atlas, authored, identity="CMP-PERCEPTION"):
     )
 
 
+def g3_preview(atlas, authored):
+    """G3 remains available independently; #125 Components now expose only RQ cards."""
+    from fh_agent.research_atlas.research_presentation import paper_previews, record_link
+    from fh_agent.research_atlas.source_presentation import SourceReader
+    from fh_agent.research_atlas.source_resolution import SourceResolver
+
+    reference = build(atlas, authored)
+    model = views.identity_page_model(atlas, reference, "CMP-PERCEPTION")
+    records = validate_wiki_records(authored, atlas.entities.keys())
+    page = views.OWNED_ROOT / views.identity_page_paths(atlas)["CMP-PERCEPTION"]
+    locators = {r["wiki_id"]: PurePosixPath("authored") / (r["title"] + ".md") for r in authored}
+    reader = SourceReader(SourceResolver(None))
+    return "\n".join(
+        paper_previews(
+            "CMP-PERCEPTION",
+            model.direct_attachments,
+            model.technical_paths,
+            records,
+            lambda r: record_link(r, locators, page),
+            lambda p, n: reader.summary(
+                reader.resolver.reading(n, records) if n is not None else reader.resolver.paper(p),
+                page,
+            ),
+        )
+    )
+
+
 def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_baseline):
     from fh_agent.research_atlas.research_presentation import ROLE_LABELS
     from fh_agent.research_atlas.technical_reader import PROTOTYPES
@@ -1174,8 +1202,6 @@ def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_
         "Current implementation state",
         "Important limitations",
         "Research Questions",
-        "Relevant Research / Literature",
-        "Gap-assessment status",
         "Sources & verification",
     ]
     positions = [
@@ -1186,8 +1212,8 @@ def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_
     assert "Engineering provenance" not in normal
     assert "EVID-" not in normal and "WPAPER-" not in normal and "WFIND-" not in normal
     assert all(role not in normal for role in index.ROLES)
-    assert ROLE_LABELS[index.ROLES[0]] in normal
-    assert "Synthetic — Hierarchical Visual State Representations" in normal
+    assert ROLE_LABELS[index.ROLES[0]] not in normal
+    assert "Synthetic — Hierarchical Visual State Representations" not in normal
     for value in (
         PROTOTYPES["CMP-PERCEPTION"].implementation,
         PROTOTYPES["CMP-PERCEPTION"].limitations,
@@ -1195,7 +1221,7 @@ def test_human_reader_order_titles_role_labels_and_complete_audit(atlas, reader_
         assert normal.count(value) == 1
     assert "one durable identity" not in normal
     assert "No explicit Research Question is currently attached to this subject." in normal
-    assert "Fictional Doe et al. (2025)" in normal
+    assert "Fictional Doe et al. (2025)" not in normal
     audit = page.decode().split("> [!aga-audit]- Full audit", 1)[1]
     for value in ("CMP-PERCEPTION", "EVID-48-BUILDER", "E9:forward", "N-C/K0", COMMIT):
         assert value in audit
@@ -1216,7 +1242,7 @@ def test_parent_reader_routes_down_without_descendant_paper_or_audit_wall(atlas,
     assert "Research available — open component" in normal
     assert str(paths["CMP-OBSERVATION-BUILDER"].with_suffix("")) + "|Open component]]" in normal
     assert "Synthetic — Evidence-linked Observation Assembly" not in normal
-    assert "Fictional example: relevant" in normal  # only own direct context
+    assert "Fictional example: relevant" not in normal  # RQ-first Component stays sparse
     system = views.reader_export(outputs[paths["SYS-AGA"]]).decode()
     assert "Hierarchical Visual State Representations" not in system
     assert "Authored Research roles" not in system and "Direct attachment audit row" not in system
@@ -1262,7 +1288,7 @@ def test_g3_explicit_selection_and_restrictive_eligibility(atlas, mutation):
         authored[2]["document_maturity"] = "archived"
     elif mutation == "draft-owner":
         authored[0]["document_maturity"] = "draft"
-    normal = views.reader_export(reader_page(atlas, authored)).decode()
+    normal = g3_preview(atlas, authored)
     assert authored[2]["presentation_statement"] not in normal
     assert authored[2]["presentation_limitation"] not in normal
     if mutation == "absent":
@@ -1276,7 +1302,7 @@ def test_g3_in_review_attribution_read_provenance_and_independent_synthesis(atla
     authored[2]["document_maturity"] = "in_review"
     authored[2]["review_state"] = "checked"
     outputs = reader_tree(atlas, authored)
-    page = views.reader_export(outputs[views.identity_page_paths(atlas)["CMP-PERCEPTION"]]).decode()
+    page = g3_preview(atlas, authored)
     for label in (
         "Source-reported finding (in review)",
         "Author-reported limitation / applicability",
@@ -1314,7 +1340,7 @@ def test_g3_context_is_terminal_owner_role_target_exact_and_v02_opt_in(atlas):
     authored[0]["presentation_contexts"] = authored[0]["presentation_contexts"][1:]
     authored[1]["research_direct_subject_refs"] = ["CMP-PERCEPTION"]
     authored[1]["document_maturity"] = "domain_accepted"
-    normal = views.reader_export(reader_page(atlas, authored)).decode()
+    normal = g3_preview(atlas, authored)
     assert "Fictional example: inspect evidence retrieval separately." not in normal
     assert "No authored relevance context or selected Finding" in normal
 
@@ -1468,7 +1494,8 @@ def test_g3_literal_scientific_text_preserves_wording_newlines_and_cannot_escape
     finding = next(r for r in recovered if r["wiki_id"] == authored[2]["wiki_id"])
     assert finding["presentation_statement"] == text
     normal = views.reader_export(payload).decode()
-    assert literal(text) in normal
+    assert literal(text) in g3_preview(atlas, authored)
+    assert literal(text) not in normal
     assert "<script>" not in normal and "\n# Heading" not in normal
     assert (
         "Sources & verification" in normal
@@ -1831,7 +1858,10 @@ def test_g4_human_first_preview_detail_and_historical_navigation(atlas):
         source_reader=reader,
     )
     normal = views.reader_export(page).decode()
-    assert "Synthetic — Hierarchical Visual State Representations" in normal
+    assert "Synthetic — Hierarchical Visual State Representations" not in normal
+    normal = "\n".join(
+        reader.summary(resolver.reading(records[1], records), views.OWNED_ROOT / model.path)
+    )
     assert "**Version read:** [Preprint v1]" in normal
     assert "**Preferred for navigation:** [Published version]" in normal
     assert "**Warning — Preprint v1:**" in normal and "Retracted version" in normal

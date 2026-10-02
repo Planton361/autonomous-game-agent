@@ -1,0 +1,93 @@
+"""Content-safe reuse for immutable synthetic projection acceptance fixtures."""
+
+import pickle
+
+import pytest
+
+from fh_agent.research_atlas import private_views as views
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cached_full_projections():
+    """Keep changed/order-permuted inputs live; copy only immutable byte outputs.
+
+    No filesystem state is cached: callers still read source bytes and construct
+    current snapshots. Exact input order is part of the key, so order-invariance
+    assertions independently exercise the production renderer on each ordering.
+    """
+    render = views.reference_views_tree
+    render_index = views.render_index
+    serialize = views.yaml_text
+    cache = {}
+    indexes = {}
+    serialized = {}
+
+    def yaml_text(value):
+        # Preserve types, mapping order and alias structure in the cache key.
+        # Only serialization is reused; no pickle is ever loaded or executed.
+        try:
+            key = pickle.dumps(value, protocol=5)
+        except (TypeError, pickle.PicklingError):
+            return serialize(value)
+        if key not in serialized:
+            serialized[key] = serialize(value)
+        return serialized[key]
+
+    def index(reference):
+        # Different full trees often share the same validated ReferenceIndex.
+        # Build/validation still runs; only identical YAML serialization is reused.
+        key = reference.model_dump_json()
+        if key not in indexes:
+            indexes[key] = render_index(reference)
+        return indexes[key]
+
+    def tree(
+        commit,
+        public_base,
+        direct_base,
+        reference,
+        atlas,
+        locators,
+        snapshot,
+        source_projection_present,
+        private_records=(),
+        *,
+        engineering_bindings=(),
+        source_catalog=None,
+    ):
+        key = (
+            commit,
+            public_base,
+            direct_base,
+            reference.model_dump_json(),
+            atlas.source_atlas_schema,
+            tuple((identity, node.model_dump_json()) for identity, node in atlas.entities.items()),
+            tuple(edge.model_dump_json() for edge in atlas.relationships),
+            tuple((identity, str(path)) for identity, path in locators.items()),
+            snapshot.model_dump_json(),
+            source_projection_present,
+            tuple(record.model_dump_json() for record in private_records),
+            tuple(binding.model_dump_json() for binding in engineering_bindings),
+            source_catalog.model_dump_json() if source_catalog is not None else None,
+        )
+        if key not in cache:
+            cache[key] = render(
+                commit,
+                public_base,
+                direct_base,
+                reference,
+                atlas,
+                locators,
+                snapshot,
+                source_projection_present,
+                private_records,
+                engineering_bindings=engineering_bindings,
+                source_catalog=source_catalog,
+            )
+        return dict(cache[key])
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(views, "reference_views_tree", tree)
+        patch.setattr(views, "render_index", index)
+        patch.setattr(views, "yaml_text", yaml_text)
+        yield
