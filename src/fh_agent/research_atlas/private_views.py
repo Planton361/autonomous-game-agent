@@ -156,6 +156,7 @@ LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memor
 LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
     "workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md"
 )
+STEERING_METADATA_MARKER = "<!-- research-steering-generated-metadata\n"
 K3_PRE_W07_PAYLOADS = frozenset(
     (
         K3_HOME,
@@ -526,6 +527,23 @@ def _observe_scope_generated_metadata(text: str) -> dict:
         return {}
     metadata_text, end_marker, _ = remainder.partition("\n-->")
     if not end_marker:
+        return {}
+    try:
+        return read_yaml(metadata_text)
+    except ProjectionError:
+        return {}
+
+
+def _steering_generated_metadata(text: str) -> dict:
+    """Read Steering metadata from legacy frontmatter or the hidden YAML comment."""
+    properties, body = markdown_parts(text)
+    if properties.get("generated_by") == OWNER:
+        return properties
+    if not body.startswith("# Research Steering\n") or body.count(STEERING_METADATA_MARKER) != 1:
+        return {}
+    _, _, remainder = body.partition(STEERING_METADATA_MARKER)
+    metadata_text, end_marker, trailing = remainder.partition("\n-->")
+    if not end_marker or trailing not in {"", "\n"}:
         return {}
     try:
         return read_yaml(metadata_text)
@@ -3748,7 +3766,7 @@ def render_research_landscape(
         ]
     )
     body.extend(["", "</details>", ""])
-    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+    return ("\n".join(body) + STEERING_METADATA_MARKER + yaml_text(props) + "-->\n").encode()
 
 
 def render_k3_home(commit: str, atlas: Atlas) -> bytes:
@@ -4886,6 +4904,8 @@ def project(
                 and canvas.get("generated_by") == OWNER
                 and canvas.get("canvas_view_schema_version") == "1.0"
             )
+        elif relative == RESEARCH_LANDSCAPE:
+            owned = _steering_generated_metadata(utf8(data)).get("generated_by") == OWNER
         elif relative == OBSERVE_SCOPE:
             owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
         elif _is_identity_page_path(relative):

@@ -1,6 +1,7 @@
 """Fictional #126 proof; no production Research or private Vault access."""
 
 from copy import deepcopy
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -258,6 +259,52 @@ def test_exact_routes_base_markdown_parity_determinism_and_fallback(atlas, reuse
     assert "../research-questions/" in fallback
 
 
+def test_hidden_metadata_preserves_reviewed_reader_and_base_bytes(atlas):
+    records = fictional_records(atlas)
+    _, values = projection(atlas, records)
+    snapshot = views.make_snapshot(
+        [r.model_dump(mode="json", exclude_unset=True) for r in records], atlas
+    )
+    locators = {r.wiki_id: PurePosixPath("Research") / (r.title + ".md") for r in records}
+    page = views.render_research_landscape("a" * 40, atlas, snapshot, locators, records, values)
+    text = page.decode()
+    visible, marker, payload = text.partition(views.STEERING_METADATA_MARKER)
+    assert text.startswith("# Research Steering\n")
+    assert not text.startswith("---")
+    assert views.markdown_parts(text)[0] == {}  # no generated Obsidian Properties
+    assert marker and text.count(marker) == 1 and payload.endswith("-->\n")
+    expected = {
+        "generated_by": "research-wiki-derived",
+        "source_repository": "Planton361/autonomous-game-agent",
+        "source_commit": "a" * 40,
+        "landscape_schema_version": "1.0",
+        "landscape_surface": "global-research-navigation",
+    }
+    assert yaml.safe_load(payload.removesuffix("-->\n")) == expected
+    assert views._steering_generated_metadata(text) == expected
+    assert all(field + ":" not in visible for field in expected)
+    assert page == views.render_research_landscape(
+        "a" * 40, atlas, snapshot, locators, records, values
+    )
+    normal, secondary = visible.split("<details>", 1)
+    assert sum(line.startswith("| ---") for line in normal.splitlines()) == 3
+    assert "\n".join(markdown_tables(values)) in normal
+    assert "## Research Landscape" in secondary and secondary.endswith("</details>\n")
+    # Frozen from reviewed ae9696c: entire reader body (including each table/route)
+    # and exact three-view Base bytes survive the metadata-only serialization change.
+    assert sha256(visible.encode()).hexdigest() == (
+        "40b1c3d60d3538538ee236e45bddc8c5d549ea0a30b2e372deac24ee350fcc26"
+    )
+    assert sha256(base_output(values, views.BASE_OWNER)).hexdigest() == (
+        "9cb3c65fc074343fa9b6f15aed27bd0f08624508d686a8b4ec9e0b6fb13af3ea"
+    )
+    legacy = "---\n" + yaml_text(expected) + "---\n" + visible
+    assert views._steering_generated_metadata(legacy) == expected
+    assert not views._steering_generated_metadata(text.replace(marker, ""))
+    assert not views._steering_generated_metadata(text + marker + payload)
+    assert not views._steering_generated_metadata(text.replace("-->\n", ""))
+
+
 def test_authored_row_order_is_preserved_by_existing_reader(atlas):
     records = fictional_records(atlas)
     rq = records[0]
@@ -304,6 +351,21 @@ def test_workspace_finite_ownership_migration_and_zero_write(setup, cached_lifec
     assert "# Research Steering" in normal
     assert sum(line.startswith("| ---") for line in normal.splitlines()) == 3
     assert "WRQ-" not in normal and "WPAPER-" not in normal
+    # Migrate the reviewed YAML-frontmatter page without changing any reader bytes.
+    page = tree[views.RESEARCH_LANDSCAPE].decode()
+    visible, _, payload = page.partition(views.STEERING_METADATA_MARKER)
+    metadata = yaml.safe_load(payload.removesuffix("-->\n"))
+    legacy = ("---\n" + yaml_text(metadata) + "---\n" + visible).encode()
+    (vault / views.OWNED_ROOT / views.RESEARCH_LANDSCAPE).write_bytes(legacy)
+    owned[str(views.RESEARCH_LANDSCAPE)]["sha256"] = sha256(legacy).hexdigest()
+    manifest_path.write_text(yaml_text(manifest))
+    before = filesystem_state(vault)
+    with pytest.raises(ProjectionError, match="drift"):
+        views.project(repo, vault, sha, check=True)
+    assert filesystem_state(vault) == before
+    assert views.project(repo, vault, sha) == tree
+    assert outside_owned(vault) == authored
+    manifest = yaml.safe_load(tree[views.MANIFEST])
     # Intact old 2.15 payload migrates by adding exactly one finite Base.
     (vault / views.OWNED_ROOT / STEERING_BASE).unlink()
     manifest["owned_files"] = [

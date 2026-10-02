@@ -1420,8 +1420,8 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     )
     text = page.decode()
 
-    assert text.startswith("---\ngenerated_by: research-wiki-derived\n")
-    assert text.startswith("---") and "# Research Landscape" in text
+    assert text.startswith("# Research Steering\n") and "# Research Landscape" in text
+    assert views._steering_generated_metadata(text)["generated_by"] == views.OWNER
     assert "derived navigation projection" in text
     assert "Research Knowledge Home" in text and "Agent Anatomy" in text
     assert "Technical Hierarchy" in text
