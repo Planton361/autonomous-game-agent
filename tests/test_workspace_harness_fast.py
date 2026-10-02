@@ -1420,8 +1420,8 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     )
     text = page.decode()
 
-    assert text.startswith("---\ngenerated_by: research-wiki-derived\n")
-    assert text.startswith("---") and "# Research Landscape" in text
+    assert text.startswith("# Research Steering\n") and "# Research Landscape" in text
+    assert views._steering_generated_metadata(text)["generated_by"] == views.OWNER
     assert "derived navigation projection" in text
     assert "Research Knowledge Home" in text and "Agent Anatomy" in text
     assert "Technical Hierarchy" in text
@@ -1441,7 +1441,9 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     for kind in views.LANDSCAPE_PRIVATE_TYPES:
         assert f"### {views.LANDSCAPE_PRIVATE_LABELS[kind]}" in text
         assert f"Synthetic W07 {kind.replace('_', ' ')}" in text
-    public_section = text.split("## Private authored RA-2 inventory", 1)[0]
+    public_section = text.split("## Public Research Atlas inventory", 1)[1].split(
+        "## Private authored RA-2 inventory", 1
+    )[0]
     assert "Synthetic W07 research question" not in public_section
     for index in range(24):
         assert f"SEARCH-W07-MANY-{index:02d}" in text
@@ -1460,7 +1462,9 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     assert "confidence score" not in text.lower()
     assert "priority score" not in text.lower()
     assert "top-k" not in text.lower()
-    assert ".base" not in text.lower()
+    assert "Research Steering.base" in text
+    normal = text.split("<details>", 1)[0]
+    assert sum(line.startswith("| ---") for line in normal.splitlines()) == 3
 
     shuffled = replace(
         atlas,
@@ -1499,7 +1503,7 @@ def test_w07_global_landscape_is_complete_markdown_and_order_invariant(atlas):
     assert b"Research Landscape" in current_tree[views.K3_HOME]
     assert b"Research Landscape" in current_tree[views.INDEX]
     home_text = current_tree[views.K3_HOME].decode()
-    assert home_text.index("Open the Global Research Landscape") < home_text.index(
+    assert home_text.index("Open Research Steering") < home_text.index(
         "Preferred Component identities"
     )
     for subject_id, paths in views.COMPONENT_HUB_PATHS.items():

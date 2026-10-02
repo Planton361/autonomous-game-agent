@@ -96,6 +96,7 @@ from .research_presentation import (
     presentation_fingerprint,
     record_link,
 )
+from .research_steering import STEERING_BASE, Inventory, base_output, inventories, markdown_tables
 from .rq_presentation import RQ_METADATA_MARKER, RQ_ROOT, RQReader, is_rq_path, rq_metadata
 from .schema import PREFIXES, Evidence, Function, Relationship, TechnicalIdentity
 from .source_presentation import SourceReader
@@ -132,7 +133,7 @@ SOURCE_PATHS = (
 BASE_OWNER = f"# generated_by: {OWNER}\n"
 STRICT_OWNERSHIP = "strict-bytes"
 OBSIDIAN_BASE_OWNERSHIP = "obsidian-base-semantics"
-OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE))
+OBSIDIAN_MANAGED_BASES = frozenset((TECHNICAL_BASE, DIRECT_BASE, STEERING_BASE))
 
 K3_HOME = PurePosixPath("indexes/Research Knowledge Home.md")
 RESEARCH_LANDSCAPE = PurePosixPath("indexes/Research Landscape.md")
@@ -155,6 +156,7 @@ LEGACY_MEMORY_WORKBENCH = PurePosixPath("workbenches/CMP-MEM-RETRIEVAL — Memor
 LEGACY_VERIFIER_WORKBENCH = PurePosixPath(
     "workbenches/CMP-INDEPENDENT-VERIFIER — Independent Verifier.md"
 )
+STEERING_METADATA_MARKER = "<!-- research-steering-generated-metadata\n"
 K3_PRE_W07_PAYLOADS = frozenset(
     (
         K3_HOME,
@@ -525,6 +527,23 @@ def _observe_scope_generated_metadata(text: str) -> dict:
         return {}
     metadata_text, end_marker, _ = remainder.partition("\n-->")
     if not end_marker:
+        return {}
+    try:
+        return read_yaml(metadata_text)
+    except ProjectionError:
+        return {}
+
+
+def _steering_generated_metadata(text: str) -> dict:
+    """Read Steering metadata from legacy frontmatter or the hidden YAML comment."""
+    properties, body = markdown_parts(text)
+    if properties.get("generated_by") == OWNER:
+        return properties
+    if not body.startswith("# Research Steering\n") or body.count(STEERING_METADATA_MARKER) != 1:
+        return {}
+    _, _, remainder = body.partition(STEERING_METADATA_MARKER)
+    metadata_text, end_marker, trailing = remainder.partition("\n-->")
+    if not end_marker or trailing not in {"", "\n"}:
         return {}
     try:
         return read_yaml(metadata_text)
@@ -3629,6 +3648,7 @@ def render_research_landscape(
     snapshot: Snapshot,
     locators: dict[str, PurePosixPath],
     private_records: tuple[EpistemicRecord, ...],
+    steering: tuple[Inventory, ...] | None = None,
 ) -> bytes:
     """Render the global Markdown research inventory from accepted structured inputs."""
     props = dict(
@@ -3638,25 +3658,51 @@ def render_research_landscape(
         landscape_schema_version="1.0",
         landscape_surface="global-research-navigation",
     )
-    body = _render_orientation_header(
-        title="Research Landscape",
-        surface="Global Research Landscape over current structured records",
-        home=_derived_link(K3_HOME, "Research Knowledge Home"),
-        broader_context=(
-            _technical_surface_link(TECHNICAL_ANATOMY, "Agent Anatomy")
-            + " · "
-            + _derived_link(HIERARCHY, "Technical Hierarchy")
-        ),
-        research_fallback=(
-            _derived_link(NAVIGATION, "Declared Literature Navigation")
-            + " · "
-            + _derived_link(INDEX, "Direct Views Index")
-        ),
+    if steering is None:
+        reader = RQReader(atlas, private_records, SourceReader(SourceResolver(None)))
+        preferred = dict(locators)
+        preferred.update(
+            {ref: OWNED_ROOT / path for ref, path in rq_page_paths(private_records).items()}
+        )
+        steering = inventories(reader, preferred, identity_page_paths(atlas))
+    body = [
+        "# Research Steering",
+        "",
+        "A derived navigation projection. Mapped records only: counts do not measure "
+        "completeness, saturation, novelty, "
+        "quality or scientific value. Stored RQ conclusions alone determine gap states. "
+        "GitHub Project governs operational priority; scientific next-work guidance "
+        "does not authorize Decisions, Claims, Experiments or Protocols.",
+        "",
+        "These Markdown tables always work without optional rich views. Open each "
+        "focused Base for filtering and sorting the same snapshot; "
+        "regenerate after authored changes.",
+        "",
+    ]
+    body.extend(markdown_tables(steering))
+    body.extend(
+        [
+            "## Inspection and history",
+            "",
+            f"- {_derived_link(SOURCE_DETAIL, 'Source Verification / Audit')}",
+            f"- {_derived_link(LITERATURE_INSPECTION, 'Literature Inspection / ReadingNotes')}",
+            f"- {_derived_link(NAVIGATION, 'Findings / Syntheses navigation')}",
+            f"- {_derived_link(INDEX, 'Direct Views / diagnostic filters')}",
+            f"- {_derived_link(K3_HOME, 'Research Knowledge Home')}",
+            "",
+            "Zotero remains primary for bibliography, PDFs, attachments, "
+            "complete corpus and normal reading. "
+            "No directly mapped RQs means only a sparse projection, not no research or no gap.",
+            "",
+            "<details>",
+            "<summary>Research Landscape · secondary inventories, "
+            "drafts and deferred/superseded history</summary>",
+            "",
+        ]
     )
     body.extend(
         [
-            "This generated page is a navigation and inventory surface. It does not create "
-            "research authority, rank records, or infer scientific relationships.",
+            "## Research Landscape",
             "",
             "## Literature Inspection",
             "",
@@ -3719,7 +3765,8 @@ def render_research_landscape(
             "",
         ]
     )
-    return ("---\n" + yaml_text(props) + "---\n" + "\n".join(body)).encode()
+    body.extend(["", "</details>", ""])
+    return ("\n".join(body) + STEERING_METADATA_MARKER + yaml_text(props) + "-->\n").encode()
 
 
 def render_k3_home(commit: str, atlas: Atlas) -> bytes:
@@ -3753,7 +3800,7 @@ def render_k3_home(commit: str, atlas: Atlas) -> bytes:
             "",
             "## Research Landscape",
             "",
-            f"- {_derived_link(RESEARCH_LANDSCAPE, 'Open the Global Research Landscape')}",
+            f"- {_derived_link(RESEARCH_LANDSCAPE, 'Open Research Steering')}",
             "A direct research entry point independent of Component Hub navigation.",
             "",
             "## Agent Anatomy",
@@ -4237,8 +4284,12 @@ def reference_views_tree(
     tree[REFERENCE_INDEX] = render_index(reference)
     tree[NAVIGATION] = render_navigation(reference, atlas, locators)
     tree[K3_HOME] = render_k3_home(commit, atlas)
+    steering = inventories(
+        RQReader(atlas, private_records, source_reader), locators, identity_page_paths(atlas)
+    )
+    tree[STEERING_BASE] = base_output(steering, BASE_OWNER)
     tree[RESEARCH_LANDSCAPE] = render_research_landscape(
-        commit, atlas, snapshot, locators, private_records
+        commit, atlas, snapshot, locators, private_records, steering
     )
     tree[LITERATURE_INSPECTION] = render_literature_inspection(
         commit, snapshot, locators, private_records, source_reader
@@ -4853,6 +4904,8 @@ def project(
                 and canvas.get("generated_by") == OWNER
                 and canvas.get("canvas_view_schema_version") == "1.0"
             )
+        elif relative == RESEARCH_LANDSCAPE:
+            owned = _steering_generated_metadata(utf8(data)).get("generated_by") == OWNER
         elif relative == OBSERVE_SCOPE:
             owned = _observe_scope_generated_metadata(utf8(data)).get("generated_by") == OWNER
         elif _is_identity_page_path(relative):
