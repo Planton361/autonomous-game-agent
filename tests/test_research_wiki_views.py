@@ -410,6 +410,7 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
     assert set(tree) == {
         views.TECHNICAL_BASE,
         views.DIRECT_BASE,
+        views.STEERING_BASE,
         views.INDEX,
         views.MANIFEST,
         views.REFERENCE_INDEX,
@@ -486,7 +487,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "bfeb73e4c76fac911e64ed6b18a87b22d4060c0dab0ad7b647ef59aa2c497c2c"
+    assert tree_digest(tree) == "b0c2aa34ab710eda03ed6f1d71218b77158a0cbf663f4d1332440f931a1f8639"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
