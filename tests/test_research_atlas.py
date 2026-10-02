@@ -701,6 +701,8 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "private_views",
                         "private_reference_index",
                         "research_presentation",
+                        "rq_presentation",
+                        "rq_schema",
                         "source_resolution",
                         "source_presentation",
                         "technical_reader",
