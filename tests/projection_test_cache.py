@@ -1,5 +1,7 @@
 """Content-safe reuse for immutable synthetic projection acceptance fixtures."""
 
+import pickle
+
 import pytest
 
 from fh_agent.research_atlas import private_views as views
@@ -14,7 +16,30 @@ def cached_full_projections():
     assertions independently exercise the production renderer on each ordering.
     """
     render = views.reference_views_tree
+    render_index = views.render_index
+    serialize = views.yaml_text
     cache = {}
+    indexes = {}
+    serialized = {}
+
+    def yaml_text(value):
+        # Preserve types, mapping order and alias structure in the cache key.
+        # Only serialization is reused; no pickle is ever loaded or executed.
+        try:
+            key = pickle.dumps(value, protocol=5)
+        except (TypeError, pickle.PicklingError):
+            return serialize(value)
+        if key not in serialized:
+            serialized[key] = serialize(value)
+        return serialized[key]
+
+    def index(reference):
+        # Different full trees often share the same validated ReferenceIndex.
+        # Build/validation still runs; only identical YAML serialization is reused.
+        key = reference.model_dump_json()
+        if key not in indexes:
+            indexes[key] = render_index(reference)
+        return indexes[key]
 
     def tree(
         commit,
@@ -63,4 +88,6 @@ def cached_full_projections():
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(views, "reference_views_tree", tree)
+        patch.setattr(views, "render_index", index)
+        patch.setattr(views, "yaml_text", yaml_text)
         yield
