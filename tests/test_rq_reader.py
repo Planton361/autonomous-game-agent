@@ -1,6 +1,8 @@
 """Bounded #125 synthetic acceptance; no live vault, Zotero or literature access."""
 
 import json
+from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -28,6 +30,50 @@ COMMIT = "a" * 40
 @pytest.fixture(scope="module")
 def atlas():
     return load_registry(ROOT / "docs/research-atlas")
+
+
+@pytest.fixture
+def cached_lifecycle_setup(monkeypatch):
+    """Reuse deterministic setup, keeping every projector and filesystem check live.
+
+    This fictional lifecycle never edits Registry inputs. Content keys still miss
+    on any changed byte; parsed mutable values are copied for each caller. The
+    first call uses the real parser/tree builder, not a fabricated projection.
+    """
+    from fh_agent.research_atlas import private_projection as technical
+
+    parse = technical.read_yaml
+    registry_load = technical.load_registry
+    build = technical.projection_tree
+    registries = {}
+    trees = {}
+
+    cached_parse = lru_cache(maxsize=None)(parse)
+
+    def read_yaml(text):
+        return deepcopy(cached_parse(text))
+
+    def registry(root):
+        key = tuple(
+            (root / "registry" / name).read_bytes()
+            for name in ("nodes.yaml", "relationships.yaml", "evidence.yaml")
+        )
+        if key not in registries:
+            registries[key] = registry_load(root)
+        return registries[key]  # frozen Atlas, mapping proxy and frozen entity models
+
+    def tree(atlas, commit, registry_digests):
+        # All Atlas instances above derive from exactly these Registry bytes.
+        key = (commit, tuple(sorted(registry_digests.items())))
+        if key not in trees:
+            trees[key] = build(atlas, commit, registry_digests)
+        return dict(trees[key])  # payload bytes are immutable
+
+    monkeypatch.setattr(technical, "read_yaml", read_yaml)
+    monkeypatch.setattr(views, "read_yaml", read_yaml)
+    monkeypatch.setattr(technical, "load_registry", registry)
+    monkeypatch.setattr(views, "load_registry", registry)
+    monkeypatch.setattr(technical, "projection_tree", tree)
 
 
 def reader(atlas, records, catalog=None):
@@ -379,7 +425,11 @@ def test_zotero_item_binding_ambiguity_and_exact_family_only(atlas):
     assert reader(atlas, records, SourceCatalog.model_validate(data)).zotero(records[1]) is None
 
 
-def test_owned_rq_migration_body_independence_and_zero_write(setup, tmp_path):  # noqa: F811
+def test_owned_rq_migration_body_independence_and_zero_write(
+    cached_lifecycle_setup,
+    setup,  # noqa: F811
+    tmp_path,
+):
     from test_research_wiki_projection import (
         filesystem_state,
         git,
