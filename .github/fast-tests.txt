@@ -55,3 +55,4 @@ tests/test_verifier_catalog.py
 tests/test_verifier_schemas.py
 tests/test_visible_sprite_normalization.py
 tests/test_xdotool_adapters.py
+tests/test_rq_reader.py

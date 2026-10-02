@@ -26,15 +26,38 @@ ORIGIN_LABELS = {
     "our_inference": "Project inference",
     "own_empirical_result": "Project empirical result",
 }
-PRESENTATION_FINGERPRINT_VERSION = "1.0"
-COMMON_FIELDS = {"wiki_id", "doc_type", "title", "record_version", "document_maturity"}
+PRESENTATION_FINGERPRINT_VERSION = "1.1"
+COMMON_FIELDS = {
+    "wiki_id",
+    "doc_type",
+    "title",
+    "record_version",
+    "document_maturity",
+    "epistemic_schema_version",
+    "review_refs",
+}
 TYPE_FIELDS = {
+    "synthesis": {"rq_refs", "finding_refs"},
+    "search_record": {"target_refs", "search_date", "result_refs"},
+    "journal_entry": {"resulting_object_refs", "entry_date", "source_refs"},
     "paper": {"source_refs", "doi", "url", "authors", "publication_year", "venue"},
     "reading_note": {"version_read", "read_date", "reading_depth", "checked_sections"},
-    "finding": {"claim_origin", "review_state"},
-    "research_question": {"question_stage", "decision_state"},
+    "finding": {"claim_origin", "review_state", "reading_note_refs"},
+    "research_question": {
+        "question_stage",
+        "decision_state",
+        "search_refs",
+        "synthesis_refs",
+        "decision_refs",
+    },
     "experiment_lead": {"question_stage", "decision_state"},
-    "decision_draft": {"decision_record_state", "decision_scope", "decision_type"},
+    "decision_draft": {
+        "decision_record_state",
+        "decision_scope",
+        "decision_type",
+        "subject_refs",
+        "authority_refs",
+    },
 }
 
 
@@ -64,12 +87,12 @@ def record_link(
     return f"[{literal(record.title)}]({quote(relative, safe='/.-_')})"
 
 
-def presentation_fingerprint(records: tuple[EpistemicRecord, ...]) -> str:
+def presentation_inputs(records: tuple[EpistemicRecord, ...]) -> list[dict]:
     """Separate versioned input; reference fingerprint and bodies are untouched."""
     values = []
     for record in sorted(records, key=lambda r: r.wiki_id):
         fields = COMMON_FIELDS | set(PROPERTIES) | TYPE_FIELDS.get(record.doc_type, set())
-        if record.doc_type not in {"paper", "reading_note", "finding"}:
+        if record.doc_type not in {"paper", "reading_note", "finding", "journal_entry"}:
             fields.discard("source_refs")
         fields |= {
             field for field in type(record).model_fields if field.startswith("presentation_")
@@ -77,7 +100,26 @@ def presentation_fingerprint(records: tuple[EpistemicRecord, ...]) -> str:
         # Profile version is consumed by the existing literature inspection view.
         if isinstance(record, (Paper, ReadingNote)):
             fields |= {"epistemic_schema_version", "venue", "related_version_refs"}
-        values.append(record.model_dump(mode="json", include=fields))
+        value = record.model_dump(mode="json", include=fields)
+
+        def canonical(value, key=""):
+            if isinstance(value, dict):
+                return {k: canonical(v, k) for k, v in value.items()}
+            if isinstance(value, list):
+                items = [canonical(v) for v in value]
+                if key.endswith("_refs") or key in {"reviewed_by", "checked_sections"}:
+                    return sorted(items)
+                if key == "reviewed_inputs":
+                    return sorted(items, key=lambda v: v["ref"])
+                return items
+            return value
+
+        values.append(canonical(value))
+    return values
+
+
+def presentation_fingerprint(records: tuple[EpistemicRecord, ...]) -> str:
+    values = presentation_inputs(records)
     encoded = json.dumps(
         {"presentation_fingerprint_version": PRESENTATION_FINGERPRINT_VERSION, "records": values},
         ensure_ascii=False,
