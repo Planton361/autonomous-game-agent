@@ -358,15 +358,8 @@ def test_workspace_finite_ownership_migration_and_zero_write(setup, cached_lifec
     legacy = ("---\n" + yaml_text(metadata) + "---\n" + visible).encode()
     (vault / views.OWNED_ROOT / views.RESEARCH_LANDSCAPE).write_bytes(legacy)
     owned[str(views.RESEARCH_LANDSCAPE)]["sha256"] = sha256(legacy).hexdigest()
-    manifest_path.write_text(yaml_text(manifest))
-    before = filesystem_state(vault)
-    with pytest.raises(ProjectionError, match="drift"):
-        views.project(repo, vault, sha, check=True)
-    assert filesystem_state(vault) == before
-    assert views.project(repo, vault, sha) == tree
-    assert outside_owned(vault) == authored
-    manifest = yaml.safe_load(tree[views.MANIFEST])
-    # Intact old 2.15 payload migrates by adding exactly one finite Base.
+    # Combine compatible historical conditions in one intact 2.15 manifest:
+    # legacy frontmatter and the absent Steering Base migrate in the same apply.
     (vault / views.OWNED_ROOT / STEERING_BASE).unlink()
     manifest["owned_files"] = [
         item for item in manifest["owned_files"] if item["path"] != str(STEERING_BASE)
@@ -377,6 +370,7 @@ def test_workspace_finite_ownership_migration_and_zero_write(setup, cached_lifec
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     assert views.project(repo, vault, sha) == tree
+    assert outside_owned(vault) == authored
     before = filesystem_state(vault)
     assert views.project(repo, vault, sha, check=True) == tree
     assert filesystem_state(vault) == before and outside_owned(vault) == authored
