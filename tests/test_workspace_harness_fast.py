@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 import pytest
 import yaml
+from projection_test_cache import cached_full_projections  # noqa: F401
 from test_research_wiki_schema import props as wiki_props
 
 from fh_agent.research_atlas import private_projection as technical_projection
@@ -38,7 +39,7 @@ DETAIL_ENDPOINTS = (
 )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def atlas():
     return load_registry(ROOT / "docs/research-atlas")
 

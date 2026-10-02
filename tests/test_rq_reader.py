@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 
 import pytest
 import yaml
+from projection_test_cache import cached_full_projections  # noqa: F401
 from rq_reader_fixtures import fictional_catalog, fictional_properties, fictional_records
 from test_research_wiki_views import setup  # noqa: F401
 

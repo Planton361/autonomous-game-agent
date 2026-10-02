@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 
 import pytest
+from projection_test_cache import cached_full_projections  # noqa: F401
 from pydantic import ValidationError
 from test_research_wiki_schema import props
 
