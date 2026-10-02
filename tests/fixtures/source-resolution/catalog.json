@@ -1,0 +1,23 @@
+{
+  "source_catalog_schema_version": "1.0",
+  "privacy": "private",
+  "export_policy": "deny",
+  "families": [
+    {"source_family_id": "srcf-a7k2", "title": "Hierarchical Visual State Representations", "bibliographic_label": "Hierarchical Visual State Representations — fictional source", "preferred_version_ref": "srcv-c9r4"},
+    {"source_family_id": "srcf-f6p3", "title": "Bounded Visual Memory — fictional source", "preferred_version_ref": "srcv-c9r4"}
+  ],
+  "versions": [
+    {"source_version_id": "srcv-b8q3", "source_family_ref": "srcf-a7k2", "label": "Preprint v1", "kind": "preprint", "status": "retracted", "availability": "available", "locator": {"url": "https://example.invalid/hierarchical/preprint-v1", "section": "Methods"}, "relations": []},
+    {"source_version_id": "srcv-c9r4", "source_family_ref": "srcf-a7k2", "label": "Published version", "kind": "published", "status": "available", "availability": "not_locally_available", "locator": {"url": "https://example.invalid/hierarchical/published"}, "relations": [{"relation": "published_from", "target_version_ref": "srcv-b8q3"}, {"relation": "supersedes", "target_version_ref": "srcv-b8q3"}]},
+    {"source_version_id": "srcv-d2s5", "source_family_ref": "srcf-a7k2", "label": "Correction to published version", "kind": "correction", "status": "available", "availability": "available", "locator": {"url": "https://example.invalid/hierarchical/correction"}, "relations": [{"relation": "corrects", "target_version_ref": "srcv-c9r4"}]},
+    {"source_version_id": "srcv-g7t4", "source_family_ref": "srcf-f6p3", "label": "Withdrawn manuscript", "kind": "accepted_manuscript", "status": "withdrawn", "availability": "attachment_unavailable", "relations": []}
+  ],
+  "bindings": [
+    {"scheme": "doi", "value": "10.9999/fictional-hv", "target_ref": "srcf-a7k2"},
+    {"scheme": "arxiv", "value": "fictional-v1", "target_ref": "srcv-b8q3"},
+    {"scheme": "url", "value": "https://example.invalid/hierarchical/published", "target_ref": "srcv-c9r4"},
+    {"scheme": "opaque", "value": "fictional-source-alias", "target_ref": "srcf-a7k2"},
+    {"scheme": "doi", "value": "10.9999/fictional-collision", "target_ref": "srcf-a7k2"},
+    {"scheme": "doi", "value": "10.9999/fictional-collision", "target_ref": "srcf-f6p3"}
+  ]
+}
