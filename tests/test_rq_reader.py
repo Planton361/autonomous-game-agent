@@ -444,7 +444,10 @@ def test_owned_rq_migration_body_independence_and_zero_write(
 
     repo, vault, sha = setup
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
-    apply(repo, vault, tmp_path / "restore")
+    # setup already applied the real technical projector. This only constructs
+    # the intact pre-RQ direct-view state used by the migration below; a second
+    # full workspace apply would repeat that unchanged technical lifecycle.
+    views.project(repo, vault, sha)
     root = vault / views.OWNED_ROOT
     from test_research_wiki_views import remove_graph_payloads
 
@@ -468,6 +471,13 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     authored_before = {p: p.read_bytes() for p in (vault / "authored").glob("*.md")}
     migrated = apply(repo, vault, tmp_path / "restore")
     assert migrated.source_commit == sha
+    assert migrated.restore_point is not None
+    restored = json.loads((migrated.restore_point / "restore-point.json").read_text())
+    assert restored["source_commit"] == sha
+    assert set(restored["generated_roots_present"]) == {
+        str(technical.OWNED_ROOT),
+        str(views.OWNED_ROOT),
+    }
     # Real apply returns these stages only after both actual projector checks pass.
     assert migrated.stages == (
         "restore point",

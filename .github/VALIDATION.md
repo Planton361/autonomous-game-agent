@@ -58,7 +58,10 @@ miss the reuse key. Independent real-parser oracles and eight required cases
 verify these properties. Reuse dictionaries expire at module teardown. They store pure YAML inputs and
 results, never filesystem inspections or Vault state.
 
-The RQ lifecycle avoids a standalone check immediately after `workspace apply`,
+The RQ lifecycle constructs its historical direct-view fixture on the already
+projected technical setup, avoiding an unchanged preparatory workspace apply.
+The migration still uses real workspace apply and verifies its restore point
+and completed stages. It also avoids a standalone check immediately after apply,
 which already executes both real projector checks. It asserts the returned
 completed stages and retains a later real standalone check after a body-only
 edit, now with whole-Vault byte equality and exact source/stage assertions.
