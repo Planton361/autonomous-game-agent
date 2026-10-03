@@ -3,6 +3,8 @@
 import pickle
 
 import pytest
+import yaml
+from yaml_test_cache import YamlReuse
 
 from fh_agent.research_atlas import private_views as views
 
@@ -15,6 +17,7 @@ def cached_full_projections():
     current snapshots. Exact input order is part of the key, so order-invariance
     assertions independently exercise the production renderer on each ordering.
     """
+    yaml_reuse = YamlReuse(yaml.load, yaml.safe_dump)
     render = views.reference_views_tree
     render_index = views.render_index
     serialize = views.yaml_text
@@ -87,6 +90,8 @@ def cached_full_projections():
         return dict(cache[key])
 
     with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(yaml, "load", yaml_reuse.load)
+        patch.setattr(yaml, "safe_dump", yaml_reuse.safe_dump)
         patch.setattr(views, "reference_views_tree", tree)
         patch.setattr(views, "render_index", index)
         patch.setattr(views, "yaml_text", yaml_text)

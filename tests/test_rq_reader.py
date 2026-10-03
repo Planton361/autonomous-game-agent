@@ -10,6 +10,7 @@ import yaml
 from projection_test_cache import cached_full_projections  # noqa: F401
 from rq_reader_fixtures import fictional_catalog, fictional_properties, fictional_records
 from test_research_wiki_views import setup  # noqa: F401
+from yaml_test_cache import YamlReuse, parse_yaml, serialize_yaml
 
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas.private_reference_index import build_index, make_snapshot
@@ -441,7 +442,7 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     from fh_agent.research_atlas.source_resolution import CATALOG_INPUT
     from fh_agent.research_atlas.workspace_harness import apply, check
 
-    repo, vault, _ = setup
+    repo, vault, sha = setup
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     apply(repo, vault, tmp_path / "restore")
     root = vault / views.OWNED_ROOT
@@ -465,17 +466,27 @@ def test_owned_rq_migration_body_independence_and_zero_write(
             record.model_dump(mode="json", exclude_unset=True),
         )
     authored_before = {p: p.read_bytes() for p in (vault / "authored").glob("*.md")}
-    apply(repo, vault, tmp_path / "restore")
+    migrated = apply(repo, vault, tmp_path / "restore")
+    assert migrated.source_commit == sha
+    # Real apply returns these stages only after both actual projector checks pass.
+    assert migrated.stages == (
+        "restore point",
+        "technical projection",
+        "direct views",
+        "technical projection check",
+        "direct views check",
+    )
     assert all(p.read_bytes() == payload for p, payload in authored_before.items())
-    before = filesystem_state(vault)
-    check(repo, vault)
-    assert filesystem_state(vault) == before
     page = root / views.rq_page_paths(records)[records[0].wiki_id]
     original = page.read_bytes()
     # Body-only changes are not scientific inputs and cannot change generated science.
     note = vault / "authored" / (records[0].wiki_id + ".md")
     note.write_text(note.read_text() + "\nBODY-ONLY: candidate gap and authorized pursuit!\n")
-    check(repo, vault)
+    before = filesystem_state(vault)
+    checked = check(repo, vault)
+    assert checked.source_commit == sha
+    assert checked.stages == ("technical projection check", "direct views check")
+    assert filesystem_state(vault) == before
     assert page.read_bytes() == original and b"BODY-ONLY" not in original
     before = filesystem_state(vault)
     page.write_bytes(original + b"\nEdited generated science\n")
@@ -622,3 +633,122 @@ def test_multiline_card_stays_native_and_audit_is_recoverable(atlas):
     values = json.loads("\n".join(line.removeprefix("> ") for line in audit.splitlines()))
     rq = next(r for r in values if r["wiki_id"] == "WRQ-OBSERVER")
     assert rq["presentation_question"] == data[0]["presentation_question"]
+
+
+def yaml_reuse_spies():
+    counts = {"load": 0, "dump": 0}
+    load, dump = parse_yaml, serialize_yaml
+
+    def parse(*args, **kwargs):
+        counts["load"] += 1
+        return load(*args, **kwargs)
+
+    def serialize(*args, **kwargs):
+        counts["dump"] += 1
+        return dump(*args, **kwargs)
+
+    return YamlReuse(parse, serialize), counts
+
+
+def test_yaml_reuse_complete_text_order_types_and_nested_alias_isolation():
+    from fh_agent.research_atlas.validator import UniqueKeyLoader
+
+    reuse, calls = yaml_reuse_spies()
+    text = "items: &items [one, two]\nmirror: *items\n"
+    first = reuse.load(text, Loader=UniqueKeyLoader)
+    assert first["items"] is first["mirror"]
+    first["items"].append("caller mutation")
+    second = reuse.load(text, Loader=UniqueKeyLoader)
+    assert second == {"items": ["one", "two"], "mirror": ["one", "two"]}
+    assert second["items"] is second["mirror"] and second["items"] is not first["items"]
+    assert calls["load"] == 1
+    for changed in (
+        text.replace("one", "changed"),
+        text.encode(),
+        "mirror: [one, two]\nitems: [one, two]\n",
+    ):
+        assert reuse.load(changed, Loader=UniqueKeyLoader) == yaml.load(
+            changed, Loader=UniqueKeyLoader
+        )
+    assert calls["load"] == 4  # changed, encoded and reordered inputs genuinely parse
+
+
+def test_yaml_reuse_loader_configuration_and_invalid_input_stay_live(monkeypatch):
+    from fh_agent.research_atlas.validator import UniqueKeyLoader
+
+    reuse, calls = yaml_reuse_spies()
+    for _ in range(2):
+        with pytest.raises(ValueError, match="Duplicate YAML key"):
+            reuse.load("x: 1\nx: 2\n", Loader=UniqueKeyLoader)
+    assert calls["load"] == 2  # failures are never cached
+    constructors = dict(UniqueKeyLoader.yaml_constructors)
+    constructors["!fixture"] = yaml.SafeLoader.construct_yaml_str
+    monkeypatch.setattr(UniqueKeyLoader, "yaml_constructors", constructors)
+    assert reuse.load("x: !fixture 42", Loader=UniqueKeyLoader) == {"x": "42"}
+    monkeypatch.setattr(
+        UniqueKeyLoader,
+        "yaml_constructors",
+        {**constructors, "!fixture": yaml.SafeLoader.construct_yaml_int},
+    )
+    assert reuse.load("x: !fixture 42", Loader=UniqueKeyLoader) == {"x": 42}
+    assert calls["load"] == 4
+    # Unsupported loader semantics bypass reuse, even on identical text.
+    for _ in range(2):
+        assert reuse.load("x: 42", Loader=yaml.BaseLoader) == {"x": "42"}
+    assert calls["load"] == 6
+
+
+def test_yaml_reuse_streams_are_never_cached():
+    from io import StringIO
+
+    from fh_agent.research_atlas.validator import UniqueKeyLoader
+
+    reuse, calls = yaml_reuse_spies()
+    source = StringIO("x: first")
+    assert reuse.load(source, Loader=UniqueKeyLoader) == {"x": "first"}
+    source.seek(0)
+    source.truncate()
+    source.write("x: changed")
+    source.seek(0)
+    assert reuse.load(source, Loader=UniqueKeyLoader) == {"x": "changed"}
+    sink = StringIO()
+    reuse.safe_dump({"x": 1}, stream=sink)
+    reuse.safe_dump({"x": 1}, stream=sink)
+    assert calls == {"load": 2, "dump": 2}
+    assert sink.getvalue() == serialize_yaml({"x": 1}) * 2
+
+
+@pytest.mark.parametrize(
+    "options",
+    [{"sort_keys": False}, {"allow_unicode": True}, {"width": 12}, {"default_flow_style": True}],
+)
+def test_yaml_reuse_complete_serializer_inputs(options):
+    reuse, calls = yaml_reuse_spies()
+    shared = ["fictional öne", "fictional two", "fictional three"]
+    data = {"z": shared, "a": shared}
+    original = reuse.safe_dump(data)
+    assert reuse.safe_dump(data) == original and calls["dump"] == 1
+    assert reuse.safe_dump(data, **options) == serialize_yaml(data, **options)
+    assert calls["dump"] == 2
+    reordered = {"a": shared, "z": shared}
+    assert reuse.safe_dump(reordered) == serialize_yaml(reordered)
+    assert calls["dump"] == 3
+    shared.append("mutated")
+    assert reuse.safe_dump(data) == serialize_yaml(data)
+    assert calls["dump"] == 4
+
+
+def uppercase_yaml_string(dumper, value):
+    return dumper.represent_scalar("tag:yaml.org,2002:str", value.upper())
+
+
+def test_yaml_reuse_dumper_configuration_changes_miss(monkeypatch):
+    reuse, calls = yaml_reuse_spies()
+    assert reuse.safe_dump("fictional") == serialize_yaml("fictional")
+    monkeypatch.setattr(
+        yaml.SafeDumper,
+        "yaml_representers",
+        {**yaml.SafeDumper.yaml_representers, str: uppercase_yaml_string},
+    )
+    assert reuse.safe_dump("fictional") == serialize_yaml("fictional") == "FICTIONAL\n...\n"
+    assert calls["dump"] == 2
