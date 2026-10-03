@@ -9,6 +9,7 @@ from knowledge_graph_fixtures import fictional_graph_records
 from projection_test_cache import cached_full_projections  # noqa: F401
 from test_research_wiki_projection import filesystem_state, git, write_note
 from test_research_wiki_views import outside_owned, setup  # noqa: F401
+from test_rq_reader import cached_lifecycle_setup  # noqa: F401
 
 from fh_agent.research_atlas import knowledge_graph as graph
 from fh_agent.research_atlas import private_views as views
@@ -298,7 +299,10 @@ def test_public_export_has_no_private_projection(atlas):
     )
 
 
-def test_generated_ownership_migration_zero_write_and_edited_rejection(setup):  # noqa: F811
+def test_generated_ownership_migration_zero_write_and_edited_rejection(
+    cached_lifecycle_setup,  # noqa: F811
+    setup,  # noqa: F811
+):
     repo, vault, sha = setup
     for record in fictional_graph_records(load_registry(repo / "docs/research-atlas")):
         write_note(
