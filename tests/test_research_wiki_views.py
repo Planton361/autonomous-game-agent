@@ -428,6 +428,7 @@ def test_complete_determinism_authored_and_technical_invariance(setup):
         views.GRAPH_PROFILE,
         views.GRAPH_AUDIT,
         views.GRAPH_ROOT / "nodes/Memory Retrieval — CMP-MEM-RETRIEVAL.md",
+        views.GRAPH_ROOT / "nodes/Autonomous Game Agent Experiment System — SYS-AGA.md",
     } | set(views.SOURCE_PAYLOADS) | set(views.K3_PAYLOADS) | set(views.W10_PAYLOADS) | set(
         views.OBSERVE_SCOPE_PAYLOADS
     ) | set(views.TECHNICAL_DETAIL_PAYLOADS) | set(
@@ -499,7 +500,7 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "490484fe6381ce2a6076fe2238919a3cf9a528550473c1cbfeaadea9fb96e31e"
+    assert tree_digest(tree) == "698ac8eac8bb93558495de36b92df07f6beea95bdc456876da887e8669970949"
 
 
 def test_current_03_source_schema_propagates_through_private_views():

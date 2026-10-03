@@ -19,7 +19,7 @@ from fh_agent.research_atlas.private_reference_index import build_index, make_sn
 from fh_agent.research_atlas.rq_presentation import RQReader
 from fh_agent.research_atlas.source_presentation import SourceReader
 from fh_agent.research_atlas.source_resolution import SourceResolver
-from fh_agent.research_atlas.validator import load_registry
+from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.workspace import workspace_tree
 
 
@@ -106,6 +106,7 @@ def test_exact_identity_and_edge_parity(atlas):
     default = {
         "CMP-MEM-RETRIEVAL",
         "CMP-CORTEX",
+        "SYS-AGA",
         "WPAPER-FIXTURE",
         "READ-FIXTURE",
         "WFIND-FIXTURE",
@@ -113,7 +114,11 @@ def test_exact_identity_and_edge_parity(atlas):
         "TOPIC-FIXTURE",
     }
     assert {n.identity for n in model.nodes if not n.overlay} == default
-    assert {n.identity for n in model.nodes if n.overlay} == {"WRQ-FIXTURE", "CMP-MEM-FACTS"}
+    assert {n.identity for n in model.nodes if n.overlay} == {
+        "WRQ-FIXTURE",
+        "CMP-MEM-FACTS",
+        "CMP-MEMORY",
+    }
     ids = inventory(tree[graph.AUDIT].decode())
     assert ids == {n.identity for n in model.nodes}
     assert len(tree) == len(ids) + 2  # no hidden proxies
@@ -131,9 +136,11 @@ def test_exact_identity_and_edge_parity(atlas):
         ("TOPIC-FIXTURE", "WPAPER-FIXTURE"),
         ("TOPIC-FIXTURE", "WFIND-FIXTURE"),
     }
+    expected |= {(graph.MEMORY, "SYS-AGA"), ("CMP-CORTEX", "SYS-AGA")}
     overlay = {
         ("WRQ-FIXTURE", target) for target in ("CMP-MEM-RETRIEVAL", "CMP-CORTEX", "CMP-MEM-FACTS")
     }
+    overlay |= {("CMP-MEM-FACTS", "CMP-MEMORY"), ("CMP-MEMORY", "SYS-AGA")}
     assert set(model.pairs(overlay=False)) == expected
     emitted = proxy_pairs(tree)
     audit = audit_pairs(tree[graph.AUDIT].decode())
@@ -185,6 +192,7 @@ def test_unaccepted_fields_never_create_topology(atlas, property):
     assert all(
         d.target not in {"CMP-MEMORY", "DOM-EVIDENCE-MEMORY", "FUNC-OBSERVE"}
         for d in changed.declarations
+        if d.edge_class != "technical skeleton"
     )
 
 
@@ -201,8 +209,6 @@ def test_no_recursive_closure_inheritance_or_inferred_synthesis(atlas):
         "SYN-UNRELATED",
         "WPAPER-OTHER",
         "TOPIC-UNSUPPORTED",
-        "CMP-MEMORY",
-        "SYS-AGA",
         "IF-MEM-CORTEX",
     }
     assert not any(
@@ -262,8 +268,8 @@ def test_invalid_sparse_and_overlay_fail_closed(atlas, fault):
 
 def test_empty_truthful_fallback_no_global_settings(atlas):
     model, tree = projection(atlas, ())
-    assert [n.identity for n in model.nodes] == [graph.MEMORY]
-    assert not model.pairs()
+    assert {n.identity for n in model.nodes} == {graph.MEMORY, "SYS-AGA"}
+    assert set(model.pairs()) == {(graph.MEMORY, "SYS-AGA")}
     assert "No matching documented knowledge" in tree[graph.AUDIT].decode()
     assert "no eligible" in tree[graph.AUDIT].decode()
     text = tree[graph.PROFILE].decode()
@@ -327,7 +333,9 @@ def test_public_export_has_no_private_projection(atlas):
     assert not set(private) & set(public)
     data = "".join(public.values()).encode()
     assert all(
-        n.identity.encode() not in data for n in model.nodes if not n.identity.startswith("CMP-")
+        n.identity.encode() not in data
+        for n in model.nodes
+        if n.kind not in {"Component", "System"}
     )
 
 
@@ -438,3 +446,105 @@ def test_closed_graph_header_and_historical_owner_rejection(atlas):
     assert not graph.graph_metadata(
         data.replace("graph_class: Component", "graph_class: Evidence"), path
     )
+
+
+def test_exact_registry_skeleton_default_and_overlay(atlas):
+    model, tree = projection(atlas, fictional_graph_records(atlas))
+    default_nodes = {
+        n.identity for n in model.nodes if not n.overlay and n.kind in {"Component", "System"}
+    }
+    overlay_nodes = {n.identity for n in model.nodes if n.overlay and n.kind == "Component"}
+    assert default_nodes == {graph.MEMORY, "CMP-CORTEX", "SYS-AGA"}
+    assert overlay_nodes == {"CMP-MEM-FACTS", "CMP-MEMORY"}
+    expected = {
+        (graph.MEMORY, "SYS-AGA"),
+        ("CMP-CORTEX", "SYS-AGA"),
+        ("CMP-MEM-FACTS", "CMP-MEMORY"),
+        ("CMP-MEMORY", "SYS-AGA"),
+    }
+    skeleton = [d for d in model.declarations if d.edge_class == "technical skeleton"]
+    registry = {(e.source, e.target) for e in atlas.relationships if e.relation == "part_of"}
+    assert {(d.source, d.target) for d in skeleton} == expected <= registry
+    assert len(skeleton) == 4
+    assert all(
+        d.property == "part_of"
+        and d.origin == f"public Registry relationship: {d.source} part_of {d.target}"
+        for d in skeleton
+    )
+    assert all(atlas.ancestors(ref) <= default_nodes for ref in default_nodes)
+    assert not {"CMP-MEMORY", "CMP-MEM-FACTS"} & default_nodes
+    assert len({n.identity for n in model.nodes}) == len(model.nodes)
+    assert sum(n.kind == "ResearchQuestion" for n in model.nodes) == 1
+    assert not any(n.kind == "ResearchQuestion" and not n.overlay for n in model.nodes)
+    audit = tree[graph.AUDIT].decode()
+    rows = audit.split("## Edge Audit\n", 1)[1].split("## Navigation", 1)[0]
+    assert rows.count("| technical skeleton |") == len(skeleton)
+    assert "| Edge class |" in rows
+    assert set(proxy_pairs(tree)) == set(audit_pairs(audit)) == set(model.pairs())
+    # Every ancestor is orientation only, with no inherited scientific targeting.
+    assert not any(
+        d.target in {"SYS-AGA", "CMP-MEMORY"}
+        for d in model.declarations
+        if d.edge_class == "research / knowledge"
+    )
+    assert ("WRQ-FIXTURE", "CMP-MEM-FACTS") in model.pairs()
+    assert ("WRQ-FIXTURE", "CMP-MEMORY") not in model.pairs()
+
+
+def test_default_child_attachment_gets_ancestry_without_research_inheritance(atlas):
+    records = list(fictional_graph_records(atlas))
+    records[0] = records[0].model_copy(
+        update={"research_direct_subject_refs": [graph.MEMORY, "CMP-MEM-FACTS"]}
+    )
+    records[2] = records[2].model_copy(
+        update={"research_adjacent_context_refs": [graph.MEMORY, "CMP-MEM-FACTS"]}
+    )
+    model, tree = projection(atlas, tuple(records))
+    default = {n.identity for n in model.nodes if not n.overlay}
+    assert {graph.MEMORY, "CMP-MEM-FACTS", "CMP-MEMORY", "SYS-AGA"} <= default
+    # Cortex remains an explicitly targeted overlay node, not a sibling expansion.
+    assert "CMP-CORTEX" not in default
+    assert "CMP-MEM-EPISODIC" not in {n.identity for n in model.nodes}
+    for source in ("WPAPER-FIXTURE", "WFIND-FIXTURE", "WRQ-FIXTURE"):
+        assert (source, "CMP-MEM-FACTS") in model.pairs()
+        assert (source, "CMP-MEMORY") not in model.pairs()
+        assert (source, "SYS-AGA") not in model.pairs()
+    assert ("CMP-MEM-FACTS", "CMP-MEMORY") in model.pairs(overlay=False)
+    assert ("CMP-MEMORY", "SYS-AGA") in model.pairs(overlay=False)
+    assert (
+        set(proxy_pairs(tree)) == set(audit_pairs(tree[graph.AUDIT].decode())) == set(model.pairs())
+    )
+
+
+@pytest.mark.parametrize(
+    "relation", ["presented_in_domain", "contributes_to_function", "supplies", "decomposed_into"]
+)
+def test_non_containment_registry_context_never_enters_skeleton(atlas, relation):
+    # Current Registry context edges cannot supply ancestry, even when all other
+    # context families are removed. Domain/Function/legacy Assembly are not actors.
+    reduced = Atlas(
+        atlas.entities,
+        tuple(e for e in atlas.relationships if e.relation in {"part_of", relation}),
+        atlas.source_atlas_schema,
+    )
+    baseline, _ = projection(atlas, fictional_graph_records(atlas))
+    changed, _ = projection(reduced, fictional_graph_records(reduced))
+    assert changed.nodes == baseline.nodes
+    assert changed.declarations == baseline.declarations
+    assert all(n.kind not in {"Domain", "Function", "Assembly"} for n in changed.nodes)
+    assert all(
+        d.property == "part_of"
+        for d in changed.declarations
+        if d.edge_class == "technical skeleton"
+    )
+
+
+def test_reordered_registry_preserves_skeleton_bytes_and_independent_build(atlas):
+    reordered = Atlas(
+        dict(reversed(tuple(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        atlas.source_atlas_schema,
+    )
+    records = fictional_graph_records(atlas)
+    assert projection_key(atlas, records) != projection_key(reordered, records)
+    assert projection(atlas, records) == projection(reordered, records)

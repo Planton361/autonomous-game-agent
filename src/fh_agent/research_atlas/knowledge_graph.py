@@ -32,6 +32,7 @@ TYPES = {
 }
 PREFIXES = {
     "CMP": "Component",
+    "SYS": "System",
     "WPAPER": "Paper",
     "READ": "ReadingNote",
     "WFIND": "Finding",
@@ -66,6 +67,7 @@ class Declaration:
     target: str
     property: str
     origin: str
+    edge_class: str = "research / knowledge"
 
 
 @dataclass(frozen=True)
@@ -227,6 +229,29 @@ def project_graph(atlas: Atlas, reference: ReferenceIndex, reader: RQReader) -> 
                     f"{rq.wiki_id} v{rq.record_version}; RA-2 0.3 RQ-owned exact target",
                 )
             )
+    # Orientation only: explicit Registry containment closure, never Research inheritance.
+    default_anchors = {n.identity for n in nodes if n.kind == "Component" and not n.overlay}
+    default_skeleton = default_anchors | {
+        ancestor for ref in default_anchors for ancestor in atlas.ancestors(ref)
+    }
+    skeleton = anchors | {ancestor for ref in anchors for ancestor in atlas.ancestors(ref)}
+    nodes = [n for n in nodes if n.kind != "Component"]
+    for ref in sorted(skeleton):
+        entity = atlas.entities[ref]
+        if entity.type not in {"Component", "System"}:
+            raise ProjectionError("Invalid technical skeleton ancestor")
+        nodes.append(Node(ref, entity.name, entity.type, ref not in default_skeleton))
+    for edge in atlas.relationships:
+        if edge.relation == "part_of" and {edge.source, edge.target} <= skeleton:
+            declarations.add(
+                Declaration(
+                    edge.source,
+                    edge.target,
+                    "part_of",
+                    f"public Registry relationship: {edge.source} part_of {edge.target}",
+                    "technical skeleton",
+                )
+            )
     diagnostics.update(reader.diagnostics)
     if not selected:
         diagnostics.add(
@@ -246,7 +271,7 @@ def is_graph_path(path: PurePosixPath) -> bool:
         return False
     return bool(
         re.fullmatch(
-            r".+ — (CMP|WPAPER|READ|WFIND|SYN|TOPIC|WRQ)-[A-Z0-9]+(?:-[A-Z0-9]+)*", path.stem
+            r".+ — (CMP|SYS|WPAPER|READ|WFIND|SYN|TOPIC|WRQ)-[A-Z0-9]+(?:-[A-Z0-9]+)*", path.stem
         )
     )
 
@@ -354,12 +379,13 @@ def render_graph(
         (
             "Scope: exact Memory Retrieval N-C prefixes and direct attachments; "
             "one explicit Synthesis/Topic join to that core. Other Components "
-            "appear only through selected records' exact declarations. Deep "
+            "appear through exact declarations or required part_of ancestry. Deep "
             "endpoints remain inspection only."
         ),
         "",
         (
-            "Default classes: Component, Paper, ReadingNote, Finding, Synthesis, "
+            "Default classes: Component, System root context, Paper, ReadingNote, "
+            "Finding, Synthesis, "
             "explicitly supported Topic. ResearchQuestion is OFF by default."
         ),
         "",
@@ -367,8 +393,15 @@ def render_graph(
             "Excluded: Decision/DecisionDraft, Issues/PRs, milestones, "
             "Project/control/orchestration, manifests/indexes/navigation, "
             "technical Evidence, raw SourceFamily/SourceVersion, "
-            "System/Interface/Contract/DataArtifact/MeasurementPoint anchors, "
+            "Interface/Contract/DataArtifact/MeasurementPoint anchors, "
             "Domain/Function/Assembly, workbench/Canvas/Excalidraw duplicates."
+        ),
+        "",
+        (
+            "Component hierarchy provides orientation through explicit Registry part_of. "
+            "Research objects remain attached only through explicit scientific declarations. "
+            "Tree position does not infer scientific relevance. Overlay-only targets and "
+            "their required ancestors appear only with the RQ overlay."
         ),
         "",
         "Native default filter:",
@@ -416,6 +449,12 @@ def render_graph(
         "",
         "## Graph profile",
         "",
+        (
+            "Component hierarchy provides orientation through explicit Registry part_of. "
+            "Research objects remain attached only through explicit scientific declarations. "
+            "Tree position does not infer scientific relevance."
+        ),
+        "",
         "Default: " + DEFAULT_FILTER,
         "",
         "RQ overlay (OFF by default): " + OVERLAY_FILTER,
@@ -446,15 +485,17 @@ def render_graph(
             "typed names."
         ),
         "",
-        "| From | Relation | To | Direction | Origin |",
-        "| --- | --- | --- | --- | --- |",
+        "| From | Relation | To | Direction | Origin | Edge class |",
+        "| --- | --- | --- | --- | --- | --- |",
     ]
     for (source, target), declarations in pairs.items():
         relations = "; ".join(sorted({d.property for d in declarations}))
         origins = "; ".join(d.origin + " / " + d.property for d in declarations)
+        classes = "; ".join(sorted({d.edge_class for d in declarations}))
         body.append(
             f"| {literal(nodes[source].title)} ({source}) | {relations} | "
-            f"{literal(nodes[target].title)} ({target}) | {source} → {target} | {origins} |"
+            f"{literal(nodes[target].title)} ({target}) | {source} → {target} | "
+            f"{origins} | {classes} |"
         )
     body += [
         "",

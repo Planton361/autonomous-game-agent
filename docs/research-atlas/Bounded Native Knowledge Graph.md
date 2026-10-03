@@ -4,6 +4,8 @@ Issue #119 implements the native Obsidian Graph pilot released by CONTROL
 [5963330134](https://github.com/Planton361/autonomous-game-agent/issues/119#issuecomment-5963330134)
 and clarified by
 [5963456188](https://github.com/Planton361/autonomous-game-agent/issues/119#issuecomment-5963456188).
+The Component skeleton repair follows CONTROL
+[5968367667](https://github.com/Planton361/autonomous-game-agent/issues/119#issuecomment-5968367667).
 It preserves accepted #102/#137 semantics, the exact #121 attachments, #125 RQ
 target authority, #123 source inspection and #126 Research Steering. It does not
 implement #127. These are generated navigation views, never scientific masters,
@@ -45,9 +47,23 @@ its `paper_refs`/`finding_refs`. A join does not expand their other targets or
 create a research role. Only explicit Component targets of selected records become
 additional participating default Component anchors.
 
+Component hierarchy provides orientation. Research objects remain attached only
+through explicit scientific declarations. Tree position does not infer scientific
+relevance. Each participating Component includes its complete explicit Registry
+`part_of` ancestor path, including System root context. Only these ancestors are
+added: no siblings or unrelated descendants. The default skeleton is computed
+before optional RQ targets; overlay-only targets and their ancestors remain in
+the overlay unless already in the default skeleton. Every ancestor has one proxy.
+
+Current Registry truth: Memory Retrieval and Cortex each point directly to
+`SYS-AGA`; Semantic Facts points to Memory, which points to `SYS-AGA`. The
+committed fictional baseline therefore has three default skeleton nodes/two
+edges; the overlay adds two Component nodes/two skeleton edges. Memory Retrieval
+is not a child of Memory. These are navigation counts, not scientific metrics.
+
 Excluded: Decision/DecisionDraft, Issue/PR/milestone/Project/control/orchestration,
 manifest/index/navigation, technical Evidence, raw SourceFamily/SourceVersion,
-System/Interface/Contract/DataArtifact/MeasurementPoint anchors, Domain/Function/
+Interface/Contract/DataArtifact/MeasurementPoint anchors, Domain/Function/
 Assembly and all presentation duplicates. Exact non-Component technical targets
 remain available through the existing detail/attachment inspection routes.
 Direct, descendant and related Research retain their existing distinctions;
@@ -59,6 +75,7 @@ The projection emits authored forward directions, not traversal shortcuts:
 
 | Family | Actual declaring property | Eligibility |
 | --- | --- | --- |
+| Technical skeleton | Component `part_of` → Component/System | Exact public Registry relationship; selected ancestor closure only |
 | E1 | ReadingNote `paper_refs` or `source_refs` → Paper | Existing resolved typed declaration |
 | E2 | Paper `reading_note_refs` → ReadingNote | Existing exact ReadingNote source back-reference prerequisite |
 | E3 | Finding `source_refs` → Paper | Existing resolved typed declaration |
@@ -78,16 +95,19 @@ produce diagnostics and no edge.
 
 No edge comes from navigation/backlinks, folder membership/co-location, Domain,
 Function, Assembly, title/DOI similarity, tags, embeddings, geometry, inherited
-roles, arbitrary BFS/DFS or transitive closure. No relationships are added to
-make a graph denser.
+roles, arbitrary Research BFS/DFS or transitive semantic closure. The only
+ancestry closure is explicit Registry `part_of` for technical orientation.
+No relationships are added to make a graph denser.
 
 One full vault-relative internal proxy link is emitted per directed identity pair.
 Parallel declarations share that link and one audit row retaining every property
 and origin. Native Graph may visually collapse reciprocal or parallel links;
 the directed proxy-link set and directed audit-pair set are exactly equivalent.
 Origins identify the declaring record/revision and DRI row/E-family, or the exact
-structured Synthesis/Topic/RQ property. Native Graph has no project-specific typed
-edge labels. The companion is the semantic precision layer.
+structured Synthesis/Topic/RQ property. Skeleton origins identify the exact public
+Registry source–`part_of`–target declaration. The audit has an Edge class column:
+`technical skeleton` versus `research / knowledge`. Native Graph has no
+project-specific typed edge labels. The companion is the semantic precision layer.
 
 ## Native Graph activation
 
@@ -122,8 +142,9 @@ path:"_generated/derived/knowledge-graph/memory-retrieval/optional-rq-overlay/" 
 
 Color carries no scientific meaning. The overlay uses only eligible RA-2 0.3
 RQ-owned exact `research_direct_subject_refs`, preserving many-to-many targeting.
-One question stays one node. Additional explicitly targeted Components appear
-only in the overlay unless already participating in default knowledge. Exact
+One question stays one node. Additional explicitly targeted Components
+and their required ancestors appear
+only in the overlay unless already in the default skeleton. Exact
 deep endpoint targets remain on the RQ reader/detail routes. Paper/Finding,
 nearest-work, ancestry and proximity never infer question targets.
 
@@ -157,14 +178,15 @@ unsupported/excluded relation, unavailable detail route, knowledge at another
 exact technical scope and no eligible questions in the overlay. These do not
 imply literature absence, novelty, gap, completeness, saturation, scientific
 weakness, evidence strength, research value or priority. No scientific graph
-metrics are calculated. An isolated Memory Retrieval anchor is a valid sparse view.
+metrics are calculated. A Memory Retrieval/System skeleton without knowledge
+is a valid sparse view.
 
 ## Ownership, migration and privacy
 
 The existing owner `research-wiki-derived` and strict byte hashes own only the two
 companions and the finite one-per-ID node set above. Manifest version **2.16** adds
-this path family; DRI 1.2, presentation fingerprint 1.1 and source fingerprint 1.0
-remain unchanged. Graph inputs already participate in existing structured input
+this path family, including Component/System identity suffixes; DRI 1.2,
+presentation fingerprint 1.1 and source fingerprint 1.0 remain unchanged. Graph inputs already participate in existing structured input
 fingerprints. Historical owners cannot claim Graph paths. Intact historical
 manifests migrate through the existing bounded process; obsolete owned proxies
 can be disposed of, while edited or unowned files fail closed. No persistent
