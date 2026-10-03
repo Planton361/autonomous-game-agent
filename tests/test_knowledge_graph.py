@@ -28,7 +28,29 @@ def atlas():
     return load_registry(Path(__file__).resolve().parents[1] / "docs/research-atlas")
 
 
+# This module alone reuses immutable pure outputs. Never cache filesystem/Vault state.
+_PROJECTION_CACHE = {}
+
+
+def projection_key(atlas, records):
+    # Keep record/ref order and explicit fields: exclude_unset consumes fields_set.
+    # Include complete Atlas contents so a changed technical fixture cannot hit.
+    return (
+        atlas.source_atlas_schema,
+        tuple((identity, node.model_dump_json()) for identity, node in atlas.entities.items()),
+        tuple(edge.model_dump_json() for edge in atlas.relationships),
+        tuple(
+            (type(record), record.model_dump_json(), tuple(sorted(record.model_fields_set)))
+            for record in records
+        ),
+    )
+
+
 def projection(atlas, records):
+    key = projection_key(atlas, records)
+    if key in _PROJECTION_CACHE:
+        model, entries = _PROJECTION_CACHE[key]
+        return model, dict(entries)
     snapshot = make_snapshot(
         [r.model_dump(mode="json", exclude_unset=True) for r in records], atlas
     )
@@ -39,7 +61,11 @@ def projection(atlas, records):
     tree = graph.render_graph(
         model, "a" * 40, atlas, records, locators, views.identity_page_paths(atlas)
     )
-    return model, tree
+    # Projection/Node/Declaration are frozen, with tuple/string fields. Tree payloads
+    # are bytes; store immutable entries and return a fresh dict even on first build.
+    entries = tuple(tree.items())
+    _PROJECTION_CACHE[key] = (model, entries)
+    return model, dict(entries)
 
 
 def inventory(text):
@@ -270,7 +296,13 @@ def test_deterministic_bytes_paths_and_navigation_isolation(atlas):
         )
         for r in reversed(records)
     )
+    assert projection_key(atlas, reordered) != projection_key(atlas, records)
     assert projection(atlas, reordered) == (model, tree)
+    # Caller dictionary mutations must never affect another result or cached bytes.
+    _, independent = projection(atlas, records)
+    assert independent == tree and independent is not tree
+    independent.pop(graph.AUDIT)
+    assert projection(atlas, records) == (model, tree)
     for path, data in tree.items():
         assert graph.is_graph_path(path) and graph.graph_metadata(data.decode(), path)
         if path not in {graph.AUDIT, graph.PROFILE}:
@@ -332,14 +364,19 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
         views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
+    assert migrated == initial
     assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.16"
     assert settings.read_text() == '{"operator": "untouched"}'
     for path, data in authored.items():
         assert views.digest((vault / path).read_bytes()) == data
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     before = filesystem_state(vault)
-    assert workspace.check(repo, vault).source_commit == sha
-    assert views.project(repo, vault, sha, check=True) == migrated
+    checked = workspace.check(repo, vault)
+    assert checked.source_commit == sha
+    # Real harness returns these stages only after both actual projector checks pass.
+    assert checked.stages == ("technical projection check", "direct views check")
+    # Preserve exact migrated output parity without repeating the full direct check.
+    assert {path: (vault / views.OWNED_ROOT / path).read_bytes() for path in migrated} == migrated
     assert filesystem_state(vault) == before
     owned = views.validate_prior(vault / views.OWNED_ROOT)
     assert {p for p in owned if p.is_relative_to(graph.ROOT)} == {
