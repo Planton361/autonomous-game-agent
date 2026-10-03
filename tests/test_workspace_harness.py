@@ -258,14 +258,30 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
         | views.W10_PAYLOADS
         | views.OBSERVE_SCOPE_PAYLOADS
         | later_identity_paths
+        | views.SOURCE_PAYLOADS
+        | {views.STEERING_BASE}
+        | {
+            Path(item["path"])
+            for item in prior["owned_files"]
+            if Path(item["path"]).parent == views.RQ_ROOT
+            or Path(item["path"]).is_relative_to(views.GRAPH_ROOT)
+        }
     )
     for relative in old_paths:
         (derived_root / relative).unlink()
     prior["view_schema_version"] = "2.3"
     prior["reference_index_schema_version"] = "1.0"
+    for field in (
+        "presentation_fingerprint_version",
+        "presentation_input_fingerprint",
+        "source_resolution_fingerprint_version",
+        "source_resolution_input_fingerprint",
+    ):
+        prior.pop(field)
     prior["owned_files"] = [
         item for item in prior["owned_files"] if Path(item["path"]) not in old_paths
     ]
+    views.ManifestV23.model_validate(prior)
     manifest_path.write_bytes(views.yaml_text(prior).encode())
 
     authored_before = {
@@ -280,7 +296,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
 
     views.project(repo, vault, source_commit)
     current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
-    assert current["view_schema_version"] == "2.12"
+    assert current["view_schema_version"] == "2.16"
     current_details = {
         Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
     }

@@ -17,7 +17,15 @@ manual dispatch. Invoke it for high-risk boundaries, CI or test-infrastructure c
 that need exhaustive evidence, phase exits, global repairs, or explicit CONTROL / Program
 Owner requests. It runs the complete `pytest` suite, Ruff checks, the diff check, and
 CLI smoke. It retains Node setup because the complete suite includes the Node-backed
-watcher tests. Locally, the full suite remains:
+watcher tests.
+
+The exhaustive job has a 45-minute timeout. Issue #152's restored serial suite
+passed locally but reached the Zotero lifecycle module at approximately 73% on
+GitHub before the former 30-minute job timeout canceled it. This timeout gives
+the complete serial suite time to finish; it does not change test selection or
+the required `validate` workflow's enforced `<= 60000 ms` budget.
+
+Locally, the full suite remains:
 
 ```bash
 uv sync --locked

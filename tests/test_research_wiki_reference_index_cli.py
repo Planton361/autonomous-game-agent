@@ -10,6 +10,7 @@ import yaml
 from test_research_wiki_projection import commit, filesystem_state, git, write_note
 from test_research_wiki_reference_index import sample_records
 
+from fh_agent.research_atlas import knowledge_graph as graph
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas.validator import load_registry
 
@@ -28,7 +29,7 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     (repo / "src/fh_agent/__init__.py").write_text('"""Synthetic fixture package."""\n')
-    for relative in (views.PUBLIC_SOURCE, views.DIRECT_SOURCE):
+    for relative in (views.PUBLIC_SOURCE, views.DIRECT_SOURCE, views.CATALOG_PATH):
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((ROOT / relative).read_bytes())
@@ -75,6 +76,7 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
     assert cli("private_views", "--check").returncode == 0
     assert filesystem_state(vault) == before_check
     root = vault / views.OWNED_ROOT
+    atlas = load_registry(repo / "docs/research-atlas")
     expected = (
         {
             str(views.MANIFEST),
@@ -87,11 +89,24 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
         | {str(path) for path in views.K3_PAYLOADS}
         | {str(path) for path in views.W10_PAYLOADS}
         | {str(path) for path in views.TECHNICAL_DETAIL_PAYLOADS}
+        | {str(path) for path in views.identity_page_paths(atlas).values()}
+        | {str(path) for path in views.SOURCE_PAYLOADS}
+        | {
+            str(views.STEERING_BASE),
+            str(views.OBSERVE_SCOPE),
+            str(views.RQ_ROOT / "Synthetic fixture.md"),
+            str(graph.PROFILE),
+            str(graph.AUDIT),
+            *(
+                str(graph.Node(identity, atlas.entities[identity].name, kind).path)
+                for identity, kind in (("CMP-MEM-RETRIEVAL", "Component"), ("SYS-AGA", "System"))
+            ),
+        }
         | {
             str(path)
             for path in views.hierarchy_tree(
                 sha,
-                load_registry(repo / "docs/research-atlas"),
+                atlas,
             )
         }
     )
