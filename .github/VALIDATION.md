@@ -30,8 +30,17 @@ uv run --no-sync fh-agent --help
 The fast test selection can be run locally with:
 
 ```bash
-uv run --no-sync pytest --maxfail=1 $(sed "/^[[:space:]]*#/d; /^[[:space:]]*$/d" .github/fast-tests.txt)
+uv run --no-sync pytest -n 2 --dist=loadfile --maxfail=1 $(sed "/^[[:space:]]*#/d; /^[[:space:]]*$/d" .github/fast-tests.txt)
 ```
+
+Required validation uses exactly two pytest-xdist workers. `--dist=loadfile`
+assigns every case in a test module to one worker, preserving module-scoped
+fixtures and their in-process reuse. Each worker collects the same manifest;
+xdist verifies matching collections and executes each case once. Worker
+processes do not share reuse dictionaries; no persistent reuse cache is introduced. The complete
+suite and `validate-full` remain serial; omit `-n 2 --dist=loadfile` for a serial
+fast-tier comparison. The manifest validation, `--maxfail=1`, failure exit
+status, timer scope and enforced `<= 60000 ms` budget remain unchanged.
 
 Issue #80 baseline profiling on `main` `1bd84d360a1df741bac7e32083a526156a849422`
 collected 2,555 tracked tests in 0.53s and completed them in 423.94s (`real 424.31s`). The

@@ -77,7 +77,7 @@ jobs:
           done < .github/fast-tests.txt
           test "${#fast_tests[@]}" -gt 0
           printf 'Running %s fast-test manifest files\n' "${#fast_tests[@]}"
-          uv run --no-sync pytest --maxfail=1 "${fast_tests[@]}"
+          uv run --no-sync pytest -n 2 --dist=loadfile --maxfail=1 "${fast_tests[@]}"
 
       - name: CLI smoke
         env:
