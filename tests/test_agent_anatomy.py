@@ -20,10 +20,9 @@ from fh_agent.research_atlas.anatomy import (
 )
 from fh_agent.research_atlas.assembly_scopes import (
     OBSERVE_LANDMARK_IDS,
-    PRIVATE_OBSERVE_SCOPE_PATH,
     PUBLIC_OBSERVE_SCOPE_PATH,
 )
-from fh_agent.research_atlas.private_views import MEMORY_WORKBENCH
+from fh_agent.research_atlas.private_views import MEMORY_WORKBENCH, identity_page_paths
 from fh_agent.research_atlas.private_views import OWNED_ROOT as DERIVED_ROOT
 from fh_agent.research_atlas.validator import Atlas, load_registry
 from fh_agent.research_atlas.workspace import (
@@ -188,19 +187,23 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
     digests = {name: "a" * 64 for name in private_projection.REGISTRY_FILES}
     private_tree = private_projection.projection_tree(atlas, "b" * 40, digests)
     projected = scene(private_tree[private_projection.ANATOMY].decode())
+    preferred = identity_page_paths(atlas)
     for value, is_private in ((public, False), (projected, True)):
         elements = value["elements"]
         for region_key, identity in expected_targets.items():
             if region_key == "observation":
-                scope_path = PRIVATE_OBSERVE_SCOPE_PATH if is_private else PUBLIC_OBSERVE_SCOPE_PATH
-                expected = f"[[{scope_path.with_suffix('')}|Observe Assembly Scope]]"
+                if is_private:
+                    destination = DERIVED_ROOT / preferred["FUNC-OBSERVE"].with_suffix("")
+                    expected = f"[[{destination}|Observe · Functional Context]]"
+                else:
+                    expected = (
+                        f"[[{PUBLIC_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]"
+                    )
             else:
                 node = atlas.entities[identity]
                 expected = note_link(node)
                 if is_private:
-                    destination = private_projection.OWNED_ROOT / private_projection.private_path(
-                        node
-                    ).with_suffix("")
+                    destination = DERIVED_ROOT / preferred[node.id].with_suffix("")
                     expected = expected.replace(
                         str(note_path_for(node.id, node.type, node.name).with_suffix("")),
                         str(destination),
@@ -583,7 +586,9 @@ def test_w03_generation_is_byte_deterministic_and_registry_order_independent(atl
     second = workspace_tree(atlas)
     assert first == second
     shuffled = Atlas(
-        dict(reversed(list(atlas.entities.items()))), tuple(reversed(atlas.relationships))
+        dict(reversed(list(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        source_atlas_schema=atlas.source_atlas_schema,
     )
     assert first == workspace_tree(shuffled)
     for path in (ANATOMY_PATH, DOMAIN_SLICE_PATH):

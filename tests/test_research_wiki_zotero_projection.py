@@ -127,7 +127,12 @@ def setup(tmp_path):
     )
     (repo / "src/fh_agent/__init__.py").write_text("# Synthetic CLI package\n")
     (package / "fixture.py").write_text("# Synthetic committed generator input\n")
-    for relative in (views.PUBLIC_SOURCE, views.DIRECT_SOURCE, PurePosixPath(z.SOURCE_PATHS[1])):
+    for relative in (
+        views.PUBLIC_SOURCE,
+        views.DIRECT_SOURCE,
+        views.CATALOG_PATH,
+        PurePosixPath(z.SOURCE_PATHS[1]),
+    ):
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((ROOT / relative).read_bytes())

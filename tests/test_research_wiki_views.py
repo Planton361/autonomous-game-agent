@@ -1269,7 +1269,8 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
             if target.startswith("#"):
                 assert target[1:] in tree[path].decode(), (path, target)
                 continue
-            relative = PurePosixPath(target)
+            file_target, _, anchor = target.partition("#")
+            relative = PurePosixPath(file_target)
             if relative.suffix == ".excalidraw":
                 generated = PurePosixPath(f"{relative}.md")
             elif relative.suffix in {".canvas", ".base"}:
@@ -1284,6 +1285,9 @@ def test_w01_k3_navigation_links_resolve_in_generated_fixture(setup):
                 assert relative.is_relative_to(technical.OWNED_ROOT), (path, target)
             expected = vault / generated
             assert expected.is_file(), (path, target)
+            if relative.suffix == ".base" and anchor:
+                base = yaml.safe_load(expected.read_text())
+                assert anchor in {view["name"] for view in base["views"]}, (path, target)
 
 
 def test_w03_home_and_domain_slice_navigation_resolves_in_complete_fixture(setup):
@@ -1488,7 +1492,9 @@ def test_w10_manifest_migration_is_zero_write_and_fails_closed_for_unowned_paths
     old_tree = {
         path: data
         for path, data in current.items()
-        if path != views.LITERATURE_INSPECTION and path.parent != PurePosixPath("identity-pages")
+        if path != views.LITERATURE_INSPECTION
+        and path.parent != PurePosixPath("identity-pages")
+        and not path.is_relative_to(views.GRAPH_ROOT)
     }
     for path in views.SOURCE_PAYLOADS:
         old_tree.pop(path)
