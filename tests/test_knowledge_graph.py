@@ -339,7 +339,12 @@ def test_public_export_has_no_private_projection(atlas):
     )
 
 
+@pytest.mark.parametrize(
+    "family,legacy", [(graph.ROOT, "2.15"), (graph.scope_root(graph.MEMORY), "2.16")]
+)
 def test_generated_ownership_migration_zero_write_and_edited_rejection(
+    family,
+    legacy,
     cached_lifecycle_setup,  # noqa: F811
     setup,  # noqa: F811
 ):
@@ -358,12 +363,25 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
     for context in (preferred, views.MEMORY_HUB_RESEARCH):
         assert str(views.OWNED_ROOT / graph.PROFILE.with_suffix("")).encode() in initial[context]
         assert str(views.OWNED_ROOT / graph.AUDIT.with_suffix("")).encode() in initial[context]
-    # One intact historical 2.15 manifest without any graph files.
+    current_atlas = load_registry(repo / "docs/research-atlas")
+    for subject, entity in current_atlas.entities.items():
+        if entity.type != "Component":
+            continue
+        preferred_path = views.identity_page_paths(current_atlas)[subject]
+        route = str(views.OWNED_ROOT / graph.scope_root(subject) / "Graph Profile")
+        assert route.encode() in initial[preferred_path]
+        assert route.encode() in initial[views.RESEARCH_LANDSCAPE]
+        assert b"Agent Anatomy" in initial[preferred_path]
+    assert b"Knowledge Graph / exact affected Components" in initial[views.SOURCE_DETAIL]
+    assert b"WPAPER-FIXTURE" in initial[views.SOURCE_DETAIL]
+    # Historical 2.15 predates Graph; 2.16 retains pilot but predates scoped profiles.
     manifest = yaml.safe_load(initial[views.MANIFEST])
-    manifest["view_schema_version"] = "2.15"
+    manifest["view_schema_version"] = legacy
     for item in list(manifest["owned_files"]):
         path = PurePosixPath(item["path"])
-        if path.is_relative_to(graph.ROOT):
+        if path.is_relative_to(graph.SCOPES) or (
+            legacy == "2.15" and path.is_relative_to(graph.ROOT)
+        ):
             (vault / views.OWNED_ROOT / path).unlink()
             manifest["owned_files"].remove(item)
     (vault / views.OWNED_ROOT / views.MANIFEST).write_text(yaml_text(manifest))
@@ -373,7 +391,7 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
     assert filesystem_state(vault) == before
     migrated = views.project(repo, vault, sha)
     assert migrated == initial
-    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.16"
+    assert yaml.safe_load(migrated[views.MANIFEST])["view_schema_version"] == "2.17"
     assert settings.read_text() == '{"operator": "untouched"}'
     for path, data in authored.items():
         assert views.digest((vault / path).read_bytes()) == data
@@ -390,14 +408,14 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
     assert {p for p in owned if p.is_relative_to(graph.ROOT)} == {
         p for p in migrated if p.is_relative_to(graph.ROOT)
     }
-    proxy = next(p for p in migrated if p.parent == graph.ROOT / "nodes")
+    proxy = next(p for p in migrated if p.parent == family / "nodes")
     (vault / views.OWNED_ROOT / proxy).write_bytes(migrated[proxy] + b"\n[[Home]]\n")
     before = filesystem_state(vault)
     with pytest.raises(ProjectionError, match="graph.*edited"):
         views.project(repo, vault, sha)
     assert filesystem_state(vault) == before
     (vault / views.OWNED_ROOT / proxy).write_bytes(migrated[proxy])
-    unowned = vault / views.OWNED_ROOT / graph.ROOT / "nodes/Unowned.md"
+    unowned = vault / views.OWNED_ROOT / family / "nodes/Unowned.md"
     unowned.write_text("authored work")
     before = filesystem_state(vault)
     with pytest.raises(ProjectionError, match="Unknown/unowned"):
@@ -548,3 +566,296 @@ def test_reordered_registry_preserves_skeleton_bytes_and_independent_build(atlas
     records = fictional_graph_records(atlas)
     assert projection_key(atlas, records) != projection_key(reordered, records)
     assert projection(atlas, records) == projection(reordered, records)
+
+
+def scoped_projection(atlas, records, scope, mode="architecture"):
+    snapshot = make_snapshot(
+        [r.model_dump(mode="json", exclude_unset=True) for r in records], atlas
+    )
+    reference = build_index(atlas, snapshot, "a" * 40)
+    reader = RQReader(atlas, records, SourceReader(SourceResolver(None)))
+    model = graph.project_graph(atlas, reference, reader, scope=scope, mode=mode)
+    tree = graph.render_graph(
+        model,
+        "a" * 40,
+        atlas,
+        records,
+        {r.wiki_id: PurePosixPath("authored") / (r.wiki_id + ".md") for r in records},
+        views.identity_page_paths(atlas),
+    )
+    return model, tree
+
+
+def nested_atlas(atlas):
+    entities = dict(atlas.entities)
+    parent = "CMP-MEM-FACTS"
+    for identity in ("CMP-FIXTURE-CHILD", "CMP-FIXTURE-DEEP"):
+        entities[identity] = entities[parent].model_copy(update={"id": identity, "name": identity})
+    template = next(e for e in atlas.relationships if e.relation == "part_of")
+    return Atlas(
+        entities,
+        atlas.relationships
+        + (
+            template.model_copy(update={"source": "CMP-FIXTURE-CHILD", "target": parent}),
+            template.model_copy(
+                update={"source": "CMP-FIXTURE-DEEP", "target": "CMP-FIXTURE-CHILD"}
+            ),
+        ),
+        atlas.source_atlas_schema,
+    )
+
+
+def scoped_parity(model, tree):
+    paths = {
+        str(graph.DERIVED / path.with_suffix("")): node.identity
+        for node in model.nodes
+        for path in (node.path,)
+    }
+    emitted = []
+    for node in model.nodes:
+        metadata = graph.graph_metadata(tree[node.path].decode(), node.path)
+        assert metadata["graph_identity"] == node.identity
+        for target in re.findall(r"\[\[([^]|]+)\|[^]]+\]\]", tree[node.path].decode()):
+            assert target in paths  # navigation, authored/presentation paths cannot enter
+            emitted.append((node.identity, paths[target]))
+    audit = tree[model.root / "Edge Audit.md"].decode()
+    assert set(emitted) == set(audit_pairs(audit)) == set(model.pairs())
+    assert len(emitted) == len(set(emitted)) == len(audit_pairs(audit))
+    for declaration in model.declarations:
+        assert declaration.property in audit and declaration.origin in audit
+    assert len(tree) == len(model.nodes) + 2
+    assert len({n.identity for n in model.nodes}) == len(model.nodes)
+    for path, data in tree.items():
+        assert graph.is_graph_path(path) and graph.graph_metadata(data.decode(), path)
+    return audit
+
+
+@pytest.mark.parametrize("mode", graph.MODES)
+def test_scoped_nested_subtree_cross_branch_exact_attachment_and_profiles(atlas, mode):
+    technical = nested_atlas(atlas)
+    records = list(fictional_graph_records(technical))
+    records[0] = records[0].model_copy(
+        update={
+            "research_direct_subject_refs": ["CMP-FIXTURE-DEEP", "CMP-CORTEX", "CMP-CORTEX"],
+            "title": "[[Home]] [return](Index.md) adversarial navigation",
+        }
+    )
+    records[1] = records[1].model_copy(
+        update={"research_method_or_baseline_refs": ["CMP-MEM-FACTS"]}
+    )
+    records[2] = records[2].model_copy(
+        update={"research_adjacent_context_refs": ["CMP-FIXTURE-CHILD"]}
+    )
+    model, tree = scoped_projection(technical, tuple(records), "CMP-MEM-FACTS", mode)
+    ids = {n.identity for n in model.nodes}
+    assert {
+        "SYS-AGA",
+        "CMP-MEMORY",
+        "CMP-MEM-FACTS",
+        "CMP-FIXTURE-CHILD",
+        "CMP-FIXTURE-DEEP",
+        "CMP-CORTEX",
+    } <= ids
+    # Other technical branch is an exact participant, not a sibling-density expansion.
+    assert "CMP-BODY" not in ids
+    assert (graph.MEMORY in ids) == (mode == "rq-overlay")
+    assert sum(n.identity == "WPAPER-FIXTURE" for n in model.nodes) == 1
+    paper_targets = {
+        d.target
+        for d in model.declarations
+        if d.source == "WPAPER-FIXTURE" and d.target.startswith("CMP-")
+    }
+    assert paper_targets == {"CMP-FIXTURE-DEEP", "CMP-CORTEX"}
+    assert ("CMP-FIXTURE-DEEP", "CMP-FIXTURE-CHILD") in model.pairs()
+    assert ("CMP-FIXTURE-CHILD", "CMP-MEM-FACTS") in model.pairs()
+    assert ("CMP-MEM-FACTS", "CMP-MEMORY") in model.pairs()
+    assert all(
+        n.kind in {*graph.TYPES.values(), "Component", "System", "ResearchQuestion"}
+        for n in model.nodes
+    )
+    assert not ids & {"WDEC-FIXTURE", "WPAPER-OTHER", "TOPIC-UNSUPPORTED", "SYN-UNRELATED"}
+    assert any(n.kind == "ResearchQuestion" for n in model.nodes) == (mode == "rq-overlay")
+    if mode == "rq-overlay":
+        assert {d.target for d in model.declarations if d.source == "WRQ-FIXTURE"} == {
+            graph.MEMORY,
+            "CMP-CORTEX",
+            "CMP-MEM-FACTS",
+        }
+    scoped_parity(model, tree)
+    profile = tree[model.root / "Graph Profile.md"].decode()
+    assert f'path:"{graph.DERIVED / model.root / "nodes"}/"' in profile
+    assert all(str(path).startswith(str(model.root)) for path in tree)
+    assert all(name in profile for name in graph.MODES)
+
+
+def test_scoped_ancestry_does_not_select_parent_or_cross_participant_research(atlas):
+    technical = nested_atlas(atlas)
+    records = list(fictional_graph_records(technical))
+    # Ancestor and unrelated cross-participant knowledge must not be selected.
+    records[0] = records[0].model_copy(update={"research_direct_subject_refs": ["CMP-MEMORY"]})
+    model, tree = scoped_projection(technical, tuple(records), "CMP-FIXTURE-DEEP")
+    assert {n.identity for n in model.nodes} == {
+        "CMP-FIXTURE-DEEP",
+        "CMP-FIXTURE-CHILD",
+        "CMP-MEM-FACTS",
+        "CMP-MEMORY",
+        "SYS-AGA",
+    }
+    assert all(d.edge_class == "technical skeleton" for d in model.declarations)
+    audit = scoped_parity(model, tree)
+    assert (
+        "No matching documented knowledge" in audit and "None implies literature absence" in audit
+    )
+
+
+def test_architecture_minimal_relations_and_optional_detail(atlas):
+    records = fictional_graph_records(atlas)
+    architecture, _ = scoped_projection(atlas, records, graph.MEMORY)
+    detail, tree = scoped_projection(atlas, records, graph.MEMORY, "knowledge-detail")
+    assert {n.identity for n in architecture.nodes} == {n.identity for n in detail.nodes}
+    assert set(architecture.pairs()) < set(detail.pairs())
+    assert ("WPAPER-FIXTURE", "READ-FIXTURE") not in architecture.pairs()
+    assert ("WPAPER-FIXTURE", "READ-FIXTURE") in detail.pairs()
+    assert ("SYN-FIXTURE", "WFIND-FIXTURE") in architecture.pairs()
+    assert {d for d in architecture.declarations if d.edge_class == "technical skeleton"} == {
+        d for d in detail.declarations if d.edge_class == "technical skeleton"
+    }
+    scoped_parity(detail, tree)
+
+
+@pytest.mark.parametrize("mode", graph.MODES)
+def test_scoped_reordered_valid_inputs_deterministic(atlas, mode):
+    records = fictional_graph_records(atlas)
+    reordered = tuple(
+        r.model_copy(
+            update={
+                field: list(reversed(getattr(r, field)))
+                for field in type(r).model_fields
+                if field.endswith("_refs") and field in r.model_fields_set
+            }
+        )
+        for r in reversed(records)
+    )
+    reverse_atlas = Atlas(
+        dict(reversed(list(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        atlas.source_atlas_schema,
+    )
+    assert scoped_projection(atlas, records, "CMP-MEMORY", mode) == scoped_projection(
+        reverse_atlas, reordered, "CMP-MEMORY", mode
+    )
+
+
+def test_scoped_deep_targets_detail_only_and_broken_refs_diagnostic(atlas):
+    records = list(fictional_graph_records(atlas))
+    records[0] = records[0].model_copy(
+        update={
+            "research_direct_subject_refs": [graph.MEMORY, "IF-MEM-CORTEX"],
+            "reading_note_refs": ["READ-MISSING"],
+        }
+    )
+    model, tree = scoped_projection(atlas, tuple(records), graph.MEMORY)
+    audit = scoped_parity(model, tree)
+    assert "IF-MEM-CORTEX" not in {n.identity for n in model.nodes}
+    assert "READ-MISSING" not in {n.identity for n in model.nodes}
+    assert "Detail only; no accepted topology profile" in audit
+    assert "IF-MEM-CORTEX" in audit and "READ-MISSING" in audit
+    assert str(views.identity_page_paths(atlas)["IF-MEM-CORTEX"]) in audit
+
+
+def test_scoped_large_inventory_is_bounded_disconnected_and_private(atlas):
+    from test_research_wiki_schema import props
+
+    from fh_agent.research_atlas.wiki_schema import validate_wiki_records
+
+    records = validate_wiki_records(
+        [
+            props(
+                "paper",
+                wiki_id=f"WPAPER-LARGE-{i}",
+                title=f"Fictional item {i}",
+                document_maturity="in_review",
+                research_direct_subject_refs=[graph.MEMORY],
+            )
+            for i in range(120)
+        ]
+        + [
+            props(
+                "topic",
+                wiki_id="TOPIC-DISCONNECTED",
+                title="Disconnected mapped inventory",
+                document_maturity="in_review",
+                tags=[graph.MEMORY],
+            )
+        ],
+        atlas.entities.keys(),
+    )
+    model, tree = scoped_projection(atlas, records, graph.MEMORY)
+    assert sum(n.kind == "Paper" for n in model.nodes) == 120
+    assert len(model.nodes) == 122
+    assert "TOPIC-DISCONNECTED" not in {n.identity for n in model.nodes}
+    scoped_parity(model, tree)
+    assert scoped_projection(atlas, tuple(reversed(records)), graph.MEMORY) == (model, tree)
+    assert not set(tree) & set(workspace_tree(atlas))
+    assert b"WPAPER-LARGE" not in "".join(workspace_tree(atlas).values()).encode()
+    assert all(b"export_policy: deny" in data for data in tree.values())
+
+
+@pytest.mark.parametrize(
+    "scope,mode",
+    [("SYS-AGA", "architecture"), ("CMP-MISSING", "architecture"), (graph.MEMORY, "mega-graph")],
+)
+def test_scoped_invalid_selection_fails_closed(atlas, scope, mode):
+    with pytest.raises(ProjectionError):
+        scoped_projection(atlas, (), scope, mode)
+
+
+@pytest.mark.parametrize(
+    "kind", ["System", "Interface", "Contract", "DataArtifact", "MeasurementPoint"]
+)
+def test_scoped_all_deep_g2_classes_retain_exact_detail_without_topology(atlas, kind):
+    target = next(ref for ref, entity in atlas.entities.items() if entity.type == kind)
+    records = list(fictional_graph_records(atlas))
+    records[0] = records[0].model_copy(
+        update={"research_direct_subject_refs": [graph.MEMORY, target]}
+    )
+    model, tree = scoped_projection(atlas, tuple(records), graph.MEMORY)
+    assert ("WPAPER-FIXTURE", target) not in model.pairs()
+    assert all(n.kind in {"System", "Component", *graph.TYPES.values()} for n in model.nodes)
+    audit = scoped_parity(model, tree)
+    assert target in audit and str(views.identity_page_paths(atlas)[target]) in audit
+    assert "Detail only; no accepted topology profile" in audit
+
+
+@pytest.mark.parametrize(
+    "artifact", ["Issue-127", "PR-101", "Decision", "Index", "manifest", "Canvas"]
+)
+def test_scoped_navigation_operational_and_duplicate_presentation_exclusions(atlas, artifact):
+    records = list(fictional_graph_records(atlas))
+    original, _ = scoped_projection(atlas, tuple(records), graph.MEMORY)
+    records[0] = records[0].model_copy(
+        update={
+            "wiki_refs": [artifact],
+            "atlas_refs": [artifact],
+            "tags": [artifact],
+            "aliases": [artifact],
+            "title": "[[" + artifact + "]] [return](" + artifact + ".md)",
+        }
+    )
+    with pytest.raises(ProjectionError, match="Invalid private identity"):
+        scoped_projection(atlas, tuple(records), graph.MEMORY)
+    records[0] = records[0].model_copy(update={"atlas_refs": []})
+    changed, tree = scoped_projection(atlas, tuple(records), graph.MEMORY)
+    assert {n.identity for n in changed.nodes} == {n.identity for n in original.nodes}
+    assert changed.declarations == original.declarations
+    scoped_parity(changed, tree)
+    # Several presentation files for a record never become graph identities.
+    alternate = graph.render_graph(
+        changed,
+        "a" * 40,
+        atlas,
+        tuple(records),
+        {r.wiki_id: PurePosixPath("presentations") / (artifact + ".md") for r in records},
+        views.identity_page_paths(atlas),
+    )
+    assert all(alternate[n.path] == tree[n.path] for n in changed.nodes)
