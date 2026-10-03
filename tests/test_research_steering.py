@@ -468,7 +468,7 @@ def test_full_synthetic_projection_has_one_preferred_identity_and_finite_base(at
     rq_filter = base["views"][0]["filters"]["or"]
     assert rq_filter == [f'file.path == "{ROOT / rq_paths[records[0].wiki_id]}"']
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.15"
+    assert manifest["view_schema_version"] == "2.16"
     assert manifest["presentation_fingerprint_version"] == "1.1"
     assert manifest["source_resolution_fingerprint_version"] == "1.0"
 

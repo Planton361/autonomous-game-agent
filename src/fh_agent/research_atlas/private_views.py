@@ -31,6 +31,24 @@ from .engineering_provenance import (
     render_panel,
     validated_bindings,
 )
+from .knowledge_graph import (
+    AUDIT as GRAPH_AUDIT,
+)
+from .knowledge_graph import (
+    MEMORY as GRAPH_MEMORY,
+)
+from .knowledge_graph import (
+    PROFILE as GRAPH_PROFILE,
+)
+from .knowledge_graph import (
+    ROOT as GRAPH_ROOT,
+)
+from .knowledge_graph import (
+    graph_metadata,
+    is_graph_path,
+    project_graph,
+    render_graph,
+)
 from .private_projection import ANATOMY as TECHNICAL_ANATOMY
 from .private_projection import (
     COMMIT,
@@ -2237,6 +2255,15 @@ def render_identity_page(
         "### Inputs / outputs / important connections",
         "",
     ]
+    if subject.id == GRAPH_MEMORY:
+        lines += [
+            "",
+            "**Bounded Knowledge Graph:** "
+            + _derived_link(GRAPH_PROFILE, "Native Graph profile / opening instructions")
+            + " · "
+            + _derived_link(GRAPH_AUDIT, "Node inventory / Edge Audit"),
+            "",
+        ]
     if profile:
         lines += ["**Inputs:** " + profile.inputs, "", "**Outputs:** " + profile.outputs, ""]
     for label, identities in _identity_page_human_relation_groups(atlas, model):
@@ -4000,6 +4027,15 @@ def render_component_hub_view(
         lines = _render_component_hub_research(
             atlas, hub, snapshot, source_projection_present, research, locators or {}
         )
+    if view == "research" and hub.subject_id == GRAPH_MEMORY:
+        lines += [
+            "",
+            "## Bounded native Knowledge Graph",
+            "",
+            _derived_link(GRAPH_PROFILE, "Native Graph profile / opening instructions"),
+            _derived_link(GRAPH_AUDIT, "Node inventory / Edge Audit"),
+            "",
+        ]
     props = dict(
         generated_by=OWNER,
         source_repository=REPOSITORY,
@@ -4125,6 +4161,10 @@ class ManifestV214(ManifestV213):
 class ManifestV215(ManifestV214):
     view_schema_version: Literal["2.15"]
     presentation_fingerprint_version: Literal["1.1"]
+
+
+class ManifestV216(ManifestV215):
+    view_schema_version: Literal["2.16"]
 
 
 def _canonical_property_id(value: object) -> object:
@@ -4356,6 +4396,16 @@ def reference_views_tree(
                 presentation_revision,
                 authored_locators=authored_locators,
             )
+    tree.update(
+        render_graph(
+            project_graph(atlas, reference, rq_reader),
+            commit,
+            atlas,
+            private_records,
+            locators,
+            page_paths,
+        )
+    )
     research_rows = _observe_research_navigation_lines(atlas, reference, locators)
     detail_markdown, detail_canvas = technical_detail_paths("DAT-OBSERVATION")
 
@@ -4435,7 +4485,7 @@ def reference_views_tree(
             )
         )
     data.update(
-        view_schema_version="2.15",
+        view_schema_version="2.16",
         source_resolution_fingerprint_version=SOURCE_FINGERPRINT_VERSION,
         source_resolution_input_fingerprint=source_index.source_resolution_input_fingerprint,
         presentation_fingerprint_version=PRESENTATION_FINGERPRINT_VERSION,
@@ -4445,7 +4495,7 @@ def reference_views_tree(
         owned_files=owned_files,
     )
     tree[MANIFEST] = yaml_text(
-        ManifestV215.model_validate(data).model_dump(exclude_none=True)
+        ManifestV216.model_validate(data).model_dump(exclude_none=True)
     ).encode()
     return tree
 
@@ -4605,6 +4655,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             manifest = ManifestV214.model_validate(data)
         elif data.get("view_schema_version") == "2.15":
             manifest = ManifestV215.model_validate(data)
+        elif data.get("view_schema_version") == "2.16":
+            manifest = ManifestV216.model_validate(data)
         else:
             raise ProjectionError("Unsupported direct-views manifest version")
     except ValidationError as exc:
@@ -4615,19 +4667,31 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
-        if relative in SOURCE_PAYLOADS and manifest.view_schema_version not in {"2.14", "2.15"}:
+        if relative in SOURCE_PAYLOADS and manifest.view_schema_version not in {
+            "2.14",
+            "2.15",
+            "2.16",
+        }:
             raise ProjectionError("Historical manifest cannot own G4 source payloads")
+        if relative.is_relative_to(GRAPH_ROOT) and (
+            manifest.view_schema_version != "2.16" or not is_graph_path(relative)
+        ):
+            raise ProjectionError("Invalid/historical graph ownership path")
         # V1 cannot claim YAML; later versions add one fixed YAML payload, not a subtree.
         if relative.parent == RQ_ROOT:
-            if manifest.view_schema_version != "2.15" or not is_rq_path(relative):
+            if manifest.view_schema_version not in {"2.15", "2.16"} or not is_rq_path(relative):
                 raise ProjectionError("Historical manifest cannot own RQ reader pages")
         if not (
-            (
-                manifest.view_schema_version == "2.15"
+            (manifest.view_schema_version == "2.16" and is_graph_path(relative))
+            or (
+                manifest.view_schema_version in {"2.15", "2.16"}
                 and relative.parent == RQ_ROOT
                 and is_rq_path(relative)
             )
-            or (manifest.view_schema_version in {"2.14", "2.15"} and relative in SOURCE_PAYLOADS)
+            or (
+                manifest.view_schema_version in {"2.14", "2.15", "2.16"}
+                and relative in SOURCE_PAYLOADS
+            )
             or len(relative.parts) == 2
             and (
                 (relative.parent == PurePosixPath("bases") and relative.suffix == ".base")
@@ -4649,6 +4713,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                             "2.13",
                             "2.14",
                             "2.15",
+                            "2.16",
                         }
                     )
                     and (manifest.view_schema_version != "2.5" or relative in V25_INDEX_PAYLOADS)
@@ -4656,10 +4721,20 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     and (manifest.view_schema_version != "2.7" or relative in V27_INDEX_PAYLOADS)
                     and (
                         manifest.view_schema_version
-                        not in {"2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
+                        not in {
+                            "2.8",
+                            "2.9",
+                            "2.10",
+                            "2.11",
+                            "2.12",
+                            "2.13",
+                            "2.14",
+                            "2.15",
+                            "2.16",
+                        }
                         or relative in V27_INDEX_PAYLOADS
                         or (
-                            manifest.view_schema_version in {"2.14", "2.15"}
+                            manifest.view_schema_version in {"2.14", "2.15", "2.16"}
                             and relative == SOURCE_DETAIL
                         )
                     )
@@ -4684,6 +4759,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.13",
                     "2.14",
                     "2.15",
+                    "2.16",
                 }
                 and relative == REFERENCE_INDEX
             )
@@ -4701,12 +4777,24 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             )
             or (
                 manifest.view_schema_version
-                in {"2.6", "2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
+                in {
+                    "2.6",
+                    "2.7",
+                    "2.8",
+                    "2.9",
+                    "2.10",
+                    "2.11",
+                    "2.12",
+                    "2.13",
+                    "2.14",
+                    "2.15",
+                    "2.16",
+                }
                 and relative in (K3_PAYLOADS | K3_PRIOR_PAYLOADS | W10_PAYLOADS)
             )
             or (
                 manifest.view_schema_version
-                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
+                in {"2.7", "2.8", "2.9", "2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"}
                 and relative in OBSERVE_SCOPE_PAYLOADS
             )
             or (
@@ -4726,6 +4814,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.13",
                     "2.14",
                     "2.15",
+                    "2.16",
                 }
                 and relative == HIERARCHY
             )
@@ -4746,6 +4835,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.13",
                     "2.14",
                     "2.15",
+                    "2.16",
                 }
                 and relative.parent == HIERARCHY_DIR
                 and relative.suffix == ".md"
@@ -4766,6 +4856,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                     "2.13",
                     "2.14",
                     "2.15",
+                    "2.16",
                 }
                 and relative in TECHNICAL_DETAIL_PAYLOADS
             )
@@ -4775,7 +4866,8 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
                 and _identity_page_subject_for_path(relative) is not None
             )
             or (
-                manifest.view_schema_version in {"2.10", "2.11", "2.12", "2.13", "2.14", "2.15"}
+                manifest.view_schema_version
+                in {"2.10", "2.11", "2.12", "2.13", "2.14", "2.15", "2.16"}
                 and _is_identity_page_path(relative)
             )
         ):
@@ -4885,6 +4977,12 @@ def project(
             )
             if digest(data) != item.sha256 and data != tree.get(relative):
                 raise ProjectionError("Prior-owned source view was edited; preserve or restore it")
+        elif relative.is_relative_to(GRAPH_ROOT):
+            owned = bool(graph_metadata(utf8(data), relative))
+            if digest(data) != item.sha256 and data != tree.get(relative):
+                raise ProjectionError(
+                    "Prior-owned graph proxy/companion was edited; preserve or restore it"
+                )
         elif relative.parent == RQ_ROOT:
             owned = bool(rq_metadata(utf8(data), relative))
             if digest(data) != item.sha256 and data != tree.get(relative):

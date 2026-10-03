@@ -372,7 +372,7 @@ def test_g2_manifest_is_finite_and_reuses_preferred_ownership(atlas):
     empty = tree(atlas, build(atlas, []), [])
     assert current.keys() == empty.keys()
     manifest = yaml.safe_load(current[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.15"
+    assert manifest["view_schema_version"] == "2.16"
     assert manifest["reference_index_schema_version"] == "1.2"
     assert manifest["private_input_fingerprint"] == reference.private_input_fingerprint
     owned = {entry["path"]: entry for entry in manifest["owned_files"]}

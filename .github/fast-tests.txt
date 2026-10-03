@@ -57,3 +57,4 @@ tests/test_visible_sprite_normalization.py
 tests/test_xdotool_adapters.py
 tests/test_rq_reader.py
 tests/test_research_steering.py
+tests/test_knowledge_graph.py

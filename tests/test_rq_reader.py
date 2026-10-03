@@ -271,7 +271,7 @@ def test_exact_multi_subject_binding_and_sparse_component_cards(atlas):
     assert locators[records[0].wiki_id].parent == PurePosixPath("authored")
     manifest = yaml.safe_load(tree[views.MANIFEST])
     assert (
-        manifest["view_schema_version"] == "2.15"
+        manifest["view_schema_version"] == "2.16"
         and manifest["presentation_fingerprint_version"] == "1.1"
     )
 
@@ -445,8 +445,11 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     apply(repo, vault, tmp_path / "restore")
     root = vault / views.OWNED_ROOT
+    from test_research_wiki_views import remove_graph_payloads
+
     # An intact prior G4 manifest has only its own finite paths/fingerprint version.
     manifest = yaml.safe_load((root / views.MANIFEST).read_bytes())
+    remove_graph_payloads(vault, manifest)
     manifest["view_schema_version"] = "2.14"
     manifest["presentation_fingerprint_version"] = "1.0"
     (root / views.MANIFEST).write_text(technical.yaml_text(manifest))
@@ -491,6 +494,7 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     assert page.read_bytes() == original
     # Historical manifests cannot adopt even correctly named unmanifested RQ files.
     data = yaml.safe_load((root / views.MANIFEST).read_bytes())
+    remove_graph_payloads(vault, data)
     data["view_schema_version"] = "2.14"
     data["presentation_fingerprint_version"] = "1.0"
     (root / views.MANIFEST).write_text(technical.yaml_text(data))
