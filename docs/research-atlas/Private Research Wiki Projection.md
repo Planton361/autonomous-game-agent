@@ -1191,3 +1191,12 @@ source catalog behavior stay unchanged. No old authored record is migrated.
 Strict ownership, historical migration, single writer, per-file atomic replacement,
 manifest-last behavior, zero-write check and restore-point harness remain intact.
 Actual-vault application and human G6 await CONTROL exact-head acceptance.
+
+## Bounded native Graph pilot — Issue #119
+
+The private derived owner now includes the finite Memory Retrieval native Graph
+projection under `knowledge-graph/memory-retrieval/`, with manifest version 2.16.
+See [Bounded Native Knowledge Graph](Bounded%20Native%20Knowledge%20Graph.md)
+for exact proxy identity/edge contracts, native filters, manual activation,
+companion navigation, migration/privacy and deferred human G6. User-owned Graph
+settings and the existing whole-vault Graph remain outside generated ownership.
