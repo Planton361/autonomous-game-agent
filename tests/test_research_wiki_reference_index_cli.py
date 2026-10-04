@@ -110,6 +110,31 @@ def test_committed_cli_lifecycle_without_real_vault(tmp_path):
             )
         }
     )
+    # Independent exact CLI inventory: selected subtree + ancestry. This fixture
+    # has draft knowledge and a legacy RQ; both remain excluded from Graph.
+    for subject, entity in atlas.entities.items():
+        if entity.type != "Component":
+            continue
+        subtree = {subject} | {
+            ref
+            for ref, node in atlas.entities.items()
+            if node.type == "Component" and subject in atlas.ancestors(ref)
+        }
+        skeleton = subtree | {parent for ref in subtree for parent in atlas.ancestors(ref)}
+        for mode in graph.MODES:
+            profile_root = graph.scope_root(subject, mode)
+            expected |= {
+                str(profile_root / "Graph Profile.md"),
+                str(profile_root / "Edge Audit.md"),
+            }
+            expected |= {
+                str(
+                    graph.Node(
+                        ref, atlas.entities[ref].name, atlas.entities[ref].type, root=profile_root
+                    ).path
+                )
+                for ref in skeleton
+            }
     assert {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()} == expected
     old_yaml = (root / views.REFERENCE_INDEX).read_bytes()
     payload = yaml.safe_load(old_yaml)

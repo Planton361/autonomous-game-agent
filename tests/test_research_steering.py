@@ -290,10 +290,10 @@ def test_hidden_metadata_preserves_reviewed_reader_and_base_bytes(atlas):
     assert sum(line.startswith("| ---") for line in normal.splitlines()) == 3
     assert "\n".join(markdown_tables(values)) in normal
     assert "## Research Landscape" in secondary and secondary.endswith("</details>\n")
-    # Frozen from reviewed ae9696c: entire reader body (including each table/route)
-    # and exact three-view Base bytes survive the metadata-only serialization change.
+    # #127 adds scoped Graph routes to the reader; freeze those accepted navigation
+    # bytes while retaining the unchanged three-view Base fingerprint.
     assert sha256(visible.encode()).hexdigest() == (
-        "40b1c3d60d3538538ee236e45bddc8c5d549ea0a30b2e372deac24ee350fcc26"
+        "0152f58f96ddbf8a7353a1b7b871a067a2c8aca54cf9bf39d1fc10913bf8fb74"
     )
     assert sha256(base_output(values, views.BASE_OWNER)).hexdigest() == (
         "9cb3c65fc074343fa9b6f15aed27bd0f08624508d686a8b4ec9e0b6fb13af3ea"
@@ -468,7 +468,7 @@ def test_full_synthetic_projection_has_one_preferred_identity_and_finite_base(at
     rq_filter = base["views"][0]["filters"]["or"]
     assert rq_filter == [f'file.path == "{ROOT / rq_paths[records[0].wiki_id]}"']
     manifest = yaml.safe_load(tree[views.MANIFEST])
-    assert manifest["view_schema_version"] == "2.16"
+    assert manifest["view_schema_version"] == "2.17"
     assert manifest["presentation_fingerprint_version"] == "1.1"
     assert manifest["source_resolution_fingerprint_version"] == "1.0"
 

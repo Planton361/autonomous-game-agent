@@ -1,4 +1,154 @@
-# Bounded native Knowledge Graph — Memory Retrieval
+# Bounded native Knowledge Graph — scoped Component profiles
+
+## Current #127 profile contract
+
+Native Obsidian Graph remains the only renderer. The primary orientation is the
+explicit Registry System / Component skeleton with exact Research attachments.
+There is no default vault-wide mega-graph. Every current Registry Component gets
+three disposable profiles, including nested Components and scopes with no mapped
+knowledge. The retained `memory-retrieval` pilot below is a compatibility route;
+preferred Component pages now open the scoped `architecture` profile.
+
+```text
+_generated/derived/knowledge-graph/components/<CMP-ID>/
+  architecture/
+    Graph Profile.md
+    Edge Audit.md
+    nodes/<Class> - <label> — <durable-ID>.md
+  knowledge-detail/
+    Graph Profile.md
+    Edge Audit.md
+    nodes/<Class> - <label> — <durable-ID>.md
+  rq-overlay/
+    Graph Profile.md
+    Edge Audit.md
+    nodes/<Class> - <label> — <durable-ID>.md
+    optional-rq-overlay/<Class> - <label> — <durable-ID>.md
+```
+
+For example, the primary nested Facts scope uses:
+
+```text
+path:"_generated/derived/knowledge-graph/components/CMP-MEM-FACTS/architecture/nodes/"
+```
+
+Optional epistemic detail uses:
+
+```text
+path:"_generated/derived/knowledge-graph/components/CMP-MEM-FACTS/knowledge-detail/nodes/"
+```
+
+The explicit optional question profile uses:
+
+```text
+(path:"_generated/derived/knowledge-graph/components/CMP-MEM-FACTS/rq-overlay/nodes/" OR path:"_generated/derived/knowledge-graph/components/CMP-MEM-FACTS/rq-overlay/optional-rq-overlay/")
+```
+
+Use only one scoped expression at a time. Profile companions and authored pages
+stay outside these expressions. Follow the manual native Graph instructions below;
+the generator never creates `.obsidian/graph.json` or changes operator settings.
+Switch profiles from their generated instructions, and restore the architecture
+expression to turn questions OFF. Orphans ON keeps disconnected selected nodes
+visible. Filenames explicitly carry classes; optional colors are only aids.
+
+### Selection and closure
+
+The selected Component owns its explicit `part_of` descendant subtree. Only this
+subtree seeds knowledge selection; ancestors are orientation context. Selection
+reuses the accepted finite N-C prefixes terminating at exact scoped Components,
+and one explicit Synthesis `finding_refs` or Topic `paper_refs` / `finding_refs`
+join to the frozen core. No recursive scientific traversal or inferred attachment
+is introduced. Exact participating Components declared by selected knowledge add
+their own required ancestry but do not select their other Research or siblings.
+
+Only Registry `part_of` creates technical depth. Every displayed skeleton edge is
+an authored Registry declaration between included identities. Function, Domain,
+Assembly, folder and Graph proximity never create ancestry. Research attached to a
+child is still attached only to that child; parent/child relevance is never inherited.
+
+| Profile | Node classes | Semantic edge families |
+| --- | --- | --- |
+| Architecture (primary) | System root context, Component, eligible current Paper / ReadingNote / Finding / Synthesis / explicitly linked Topic | Registry `part_of`; accepted E9 exact attachment properties; minimal declared knowledge links incident to otherwise unanchored selected knowledge |
+| Knowledge detail (optional) | Same classes and same technical skeleton | Architecture families plus all accepted selected E1–E5 declarations and explicit Synthesis/Topic joins |
+| RQ overlay (explicit optional) | Architecture classes plus ResearchQuestion and exact overlay-only Component targets / ancestry | Architecture families plus current RA-2 0.3 RQ-owned `research_direct_subject_refs`; multi-target questions allowed |
+
+The architecture profile suppresses knowledge-detail pairs when both endpoints
+already have exact Component attachments. It retains explicit links needed to
+orient unanchored selected knowledge without pretending those links establish an
+E9 attachment. The knowledge-detail profile preserves all eligible selected
+relations, their source property, direction, version and structured origin.
+Questions are labeled ResearchQuestion and remain OFF in both ordinary profiles.
+RQ targets never expand knowledge selection and never create inherited targets.
+
+System, Interface, Contract, DataArtifact and MeasurementPoint exact Research
+attachments retain preferred-page inspection routes and property/version audit
+information. Non-Component attachment edges are detail only. This Delivery does
+not accept a dedicated deep-endpoint or SourceFamily/SourceVersion topology
+profile. Technical Evidence also remains detail inspection.
+
+### Navigation and audit
+
+Anatomy reaches nested preferred Component pages through existing technical
+navigation. Every preferred Component page links to its scoped architecture
+profile, Edge Audit, Anatomy, Research Landscape / Steering and generated detail.
+Profile pages switch among the three modes. Graph nodes state their durable ID
+and the exact companion audit path in plain text: open that companion outside the
+filtered node folders for preferred knowledge detail and exact affected Component
+routes. Return from preferred Component pages to Anatomy. The audit provides the
+complete Markdown fallback with technical skeleton and research/knowledge edge
+families separated, even if the native force layout is difficult to read.
+
+Generated Source Details provides the reverse record → exact affected identity →
+scoped profile/audit routes. Generated preferred RQ detail pages also offer their
+exact Component profiles and the explicitly optional RQ overlay. Authored private
+pages remain unchanged; when reading authored knowledge, its reverse routes live
+in these generated companions. No navigation links are added to proxy topology.
+
+Every directed proxy link has exactly one directed identity-pair Edge Audit row.
+Parallel declarations share that link, retaining every relation/property, exact
+origin, source version and direction in the row. Native Graph cannot draw typed
+project edges or guarantee a literal hierarchy layout; labels, Markdown inventory
+and audit preserve meaning. Position, centrality, distance and density have none.
+
+Excluded nodes: Decisions, Issues, PRs, milestones, Project/control artifacts,
+indexes, manifests, presentation duplicates, Function/Domain/Assembly, technical
+Evidence and unaccepted deep/source topology classes. Excluded edge origins:
+navigation, backlinks, return links, folder placement, Domain/Function/Assembly
+membership, tags, title/DOI/embedding similarity, proximity, inherited Research
+roles, ancestor rollups, generic BFS/DFS and transitive scientific closure.
+
+### Ownership, privacy and sparse states
+
+Manifest 2.17 adds the finite scoped path grammar; Graph metadata 1.1 applies to
+those files. Historical manifest versions, including 2.16's pilot, retain their
+existing path authorities and cannot claim new scoped files. Existing migration,
+restore, strict digests, zero-write checks, edited-generated and unknown/unowned
+fail-closed behavior remain in force. One durable identity has one node per
+profile and one preferred page overall. Proxies remain disposable. All profile
+outputs are private / export deny; public workspace generation receives none.
+
+No mapped knowledge still yields the selected technical skeleton, instructions,
+Markdown inventory and neutral diagnostic. Sparse, disconnected, unresolved and
+large inventories use the same deterministic scope contract, never silent
+truncation or arbitrary densification. A large selected subtree can still have
+many nodes; choose a nested scope to bound the view further. Counts and missing
+content imply no literature absence, gap, novelty, completeness, exhaustion,
+priority, quality, evidence strength or scientific weakness.
+
+Tests retain the #119 regressions and add nested multi-branch scope, exact
+cross-component attachment, duplicate identity, no inheritance, profile/RQ
+filtering, deterministic reordered input, proxy/audit parity, migration from
+2.16, private isolation, sparse/large inventories and navigation coverage within
+`tests/test_knowledge_graph.py`. The existing required module remains in the
+58-module fast manifest; no tier or timing gate changes are made.
+
+Actual private-vault apply/check and human G6 are deferred until CONTROL reviews
+the exact source/CI head and separately authorizes those actions. G6 must confirm
+the technical skeleton is recognizable in native Graph, both navigation directions,
+profile switching, exact attachments, Edge Audit, sparse state, Markdown fallback
+and unchanged global settings.
+
+## Retained #119 Memory Retrieval pilot
 
 Issue #119 implements the native Obsidian Graph pilot released by CONTROL
 [5963330134](https://github.com/Planton361/autonomous-game-agent/issues/119#issuecomment-5963330134)
@@ -7,7 +157,7 @@ and clarified by
 The Component skeleton repair follows CONTROL
 [5968367667](https://github.com/Planton361/autonomous-game-agent/issues/119#issuecomment-5968367667).
 It preserves accepted #102/#137 semantics, the exact #121 attachments, #125 RQ
-target authority, #123 source inspection and #126 Research Steering. It does not
+target authority, #123 source inspection and #126 Research Steering. That pilot alone does not
 implement #127. These are generated navigation views, never scientific masters,
 a graph database, an accepted Claim or a literature completeness assessment.
 

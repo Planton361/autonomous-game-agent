@@ -403,7 +403,7 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
 
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
-    assert manifest["view_schema_version"] == "2.16"
+    assert manifest["view_schema_version"] == "2.17"
     assert views.IDENTITY_PAGE_PAYLOADS <= owned
     assert views.MEMORY_HUB_TECHNICAL in owned and views.VERIFIER_HUB_TECHNICAL in owned
 
@@ -1144,7 +1144,7 @@ def test_w05_rendering_manifest_and_hub_links_are_order_invariant(atlas):
     assert technical_projection.ANATOMY in technical_tree
     assert technical_projection.DOMAIN_SLICE in technical_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.16"
+    assert manifest["view_schema_version"] == "2.17"
     assert {
         PurePosixPath(item["path"])
         for item in manifest["owned_files"]
@@ -1629,7 +1629,7 @@ def test_w10_literature_inspection_is_complete_typed_and_order_invariant(atlas):
     shuffled_tree, _, _, _ = w10_reference_tree(shuffled_atlas, list(reversed(records)))
     assert tree == shuffled_tree
     manifest = views.read_yaml(tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.16"
+    assert manifest["view_schema_version"] == "2.17"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.LITERATURE_INSPECTION in owned
     assert "example.invalid" not in tree[views.REFERENCE_INDEX].decode()
@@ -1670,7 +1670,7 @@ def test_w06_component_research_is_order_invariant_and_adds_no_owned_paths(atlas
     )
     assert current_tree == shuffled_tree
     manifest = views.read_yaml(current_tree[views.MANIFEST].decode())
-    assert manifest["view_schema_version"] == "2.16"
+    assert manifest["view_schema_version"] == "2.17"
     owned = {PurePosixPath(item["path"]) for item in manifest["owned_files"]}
     assert views.K3_PAYLOADS <= owned
     assert not any("Component Research" in str(path) for path in owned)
@@ -1839,6 +1839,93 @@ def model(atlas: Atlas, identity: str):
 
 def page(atlas: Atlas, identity: str) -> str:
     return views.render_identity_page(SOURCE_COMMIT, atlas, model(atlas, identity)).decode()
+
+
+def test_anatomy_component_landmarks_reach_preferred_pages_and_nested_graph(atlas):
+    from test_agent_anatomy import scene, technical_edges
+
+    from fh_agent.research_atlas.anatomy import ANATOMY_REGIONS, BETWEEN_RUN_RELATION_KEYS
+    from fh_agent.research_atlas.knowledge_graph import scope_root
+    from fh_agent.research_atlas.workspace import ANATOMY_PATH, DOMAIN_SLICE_PATH, note_link
+    from fh_agent.research_atlas.workspace import workspace_tree as public_tree
+
+    preferred = views.identity_page_paths(atlas)
+    public = scene(public_tree(atlas)[ANATOMY_PATH])
+    projection = technical_projection.projection_tree(atlas, SOURCE_COMMIT, {})
+    private = scene(projection[technical_projection.ANATOMY].decode())
+    private_by_id = {item["id"]: item for item in private["elements"]}
+    visible_ids = {identity for _, _, _, identities in ANATOMY_REGIONS for identity in identities}
+    labels = {
+        item["customData"]["landmark_identity"]: item
+        for item in public["elements"]
+        if item.get("customData", {}).get("landmark_identity") in visible_ids
+    }
+    assert labels.keys() == visible_ids
+    for identity, label in labels.items():
+        node = atlas.entities[identity]
+        marker = next(
+            item
+            for item in public["elements"]
+            if item.get("customData", {}).get("presentation_marker_for") == identity
+        )
+        for item in (label, marker):
+            projected = private_by_id[item["id"]]
+            if node.type == "Component":
+                assert item["link"] == note_link(node)
+                alias = note_link(node).partition("|")[2]
+                target = (views.OWNED_ROOT / preferred[identity]).with_suffix("")
+                assert projected["link"] == f"[[{target}|{alias}"
+            else:
+                assert item["link"] is None
+                assert projected["link"] is None
+            assert projected["customData"] == item["customData"]
+        assert private_by_id[label["id"]]["text"] == label["text"]
+
+    # Direct Memory entry and its genuine part_of child lead to architecture profiles.
+    memory_target = (views.OWNED_ROOT / preferred["CMP-MEMORY"]).with_suffix("")
+    assert private_by_id[labels["CMP-MEMORY"]["id"]]["link"].startswith(f"[[{memory_target}|")
+    memory = page(atlas, "CMP-MEMORY")
+    local = (
+        views.reader_export(memory.encode())
+        .decode()
+        .split("### Subcomponents / go deeper", 1)[1]
+        .split("### Current implementation state", 1)[0]
+    )
+    child = "CMP-MEM-EPISODIC"
+    assert (child, "part_of", "CMP-MEMORY") in {
+        (edge.source, edge.relation, edge.target) for edge in atlas.relationships
+    }
+    assert views._identity_page_entity_link(atlas, child, "Open component") in local
+    for identity in ("CMP-MEMORY", child):
+        assert views._derived_link(
+            scope_root(identity) / "Graph Profile.md", "Architecture-first Graph / profiles"
+        ) in page(atlas, identity)
+
+    # All region actions survive; Memory still opens the Domain Slice.
+    public_actions = {
+        item["customData"]["navigation"]: item
+        for item in public["elements"]
+        if item.get("customData", {}).get("navigation") in {row[0] for row in ANATOMY_REGIONS}
+    }
+    assert len(public_actions) == len(ANATOMY_REGIONS)
+    for action in public_actions.values():
+        assert action["link"] == action["customData"]["navigation_target"]
+        projected = private_by_id[action["id"]]
+        assert projected["link"] == projected["customData"]["navigation_target"]
+        assert projected["text"] == action["text"]
+    action = public_actions["evidence-memory"]
+    assert "OPEN MEMORY VIEW" in action["text"]
+    assert action["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
+    private_slice = technical_projection.OWNED_ROOT / technical_projection.DOMAIN_SLICE
+    assert private_by_id[action["id"]]["link"].startswith(f"[[{private_slice.with_suffix('')}|")
+    assert technical_edges(public) == technical_edges(private) == set(BETWEEN_RUN_RELATION_KEYS)
+    reordered = replace(
+        atlas,
+        entities=dict(reversed(list(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    assert public_tree(reordered)[ANATOMY_PATH] == public_tree(atlas)[ANATOMY_PATH]
+    assert technical_projection.projection_tree(reordered, SOURCE_COMMIT, {}) == projection
 
 
 def test_six_level_reciprocal_navigation_leaf_and_all_authorized_types():

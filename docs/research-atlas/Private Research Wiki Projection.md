@@ -1200,3 +1200,14 @@ See [Bounded Native Knowledge Graph](Bounded%20Native%20Knowledge%20Graph.md)
 for exact proxy identity/edge contracts, native filters, manual activation,
 companion navigation, migration/privacy and deferred human G6. User-owned Graph
 settings and the existing whole-vault Graph remain outside generated ownership.
+
+
+### #127 scoped native Graph extension
+
+Direct-view manifest 2.17 retains historical ownership through 2.16 and adds
+finite per-Component architecture, knowledge-detail and explicit RQ-overlay paths
+under `knowledge-graph/components/<CMP-ID>/<mode>/`. Default preferred-page routes
+use architecture-first profiles. See [Bounded Native Knowledge Graph](Bounded%20Native%20Knowledge%20Graph.md)
+for exact filters, selection, attachment, audit, migration and deferred G6 rules.
+The Memory Retrieval pilot remains a compatibility route. No operator Graph
+settings or authored private files are changed; all outputs remain export deny.
