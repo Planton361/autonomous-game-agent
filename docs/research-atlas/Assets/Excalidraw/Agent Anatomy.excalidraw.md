@@ -133,17 +133,81 @@ OPEN WORKSHOP  → ^17147fa7
 
 1969d99a: [[Home/Research Atlas|Markdown Home / fallback]]
 
+32e89df0: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
+
+8c619116: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
+
 ba9f1541: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
+
+c95abd50: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
+
+68cbecb8: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
+
+f0ca62f0: [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]]
+
+4e413bd9: [[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]]
+
+fcfe52bb: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
+
+7419b4c9: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
 
 2aff9526: [[Assembly Scopes/Observe|Observe Assembly Scope]]
 
+1f1f8fdd: [[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]
+
+2b080ad5: [[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]
+
+4b232836: [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
+
+8b1d4fcb: [[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]
+
+073e046f: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
+
+29506d0a: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]
+
 32a84c09: [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval]]
+
+f0176596: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+
+b4f9187c: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
 
 4a4e791e: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
 
+a5880750: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+0d3523e5: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+292d1eb8: [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
+
+ec5b96ae: [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
+
 e4096656: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
 
+219ab08e: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
+
+88b12b75: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
+
+b1644a29: [[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]
+
+8105623e: [[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]
+
+278f8956: [[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]
+
+a645f41f: [[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]
+
+536ef3f4: [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+
+c7917cb1: [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]
+
 cab8032c: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
+
+133b6d7b: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]
+
+ed760585: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]
+
+39131992: [[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]
+
+41db04b4: [[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]
 
 cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Independent Verifier → Overview]]
 
@@ -1207,7 +1271,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "32e89df0",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1245,7 +1309,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "8c619116",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Screen Capture",
@@ -1484,7 +1548,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "c95abd50",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1522,7 +1586,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "68cbecb8",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Visible-State Bridge (optional)",
@@ -1558,7 +1622,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "f0ca62f0",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1596,7 +1660,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "4e413bd9",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-NO-SPOILER-FIREWALL — No-Spoiler Firewall|CMP-NO-SPOILER-FIREWALL · No-Spoiler Firewall]]",
       "locked": false,
       "opacity": 100,
       "originalText": "No-Spoiler Firewall",
@@ -1632,7 +1696,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "fcfe52bb",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1670,7 +1734,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "7419b4c9",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Perception",
@@ -1979,7 +2043,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "1f1f8fdd",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2017,7 +2081,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "2b080ad5",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Evidence Ledger",
@@ -2053,7 +2117,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "4b232836",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2091,7 +2155,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "8b1d4fcb",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-MEMORY — Memory|CMP-MEMORY · Memory]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Memory",
@@ -2127,7 +2191,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "073e046f",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2165,7 +2229,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "29506d0a",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL · Memory Retrieval]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Memory Retrieval",
@@ -2398,7 +2462,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "f0176596",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2436,7 +2500,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "b4f9187c",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Cortex",
@@ -2744,7 +2808,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "a5880750",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2782,7 +2846,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "0d3523e5",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Manager",
@@ -2818,7 +2882,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "292d1eb8",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2856,7 +2920,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "ec5b96ae",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Manager Grounding",
@@ -3167,7 +3231,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "219ab08e",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-BODY — Body|CMP-BODY · Body]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3205,7 +3269,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "88b12b75",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-BODY — Body|CMP-BODY · Body]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Body",
@@ -3241,7 +3305,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "b1644a29",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3279,7 +3343,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "8105623e",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-BOUNDED-REFLEX — Bounded Reflex|CMP-BOUNDED-REFLEX · Bounded Reflex]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Bounded Reflex",
@@ -3315,7 +3379,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "278f8956",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3353,7 +3417,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "a645f41f",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-SAFETY-FILTER — SafetyFilter|CMP-SAFETY-FILTER · SafetyFilter]]",
       "locked": false,
       "opacity": 100,
       "originalText": "SafetyFilter",
@@ -3389,7 +3453,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "536ef3f4",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3427,7 +3491,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "c7917cb1",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR · InputExecutor]]",
       "locked": false,
       "opacity": 100,
       "originalText": "InputExecutor",
@@ -3668,7 +3732,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "133b6d7b",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3706,7 +3770,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "ed760585",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Independent Verifier",
@@ -3814,7 +3878,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "39131992",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3852,7 +3916,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "41db04b4",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Replay Buffer",

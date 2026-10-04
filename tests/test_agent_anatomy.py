@@ -222,7 +222,17 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
             assert region["customData"]["navigation_target"] == expected
             assert action["link"] == expected
             assert action["customData"]["navigation_target"] == expected
-            assert sum(element.get("link") == expected for element in elements) == 1
+            assert (
+                sum(
+                    element.get("link") == expected
+                    for element in elements
+                    if not (
+                        {"landmark_identity", "presentation_marker_for"}
+                        & element.get("customData", {}).keys()
+                    )
+                )
+                == 1
+            )
     bridge = record_elements(public)["CMP-VISIBLE-STATE-BRIDGE"]
     assert bridge["link"] is None
     assert bridge["customData"]["path_style"] == "optional"
