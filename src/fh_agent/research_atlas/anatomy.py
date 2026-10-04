@@ -469,6 +469,7 @@ def _illustrated_region(
     ]
     for index, identity in enumerate(identities):
         node = atlas.entities[identity]
+        component_link = note_link(node) if node.type == "Component" else None
         if key == "action-safety":
             label_x = x + 225 + (index % 2) * 150
             label_y = y + 22 + (index // 2) * 29
@@ -500,6 +501,7 @@ def _illustrated_region(
             stroke_style="dashed" if identity == "CMP-VISIBLE-STATE-BRIDGE" else "solid",
             stroke_width=1.2,
             rounded=node.type == "Component",
+            link=component_link,
             custom_data={"presentation_marker_for": identity, "presentation_only": True},
         )
         elements.append(marker)
@@ -512,6 +514,7 @@ def _illustrated_region(
                 label_width,
                 size=16 if key == "action-safety" else 18,
                 color=color,
+                link=component_link,
                 custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
@@ -1311,6 +1314,12 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             if (
                 label["text"].replace("\n", " ") != _VISIBLE_LANDMARKS[identity]
                 or label["customData"].get("landmark_type") != atlas.entities[identity].type
+                or label.get("link")
+                != (
+                    note_link(atlas.entities[identity])
+                    if atlas.entities[identity].type == "Component"
+                    else None
+                )
             ):
                 raise ValueError("Agent Anatomy technical landmark label drift")
         nav = [
@@ -1320,7 +1329,15 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             len(nav) != 1
             or nav[0].get("link") != expected_navigation
             or nav[0].get("customData", {}).get("navigation_target") != expected_navigation
-            or sum(item.get("link") == expected_navigation for item in anatomy_elements) != 1
+            or sum(
+                item.get("link") == expected_navigation
+                for item in anatomy_elements
+                if not (
+                    {"landmark_identity", "presentation_marker_for"}
+                    & item.get("customData", {}).keys()
+                )
+            )
+            != 1
         ):
             raise ValueError("Agent Anatomy assembly navigation changed")
     if (

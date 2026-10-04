@@ -135,7 +135,7 @@ def test_current_03_public_projection_uses_truthful_source_version():
     manifest = yaml.safe_load(tree[projection.MANIFEST])
 
     assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "a371a29ff4da147c32ab3bb42fba10c2c250ae6b09ba441302c012d927976d0c"
+    assert tree_digest(tree) == "a3565d4555e46b0331b4e887e5e7025810a0355a968baad42a292db47699895a"
 
 
 def test_current_03_source_schema_propagates_to_public_projection_metadata():

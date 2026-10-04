@@ -272,7 +272,7 @@ def test_exact_multi_subject_binding_and_sparse_component_cards(atlas):
     assert locators[records[0].wiki_id].parent == PurePosixPath("authored")
     manifest = yaml.safe_load(tree[views.MANIFEST])
     assert (
-        manifest["view_schema_version"] == "2.16"
+        manifest["view_schema_version"] == "2.17"
         and manifest["presentation_fingerprint_version"] == "1.1"
     )
 

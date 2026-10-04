@@ -265,6 +265,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
             for item in prior["owned_files"]
             if Path(item["path"]).parent == views.RQ_ROOT
             or Path(item["path"]).is_relative_to(views.GRAPH_ROOT)
+            or Path(item["path"]).is_relative_to(views.GRAPH_SCOPES)
         }
     )
     for relative in old_paths:
@@ -296,7 +297,7 @@ def test_w05_manifest_migration_is_bounded_and_check_is_zero_write(setup):
 
     views.project(repo, vault, source_commit)
     current = views.read_yaml(manifest_path.read_text(encoding="utf-8"))
-    assert current["view_schema_version"] == "2.16"
+    assert current["view_schema_version"] == "2.17"
     current_details = {
         Path(item["path"]) for item in current["owned_files"] if ".canvas" in item["path"]
     }
