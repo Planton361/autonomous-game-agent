@@ -95,3 +95,21 @@ Compare setup/call/teardown and collection costs separately. Instrumentation suc
 as `cProfile` is useful for invocation counts and attribution, but its inflated
 runtime is not an acceptance timing measurement. Host variance does not excuse
 a red timing gate or authorize moving coverage out of the required tier.
+
+## Projection path-safety phases
+
+Projection readers inspect the physical owned root and all existing descendants
+before reading generated content. During the subsequent read-only phase, each
+untrusted relative path still passes lexical normalization/traversal validation,
+without repeating ancestor symlink scans and resolution for every read. Manifest
+entry, UTF-8, ownership, history, drift and output-parent collision checks remain
+live. Standalone prior-manifest validation performs its own tree inspection.
+
+No symlink/resolve result is cached across a mutation. Deletes, including failed
+temporary-file cleanup, use live target validation immediately before unlink.
+Atomic writes retain live validation before
+creating their temporary output and again immediately before replace. The required
+fast tier includes adversarial parent/target symlink changes after preflight and
+after the temporary write; the full serial suite retains the technical projection,
+direct-view and workspace-harness safety families. Timer, tier and dependency
+semantics are unchanged.

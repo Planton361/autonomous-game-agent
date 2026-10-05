@@ -381,7 +381,12 @@ def no_symlink_boundary(path: Path) -> None:
         raise ProjectionError("Symlink boundary rejected; use physical directories")
 
 
-def target_path(root: Path, relative: str | PurePosixPath) -> Path:
+def relative_target_path(root: Path, relative: str | PurePosixPath) -> Path:
+    """Validate untrusted lexical paths; this does not inspect filesystem state.
+
+    Read-only projection phases may use this after inspect_owned has rejected
+    symlinks throughout the physical root. Mutations must use target_path.
+    """
     raw = str(relative)
     path = PurePosixPath(raw)
     if (
@@ -394,9 +399,15 @@ def target_path(root: Path, relative: str | PurePosixPath) -> Path:
         or raw in {"", "."}
     ):
         raise ProjectionError("Unsafe manifest/output path; require normalized relative paths")
-    target = root / path
+    return root / path
+
+
+def target_path(root: Path, relative: str | PurePosixPath) -> Path:
+    """Live-validate the boundary, including immediately before each mutation."""
+    target = relative_target_path(root, relative)
     no_symlink_boundary(target)
-    if not target.resolve().is_relative_to(root) or target.resolve() == root:
+    resolved = target.resolve()
+    if not resolved.is_relative_to(root) or resolved == root:
         raise ProjectionError("Output target escapes owned root")
     return target
 
@@ -429,6 +440,12 @@ def inspect_owned(root: Path) -> set[PurePosixPath]:
 
 
 def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
+    inspect_owned(root)
+    return _validate_prior(root)
+
+
+def _validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
+    """Read the manifest during the inspected tree's read-only phase."""
     path = target_path(root, MANIFEST)
     if not path.exists():
         return {}
@@ -455,7 +472,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         raise ProjectionError("Projection schema 1.0 cannot own W03 visual assets")
     owned = {}
     for item in manifest.owned_files:
-        target_path(root, item.path)
+        relative_target_path(root, item.path)
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in owned:
             raise ProjectionError("Invalid duplicate/self-owned manifest path")
@@ -524,8 +541,12 @@ def atomic_write(root: Path, relative: PurePosixPath, data: bytes) -> None:
         target_path(root, relative)
         os.replace(temporary, target)
     finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+        if temporary is not None and temporary.exists():
+            # A failed write may have encountered a changed parent boundary.
+            # Never follow it while cleaning up the temporary output either.
+            target_path(root, PurePosixPath(temporary.relative_to(root).as_posix())).unlink(
+                missing_ok=True
+            )
 
 
 def validate_private_vault(vault_root: Path, repo_root: Path) -> Path:
@@ -558,6 +579,9 @@ def project(
     repo = repo_root.resolve()
     vault = validate_private_vault(vault_root, repo)
     root = vault / OWNED_ROOT
+    # No mutation occurs until all reads, ownership checks and preflight finish.
+    # inspect_owned validates the physical boundary and every existing descendant;
+    # lexical joins suffice in this phase. Mutation paths below remain live-checked.
     actual = inspect_owned(root)
     commit = source_state(repo, source_ref)
     for source in SOURCE_PATHS:
@@ -569,7 +593,7 @@ def project(
         raise ProjectionError("Illustration source differs from the checked-out renderer")
     for filename in REGISTRY_FILES:
         no_symlink_boundary(repo / SOURCE_PATHS[0] / filename)
-    prior = validate_prior(root)
+    prior = _validate_prior(root)
     try:
         atlas = load_registry(repo / "docs/research-atlas")
         validate_wiki_records(authored_properties(vault, root), atlas.entities.keys())
@@ -590,7 +614,7 @@ def project(
             "Unknown/unowned files in generated root; move them out before projection"
         )
     for relative in tree.keys() | prior.keys():
-        target = target_path(root, relative)
+        target = relative_target_path(root, relative)
         if target.exists() and not target.is_file():
             raise ProjectionError("Output path is occupied by a directory")
         for parent in target.parents:
@@ -601,7 +625,7 @@ def project(
     for relative, item in prior.items():
         if relative not in actual:
             continue
-        data = target_path(root, relative).read_bytes()
+        data = relative_target_path(root, relative).read_bytes()
         if item.kind == "anatomy_hero_asset":
             if digest(data) != item.sha256:
                 raise ProjectionError(
@@ -619,7 +643,7 @@ def project(
             raise ProjectionError("Obsolete owned file was edited; preserve edits before cleanup")
     if check:
         if actual != tree.keys() or any(
-            target_path(root, p).read_bytes() != data for p, data in tree.items()
+            relative_target_path(root, p).read_bytes() != data for p, data in tree.items()
         ):
             raise ProjectionError("Generated projection drift; regenerate with the same source-ref")
         return tree

@@ -71,6 +71,7 @@ from .private_projection import (
     private_link,
     private_path,
     read_yaml,
+    relative_target_path,
     target_path,
     unreadable_tree,
     utf8,
@@ -4734,6 +4735,12 @@ def authored_snapshot(
 
 
 def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
+    inspect_owned(root)
+    return _validate_prior(root)
+
+
+def _validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
+    """Read the manifest during the inspected tree's read-only phase."""
     path = target_path(root, MANIFEST)
     if not path.exists():
         return {}
@@ -4785,7 +4792,7 @@ def validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
         raise ProjectionError("Invalid direct-views manifest; restore owner/schema/fields") from exc
     prior = {}
     for item in manifest.owned_files:
-        target_path(root, item.path)
+        relative_target_path(root, item.path)
         relative = PurePosixPath(item.path)
         if relative == MANIFEST or relative in prior:
             raise ProjectionError("Duplicate/self-owned direct-views manifest path")
@@ -5051,13 +5058,15 @@ def project(
     no_symlink_boundary(vault_root.absolute())
     vault = vault_root.resolve()
     root = vault / OWNED_ROOT
+    # Keep this inspected-tree phase read-only through preflight and ownership
+    # checks. No filesystem inspection result is reused by writes or deletions.
     actual = inspect_owned(root)
-    prior = validate_prior(root)
+    prior = _validate_prior(root)
     for relative in actual:
         # Convert invalid owned Markdown encoding into an actionable validation error
         # before RA-1 reads this otherwise unmodeled navigation note.
         if relative.suffix.lower() == ".md":
-            utf8(target_path(root, relative).read_bytes())
+            utf8(relative_target_path(root, relative).read_bytes())
     try:
         technical = technical_projection(repo_root, vault_root, source_ref, check=True)
     except (OSError, UnicodeError) as exc:
@@ -5088,7 +5097,7 @@ def project(
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")
     # Complete preflight before any mkdir, deletion, or atomic replace.
     for relative in tree.keys() | prior.keys():
-        target = target_path(root, relative)
+        target = relative_target_path(root, relative)
         if target.exists() and not target.is_file():
             raise ProjectionError("Direct-view output path is occupied by a directory")
         for parent in target.parents:
@@ -5099,7 +5108,7 @@ def project(
     for relative, item in prior.items():
         if relative not in actual:
             continue
-        data = target_path(root, relative).read_bytes()
+        data = relative_target_path(root, relative).read_bytes()
         if relative.suffix == ".base":
             if isinstance(item, OwnedFileV21):
                 owned = _base_semantic_digest(data) == item.semantic_sha256
@@ -5185,7 +5194,7 @@ def project(
         if relative.suffix != ".base" and relative not in tree and digest(data) != item.sha256:
             raise ProjectionError("Obsolete owned view was edited; preserve edits before cleanup")
     if SOURCE_INDEX in prior:
-        source_path = target_path(root, SOURCE_INDEX)
+        source_path = relative_target_path(root, SOURCE_INDEX)
         source_data = source_path.read_bytes() if source_path.is_file() else tree[SOURCE_INDEX]
         if not source_path.is_file() and digest(source_data) != prior[SOURCE_INDEX].sha256:
             raise ProjectionError("Missing source history index; restore its manifested bytes")
@@ -5199,9 +5208,9 @@ def project(
     if check:
         if actual != tree.keys() or any(
             (
-                not _base_semantically_matches(target_path(root, p).read_bytes(), data)
+                not _base_semantically_matches(relative_target_path(root, p).read_bytes(), data)
                 if p in OBSIDIAN_MANAGED_BASES
-                else target_path(root, p).read_bytes() != data
+                else relative_target_path(root, p).read_bytes() != data
             )
             for p, data in tree.items()
         ):
