@@ -77,7 +77,54 @@ jobs:
           done < .github/fast-tests.txt
           test "${#fast_tests[@]}" -gt 0
           printf 'Running %s fast-test manifest files\n' "${#fast_tests[@]}"
-          uv run --no-sync pytest -n 2 --dist=loadfile --maxfail=1 "${fast_tests[@]}"
+          uv run --no-sync python - "${fast_tests[@]}" <<'PY'
+          import re
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+
+          required = sys.argv[1:]
+          shards = [[], []]
+          for line in Path(".github/fast-test-shards.txt").read_text().splitlines():
+              if not line.strip() or line.lstrip().startswith("#"):
+                  continue
+              fields = line.split()
+              if len(fields) != 2 or fields[0] not in {"0", "1"}:
+                  raise SystemExit(f"Invalid shard mapping: {line}")
+              shard, path = fields
+              if not re.fullmatch(r"tests/test_[A-Za-z0-9_]+\.py", path) or not Path(path).is_file():
+                  raise SystemExit(f"Invalid shard test path: {path}")
+              shards[int(shard)].append(path)
+          assigned = shards[0] + shards[1]
+          if (
+              not all(shards)
+              or len(required) != len(set(required))
+              or len(assigned) != len(set(assigned))
+              or set(assigned) != set(required)
+          ):
+              raise SystemExit("Shards must be non-empty and partition the exact required manifest")
+
+          with tempfile.TemporaryDirectory(prefix="fast-test-shards-") as directory:
+              logs = [Path(directory) / f"shard-{i}.log" for i in range(2)]
+              handles = [path.open("w") for path in logs]
+              try:
+                  processes = []
+                  for i, modules in enumerate(shards):
+                      print(f"Running shard {i}: {len(modules)} whole test files", flush=True)
+                      processes.append(subprocess.Popen(
+                          ["uv", "run", "--no-sync", "pytest", "--maxfail=1", *modules],
+                          stdout=handles[i], stderr=subprocess.STDOUT,
+                      ))
+                  statuses = [process.wait() for process in processes]
+              finally:
+                  for handle in handles:
+                      handle.close()
+              for i, log in enumerate(logs):
+                  print(f"=== Required test shard {i} (exit {statuses[i]}) ===", flush=True)
+                  print(log.read_text(), end="", flush=True)
+              raise SystemExit(1 if any(statuses) else 0)
+          PY
 
       - name: CLI smoke
         env:
