@@ -35,20 +35,48 @@ uv run --no-sync pytest
 uv run --no-sync fh-agent --help
 ```
 
-The fast test selection can be run locally with:
+## Required static file shards
+
+[`fast-tests.txt`](fast-tests.txt) remains the authoritative required-module set.
+[`fast-test-shards.txt`](fast-test-shards.txt) is a complete, disjoint static
+whole-file partition of that manifest. Before pytest starts, the workflow validates
+that both shards are non-empty, manifest entries and assignments are unique, the
+assigned set exactly equals the manifest, and every assigned path is an existing
+`tests/test_*.py` file.
+
+Exactly two concurrent pytest processes are launched. Each shard runs serial
+pytest with `--maxfail=1`; no test file is split between processes. This preserves
+module-scoped fixtures and in-process reuse without sharing reuse dictionaries
+or introducing a persistent cache. Both subprocess statuses are collected and
+both logs are printed. Any non-zero shard exit makes the required test step fail.
+
+`pytest-xdist` remains installed and locked, but it is no longer the scheduler
+used by required `validate`. The complete suite and `validate-full` remain serial.
+The validation timer start/end and enforced `<= 60000 ms` gate remain unchanged.
+
+From the repository root, reproduce the current required test step by executing
+its committed workflow script. This uses the same manifest validation, static
+mapping, concurrent serial processes and combined failure propagation as CI:
 
 ```bash
-uv run --no-sync pytest -n 2 --dist=loadfile --maxfail=1 $(sed "/^[[:space:]]*#/d; /^[[:space:]]*$/d" .github/fast-tests.txt)
+uv sync --locked
+uv run --no-sync python - <<'PY'
+from pathlib import Path
+import subprocess
+import yaml
+
+workflow = yaml.safe_load(Path(".github/workflows/validate.yml").read_text())
+step = next(
+    step for step in workflow["jobs"]["validate"]["steps"]
+    if step["name"] == "Fast contract tests"
+)
+raise SystemExit(subprocess.run(["bash", "-c", step["run"]]).returncode)
+PY
 ```
 
-Required validation uses exactly two pytest-xdist workers. `--dist=loadfile`
-assigns every case in a test module to one worker, preserving module-scoped
-fixtures and their in-process reuse. Each worker collects the same manifest;
-xdist verifies matching collections and executes each case once. Worker
-processes do not share reuse dictionaries; no persistent reuse cache is introduced. The complete
-suite and `validate-full` remain serial; omit `-n 2 --dist=loadfile` for a serial
-fast-tier comparison. The manifest validation, `--maxfail=1`, failure exit
-status, timer scope and enforced `<= 60000 ms` budget remain unchanged.
+This reproduces the required test step locally; hosted setup and the enforced
+job timer remain in GitHub Actions. The static checks and CLI smoke remain
+separate required workflow steps.
 
 Issue #80 baseline profiling on `main` `1bd84d360a1df741bac7e32083a526156a849422`
 collected 2,555 tracked tests in 0.53s and completed them in 423.94s (`real 424.31s`). The
@@ -84,8 +112,9 @@ completed stages and retains a later real standalone check after a body-only
 edit, now with whole-Vault byte equality and exact source/stage assertions.
 Migration, authored preservation and all rejection cases remain required.
 
-For repeatable diagnosis, run the complete manifest command above with
-`--durations=50`, then the lifecycle-heavy modules separately:
+For repeatable diagnosis, set `PYTEST_ADDOPTS=--durations=50` when running the
+reproduction procedure above so both shards report durations, then run the
+lifecycle-heavy modules separately:
 
 ```bash
 uv run pytest tests/test_rq_reader.py tests/test_research_steering.py tests/test_knowledge_graph.py --durations=50
