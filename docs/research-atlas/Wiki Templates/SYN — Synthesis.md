@@ -4,6 +4,10 @@ Public-safe template source — not an active private record. Copy the example
 properties into a separately authored private note and replace placeholders.
 No reading, review, result or decision is asserted by this template.
 
+Intake and maintenance: [operator workflow](../Research%20Intake%20and%20Maintenance.md).
+Keep this record’s durable identity when reused or renamed; creation/validation
+never means scientific acceptance.
+
 ## Required properties (example only)
 
 ```yaml
@@ -139,3 +143,10 @@ Use scoped absence or unknown with reason, not empty headings implying review.
 State the next required verification. An accepted Synthesis does not promote its inputs or automatically accept a Finding.
 
 `<TO BE AUTHORED; NOT REVIEWED>`
+
+## Optional literal reader inputs
+
+Explicitly opt into `epistemic_schema_version: "0.2"` (or accepted `"0.3"`)
+before adding `presentation_summary: null` and `presentation_limitation: null`. Omit unneeded fields. Never extract scientific prose
+from the body during generation. These inputs are literal authored drafts;
+eligibility/review remains governed by the existing reader contracts.

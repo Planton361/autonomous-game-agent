@@ -4,6 +4,10 @@ Public-safe template source — not an active private record. Copy the example
 properties into a separately authored private note and replace placeholders.
 No reading, review, result or decision is asserted by this template.
 
+Intake and maintenance: [operator workflow](../Research%20Intake%20and%20Maintenance.md).
+Keep this record’s durable identity when reused or renamed; creation/validation
+never means scientific acceptance.
+
 ## Required properties (example only)
 
 ```yaml
@@ -148,3 +152,17 @@ Explain bounded project relevance, not demonstrated transfer by association.
 unknown = unchecked/unclear; not_reported = absent in named checked sections; not_applicable requires a reason. Reading is not replication.
 
 `<TO BE AUTHORED; NOT REVIEWED>`
+
+## Optional literal reader inputs
+
+Explicitly opt into `epistemic_schema_version: "0.2"` (or accepted `"0.3"`)
+before adding `presentation_contexts: []`. Omit unneeded fields. Never extract scientific prose
+from the body during generation. These inputs are literal authored drafts;
+eligibility/review remains governed by the existing reader contracts.
+
+A context entry has exactly `role`, `target_ref`, `why_relevant`, optional
+`finding_ref`, optional `reading_note_ref`. Role is an existing five-role
+property name; target must be in that same owner’s declaration. Reuse this
+identity across questions, authoring distinct explicit contexts where warranted.
+Paper binds an exact G4 family; a ReadingNote retains its own exact version read,
+independent of navigation preference. Zotero owns bibliography/PDFs.

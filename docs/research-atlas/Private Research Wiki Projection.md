@@ -1211,3 +1211,9 @@ use architecture-first profiles. See [Bounded Native Knowledge Graph](Bounded%20
 for exact filters, selection, attachment, audit, migration and deferred G6 rules.
 The Memory Retrieval pilot remains a compatibility route. No operator Graph
 settings or authored private files are changed; all outputs remain export deny.
+
+## Research intake and maintenance
+
+Use the [template index, authoring workflow, read-only diagnostics and safe refresh/check checklist](Research%20Intake%20and%20Maintenance.md).
+Creation or validation never means scientific acceptance. Actual-vault G6 awaits
+CONTROL exact-head review and separate authorization.
