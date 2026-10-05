@@ -58,3 +58,4 @@ tests/test_xdotool_adapters.py
 tests/test_rq_reader.py
 tests/test_research_steering.py
 tests/test_knowledge_graph.py
+tests/test_research_intake.py

@@ -4,6 +4,10 @@ Public-safe template source — not an active private record. Copy the example
 properties into a separately authored private note and replace placeholders.
 No reading, review, result or decision is asserted by this template.
 
+Intake and maintenance: [operator workflow](../Research%20Intake%20and%20Maintenance.md).
+Keep this record’s durable identity when reused or renamed; creation/validation
+never means scientific acceptance.
+
 ## Required properties (example only)
 
 ```yaml
@@ -144,6 +148,9 @@ an opted-in RQ reader, explicitly opt this Finding into `0.3` and supply locatio
 ```yaml
 epistemic_schema_version: "0.3"
 presentation_source_locations: []
+presentation_statement: null
+presentation_limitation: null
+presentation_contexts: []
 ```
 
 Each nonempty entry has `reading_note_ref` and at least one literal `page` or
@@ -152,3 +159,10 @@ Paper/family, and retain its actual resolved `version_read`, date and checked
 scope. No preferred version substitution or PDF/body-derived locator occurs.
 Human review establishes passage adequacy; structural provenance is not truth
 certification. See the [RQ Reader Contract](../RQ%20Reader%20Contract.md).
+
+A location entry contains exactly `reading_note_ref`, optional `page`, optional
+`section`; at least one locator is required. These are human-authored passages,
+never inferred. Context entries use exactly `role`, `target_ref`, `why_relevant`,
+optional `finding_ref`, optional `reading_note_ref`; role/target must already be
+in this record’s own research-role declarations. Preserve `claim_origin` and
+`review_state`; validators cannot classify or accept a Finding.

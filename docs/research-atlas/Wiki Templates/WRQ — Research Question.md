@@ -4,6 +4,10 @@ Public-safe template source — not an active private record. Copy the example
 properties into a separately authored private note and replace placeholders.
 No reading, review, result or decision is asserted by this template.
 
+Intake and maintenance: [operator workflow](../Research%20Intake%20and%20Maintenance.md).
+Keep this record’s durable identity when reused or renamed; creation/validation
+never means scientific acceptance.
+
 ## Required properties (example only)
 
 ```yaml
@@ -150,3 +154,36 @@ Empty selections mean no literature explicitly curated or compared, not no
 relevant literature or prior art. Author a conclusion only under its explicit
 comparison/evidence/review contract. `next_scientific_work` is guidance, never
 execution authorization. The complete bibliography, PDFs and reading stay in Zotero.
+
+### Author the accepted closed analysis shapes
+
+Merge only explicitly authored selections into the opt-in object above. Keep
+`conclusion: null` until authorized analysis supplies it. Do not copy placeholder
+prose into a scientific conclusion. The exact [#124 accepted package](https://github.com/Planton361/autonomous-game-agent/issues/124#issuecomment-5959565974)
+and [acceptance](https://github.com/Planton361/autonomous-game-agent/issues/124#issuecomment-5959667108)
+govern; [RQ Reader Contract](../RQ%20Reader%20Contract.md) gives eligibility.
+
+| Array/object | Exact entry fields |
+| --- | --- |
+| subject_contexts | target_ref, why_matters |
+| literature_rows | paper_ref, context_owner_ref, context_role |
+| nearest_work_rows | paper_ref, approach, already_covers, remaining_difference, competitive_relevance, evidence_refs |
+| establishes | record_ref, use (`knowledge` or `adverse_evidence`) |
+| zotero_corpus | kind (`collection` or `saved_search`), ref |
+| conclusion required | question_version, gap_state, authored_conclusion, prior_work_covers, remaining_distinction, strongest_uncertainty, next_scientific_work, as_of, author |
+| conclusion optional | evidence_refs, reviewed_by, reviewed_inputs, falsifiable_test_concept, contribution_potential, feasibility_risks, project_fit |
+| reviewed_inputs entry | ref, record_version |
+
+Each technical subject needs its own exact binding and reason. A multi-component
+question reuses the same RQ, Paper and ReadingNote identities. Literature context
+must already belong to the selected Paper/ReadingNote/Finding and target this RQ;
+selection does not create relevance. `context_role` uses one of the existing five
+research-role property names. Nearest-work evidence selects exact source Findings.
+The RQ must separately declare selected `finding_refs` and `synthesis_refs`.
+
+No new search counts, technical-practice fields, analysis identity or disposition
+schema exists. Allowed gap states are `unassessed`, `insufficient_evidence`,
+`covered_by_prior_art`, `narrowing_required`, `candidate_gap`. Candidate requires
+all four rationale fields and current reviewed evidence. Review pins each consumed
+private dependency’s exact revision; actors and RQ `review_refs` attest human
+review, never validation success. Operational decisions remain separate.

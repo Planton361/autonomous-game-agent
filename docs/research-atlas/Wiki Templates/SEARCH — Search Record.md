@@ -4,6 +4,10 @@ Public-safe template source — not an active private record. Copy the example
 properties into a separately authored private note and replace placeholders.
 No reading, review, result or decision is asserted by this template.
 
+Intake and maintenance: [operator workflow](../Research%20Intake%20and%20Maintenance.md).
+Keep this record’s durable identity when reused or renamed; creation/validation
+never means scientific acceptance.
+
 ## Required properties (example only)
 
 ```yaml

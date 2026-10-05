@@ -696,6 +696,8 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "validator",
                         "render",
                         "workspace",
+                        "workspace_harness",
+                        "research_intake",
                         "wiki_schema",
                         "private_projection",
                         "private_views",
