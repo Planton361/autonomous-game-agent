@@ -480,6 +480,8 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     }
     # Real apply returns these stages only after both actual projector checks pass.
     assert migrated.stages == (
+        "technical projection preflight",
+        "direct views preflight",
         "restore point",
         "technical projection",
         "direct views",

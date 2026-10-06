@@ -75,6 +75,7 @@ from .private_projection import (
     target_path,
     unreadable_tree,
     utf8,
+    validate_portable_paths,
     yaml_text,
 )
 from .private_projection import DOMAIN_SLICE as TECHNICAL_DOMAIN_SLICE
@@ -4618,6 +4619,7 @@ def reference_views_tree(
     tree[MANIFEST] = yaml_text(
         ManifestV217.model_validate(data).model_dump(exclude_none=True)
     ).encode()
+    validate_portable_paths(OWNED_ROOT / path for path in tree)
     return tree
 
 
@@ -5038,6 +5040,7 @@ def _validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
             ):
                 raise ProjectionError("Invalid direct-view ownership classification")
         prior[relative] = item
+    validate_portable_paths(OWNED_ROOT / relative for relative in prior)
     return prior
 
 
@@ -5051,8 +5054,15 @@ def source_bytes(repo: Path, relative: PurePosixPath) -> bytes:
 
 
 def project(
-    repo_root: Path, vault_root: Path, source_ref: str, *, check: bool = False
+    repo_root: Path,
+    vault_root: Path,
+    source_ref: str,
+    *,
+    check: bool = False,
+    preflight: bool = False,
 ) -> dict[PurePosixPath, bytes]:
+    if check and preflight:
+        raise ProjectionError("Preflight and exact check are separate modes")
     # RA-1 performs all topology/marker/Git/Atlas/RA-2 checks, strictly without writes.
     # Inspect our boundary first so symlinks never reach the authored-note scanner.
     no_symlink_boundary(vault_root.absolute())
@@ -5068,7 +5078,13 @@ def project(
         if relative.suffix.lower() == ".md":
             utf8(relative_target_path(root, relative).read_bytes())
     try:
-        technical = technical_projection(repo_root, vault_root, source_ref, check=True)
+        technical = technical_projection(
+            repo_root,
+            vault_root,
+            source_ref,
+            check=not preflight,
+            preflight=preflight,
+        )
     except (OSError, UnicodeError) as exc:
         raise ProjectionError("Cannot read projection preconditions") from exc
     commit = read_yaml(utf8(technical[PurePosixPath("manifest/projection.yaml")]))["source_commit"]
@@ -5093,6 +5109,7 @@ def project(
         engineering_bindings=parse_catalog(source_bytes(repo, CATALOG_PATH), atlas),
         source_catalog=load_catalog(vault),
     )
+    validate_portable_paths(OWNED_ROOT / path for path in tree.keys() | prior.keys())
     if actual - prior.keys() - {MANIFEST}:
         raise ProjectionError("Unknown/unowned derived files; move them out before generation")
     # Complete preflight before any mkdir, deletion, or atomic replace.
@@ -5111,7 +5128,12 @@ def project(
         data = relative_target_path(root, relative).read_bytes()
         if relative.suffix == ".base":
             if isinstance(item, OwnedFileV21):
-                owned = _base_semantic_digest(data) == item.semantic_sha256
+                # A prior generation may have replaced this Base before its
+                # manifest commit. Accept only prior semantics or the exact
+                # current expected semantics; unrelated operator edits still fail.
+                owned = _base_semantic_digest(data) == item.semantic_sha256 or (
+                    relative in tree and _base_semantically_matches(data, tree[relative])
+                )
             else:
                 exact_legacy = data.startswith(BASE_OWNER.encode()) and digest(data) == item.sha256
                 migration_bridge = (
@@ -5205,6 +5227,8 @@ def project(
         current_source = SourceIndex.model_validate(read_yaml(utf8(tree[SOURCE_INDEX])))
         validate_source_history(previous_source.catalog, current_source.catalog)
         validate_read_provenance(previous_source, current_source)
+    if preflight:
+        return tree
     if check:
         if actual != tree.keys() or any(
             (
