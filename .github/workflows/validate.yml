@@ -85,18 +85,18 @@ jobs:
           from pathlib import Path
 
           required = sys.argv[1:]
-          shards = [[], []]
+          shards = [[], [], []]
           for line in Path(".github/fast-test-shards.txt").read_text().splitlines():
               if not line.strip() or line.lstrip().startswith("#"):
                   continue
               fields = line.split()
-              if len(fields) != 2 or fields[0] not in {"0", "1"}:
+              if len(fields) != 2 or fields[0] not in {"0", "1", "2"}:
                   raise SystemExit(f"Invalid shard mapping: {line}")
               shard, path = fields
               if not re.fullmatch(r"tests/test_[A-Za-z0-9_]+\.py", path) or not Path(path).is_file():
                   raise SystemExit(f"Invalid shard test path: {path}")
               shards[int(shard)].append(path)
-          assigned = shards[0] + shards[1]
+          assigned = [path for shard in shards for path in shard]
           if (
               not all(shards)
               or len(required) != len(set(required))
@@ -106,7 +106,7 @@ jobs:
               raise SystemExit("Shards must be non-empty and partition the exact required manifest")
 
           with tempfile.TemporaryDirectory(prefix="fast-test-shards-") as directory:
-              logs = [Path(directory) / f"shard-{i}.log" for i in range(2)]
+              logs = [Path(directory) / f"shard-{i}.log" for i in range(len(shards))]
               handles = [path.open("w") for path in logs]
               try:
                   processes = []
@@ -177,7 +177,7 @@ jobs:
         run: uv sync --locked
 
       - name: Final Research Map migration acceptance
-        run: uv run --no-sync pytest tests/test_final_research_map.py
+        run: uv run --no-sync pytest -n 2 tests/test_final_research_map.py
 
       - name: Report migration validation duration
         env:

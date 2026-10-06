@@ -1,5 +1,5 @@
 # Static whole-file partition of fast-tests.txt; that manifest remains authoritative.
-0 tests/test_knowledge_graph.py
+2 tests/test_knowledge_graph.py
 0 tests/test_g2_interface_attachment.py
 0 tests/test_run_mode_manifest_alignment.py
 0 tests/test_research_atlas.py
