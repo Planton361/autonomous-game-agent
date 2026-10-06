@@ -15,6 +15,7 @@ concurrency:
 jobs:
   validate:
     name: validate
+    needs: [fast-contracts, research-map-migration]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -61,7 +62,63 @@ jobs:
       - name: Check formatting
         run: uv run --no-sync ruff format --check .
 
-      - name: Fast contract tests
+      - name: CLI smoke
+        env:
+          TERM: dumb
+        run: uv run --no-sync fh-agent --help
+
+      - name: Report validation duration
+        env:
+          STARTED_NS: ${{ steps.timer.outputs.started_ns }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          finished_ns=$(date +%s%N)
+          elapsed_ms=$(( (finished_ns - STARTED_NS) / 1000000 ))
+          printf 'validate job execution: %s ms\n' "$elapsed_ms"
+          {
+            echo '### Required validate timing'
+            printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
+            echo '- Budget: `<= 60000 ms`'
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$elapsed_ms" -le 60000
+
+  fast-contracts:
+    name: fast-contracts-${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2]
+    steps:
+      - name: Start validation timer
+        id: timer
+        shell: bash
+        run: echo "started_ns=$(date +%s%N)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.11.14"
+
+      - name: Sync locked dependencies
+        run: uv sync --locked
+
+      - name: Exact-partition fast contract tests
+        env:
+          TEST_SHARD: ${{ matrix.shard }}
         shell: bash
         run: |
           set -euo pipefail
@@ -78,10 +135,10 @@ jobs:
           test "${#fast_tests[@]}" -gt 0
           printf 'Running %s fast-test manifest files\n' "${#fast_tests[@]}"
           uv run --no-sync python - "${fast_tests[@]}" <<'PY'
+          import os
           import re
           import subprocess
           import sys
-          import tempfile
           from pathlib import Path
 
           required = sys.argv[1:]
@@ -105,31 +162,12 @@ jobs:
           ):
               raise SystemExit("Shards must be non-empty and partition the exact required manifest")
 
-          with tempfile.TemporaryDirectory(prefix="fast-test-shards-") as directory:
-              logs = [Path(directory) / f"shard-{i}.log" for i in range(len(shards))]
-              handles = [path.open("w") for path in logs]
-              try:
-                  processes = []
-                  for i, modules in enumerate(shards):
-                      print(f"Running shard {i}: {len(modules)} whole test files", flush=True)
-                      processes.append(subprocess.Popen(
-                          ["uv", "run", "--no-sync", "pytest", "--maxfail=1", *modules],
-                          stdout=handles[i], stderr=subprocess.STDOUT,
-                      ))
-                  statuses = [process.wait() for process in processes]
-              finally:
-                  for handle in handles:
-                      handle.close()
-              for i, log in enumerate(logs):
-                  print(f"=== Required test shard {i} (exit {statuses[i]}) ===", flush=True)
-                  print(log.read_text(), end="", flush=True)
-              raise SystemExit(1 if any(statuses) else 0)
+          selected = int(os.environ["TEST_SHARD"])
+          print(f"Running shard {selected}: {len(shards[selected])} whole test files", flush=True)
+          raise SystemExit(subprocess.call(
+              ["uv", "run", "--no-sync", "pytest", "--maxfail=1", *shards[selected]],
+          ))
           PY
-
-      - name: CLI smoke
-        env:
-          TERM: dumb
-        run: uv run --no-sync fh-agent --help
 
       - name: Report validation duration
         env:
@@ -139,9 +177,9 @@ jobs:
           set -euo pipefail
           finished_ns=$(date +%s%N)
           elapsed_ms=$(( (finished_ns - STARTED_NS) / 1000000 ))
-          printf 'validate job execution: %s ms\n' "$elapsed_ms"
+          printf 'fast-contracts job execution: %s ms\n' "$elapsed_ms"
           {
-            echo '### Required validate timing'
+            echo '### Required fast-contract timing'
             printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
             echo '- Budget: `<= 60000 ms`'
           } >> "$GITHUB_STEP_SUMMARY"
