@@ -227,7 +227,9 @@ def test_complete_detail_companion_audits_preserved(atlas, baseline):
         body = markdown_parts(derived[old_detail].decode())[1]
         for line in body.splitlines():
             if line.strip() and "[[" not in line and "](" not in line:
-                assert line in text
+                assert (
+                    line.replace("Originating Component Hub(s)", "Originating Components") in text
+                )
         assert "Complete consolidated detail audit" in text
         assert tree.routes[views.OWNED_ROOT / old_detail] == path
 
@@ -287,6 +289,136 @@ def test_deterministic_output(atlas, baseline):
         ).files
         == tree.files
     )
+
+
+def test_anatomy_is_selective_and_qualifies_explanatory_placements(baseline):
+    tree, _, _ = baseline
+    text = tree.files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"].decode()
+    scene = json.loads(re.search(r"```json\n([\s\S]*?)```", text)[1])
+    labels = [item["text"] for item in scene["elements"] if item["type"] == "text"]
+    assert "EXECUTIVE CONTROL" in labels
+    assert "CONTRACT" not in labels
+    assert "Observe Assembly Scope" not in text
+    assert "Selective explanatory overview" in text
+    assert "not complete architecture, exact Function membership or strict runtime order" in text
+    assert any("Bridge: Acquire · Replay: Between Mission Runs" in label for label in labels)
+    assert "MemoryUpdateRequest is a Cortex proposal" in text
+    assert "frozen Body version through Life Episode restarts" in text
+    assert "authorized future protocol between Mission Runs" in text
+
+
+def test_final_navigation_labels_match_destinations(baseline):
+    tree, _, _ = baseline
+    stale = (
+        "Component Hub",
+        "Technical Hierarchy",
+        "Research Knowledge Home",
+        "Observe Assembly",
+        "Hub Overview",
+        "technical detail workbench",
+        "Historical Memory pilot",
+    )
+    for path, data in tree.files.items():
+        if path != HOME and not path.is_relative_to(PRODUCT):
+            continue
+        if path.suffix != ".md":
+            continue
+        for target, label in re.findall(r"\[\[([^|\]]+)\|([^\]]+)\]\]", data.decode()):
+            assert not any(term in label for term in stale), (path, target, label)
+            if target == str(HOME.with_suffix("")):
+                assert label in {"Home", "Return Home", "Research Map Home"}, (path, label)
+    domain = tree.files[PRODUCT / "Diagrams/Evidence, Memory & Retrieval.excalidraw.md"].decode()
+    assert not any(term in domain for term in stale)
+
+
+def test_consolidated_graph_links_have_distinct_resolving_mode_anchors(atlas, baseline):
+    tree, _, _ = baseline
+    for identity, node in atlas.entities.items():
+        if node.type != "Component":
+            continue
+        guide = PRODUCT / "Graphs" / (identity + ".md")
+        audit = INTERNAL / "Graphs" / identity / "Edge Audit.md"
+        for path in (guide, audit):
+            text = tree.files[path].decode()
+            assert "Graph Profile.md" not in text
+            assert "Edge Audit.md in this folder" not in text
+            for title in MODES.values():
+                assert f"[[#{title}|{title}]]" in text
+                assert f"\n## {title}\n" in text
+            for target in re.findall(r"\[\[([^|\]]+)\|", text):
+                route, _, anchor = target.partition("#")
+                if route in {str(guide.with_suffix("")), str(audit.with_suffix(""))}:
+                    assert anchor in MODES.values(), (path, target)
+                    destination = PurePosixPath(route + ".md")
+                    assert f"\n## {anchor}\n" in tree.files[destination].decode()
+        text = tree.files[guide].decode()
+        assert text.count("Manual activation: open native global Graph") == 1
+        assert text.count("Graph geometry, density and colors are not scientific authority") == 1
+
+
+def test_canvas_primary_links_are_preferred_without_relation_changes(atlas, baseline):
+    tree, _, derived = baseline
+    preferred = preferred_paths(atlas)
+    for identity in views.TECHNICAL_DETAIL_IDS:
+        _, old_path = views.technical_detail_paths(identity)
+        path = tree.routes[views.OWNED_ROOT / old_path]
+        original = json.loads(derived[old_path])
+        canvas = json.loads(tree.files[path])
+        assert canvas["edges"] == original["edges"]
+        for card in canvas["nodes"]:
+            subject = next(
+                ref for ref in atlas.entities if views._canvas_node_id(ref) == card["id"]
+            )
+            links = re.findall(r"\[\[([^|\]]+)\|([^\]]+)\]\]", card["text"])
+            if subject in preferred:
+                assert links[0] == (
+                    str(preferred[subject].with_suffix("")),
+                    atlas.entities[subject].name,
+                )
+                assert "> [!info]- Registry audit" in card["text"]
+                assert links[1][1] == "Raw Registry record"
+                assert links[1][0].startswith(str(INTERNAL / "Registry/Records"))
+            else:
+                assert atlas.entities[subject].type == "Evidence"
+                assert links[0][1] == "Evidence audit / provenance"
+
+
+def test_home_structure_function_types_and_scientific_navigation(atlas, baseline):
+    tree, _, _ = baseline
+    preferred = preferred_paths(atlas)
+    home = tree.files[HOME].decode()
+    assert home.index("## Start here") < home.index("## Complete identity inventory")
+    assert "> [!info]- Components" in home
+    assert "Flat inventories below are not a hierarchy or a runtime sequence" in home
+    assert all(f"[[{path.with_suffix('')}|" in home for path in preferred.values())
+    for identity in ("SYS-AGA", "CMP-MEMORY"):
+        text = tree.files[preferred[identity]].decode()
+        structural = text.split("### Structural navigation", 1)[1].split("### What this is", 1)[0]
+        children = [
+            edge.source
+            for edge in atlas.relationships
+            if edge.relation == "part_of" and edge.target == identity
+        ]
+        assert all(f"[[{preferred[child].with_suffix('')}|" in structural for child in children)
+        assert text.count("> [!aga-child]-") == len(children)
+        assert text.index("### Structural navigation") < text.index("### Subcomponents / go deeper")
+    for identity, node in atlas.entities.items():
+        if node.type != "Function":
+            continue
+        text = tree.files[preferred[identity]].decode().split("## Research", 1)[0]
+        assert "| Participant | Technical type |" in text
+        for edge in atlas.relationships:
+            if edge.relation == "contributes_to_function" and edge.target == identity:
+                participant = atlas.entities[edge.source]
+                link = views._markdown_table_cell(
+                    f"[[{preferred[edge.source].with_suffix('')}|{participant.name}]]"
+                )
+                assert f"| {link} | {participant.type} |" in text
+    steering = tree.files[PRODUCT / "Views/Research Steering.md"].decode().split("<details>", 1)[0]
+    assert steering.index("## Research Questions") < steering.index("## Graph navigation")
+    assert steering.count("[[Research Map/Views/Graphs|") == 1
+    assert "[[Research Map/Graphs/" not in steering
+    assert "Current private scientific inventories" in steering
 
 
 def test_all_generated_links_filters_and_canvas_routes_resolve(workspace_setup):

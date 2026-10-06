@@ -253,7 +253,6 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         positions = [visible.index(f"## {section}") for section in section_names]
         assert positions == sorted(positions)
         for predicate in (
-            "part_of",
             "consumes",
             "supplies",
             "presented_in_domain",
@@ -261,6 +260,11 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             "related_to_research_question",
         ):
             assert f"`{predicate}`" not in normal
+        if expected_type == "Component":
+            assert normal.index("### Structural navigation") < normal.index("### What this is")
+            assert "`part_of`" in normal
+        else:
+            assert "`part_of`" not in normal
         assert "Public Registry source commit" not in normal
         assert "- Public Registry source commit:" in identity_page_audit_text(visible)
         assert f"Stable ID: `{identity}`" in identity_page_audit_text(visible)
@@ -320,7 +324,8 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     ].split("### Subcomponents / go deeper", 1)[0]
     assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in related
     assert f"**Produces:** {views._identity_page_human_link(atlas, 'DAT-OBSERVATION')}" in related
-    assert "`part_of`" not in perception_summary
+    assert "### Structural navigation" in perception_summary
+    assert "`part_of`" in perception_summary
     assert "EVID-48-BUILDER" in identity_page_audit_text(perception)
 
     observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
@@ -1914,7 +1919,7 @@ def test_anatomy_component_landmarks_reach_preferred_pages_and_nested_graph(atla
         assert projected["link"] == projected["customData"]["navigation_target"]
         assert projected["text"] == action["text"]
     action = public_actions["evidence-memory"]
-    assert "OPEN MEMORY VIEW" in action["text"]
+    assert "OPEN EVIDENCE, MEMORY & RETRIEVAL" in action["text"]
     assert action["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
     private_slice = technical_projection.OWNED_ROOT / technical_projection.DOMAIN_SLICE
     assert private_by_id[action["id"]]["link"].startswith(f"[[{private_slice.with_suffix('')}|")
@@ -1992,7 +1997,9 @@ def test_multiple_parents_rename_removal_order_and_collision(monkeypatch):
     leaf = model(multi, "CMP-SYN-LEVEL-6")
     assert leaf.technical_parent_ids == ("CMP-SYN-LEVEL-4", "CMP-SYN-LEVEL-5")
     rendered = page(multi, leaf.subject.id)
-    assert rendered.count("→ Synthetic level 6") == 2
+    structural = rendered.split("### Structural navigation", 1)[1].split("### What this is", 1)[0]
+    assert structural.count("→ Synthetic level 6") == 2
+    assert identity_page_audit_text(rendered).count("→ Synthetic level 6") == 2
     shuffled = Atlas(
         dict(reversed(tuple(multi.entities.items()))), tuple(reversed(multi.relationships))
     )

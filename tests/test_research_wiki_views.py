@@ -505,7 +505,8 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "fd9928f0e5116b60151e145a5331d99419621caf34f09c15ee57b1b6b5977c34"
+    # #159 changes reader layout/Steering presentation; Registry schema remains 0.3.
+    assert tree_digest(tree) == "e6a303aff1f3325f2ac33383cf775c752fb763fe11b4f57c996cb09a56e27f52"
 
 
 def test_current_03_source_schema_propagates_through_private_views():

@@ -145,7 +145,7 @@ _REGION_CARDS: Mapping[str, tuple[str, str, tuple[int, int, int, int]]] = {
     "observation": ("OBSERVE", "Integrity + state", (78, 432, 465, 229)),
     "evidence-memory": ("RETAIN / RETRIEVE", "Evidence + memory", (78, 681, 465, 195)),
     "cognition": ("REASON", "Cognitive planning", (1572, 242, 465, 170)),
-    "executive": ("CONTRACT", "Executive control", (1572, 432, 465, 195)),
+    "executive": ("EXECUTIVE CONTROL", "Manager + bounded contracts", (1572, 432, 465, 195)),
     "action-safety": ("ACT", "Body + safe execution", (790, 902, 525, 129)),
     "verification": ("VERIFY", "Independent outcome check", (1572, 647, 465, 229)),
 }
@@ -178,8 +178,8 @@ _VISIBLE_LANDMARKS: Mapping[str, str] = {
 }
 _REGION_ACTION_LABELS: Mapping[str, str] = {
     "environment": "OPEN SCREEN CAPTURE  →",
-    "observation": "OPEN OBSERVE  →  Observe Assembly Scope",
-    "evidence-memory": "OPEN MEMORY VIEW  →",
+    "observation": "OPEN OBSERVE  →  Functional Context",
+    "evidence-memory": "OPEN EVIDENCE, MEMORY & RETRIEVAL  →",
     "cognition": "OPEN CORTEX  →",
     "executive": "OPEN MANAGER  →",
     "action-safety": "OPEN BODY  →",
@@ -405,7 +405,7 @@ def _region_navigation_link(atlas: Atlas, key: str, identities: tuple[str, ...])
         if key == "evidence-memory" and target == DOMAIN_SLICE_PATH:
             return f"[[{target.with_suffix('')}|Evidence, Memory & Retrieval]]"
         if key == "observation" and target == PUBLIC_OBSERVE_SCOPE_PATH:
-            return f"[[{target.with_suffix('')}|Observe Assembly Scope]]"
+            return f"[[{target.with_suffix('')}|Observe · Functional Context]]"
         raise ValueError("Agent Anatomy has an unsupported scoped navigation target")
     if target not in identities:
         raise ValueError("Agent Anatomy navigation target must be an accepted landmark")
@@ -599,6 +599,24 @@ def _encode_scene(
             "evidence or confidence."
         ),
         "",
+    ]
+    if surface == "agent-anatomy":
+        lines += [
+            "> [!info] Selective explanatory overview",
+            "> Selected roles and safety boundaries, not complete architecture, exact Function "
+            "membership or strict runtime order. Faint arrows are explanatory cues only.",
+            ">",
+            "> The optional bridge belongs to Acquire but is placed beside observation integrity. "
+            "PlannerOutput is a Cortex proposal contract. Replay Buffer belongs to Between Mission "
+            "Runs and also collects in-run experience. MemoryUpdateRequest is a Cortex proposal, "
+            "not a verified fact. These placements do not change Registry membership.",
+            ">",
+            "> Body remains frozen throughout a Mission Run, including Life Episode restarts. "
+            "Training, validation, certification and activation require an authorized future "
+            "protocol between Mission Runs. Presence here does not certify implementation.",
+            "",
+        ]
+    lines += [
         "%%",
         "# Excalidraw Data",
         "",
@@ -637,7 +655,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         _text_item("anatomy-title", "AGENT ANATOMY", 78, 20, 1000, size=45),
         _text_item(
             "anatomy-subtitle",
-            "One agent, opened for inspection",
+            "Selective explanatory overview · selected roles and safety boundaries",
             80,
             130,
             980,
@@ -662,13 +680,13 @@ def render_agent_anatomy(atlas: Atlas) -> str:
         ),
         _text_item(
             "navigation:home",
-            "←  MARKDOWN HOME / FALLBACK",
+            "←  HOME",
             1600,
             107,
             430,
             size=16,
             color="#426f7d",
-            link=f"[[{HOME_PATH.with_suffix('')}|Markdown Home / fallback]]",
+            link=f"[[{HOME_PATH.with_suffix('')}|Home]]",
             custom_data={"navigation": "research-home"},
         ),
     ]
@@ -751,6 +769,17 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     elements.extend(
         [
             _text_item(
+                "overview-qualification",
+                "Selected landmarks, not complete architecture, exact Function membership "
+                "or strict runtime order. Faint arrows are explanatory cues only. "
+                "Presence is not implementation evidence.",
+                82,
+                1037,
+                1940,
+                size=11,
+                color=_MUTED,
+            ),
+            _text_item(
                 "presentation-legend",
                 "Dashed guides: placement / optional · Solid bay arrows: Registry",
                 1495,
@@ -769,11 +798,21 @@ def render_agent_anatomy(atlas: Atlas) -> str:
             ),
             _text_item(
                 "between-boundary-subtitle",
-                "Train → certify → future activation",
+                "Authorized future learning only",
                 100,
                 1110,
                 500,
                 size=19,
+                color=_MUTED,
+            ),
+            _text_item(
+                "placement-qualifications",
+                "Explanatory placements:\nBridge: Acquire · Replay: Between Mission Runs\n"
+                "PlannerOutput / memory updates: Cortex proposals",
+                100,
+                1150,
+                480,
+                size=12,
                 color=_MUTED,
             ),
             _shape(
@@ -854,7 +893,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
     elements.append(
         _text_item(
             "navigation:workshop",
-            "OPEN WORKSHOP  →",
+            "OPEN SKILLTRAINER  →",
             1690,
             1082,
             300,
@@ -1067,10 +1106,7 @@ def render_domain_slice(atlas: Atlas) -> str:
     elements.extend(
         _navigation_button(
             "research-home-detail-navigation",
-            (
-                "Research Knowledge Home · Memory Retrieval Component Hub / "
-                "Technical Hierarchy / exact records"
-            ),
+            "Home",
             HOME_PATH,
             (500, 1240, 1150, 64),
         )
@@ -1091,10 +1127,7 @@ def render_domain_slice(atlas: Atlas) -> str:
         [
             _text_item(
                 "domain-markdown-fallback",
-                (
-                    "If Excalidraw is unavailable, use the Research Knowledge Home and linked "
-                    "Markdown technical records."
-                ),
+                ("If Excalidraw is unavailable, use Home and linked Markdown technical records."),
                 80,
                 1330,
                 1700,

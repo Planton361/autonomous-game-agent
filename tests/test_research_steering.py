@@ -290,10 +290,10 @@ def test_hidden_metadata_preserves_reviewed_reader_and_base_bytes(atlas):
     assert sum(line.startswith("| ---") for line in normal.splitlines()) == 3
     assert "\n".join(markdown_tables(values)) in normal
     assert "## Research Landscape" in secondary and secondary.endswith("</details>\n")
-    # #127 adds scoped Graph routes to the reader; freeze those accepted navigation
-    # bytes while retaining the unchanged three-view Base fingerprint.
+    # #159 puts scientific inventories before the secondary Graph catalog; freeze
+    # presentation bytes while retaining the unchanged three-view Base fingerprint.
     assert sha256(visible.encode()).hexdigest() == (
-        "0152f58f96ddbf8a7353a1b7b871a067a2c8aca54cf9bf39d1fc10913bf8fb74"
+        "7427e29a6cff56d41fef991027fcaa2a6cf215ba8bdc34af3d8ec32b9e4a2d6e"
     )
     assert sha256(base_output(values, views.BASE_OWNER)).hexdigest() == (
         "9cb3c65fc074343fa9b6f15aed27bd0f08624508d686a8b4ec9e0b6fb13af3ea"

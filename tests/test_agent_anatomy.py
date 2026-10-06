@@ -105,8 +105,9 @@ def test_w03_assets_are_finite_generated_and_navigable(atlas):
     assert home.index("Agent Anatomy") < home.index("System Anatomy")
     assert "Primary visual entry" in home and "Markdown Home" in home
     assert "comparison and rollback" in home
-    assert "Technical Hierarchy" in tree[DOMAIN_SLICE_PATH]
-    assert "Memory Retrieval Component Hub" in tree[DOMAIN_SLICE_PATH]
+    assert "|Home]]" in tree[DOMAIN_SLICE_PATH]
+    assert "Technical Hierarchy" not in tree[DOMAIN_SLICE_PATH]
+    assert "Component Hub" not in tree[DOMAIN_SLICE_PATH]
     validate_links(tree)
 
 
@@ -196,9 +197,8 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
                     destination = DERIVED_ROOT / preferred["FUNC-OBSERVE"].with_suffix("")
                     expected = f"[[{destination}|Observe · Functional Context]]"
                 else:
-                    expected = (
-                        f"[[{PUBLIC_OBSERVE_SCOPE_PATH.with_suffix('')}|Observe Assembly Scope]]"
-                    )
+                    target = PUBLIC_OBSERVE_SCOPE_PATH.with_suffix("")
+                    expected = f"[[{target}|Observe · Functional Context]]"
             else:
                 node = atlas.entities[identity]
                 expected = note_link(node)
@@ -249,7 +249,7 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
         for element in public["elements"]
         if element.get("customData", {}).get("navigation") == "observation"
     )
-    assert observe_action["text"] == "OPEN OBSERVE  →  Observe Assembly Scope"
+    assert observe_action["text"] == "OPEN OBSERVE  →  Functional Context"
     assert any(
         element.get("customData", {}).get("navigation") == "research-home"
         and element.get("link", "").startswith(f"[[{HOME_PATH.with_suffix('')}|")
@@ -399,8 +399,8 @@ def test_z2_frozen_obsidian_cards_show_exact_first_view_landmarks(atlas):
         ),
         "cognition": ("REASON", "Cognitive planning", ["Cortex", "Planner Output"]),
         "executive": (
-            "CONTRACT",
-            "Executive control",
+            "EXECUTIVE CONTROL",
+            "Manager + bounded contracts",
             ["Manager", "Manager Grounding", "Skill Contract"],
         ),
         "action-safety": (

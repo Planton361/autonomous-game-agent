@@ -4,6 +4,7 @@ The older renderers are pure intermediate representations and bounded migration
 readers. Only this package is written by the supported workspace harness.
 """
 
+import json
 import posixpath
 import re
 from dataclasses import dataclass
@@ -172,8 +173,87 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "|".join(re.escape(s) for s in sorted(replacements, key=lambda s: (-len(s), s)))
     )
 
+    hub_aux_paths = {views.OWNED_ROOT / path for path in hub_aux}
+    hub_overviews = {
+        views.OWNED_ROOT / paths.overview for paths in views.COMPONENT_HUB_PATHS.values()
+    }
+    raw_identities = {
+        routes[public.OWNED_ROOT / public.private_path(node)].with_suffix(""): identity
+        for identity, node in atlas.entities.items()
+    }
+
     def rewrite(data: bytes, source: PurePosixPath, destination: PurePosixPath) -> bytes:
         text = utf8(data)
+        if (
+            source.is_relative_to(views.OWNED_ROOT)
+            and source.relative_to(views.OWNED_ROOT) in page_ids
+        ):
+            # Retire primary pilot shortcuts before normalizing their old aliases.
+            text = re.sub(r"(?m)^.*Historical Memory pilot (?:profile|audit).*$", "", text)
+
+        def navigation(match: re.Match) -> str:
+            value, separator, label = match[1].partition("|")
+            escaped_separator = value.endswith("\\")
+            if escaped_separator:
+                value = value[:-1]
+            path, fragment, anchor = value.partition("#")
+            old_path = PurePosixPath(path)
+            if old_path not in routes:
+                old_path = PurePosixPath(path + ".md")
+            target = routes.get(old_path)
+            if target is None:
+                return match[0]
+            if old_path.is_relative_to(views.OWNED_ROOT / graph.SCOPES):
+                _, mode, *rest = old_path.relative_to(views.OWNED_ROOT / graph.SCOPES).parts
+                if rest in (["Graph Profile.md"], ["Edge Audit.md"]):
+                    anchor = MODES[mode]
+                    fragment = "#"
+                    if label in graph.MODES:
+                        label = MODES[label]
+                    if rest == ["Edge Audit.md"] and label == "Edge Audit / detail":
+                        label = anchor + " Edge Audit"
+            elif old_path.is_relative_to(views.OWNED_ROOT / graph.ROOT):
+                fragment, anchor = "#", MODES["architecture"]
+                label = (
+                    "Architecture Edge Audit"
+                    if old_path.name == "Edge Audit.md"
+                    else "Architecture Graph guide"
+                )
+            if target == HOME:
+                label = "Home"
+                fragment = anchor = ""
+            elif old_path == views.OWNED_ROOT / views.RESEARCH_LANDSCAPE:
+                label = "Research Steering"
+            elif old_path in hub_overviews and label in {
+                "Hub Overview",
+                "Open Overview",
+                "Back to Hub Overview",
+            }:
+                name = atlas.entities[page_ids[old_path.relative_to(views.OWNED_ROOT)]].name
+                label = ("Back to " if label.startswith("Back to ") else "") + name
+            elif old_path in hub_aux_paths:
+                label = "Consolidated detail audit"
+                fragment, anchor = "#", "Consolidated detail audit"
+            elif old_path.parent == views.OWNED_ROOT / views.TECHNICAL_DETAIL_ROOT:
+                if old_path.suffix == ".md":
+                    label = "Open " + atlas.entities[old_path.stem].name
+            route_text = str(
+                target.with_suffix("")
+                if old_path.suffix == ".md" and not path.endswith(".md")
+                else target
+            )
+            delimiter = "\\|" if escaped_separator else "|"
+            return (
+                "[["
+                + route_text
+                + fragment
+                + anchor
+                + (delimiter + label if separator else "")
+                + "]]"
+            )
+
+        # Navigation aliases/sections are rewritten separately from machine paths.
+        text = re.sub(r"\[\[([^\]]+)\]\]", navigation, text)
 
         # Relative authored routes are rebased, never rewritten at their masters.
         def markdown(match: re.Match) -> str:
@@ -191,6 +271,10 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
 
         text = re.sub(r"\]\(([^)\s]+)\)", markdown, text)
         text = pattern.sub(lambda m: replacements[m[0]], text)
+        text = text.replace(
+            "- [[Research Map Home|Home]]\n- [[Research Map Home|Home]]",
+            "- [[Research Map Home|Home]]",
+        )
         if destination.suffix == ".base":
             text = text.replace(
                 'file.inFolder("_generated/technical-atlas")',
@@ -205,6 +289,26 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         # Machine metadata must describe the final destination, too.
         for key in ("identity_page_path", "rq_page_path", "graph_path"):
             text = re.sub(r"(?m)^" + key + r": .*?$", key + ": " + str(destination), text)
+        if destination.suffix == ".canvas":
+            canvas = json.loads(text)
+
+            def card_link(match: re.Match) -> str:
+                identity = raw_identities.get(PurePosixPath(match[1]))
+                if identity is None:
+                    return match[0]
+                node = atlas.entities[identity]
+                if identity not in preferred:
+                    return f"[[{match[1]}|Evidence audit / provenance]]"
+                return (
+                    f"[[{preferred[identity].with_suffix('')}|{node.name}]]\n\n"
+                    "> [!info]- Registry audit\n"
+                    f"> [[{match[1]}|Raw Registry record]]"
+                )
+
+            for card in canvas["nodes"]:
+                if card["type"] == "text":
+                    card["text"] = re.sub(r"\[\[([^|]+)\|[^\]]+\]\]", card_link, card["text"])
+            text = json.dumps(canvas, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         return text.encode()
 
     files = {}
@@ -216,6 +320,14 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         owners[destination] = (
             public.OWNER if source.is_relative_to(public.OWNED_ROOT) else views.OWNER
         )
+
+    steering = PRODUCT / "Views/Research Steering.md"
+    files[steering] = re.sub(
+        r"(?ms)^## Graph navigation\n.*?(?=^## )",
+        "## Graph navigation\n\n"
+        "[[Research Map/Views/Graphs|Graphs — choose a Component and mode]]\n\n",
+        utf8(files[steering]),
+    ).encode()
 
     def add(path: PurePosixPath, body: str, owner: str = views.OWNER) -> None:
         if path in files:
@@ -256,6 +368,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
             extras = []
             for companion in companions:
                 body = markdown_parts(utf8(rewrite(old[companion], companion, page)))[1]
+                body = body.replace("*Component Hub ·", "*Component detail ·")
+                body = body.replace("Originating Component Hub(s)", "Originating Components")
                 extras += [
                     "> [!info]- Complete consolidated detail audit",
                     ">",
@@ -269,9 +383,10 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 "[[#Research|Research]] · [[#Sources & verification|Sources]]\n\n---\n",
                 1,
             )
-            text = re.sub(r"(?m)^.*Historical Memory pilot (?:profile|audit).*$", "", text)
             files[page] = (
-                text + "\n" + "\n".join(extras) + f"\n[[{HOME.with_suffix('')}|Return Home]]\n"
+                text
+                + ("\n## Consolidated detail audit\n\n" + "\n".join(extras) if extras else "")
+                + f"\n[[{HOME.with_suffix('')}|Return Home]]\n"
             ).encode()
 
     for identity, node in sorted(atlas.entities.items()):
@@ -283,24 +398,65 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
             f"# Graphs — {node.name}",
             f"[[{HOME.with_suffix('')}|Home]] · "
             f"[[{preferred[identity].with_suffix('')}|{node.name}]]",
+            " · ".join(f"[[#{title}|{title}]]" for title in MODES.values()),
         ]
         audit_sections = [
             f"# Edge Audit — {node.name}",
             "Effective identity: (Component, mode, directed pair). Modes never union.",
+            " · ".join(f"[[#{title}|{title}]]" for title in MODES.values()),
         ]
+        bodies: dict[str, dict[str, str]] = {}
         for mode, title in MODES.items():
             root = views.OWNED_ROOT / graph.scope_root(identity, mode)
-            for name, sections in (
-                ("Graph Profile.md", guide_sections),
-                ("Edge Audit.md", audit_sections),
-            ):
+            bodies[mode] = {}
+            for name in ("Graph Profile.md", "Edge Audit.md"):
                 source = root / name
                 body = markdown_parts(
                     utf8(
                         rewrite(old[source], source, guide if name == "Graph Profile.md" else audit)
                     )
                 )[1]
-                sections += [f"\n## {title}\n", re.sub(r"(?m)^(#+) ", r"##\1 ", body)]
+                body = re.sub(r"(?m)^# Knowledge Graph .*\n?", "", body, count=1)
+                body = body.replace("Domain/Function/Assembly", "Domain/Function")
+                body = body.replace(
+                    "Open Edge Audit.md in this folder for the complete Markdown fallback, "
+                    "inventory and inspection routes.",
+                    f"[[{audit.with_suffix('')}#{title}|{title} Edge Audit]] provides the "
+                    "complete Markdown fallback, inventory and inspection routes.",
+                )
+                body = body.replace(
+                    "Classes/exclusions and manual activation are in Graph Profile.md; "
+                    "only the two node folders enter the filters.",
+                    f"Classes/exclusions and manual activation are in "
+                    f"[[{guide.with_suffix('')}#{title}|the {title} guide section]]; "
+                    "only the two node folders enter the filters.",
+                )
+                bodies[mode][name] = body
+        # Factor only identical prose, never filters, tables, diagnostics or mode rows.
+        first_blocks = bodies["architecture"]["Graph Profile.md"].split("\n\n")
+        common = list(
+            dict.fromkeys(
+                block
+                for block in first_blocks
+                if block.strip()
+                and not block.startswith(("#", "```", "- ", "| "))
+                and not block.rstrip().endswith(":")
+                and "[[" not in block
+                and all(block in bodies[mode]["Graph Profile.md"].split("\n\n") for mode in MODES)
+            )
+        )
+        guide_sections += ["## Shared instructions", *common]
+        for mode, title in MODES.items():
+            profile = "\n\n".join(
+                block
+                for block in bodies[mode]["Graph Profile.md"].split("\n\n")
+                if block not in common
+            )
+            guide_sections += [f"\n## {title}\n", re.sub(r"(?m)^(#+) ", r"##\1 ", profile)]
+            audit_sections += [
+                f"\n## {title}\n",
+                re.sub(r"(?m)^(#+) ", r"##\1 ", bodies[mode]["Edge Audit.md"]),
+            ]
         add(guide, "\n\n".join(guide_sections))
         add(audit, "\n\n".join(audit_sections))
     add(
@@ -336,22 +492,24 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "Missing Research mappings imply no novelty, gap or completeness judgment.",
         "",
     ]
-    for kind in FAMILIES:
-        home += ["## " + kind, ""]
-        home += [
-            f"- [[{path.with_suffix('')}|{atlas.entities[i].name}]]"
-            for i, path in preferred.items()
-            if atlas.entities[i].type == kind
-        ]
-        home.append("")
-    home += ["## Views and secondary diagrams", ""]
+    system_paths = [p for i, p in preferred.items() if atlas.entities[i].type == "System"]
+    home += ["## Start here", ""]
     home += [
-        f"- [[{path.with_suffix('')}|{path.stem}]]"
+        f"- Explore technical composition: [[{p.with_suffix('')}|System]]" for p in system_paths
+    ]
+    home += [
+        "- Explore functional context: [[#Functions|Functions]]",
+        "- Read scientific inventories: [[Research Map/Views/Research Steering|Research Steering]]",
+        "- Inspect literature: [[Research Map/Views/Literature Inspection|Literature Inspection]]",
+        "- Inspect a Component Graph: [[Research Map/Views/Graphs|Graphs]]",
+        "- Learn navigation: [[Research Map/Guides/Using the Research Map|Using the Research Map]]",
+        "",
+        "## Secondary explanatory diagrams",
+        "",
+    ]
+    home += [
+        f"- [[{path.with_suffix('')}|{path.stem.removesuffix('.excalidraw')}]]"
         for path in (
-            PRODUCT / "Views/Research Steering.md",
-            PRODUCT / "Views/Literature Inspection.md",
-            PRODUCT / "Views/Graphs.md",
-            PRODUCT / "Guides/Using the Research Map.md",
             PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md",
             PRODUCT / "Diagrams/Evidence, Memory & Retrieval.excalidraw.md",
         )
@@ -369,6 +527,34 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "",
     ]
     home += [f"- [[{path}|{path.stem}]]" for path in sorted(files) if path.suffix == ".base"]
+    labels = {
+        "System": "System",
+        "Component": "Components",
+        "Function": "Functions",
+        "Interface": "Interfaces",
+        "Contract": "Contracts",
+        "DataArtifact": "Data Artifacts",
+        "MeasurementPoint": "Measurements",
+        "Environment": "Environments",
+        "ResearchQuestion": "Program Research Questions",
+        "ResearchThread": "Program Research Threads",
+        "Decision": "Project Decisions",
+    }
+    home += [
+        "",
+        "## Complete identity inventory",
+        "",
+        "Flat inventories below are not a hierarchy or a runtime sequence.",
+        "",
+    ]
+    for kind in FAMILIES:
+        home += [f"> [!info]- {labels[kind]}", ">", f"> ## {labels[kind]}", ">"]
+        home += [
+            f"> - [[{path.with_suffix('')}|{atlas.entities[i].name}]]"
+            for i, path in preferred.items()
+            if atlas.entities[i].type == kind
+        ]
+        home.append("")
     properties = markdown_parts(utf8(files[HOME]))[0]
     files[HOME] = ("---\n" + yaml_text(properties) + "---\n" + "\n".join(home) + "\n").encode()
 
