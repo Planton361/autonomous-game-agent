@@ -8,6 +8,7 @@ import json
 import posixpath
 import re
 from dataclasses import dataclass
+from functools import cache
 from pathlib import PurePosixPath
 from urllib.parse import quote, unquote, urlsplit
 
@@ -182,6 +183,64 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         for identity, node in atlas.entities.items()
     }
 
+    # Reuse pure link normalization only within this exact product build.
+    @cache
+    def navigation(link: str) -> str:
+        value, separator, label = link[2:-2].partition("|")
+        escaped_separator = value.endswith("\\")
+        if escaped_separator:
+            value = value[:-1]
+        path, fragment, anchor = value.partition("#")
+        old_path = PurePosixPath(path)
+        if old_path not in routes:
+            old_path = PurePosixPath(path + ".md")
+        target = routes.get(old_path)
+        if target is None:
+            return link
+        if old_path.is_relative_to(views.OWNED_ROOT / graph.SCOPES):
+            _, mode, *rest = old_path.relative_to(views.OWNED_ROOT / graph.SCOPES).parts
+            if rest in (["Graph Profile.md"], ["Edge Audit.md"]):
+                anchor = MODES[mode]
+                fragment = "#"
+                if label in graph.MODES:
+                    label = MODES[label]
+                if rest == ["Edge Audit.md"] and label == "Edge Audit / detail":
+                    label = anchor + " Edge Audit"
+        elif old_path.is_relative_to(views.OWNED_ROOT / graph.ROOT):
+            fragment, anchor = "#", MODES["architecture"]
+            label = (
+                "Architecture Edge Audit"
+                if old_path.name == "Edge Audit.md"
+                else "Architecture Graph guide"
+            )
+        if target == HOME:
+            label = "Home"
+            fragment = anchor = ""
+        elif old_path == views.OWNED_ROOT / views.RESEARCH_LANDSCAPE:
+            label = "Research Steering"
+        elif old_path in hub_overviews and label in {
+            "Hub Overview",
+            "Open Overview",
+            "Back to Hub Overview",
+        }:
+            name = atlas.entities[page_ids[old_path.relative_to(views.OWNED_ROOT)]].name
+            label = ("Back to " if label.startswith("Back to ") else "") + name
+        elif old_path in hub_aux_paths:
+            label = "Consolidated detail audit"
+            fragment, anchor = "#", "Consolidated detail audit"
+        elif old_path.parent == views.OWNED_ROOT / views.TECHNICAL_DETAIL_ROOT:
+            if old_path.suffix == ".md":
+                label = "Open " + atlas.entities[old_path.stem].name
+        route_text = str(
+            target.with_suffix("")
+            if old_path.suffix == ".md" and not path.endswith(".md")
+            else target
+        )
+        delimiter = "\\|" if escaped_separator else "|"
+        return (
+            "[[" + route_text + fragment + anchor + (delimiter + label if separator else "") + "]]"
+        )
+
     def rewrite(data: bytes, source: PurePosixPath, destination: PurePosixPath) -> bytes:
         text = utf8(data)
         if (
@@ -191,69 +250,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
             # Retire primary pilot shortcuts before normalizing their old aliases.
             text = re.sub(r"(?m)^.*Historical Memory pilot (?:profile|audit).*$", "", text)
 
-        def navigation(match: re.Match) -> str:
-            value, separator, label = match[1].partition("|")
-            escaped_separator = value.endswith("\\")
-            if escaped_separator:
-                value = value[:-1]
-            path, fragment, anchor = value.partition("#")
-            old_path = PurePosixPath(path)
-            if old_path not in routes:
-                old_path = PurePosixPath(path + ".md")
-            target = routes.get(old_path)
-            if target is None:
-                return match[0]
-            if old_path.is_relative_to(views.OWNED_ROOT / graph.SCOPES):
-                _, mode, *rest = old_path.relative_to(views.OWNED_ROOT / graph.SCOPES).parts
-                if rest in (["Graph Profile.md"], ["Edge Audit.md"]):
-                    anchor = MODES[mode]
-                    fragment = "#"
-                    if label in graph.MODES:
-                        label = MODES[label]
-                    if rest == ["Edge Audit.md"] and label == "Edge Audit / detail":
-                        label = anchor + " Edge Audit"
-            elif old_path.is_relative_to(views.OWNED_ROOT / graph.ROOT):
-                fragment, anchor = "#", MODES["architecture"]
-                label = (
-                    "Architecture Edge Audit"
-                    if old_path.name == "Edge Audit.md"
-                    else "Architecture Graph guide"
-                )
-            if target == HOME:
-                label = "Home"
-                fragment = anchor = ""
-            elif old_path == views.OWNED_ROOT / views.RESEARCH_LANDSCAPE:
-                label = "Research Steering"
-            elif old_path in hub_overviews and label in {
-                "Hub Overview",
-                "Open Overview",
-                "Back to Hub Overview",
-            }:
-                name = atlas.entities[page_ids[old_path.relative_to(views.OWNED_ROOT)]].name
-                label = ("Back to " if label.startswith("Back to ") else "") + name
-            elif old_path in hub_aux_paths:
-                label = "Consolidated detail audit"
-                fragment, anchor = "#", "Consolidated detail audit"
-            elif old_path.parent == views.OWNED_ROOT / views.TECHNICAL_DETAIL_ROOT:
-                if old_path.suffix == ".md":
-                    label = "Open " + atlas.entities[old_path.stem].name
-            route_text = str(
-                target.with_suffix("")
-                if old_path.suffix == ".md" and not path.endswith(".md")
-                else target
-            )
-            delimiter = "\\|" if escaped_separator else "|"
-            return (
-                "[["
-                + route_text
-                + fragment
-                + anchor
-                + (delimiter + label if separator else "")
-                + "]]"
-            )
-
         # Navigation aliases/sections are rewritten separately from machine paths.
-        text = re.sub(r"\[\[([^\]]+)\]\]", navigation, text)
+        text = re.sub(r"\[\[([^\]]+)\]\]", lambda match: navigation(match[0]), text)
 
         # Relative authored routes are rebased, never rewritten at their masters.
         def markdown(match: re.Match) -> str:
