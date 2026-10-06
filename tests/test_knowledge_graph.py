@@ -397,10 +397,10 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
         assert views.digest((vault / path).read_bytes()) == data
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     before = filesystem_state(vault)
-    checked = workspace.check(repo, vault)
-    assert checked.source_commit == sha
-    # Real harness returns these stages only after both actual projector checks pass.
-    assert checked.stages == ("technical projection check", "direct views check")
+    # The final harness rejects a legacy tree without writing; legacy-only
+    # renderer parity is checked before the supported global migration below.
+    with pytest.raises(workspace.WorkspaceError, match="drift"):
+        workspace.check(repo, vault)
     # Preserve exact migrated output parity without repeating the full direct check.
     assert {path: (vault / views.OWNED_ROOT / path).read_bytes() for path in migrated} == migrated
     assert filesystem_state(vault) == before
@@ -422,6 +422,11 @@ def test_generated_ownership_migration_zero_write_and_edited_rejection(
         views.project(repo, vault, sha)
     assert filesystem_state(vault) == before
     assert settings.read_text() == '{"operator": "untouched"}'
+    unowned.unlink()
+    workspace.apply(repo, vault)
+    checked = workspace.check(repo, vault)
+    assert checked.source_commit == sha
+    assert checked.stages == ("Research Map check",)
 
 
 @pytest.mark.parametrize(

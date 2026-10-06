@@ -1,5 +1,11 @@
 # Research intake and maintenance
 
+Current generated routes and supported global ownership migration are specified in
+[Final Research Map](Final%20Research%20Map.md) (#159, accepted #158 target).
+Older path/pipeline descriptions below are retained as implementation history;
+the final operator workflow supersedes those presentation routes. Actual-vault
+migration still requires CONTROL exact-head review and separate G6 authorization.
+
 This is the bounded #128 operator workflow, not authorization to perform Research.
 Use a separately authorized Research contract for each specialist investigation:
 

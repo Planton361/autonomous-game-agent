@@ -439,6 +439,7 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     )
 
     from fh_agent.research_atlas import private_projection as technical
+    from fh_agent.research_atlas.preferred_paths import PRODUCT
     from fh_agent.research_atlas.source_resolution import CATALOG_INPUT
     from fh_agent.research_atlas.workspace_harness import apply, check
 
@@ -478,18 +479,17 @@ def test_owned_rq_migration_body_independence_and_zero_write(
         str(technical.OWNED_ROOT),
         str(views.OWNED_ROOT),
     }
-    # Real apply returns these stages only after both actual projector checks pass.
     assert migrated.stages == (
-        "technical projection preflight",
-        "direct views preflight",
+        "global preflight",
         "restore point",
-        "technical projection",
-        "direct views",
-        "technical projection check",
-        "direct views check",
+        "replacement verification",
+        "legacy retirement",
+        "owner manifests",
+        "Research Map check",
     )
     assert all(p.read_bytes() == payload for p, payload in authored_before.items())
-    page = root / views.rq_page_paths(records)[records[0].wiki_id]
+    root = vault / PRODUCT / "Research/Question Readers"
+    page = root / views.rq_page_paths(records)[records[0].wiki_id].name
     original = page.read_bytes()
     # Body-only changes are not scientific inputs and cannot change generated science.
     note = vault / "authored" / (records[0].wiki_id + ".md")
@@ -497,17 +497,17 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     before = filesystem_state(vault)
     checked = check(repo, vault)
     assert checked.source_commit == sha
-    assert checked.stages == ("technical projection check", "direct views check")
+    assert checked.stages == ("Research Map check",)
     assert filesystem_state(vault) == before
     assert page.read_bytes() == original and b"BODY-ONLY" not in original
     before = filesystem_state(vault)
     page.write_bytes(original + b"\nEdited generated science\n")
     edited = filesystem_state(vault)
-    with pytest.raises(ValueError, match="RQ page was edited"):
+    with pytest.raises(ValueError, match="Owned content was edited"):
         check(repo, vault)
     assert filesystem_state(vault) == edited
     page.write_bytes(original)
-    unknown = root / "research-questions/WRQ-UNOWNED.md"
+    unknown = root / "WRQ-UNOWNED.md"
     unknown.write_bytes(original)
     edited = filesystem_state(vault)
     with pytest.raises(ValueError, match="Unknown/unowned"):
@@ -516,13 +516,20 @@ def test_owned_rq_migration_body_independence_and_zero_write(
     unknown.unlink()
     assert page.read_bytes() == original
     # Historical manifests cannot adopt even correctly named unmanifested RQ files.
-    data = yaml.safe_load((root / views.MANIFEST).read_bytes())
-    remove_graph_payloads(vault, data)
-    data["view_schema_version"] = "2.14"
-    data["presentation_fingerprint_version"] = "1.0"
-    (root / views.MANIFEST).write_text(technical.yaml_text(data))
+    data = yaml.safe_load((migrated.restore_point / views.OWNED_ROOT / views.MANIFEST).read_bytes())
+    data["owned_files"].append(
+        dict(
+            path=str(views.rq_page_paths(records)[records[0].wiki_id]),
+            sha256=views.digest(original),
+            ownership=views.STRICT_OWNERSHIP,
+        )
+    )
+    invalid_root = tmp_path / "invalid-historical-manifest"
+    manifest_path = invalid_root / views.MANIFEST
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(technical.yaml_text(data))
     with pytest.raises(ValueError, match="Historical manifest cannot own RQ"):
-        views.validate_prior(root)
+        views.validate_prior(invalid_root)
 
 
 def test_sparse_provisional_conclusion_and_no_automatic_successor(atlas):

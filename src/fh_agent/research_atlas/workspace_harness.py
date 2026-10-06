@@ -6,11 +6,12 @@ import json
 import os
 import shutil
 import subprocess
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from . import product_migration
+from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
     OWNED_ROOT as TECHNICAL_ROOT,
 )
@@ -21,9 +22,6 @@ from .private_projection import (
     source_state,
     validate_private_vault,
 )
-from .private_projection import (
-    project as technical_project,
-)
 from .private_views import (
     OWNED_ROOT as DERIVED_ROOT,
 )
@@ -33,15 +31,15 @@ from .private_views import (
 from .private_views import (
     git as views_git,
 )
-from .private_views import (
-    project as views_project,
-)
 
 PRIVATE_VAULT_ENV = "PRIVATE_VAULT"
 DEFAULT_RESTORE_DIRECTORY = ".research-wiki-restore-points"
 RESTORED_ROOTS = (
     TECHNICAL_ROOT,
     DERIVED_ROOT,
+    PRODUCT,
+    INTERNAL,
+    HOME,
 )
 EXPECTED_ORIGIN_URLS = frozenset(
     {
@@ -186,9 +184,14 @@ def create_restore_point(
     try:
         for relative in RESTORED_ROOTS:
             source = context.vault_root / relative
-            inspect_owned(source)
+            no_symlink_boundary(source)
+            if relative != HOME:
+                inspect_owned(source)
             if source.exists():
-                shutil.copytree(source, point / relative, copy_function=shutil.copy2)
+                if relative == HOME:
+                    shutil.copy2(source, point / relative)
+                else:
+                    shutil.copytree(source, point / relative, copy_function=shutil.copy2)
                 present_roots.append(str(relative))
         (point / "restore-point.json").write_text(
             json.dumps(
@@ -207,95 +210,164 @@ def create_restore_point(
     return point
 
 
-def _run_projector(
-    stage: str,
-    projector: Callable[..., object],
-    context: WorkspaceContext,
-    *,
-    check: bool,
-    preflight: bool = False,
-    restore_point: Path | None,
-) -> None:
-    try:
-        projector(
-            context.repo_root,
-            context.vault_root,
-            context.source_commit,
-            check=check,
-            preflight=preflight,
-        )
-    except (OSError, UnicodeError, ProjectionError) as exc:
-        message = f"{stage} failed: {exc}"
-        if restore_point is not None:
-            message += f"; restore point: {restore_point}"
-        raise WorkspaceError(message) from exc
-
-
 def apply(
     repo_root: Path,
     vault_root: Path | None = None,
     restore_root: Path | None = None,
 ) -> WorkspaceResult:
-    """Preflight both roots, then apply both projections and both zero-write checks."""
+    """Preflight the complete old/new inventory before restore point or mutation."""
     context = resolve_context(repo_root, vault_root)
-    _run_projector(
-        "technical projection preflight",
-        technical_project,
-        context,
-        check=False,
-        preflight=True,
-        restore_point=None,
-    )
-    _run_projector(
-        "direct views preflight",
-        views_project,
-        context,
-        check=False,
-        preflight=True,
-        restore_point=None,
-    )
+    try:
+        tree, actual = product_migration.preflight(
+            context.repo_root, context.vault_root, context.source_commit
+        )
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise WorkspaceError(f"Research Map preflight failed: {exc}") from exc
     restore_point = create_restore_point(context, restore_root)
-    _run_projector(
-        "technical projection",
-        technical_project,
-        context,
-        check=False,
-        restore_point=restore_point,
-    )
-    _run_projector("direct views", views_project, context, check=False, restore_point=restore_point)
-    _run_projector(
-        "technical projection check",
-        technical_project,
-        context,
-        check=True,
-        restore_point=restore_point,
-    )
-    _run_projector(
-        "direct views check", views_project, context, check=True, restore_point=restore_point
-    )
+    # External receipts support explicit recovery without adopting interrupted output.
+    plan = {
+        "source_commit": context.source_commit,
+        "before": {
+            str(p): product_migration.digest((context.vault_root / p).read_bytes()) for p in actual
+        },
+        "after": {str(p): product_migration.digest(data) for p, data in tree.files.items()},
+    }
+    (restore_point / "migration-plan.json").write_text(json.dumps(plan, sort_keys=True) + "\n")
+    try:
+        product_migration.apply(context.vault_root, tree, actual)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise WorkspaceError(
+            f"Research Map migration failed: {exc}; restore point: {restore_point}"
+        ) from exc
     return WorkspaceResult(
         context.source_commit,
         (
-            "technical projection preflight",
-            "direct views preflight",
+            "global preflight",
             "restore point",
-            "technical projection",
-            "direct views",
-            "technical projection check",
-            "direct views check",
+            "replacement verification",
+            "legacy retirement",
+            "owner manifests",
+            "Research Map check",
         ),
         restore_point,
     )
 
 
 def check(repo_root: Path, vault_root: Path | None = None) -> WorkspaceResult:
-    """Run both existing projector checks without creating any local workspace artifacts."""
+    """Read-only exact inventory/content check; never creates restore points."""
     context = resolve_context(repo_root, vault_root)
-    _run_projector(
-        "technical projection check", technical_project, context, check=True, restore_point=None
-    )
-    _run_projector("direct views check", views_project, context, check=True, restore_point=None)
+    try:
+        tree, _ = product_migration.preflight(
+            context.repo_root, context.vault_root, context.source_commit
+        )
+        product_migration.verify(context.vault_root, tree)
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise WorkspaceError(f"Research Map check failed: {exc}") from exc
+    return WorkspaceResult(context.source_commit, ("Research Map check",))
+
+
+def recover(repo_root: Path, vault_root: Path, restore_point: Path) -> WorkspaceResult:
+    """Explicit bounded recovery from an external receipt; edited output fails closed."""
+    context = resolve_context(repo_root, vault_root)
+    point = restore_point.absolute()
+    try:
+        no_symlink_boundary(point)
+        if point.resolve().is_relative_to(context.vault_root) or point.resolve().is_relative_to(
+            context.repo_root
+        ):
+            raise WorkspaceError("Recovery point must be external")
+        plan = json.loads((point / "migration-plan.json").read_text())
+        if (
+            set(plan) != {"source_commit", "before", "after"}
+            or plan["source_commit"] != context.source_commit
+        ):
+            raise WorkspaceError("Recovery receipt does not match exact source head")
+        expected = product_migration.build(
+            context.repo_root, context.vault_root, context.source_commit
+        )
+        expected_digests = {
+            str(p): product_migration.digest(data) for p, data in expected.files.items()
+        }
+        if plan["after"] != expected_digests:
+            raise WorkspaceError("Recovery receipt does not match current frozen inputs/output")
+        snapshot_files = product_migration._actual(point.resolve())
+        snapshot_owners = product_migration._legacy(point.resolve()) | product_migration._current(
+            point.resolve()
+        )
+        if {str(p) for p in snapshot_files} != set(
+            plan["before"]
+        ) or snapshot_files - snapshot_owners.keys():
+            raise WorkspaceError("Recovery snapshot inventory is unowned or corrupt")
+        for relative in snapshot_files:
+            row = snapshot_owners[relative]
+            data = (point / relative).read_bytes()
+            semantic_base = relative.suffix == ".base" and row.get("semantic_sha256")
+            if not semantic_base and not product_migration._owner(data, relative, row["owner"]):
+                raise WorkspaceError("Recovery snapshot lost owner marker")
+            if semantic_base:
+                intact = (
+                    product_migration.views._base_semantic_digest(data) == row["semantic_sha256"]
+                )
+            else:
+                intact = product_migration.digest(data) == row["sha256"]
+            if not intact:
+                raise WorkspaceError("Recovery snapshot ownership digest is corrupt")
+        paths = set(plan["before"]) | set(plan["after"])
+        product_migration.validate_portable_paths(paths)
+        before = {Path(p): value for p, value in plan["before"].items()}
+        allowed = set(product_migration._actual(context.vault_root))
+        if {str(p) for p in allowed} - paths:
+            raise WorkspaceError("Recovery encountered unowned output")
+        for path in paths:
+            relative = product_migration.PurePosixPath(path)
+            if not (
+                relative == HOME
+                or any(relative.is_relative_to(root) for root in product_migration.ROOTS)
+            ):
+                raise WorkspaceError("Recovery receipt escapes generated boundaries")
+            target = product_migration.target_path(context.vault_root, relative)
+            if target.exists() and (
+                not target.is_file()
+                or product_migration.digest(target.read_bytes())
+                not in {plan["before"].get(path), plan["after"].get(path)}
+            ):
+                raise WorkspaceError("Recovery output was edited or collided")
+            if Path(path) in before:
+                backup = product_migration.target_path(point.resolve(), relative)
+                if (
+                    not backup.is_file()
+                    or product_migration.digest(backup.read_bytes()) != before[Path(path)]
+                ):
+                    raise WorkspaceError("Recovery snapshot is corrupt")
+        # Preserve original manifests last, just as on forward migration.
+        manifests = {
+            TECHNICAL_ROOT / "manifest/projection.yaml",
+            DERIVED_ROOT / "manifest/direct-views.yaml",
+            *product_migration.MANIFESTS.values(),
+        }
+        for path in sorted(plan["before"]):
+            relative = product_migration.PurePosixPath(path)
+            if relative not in manifests:
+                product_migration.atomic_write(
+                    context.vault_root, relative, (point / relative).read_bytes()
+                )
+        for path in allowed:
+            if str(path) not in plan["before"]:
+                product_migration.target_path(context.vault_root, path).unlink()
+        for path in sorted(plan["before"]):
+            relative = product_migration.PurePosixPath(path)
+            if relative in manifests:
+                product_migration.atomic_write(
+                    context.vault_root, relative, (point / relative).read_bytes()
+                )
+        restored = {
+            str(p): product_migration.digest((context.vault_root / p).read_bytes())
+            for p in product_migration._actual(context.vault_root)
+        }
+        if restored != plan["before"]:
+            raise WorkspaceError("Recovery verification failed")
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
+        raise WorkspaceError(f"Recovery failed closed: {exc}") from exc
     return WorkspaceResult(
-        context.source_commit,
-        ("technical projection check", "direct views check"),
+        context.source_commit, ("external receipt validation", "generated recovery"), point
     )

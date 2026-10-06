@@ -1,5 +1,11 @@
 # Bounded native Knowledge Graph — scoped Component profiles
 
+Current generated routes and supported global ownership migration are specified in
+[Final Research Map](Final%20Research%20Map.md) (#159, accepted #158 target).
+Older path/pipeline descriptions below are retained as implementation history;
+the final operator workflow supersedes those presentation routes. Actual-vault
+migration still requires CONTROL exact-head review and separate G6 authorization.
+
 ## Current #127 profile contract
 
 Native Obsidian Graph remains the only renderer. The primary orientation is the

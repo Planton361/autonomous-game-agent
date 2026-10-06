@@ -124,7 +124,7 @@ def workspace_apply(
         ),
     ] = None,
 ) -> None:
-    """Apply both projectors, then validate both generated roots at one exact HEAD."""
+    """Migrate the generated Research Map and validate its exact final inventory."""
     try:
         _workspace_result(workspace.apply(repo_root or Path.cwd(), vault_root, restore_root))
     except workspace.WorkspaceError as exc:
@@ -143,11 +143,25 @@ def workspace_check(
         typer.Option("--repo-root", help="Repository worktree root."),
     ] = None,
 ) -> None:
-    """Run both projector checks without writing workspace bytes or a restore point."""
+    """Check the final Research Map without writes or a restore point."""
     try:
         _workspace_result(workspace.check(repo_root or Path.cwd(), vault_root))
     except workspace.WorkspaceError as exc:
         typer.echo(f"workspace check: {exc}", err=True)
+        raise typer.Exit(2) from exc
+
+
+@workspace_app.command("recover")
+def workspace_recover(
+    restore_point: Annotated[Path, typer.Option("--restore-point", help="Exact external receipt.")],
+    vault_root: Annotated[Path, typer.Option("--vault-root", help="Marked private vault root.")],
+    repo_root: Annotated[Path | None, typer.Option("--repo-root")] = None,
+) -> None:
+    """Restore generated state from an intact external migration receipt."""
+    try:
+        _workspace_result(workspace.recover(repo_root or Path.cwd(), vault_root, restore_point))
+    except workspace.WorkspaceError as exc:
+        typer.echo(f"workspace recover: {exc}", err=True)
         raise typer.Exit(2) from exc
 
 

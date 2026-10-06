@@ -4702,7 +4702,12 @@ def authored_snapshot(
             directories[:] = sorted(
                 name
                 for name in directories
-                if Path(parent) / name != vault / "_generated"
+                if Path(parent) / name
+                not in {
+                    vault / "_generated",
+                    vault / "Research Map",
+                    vault / "_Research Map Internals",
+                }
                 and not (Path(parent) / name).is_symlink()
             )
             for name in sorted(names):
@@ -5061,6 +5066,8 @@ def project(
     check: bool = False,
     preflight: bool = False,
 ) -> dict[PurePosixPath, bytes]:
+    if (vault_root / "Research Map Home.md").exists():
+        raise ProjectionError("Final Research Map uses the global workspace harness")
     if check and preflight:
         raise ProjectionError("Preflight and exact check are separate modes")
     # RA-1 performs all topology/marker/Git/Atlas/RA-2 checks, strictly without writes.

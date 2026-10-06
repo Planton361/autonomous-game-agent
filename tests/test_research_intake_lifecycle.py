@@ -10,9 +10,9 @@ from test_research_wiki_projection import filesystem_state
 from test_workspace_harness import setup  # noqa: F401,F811
 
 from fh_agent.research_atlas import private_projection as technical
-from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import research_intake as intake
 from fh_agent.research_atlas import workspace_harness as workspace
+from fh_agent.research_atlas.preferred_paths import INTERNAL, PRODUCT
 from fh_agent.research_atlas.validator import load_registry
 
 
@@ -50,12 +50,12 @@ def test_intake_validate_render_inspect_idempotent_zero_write_authored_protectio
     workspace.check(repo, vault)
     assert filesystem_state(vault) == refreshed
     if populated:
-        page = next((vault / views.OWNED_ROOT / "research-questions").glob("*.md")).read_text()
+        page = next((vault / PRODUCT / "Research/Question Readers").glob("*.md")).read_text()
         assert "Recovery under missing observations" in page
         assert "Checked version 1" in page and "srcv-cedar1" in page
         assert (vault / "intake/READ-CEDAR.md").read_bytes() == before["intake/READ-CEDAR.md"][3]
     else:
-        assert not list((vault / views.OWNED_ROOT / "research-questions").glob("*.md"))
+        assert not list((vault / PRODUCT / "Research/Question Readers").glob("*.md"))
 
 
 def test_cli_invalid_reference_zero_write_and_owner_loss_no_overwrite(setup, capsys):
@@ -80,7 +80,7 @@ def test_cli_invalid_reference_zero_write_and_owner_loss_no_overwrite(setup, cap
     data[0]["search_refs"] = []
     write_records(vault, data)
     workspace.apply(repo, vault)
-    page = next((vault / views.OWNED_ROOT / "research-questions").glob("*.md"))
+    page = next((vault / PRODUCT / "Research/Question Readers").glob("*.md"))
     page.write_text(page.read_text().replace("research-wiki-derived", "owner-lost"))
     protected = filesystem_state(vault)
     assert intake.main(args + ["--check-generated"]) == 2
@@ -94,9 +94,9 @@ def test_cli_invalid_reference_zero_write_and_owner_loss_no_overwrite(setup, cap
 def test_prior_index_owner_loss_fail_closed_zero_write(setup):
     repo, vault, _ = setup
     workspace.apply(repo, vault)
-    path = vault / technical.OWNED_ROOT / technical.INDEX
+    path = vault / INTERNAL / "Indexes/atlas-id-index.yaml"
     path.write_text(path.read_text().replace(technical.OWNER, "lost-owner"))
     before = filesystem_state(vault)
-    with pytest.raises(technical.ProjectionError, match="owner marker lost"):
+    with pytest.raises(technical.ProjectionError, match="edited or unowned"):
         intake.previous_subjects(vault)
     assert filesystem_state(vault) == before

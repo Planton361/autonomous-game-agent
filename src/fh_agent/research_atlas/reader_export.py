@@ -7,8 +7,10 @@ import sys
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
-from .private_projection import ProjectionError, no_symlink_boundary, validate_private_vault
+from .preferred_paths import PRODUCT
+from .private_projection import ProjectionError, digest, no_symlink_boundary, validate_private_vault
 from .private_views import OWNED_ROOT, _identity_page_generated_metadata, reader_export
+from .product_migration import _current
 from .rq_presentation import rq_metadata
 
 
@@ -42,18 +44,30 @@ def export_reader(repo: Path, vault: Path, page: PurePosixPath, output: PurePosi
         if relative.is_absolute() or ".." in relative.parts or "\\" in str(relative):
             raise ProjectionError("Reader paths must be vault-relative")
         no_symlink_boundary(root / relative)
-    if not page.is_relative_to(OWNED_ROOT):
+    if not (page.is_relative_to(OWNED_ROOT) or page.is_relative_to(PRODUCT)):
         raise ProjectionError("Reader source must be a generated preferred page")
     if not output.is_relative_to(PurePosixPath("reader-exports")) or output.suffix != ".md":
         raise ProjectionError("Reader output must be private reader-exports/*.md")
     source = root / page
     payload = source.read_bytes()
-    relative = page.relative_to(OWNED_ROOT)
-    if not (
-        _identity_page_generated_metadata(payload.decode(), relative)
-        or rq_metadata(payload.decode(), relative)
-    ):
-        raise ProjectionError("Reader source must have valid generated Identity Page ownership")
+    if page.is_relative_to(PRODUCT):
+        row = _current(root).get(page)
+        if (
+            row is None
+            or row["owner"] != "research-wiki-derived"
+            or digest(payload) != row["sha256"]
+        ):
+            raise ProjectionError("Reader source must have intact manifested ownership")
+        text = payload.decode()
+        if not ("identity_page_path: " + str(page) in text or "rq_page_path: " + str(page) in text):
+            raise ProjectionError("Reader source must be a technical preferred page or RQ Reader")
+    else:
+        relative = page.relative_to(OWNED_ROOT)
+        if not (
+            _identity_page_generated_metadata(payload.decode(), relative)
+            or rq_metadata(payload.decode(), relative)
+        ):
+            raise ProjectionError("Reader source must have valid generated Identity Page ownership")
     destination = root / output
     if destination.exists():
         raise ProjectionError("Reader output already exists; select a new derivative filename")
