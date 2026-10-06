@@ -12,12 +12,13 @@ from projection_test_cache import cached_full_projections  # noqa: F401
 from rq_reader_fixtures import fictional_records
 from test_research_wiki_projection import filesystem_state, snapshot, write_note
 
+from fh_agent.research_atlas import final_projection
 from fh_agent.research_atlas import knowledge_graph as graph
 from fh_agent.research_atlas import private_projection as public
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import product_migration as migration
 from fh_agent.research_atlas import workspace_harness as workspace
-from fh_agent.research_atlas.final_projection import MANIFESTS, MODES, package
+from fh_agent.research_atlas.final_projection import MANIFESTS, MODES, ProductTree, package
 from fh_agent.research_atlas.preferred_paths import HOME, INTERNAL, PRODUCT, preferred_paths
 from fh_agent.research_atlas.private_projection import ProjectionError, markdown_parts, read_yaml
 from fh_agent.research_atlas.private_reference_index import build_index, make_snapshot
@@ -31,8 +32,50 @@ COMMIT = "a" * 40
 
 
 @pytest.fixture
-def workspace_setup(tmp_path):
+def workspace_setup(tmp_path, monkeypatch):
+    # Identical synthetic source bytes have one reproducible Git identity. This
+    # enables content-keyed pure reuse without caching any filesystem validation.
+    monkeypatch.setenv("GIT_AUTHOR_DATE", "2026-09-01T00:00:00+00:00")
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-09-01T00:00:00+00:00")
     return harness_fixtures.setup.__wrapped__(tmp_path)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cached_pure_packaging():
+    """Reuse immutable renders by complete content/order keys; all I/O stays live."""
+    technical_render = public.projection_tree
+    final_render = package
+    technical_cache = {}
+    final_cache = {}
+
+    def atlas_key(atlas):
+        return (
+            atlas.source_atlas_schema,
+            tuple((identity, node.model_dump_json()) for identity, node in atlas.entities.items()),
+            tuple(edge.model_dump_json() for edge in atlas.relationships),
+        )
+
+    def technical(atlas, commit, digests):
+        key = (atlas_key(atlas), commit, tuple(digests.items()))
+        if key not in technical_cache:
+            technical_cache[key] = technical_render(atlas, commit, digests)
+        return dict(technical_cache[key])
+
+    def final(atlas, technical, derived):
+        # Include byte content and original ordering. Reordered/changed inputs
+        # exercise the real renderer independently; no pickle is loaded/executed.
+        key = (atlas_key(atlas), tuple(technical.items()), tuple(derived.items()))
+        if key not in final_cache:
+            final_cache[key] = final_render(atlas, technical, derived)
+        result = final_cache[key]
+        return ProductTree(dict(result.files), dict(result.owners), dict(result.routes))
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(public, "projection_tree", technical)
+        patch.setattr(final_projection, "package", final)
+        patch.setattr(migration, "package", final)
+        patch.setitem(globals(), "package", final)
+        yield
 
 
 @pytest.fixture(scope="module")

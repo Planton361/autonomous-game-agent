@@ -58,4 +58,3 @@
 1 tests/test_input_executor_safety.py
 1 tests/test_ui_state.py
 0 tests/test_research_intake.py
-0 tests/test_final_research_map.py
