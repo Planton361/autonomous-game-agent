@@ -143,9 +143,9 @@ jobs:
           {
             echo '### Required validate timing'
             printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
-            echo '- Budget: `<= 60000 ms`'
+            echo '- Budget: `<= 120000 ms`'
           } >> "$GITHUB_STEP_SUMMARY"
-          test "$elapsed_ms" -le 60000
+          test "$elapsed_ms" -le 120000
 
   research-map-migration:
     name: research-map-migration
@@ -191,6 +191,6 @@ jobs:
           {
             echo '### Research Map migration acceptance timing'
             printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
-            echo '- Budget: `<= 60000 ms`'
+            echo '- Budget: `<= 120000 ms`'
           } >> "$GITHUB_STEP_SUMMARY"
-          test "$elapsed_ms" -le 60000
+          test "$elapsed_ms" -le 120000

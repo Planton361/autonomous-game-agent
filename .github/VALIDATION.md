@@ -7,6 +7,16 @@ tests listed in [`fast-tests.txt`](fast-tests.txt). The workflow rejects an empt
 invalid manifest, and `tests/test_validation_manifest.py` protects the required
 core-contract entries.
 
+The [Program Owner decision recorded in PR #160 comment 6045191818](https://github.com/Planton361/autonomous-game-agent/pull/160#issuecomment-6045191818)
+supersedes the historical 60,000 ms target from #80. Both automatic jobs in
+`validate.yml`, `validate` and `research-map-migration`, now enforce
+`<= 120000 ms`, including setup and their complete existing validation steps.
+Both fail if that measured interval exceeds the budget; their five-minute job
+timeouts remain unchanged. This is an operational budget amendment, not a runtime
+optimization. Timer scope, required coverage, two concurrent serial whole-file
+shards, migration's two-worker acceptance and manual-only `validate-full` remain
+unchanged.
+
 The fast tier proves that the merge candidate satisfies the repository hygiene checks,
 CLI import surface, and selected high-signal safety, no-spoiler, Manager/Cortex/Body
 boundary, evidence, verifier, and project-control contracts. It does not claim that the
@@ -23,7 +33,7 @@ The exhaustive job has a 45-minute timeout. Issue #152's restored serial suite
 passed locally but reached the Zotero lifecycle module at approximately 73% on
 GitHub before the former 30-minute job timeout canceled it. This timeout gives
 the complete serial suite time to finish; it does not change test selection or
-the required `validate` workflow's enforced `<= 60000 ms` budget.
+the required `validate` workflow's enforced `<= 120000 ms` budget.
 
 Locally, the full suite remains:
 
@@ -52,7 +62,7 @@ both logs are printed. Any non-zero shard exit makes the required test step fail
 
 `pytest-xdist` remains installed and locked, but it is no longer the scheduler
 used by required `validate`. The complete suite and `validate-full` remain serial.
-The validation timer start/end and enforced `<= 60000 ms` gate remain unchanged.
+The validation timer start/end remain unchanged; the enforced gate is `<= 120000 ms`.
 
 From the repository root, reproduce the current required test step by executing
 its committed workflow script. This uses the same manifest validation, static
@@ -87,7 +97,8 @@ passed in 11.41s (`real 16.31s`) and 2,557 tracked tests passed in 422.47s (`rea
 
 ## Bounded reuse in projection acceptance tests
 
-Issue #150 retains the required manifest, timing scope and 60,000 ms gate.
+Issue #150 retained the required manifest, timing scope and then-current 60,000 ms
+gate; only that budget is superseded by the Program Owner decision above.
 The module-scoped `cached_full_projections` fixture also reuses identical pure
 YAML parsing/serialization within that module. `tests/yaml_test_cache.py` keys
 parsing by complete text/bytes, input type, supported loader identity and its

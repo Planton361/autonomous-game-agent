@@ -56,7 +56,7 @@ def test_required_shards_are_a_complete_disjoint_two_way_partition() -> None:
     assert set(assigned) == set(_manifest_paths())
 
 
-def test_required_validate_timer_contains_setup_tests_hygiene_and_cli() -> None:
+def test_required_workflow_timers_contain_setup_tests_hygiene_and_cli() -> None:
     workflow = yaml.safe_load((ROOT / ".github/workflows/validate.yml").read_text())
     job = workflow["jobs"]["validate"]
     assert job["name"] == "validate"
@@ -76,5 +76,29 @@ def test_required_validate_timer_contains_setup_tests_hygiene_and_cli() -> None:
     positions = [names.index(name) for name in required]
     assert positions == sorted(positions)
     assert all(0 < position < len(steps) - 1 for position in positions)
-    assert sum(step.get("id") == "timer" for step in steps) == 1
-    assert 'test "$elapsed_ms" -le 60000' in steps[-1]["run"]
+    migration = workflow["jobs"]["research-map-migration"]
+    assert migration["name"] == "research-map-migration"
+    assert "needs" not in migration and "strategy" not in migration
+    migration_steps = migration["steps"]
+    migration_names = [step["name"] for step in migration_steps]
+    assert migration_names[0] == "Start migration validation timer"
+    assert migration_names[-1] == "Report migration validation duration"
+    sync = migration_names.index("Sync locked dependencies")
+    acceptance = migration_names.index("Final Research Map migration acceptance")
+    assert 0 < sync < acceptance < len(migration_steps) - 1
+    assert migration_steps[acceptance]["run"] == (
+        "uv run --no-sync pytest -n 2 tests/test_final_research_map.py"
+    )
+    for timed_job in (job, migration):
+        assert timed_job["timeout-minutes"] == 5
+        assert not timed_job.get("continue-on-error", False)
+        timed_steps = timed_job["steps"]
+        assert sum(step.get("id") == "timer" for step in timed_steps) == 1
+        assert "started_ns=$(date +%s%N)" in timed_steps[0]["run"]
+        report = timed_steps[-1]
+        assert report["env"]["STARTED_NS"] == "${{ steps.timer.outputs.started_ns }}"
+        assert "set -euo pipefail" in report["run"]
+        assert "elapsed_ms=$(( (finished_ns - STARTED_NS) / 1000000 ))" in report["run"]
+        assert "- Budget: `<= 120000 ms`" in report["run"]
+        assert 'test "$elapsed_ms" -le 120000' in report["run"]
+        assert not report.get("continue-on-error", False)
