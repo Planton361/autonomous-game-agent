@@ -181,6 +181,116 @@ def test_exact_component_paths_and_function_non_ancestry(atlas, baseline):
             assert "Return Home" in text
 
 
+@pytest.mark.parametrize("family", ["canvas", "excalidraw", "base-and-strict"])
+def test_semantic_mutations_fail_before_restore_or_write(workspace_setup, family):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    current = {p: (vault / p).read_bytes() for p in migration._actual(vault)}
+    canvases = [p for p in current if p.suffix == ".canvas"] if family == "canvas" else []
+    canvas_faults = (
+        "destination",
+        "endpoint",
+        "direction",
+        "side",
+        "add-node",
+        "remove-node",
+        "add-edge",
+        "remove-edge",
+        "geometry",
+        "node-id",
+        "edge-id",
+        "node-type",
+        "relation-label",
+        "metadata",
+        "schema",
+    )
+    # Exercise the exact shared preflight ownership predicate for every Canvas
+    # and every mutation; then exercise full filesystem preflight for each fault,
+    # rotating through all seven finite surfaces rather than duplicating I/O.
+    for path in canvases:
+        row = dict(owner=views.OWNER, **semantics.record(current[path], path, views.OWNER))
+        for fault in canvas_faults:
+            try:
+                accepted = migration.intact(canvas_mutation(current[path], fault), path, row)
+            except (ValueError, KeyError):
+                accepted = False
+            assert not accepted, (path, fault)
+    for index, fault in enumerate(canvas_faults if family == "canvas" else ()):
+        path = canvases[index % len(canvases)]
+        assert_rejected_without_mutation(
+            repo, vault, vault / path, canvas_mutation(current[path], fault)
+        )
+    excalidraws = [p for p in current if p.name.endswith(".excalidraw.md")]
+    core_scene_faults = {
+        "navigation",
+        "relation",
+        "customData",
+        "label",
+        "remove-element",
+        "add-element",
+        "envelope",
+        "authored",
+    }
+    for path, data in current.items():
+        kind = semantics.classification(path)
+        if kind == semantics.Ownership.EXCALIDRAW and family == "excalidraw":
+            row = dict(owner=public.OWNER, **semantics.record(data, path, public.OWNER))
+            for index, fault in enumerate(
+                (
+                    "navigation",
+                    "relation",
+                    "customData",
+                    "label",
+                    "remove-element",
+                    "add-element",
+                    "geometry",
+                    "index-order",
+                    "index-partial",
+                    "index-invalid",
+                    "default-meaning",
+                    "binding",
+                    "background",
+                    "unknown-appState",
+                    "source-revision",
+                    "cache",
+                    "envelope",
+                    "authored",
+                )
+            ):
+                changed = excalidraw_mutation(data, fault)
+                try:
+                    accepted = migration.intact(changed, path, row)
+                except ValueError:
+                    accepted = False
+                assert not accepted, (path, fault)
+                # Every fault exercises both scene predicates. Core semantic
+                # edits exercise both full APIs/scenes; additional serialization
+                # guards rotate scenes for full zero-write preflight coverage.
+                if fault in core_scene_faults or path == excalidraws[index % len(excalidraws)]:
+                    assert_rejected_without_mutation(repo, vault, vault / path, changed)
+            if "Agent Anatomy" in path.name:
+                assert_rejected_without_mutation(
+                    repo, vault, vault / path, excalidraw_mutation(data, "image")
+                )
+        elif kind == semantics.Ownership.BASE and family == "base-and-strict":
+            value = read_yaml(data.decode())
+            value["filters"] = {"and": ['file.inFolder("unrelated")']}
+            assert_rejected_without_mutation(
+                repo, vault, vault / path, views.yaml_text(value).encode()
+            )
+            changed = read_yaml(data.decode())
+            changed["views"].append(deepcopy(changed["views"][0]))
+            assert_rejected_without_mutation(
+                repo, vault, vault / path, views.yaml_text(changed).encode()
+            )
+    if family != "base-and-strict":
+        return
+    # Strict generated Markdown remains byte-owned even for whitespace-only edits.
+    assert_rejected_without_mutation(repo, vault, vault / HOME, (vault / HOME).read_bytes() + b"\n")
+    asset = vault / INTERNAL / "Assets/Agent Anatomy Hero.svg"
+    assert_rejected_without_mutation(repo, vault, asset, asset.read_bytes() + b"edited")
+
+
 def test_multi_parent_flat_route_all_actual_paths_and_order_invariance(atlas):
     child = "CMP-BOUNDED-REFLEX"
     extra = Relationship(source=child, relation="part_of", target="CMP-MEMORY")
@@ -780,113 +890,6 @@ def assert_rejected_without_mutation(repo, vault, path, data):
         workspace.apply(repo, vault)
     assert filesystem_state(vault.parent) == before
     path.write_bytes(canonical)
-
-
-def test_semantic_mutations_fail_before_restore_or_write(workspace_setup):
-    repo, vault, _ = workspace_setup
-    workspace.apply(repo, vault)
-    current = {p: (vault / p).read_bytes() for p in migration._actual(vault)}
-    canvases = [p for p in current if p.suffix == ".canvas"]
-    canvas_faults = (
-        "destination",
-        "endpoint",
-        "direction",
-        "side",
-        "add-node",
-        "remove-node",
-        "add-edge",
-        "remove-edge",
-        "geometry",
-        "node-id",
-        "edge-id",
-        "node-type",
-        "relation-label",
-        "metadata",
-        "schema",
-    )
-    # Exercise the exact shared preflight ownership predicate for every Canvas
-    # and every mutation; then exercise full filesystem preflight for each fault,
-    # rotating through all seven finite surfaces rather than duplicating I/O.
-    for path in canvases:
-        row = dict(owner=views.OWNER, **semantics.record(current[path], path, views.OWNER))
-        for fault in canvas_faults:
-            try:
-                accepted = migration.intact(canvas_mutation(current[path], fault), path, row)
-            except (ValueError, KeyError):
-                accepted = False
-            assert not accepted, (path, fault)
-    for index, fault in enumerate(canvas_faults):
-        path = canvases[index % len(canvases)]
-        assert_rejected_without_mutation(
-            repo, vault, vault / path, canvas_mutation(current[path], fault)
-        )
-    excalidraws = [p for p in current if p.name.endswith(".excalidraw.md")]
-    core_scene_faults = {
-        "navigation",
-        "relation",
-        "customData",
-        "label",
-        "remove-element",
-        "add-element",
-        "envelope",
-        "authored",
-    }
-    for path, data in current.items():
-        kind = semantics.classification(path)
-        if kind == semantics.Ownership.EXCALIDRAW:
-            row = dict(owner=public.OWNER, **semantics.record(data, path, public.OWNER))
-            for index, fault in enumerate(
-                (
-                    "navigation",
-                    "relation",
-                    "customData",
-                    "label",
-                    "remove-element",
-                    "add-element",
-                    "geometry",
-                    "index-order",
-                    "index-partial",
-                    "index-invalid",
-                    "default-meaning",
-                    "binding",
-                    "background",
-                    "unknown-appState",
-                    "source-revision",
-                    "cache",
-                    "envelope",
-                    "authored",
-                )
-            ):
-                changed = excalidraw_mutation(data, fault)
-                try:
-                    accepted = migration.intact(changed, path, row)
-                except ValueError:
-                    accepted = False
-                assert not accepted, (path, fault)
-                # Every fault exercises both scene predicates. Core semantic
-                # edits exercise both full APIs/scenes; additional serialization
-                # guards rotate scenes for full zero-write preflight coverage.
-                if fault in core_scene_faults or path == excalidraws[index % len(excalidraws)]:
-                    assert_rejected_without_mutation(repo, vault, vault / path, changed)
-            if "Agent Anatomy" in path.name:
-                assert_rejected_without_mutation(
-                    repo, vault, vault / path, excalidraw_mutation(data, "image")
-                )
-        elif kind == semantics.Ownership.BASE:
-            value = read_yaml(data.decode())
-            value["filters"] = {"and": ['file.inFolder("unrelated")']}
-            assert_rejected_without_mutation(
-                repo, vault, vault / path, views.yaml_text(value).encode()
-            )
-            changed = read_yaml(data.decode())
-            changed["views"].append(deepcopy(changed["views"][0]))
-            assert_rejected_without_mutation(
-                repo, vault, vault / path, views.yaml_text(changed).encode()
-            )
-    # Strict generated Markdown remains byte-owned even for whitespace-only edits.
-    assert_rejected_without_mutation(repo, vault, vault / HOME, (vault / HOME).read_bytes() + b"\n")
-    asset = vault / INTERNAL / "Assets/Agent Anatomy Hero.svg"
-    assert_rejected_without_mutation(repo, vault, asset, asset.read_bytes() + b"edited")
 
 
 def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_setup):
