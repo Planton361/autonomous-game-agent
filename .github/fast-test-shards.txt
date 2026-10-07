@@ -1,8 +1,8 @@
 # Static whole-file partition of fast-tests.txt; that manifest remains authoritative.
 0 tests/test_knowledge_graph.py
-0 tests/test_g2_interface_attachment.py
-0 tests/test_run_mode_manifest_alignment.py
-0 tests/test_research_atlas.py
+1 tests/test_g2_interface_attachment.py
+1 tests/test_run_mode_manifest_alignment.py
+1 tests/test_research_atlas.py
 0 tests/test_memory_db.py
 0 tests/test_projectctl.py
 0 tests/test_bridge_assisted_runtime.py
@@ -29,7 +29,7 @@
 0 tests/test_safety_filter.py
 1 tests/test_rq_reader.py
 1 tests/test_workspace_harness_fast.py
-1 tests/test_research_steering.py
+0 tests/test_research_steering.py
 1 tests/test_import.py
 1 tests/test_manager_event_log.py
 1 tests/test_memory_facts.py

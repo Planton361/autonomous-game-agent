@@ -688,7 +688,21 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
             elif isinstance(node, ast.ImportFrom):
                 if node.level:
                     assert node.level == 1
+                    if node.module is None:
+                        assert {alias.name for alias in node.names} <= {
+                            "private_projection",
+                            "private_views",
+                            "knowledge_graph",
+                            "product_migration",
+                            "obsidian_semantics",
+                            "historical_reference",
+                        }
+                        continue
                     assert node.module in {
+                        "preferred_paths",
+                        "final_projection",
+                        "product_migration",
+                        "obsidian_semantics",
                         "anatomy",
                         "engineering_provenance",
                         "assembly_scopes",

@@ -135,7 +135,8 @@ def test_current_03_public_projection_uses_truthful_source_version():
     manifest = yaml.safe_load(tree[projection.MANIFEST])
 
     assert atlas.source_atlas_schema == manifest["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "a3565d4555e46b0331b4e887e5e7025810a0355a968baad42a292db47699895a"
+    # #159 presentation repair changes Anatomy/Domain bytes, not source-schema truth.
+    assert tree_digest(tree) == "37d6a1c3107374a0af8b31380ed56571cabcb03638bd2439f35dce17371352f4"
 
 
 def test_current_03_source_schema_propagates_to_public_projection_metadata():

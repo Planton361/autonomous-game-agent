@@ -533,7 +533,13 @@ def _validate_prior(root: Path) -> dict[PurePosixPath, OwnedFile]:
 def authored_properties(vault: Path, root: Path) -> list[dict]:
     properties = []
     for parent, directories, names in os.walk(vault, followlinks=False, onerror=unreadable_tree):
-        directories[:] = [name for name in directories if Path(parent) / name != root]
+        directories[:] = [
+            name
+            for name in directories
+            if Path(parent) / name != root
+            and Path(parent) / name
+            not in {vault / "_generated", vault / "Research Map", vault / "_Research Map Internals"}
+        ]
         for name in names:
             path = Path(parent) / name
             if path.suffix.lower() != ".md" or path.is_symlink():
@@ -615,6 +621,8 @@ def project(
     check: bool = False,
     preflight: bool = False,
 ) -> dict[PurePosixPath, bytes]:
+    if (vault_root / "Research Map Home.md").exists():
+        raise ProjectionError("Final Research Map uses the global workspace harness")
     if check and preflight:
         raise ProjectionError("Preflight and exact check are separate modes")
     repo = repo_root.resolve()

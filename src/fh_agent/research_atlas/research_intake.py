@@ -298,6 +298,17 @@ def inspect_records(
 
 def previous_subjects(vault: Path) -> dict[str, dict] | None:
     """Read only an intact prior generated index, with existing manifest checks."""
+    from .preferred_paths import INTERNAL
+    from .product_migration import _current
+
+    final_index = INTERNAL / "Indexes/atlas-id-index.yaml"
+    if (vault / final_index).exists():
+        prior_final = _current(vault)
+        data = (vault / final_index).read_bytes()
+        item = prior_final.get(final_index)
+        if item is None or digest(data) != item["sha256"]:
+            raise ProjectionError("Prior technical index edited or unowned")
+        return read_yaml(utf8(data))["entries"]
     root = vault / OWNED_ROOT
     prior = validate_prior(root)
     if not prior:

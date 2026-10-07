@@ -11,6 +11,13 @@ Generated from Registry YAML; fully overwriteable. Do not edit structured claims
 
 Colors group functional regions only; they do not encode status, maturity, evidence or confidence.
 
+> [!info] Selective explanatory overview
+> Selected roles and safety boundaries, not complete architecture, exact Function membership or strict runtime order. Faint arrows are explanatory cues only.
+>
+> The optional bridge belongs to Acquire but is placed beside observation integrity. PlannerOutput is a Cortex proposal contract. Replay Buffer belongs to Between Mission Runs and also collects in-run experience. MemoryUpdateRequest is a Cortex proposal, not a verified fact. These placements do not change Registry membership.
+>
+> Body remains frozen throughout a Mission Run, including Life Episode restarts. Training, validation, certification and activation require an authorized future protocol between Mission Runs. Presence here does not certify implementation.
+
 %%
 # Excalidraw Data
 
@@ -18,11 +25,11 @@ Colors group functional regions only; they do not encode status, maturity, evide
 
 AGENT ANATOMY ^8044bba1
 
-One agent, opened for inspection ^0db8fb3b
+Selective explanatory overview · selected roles and safety boundaries ^0db8fb3b
 
 MISSION RUN  /  frozen Body version through Life Episode restarts ^b4ed1071
 
-←  MARKDOWN HOME / FALLBACK ^1969d99a
+←  HOME ^1969d99a
 
 ACQUIRE ^fafc4851
 
@@ -46,7 +53,7 @@ Perception ^7419b4c9
 
 Observation ^735133f0
 
-OPEN OBSERVE  →  Observe Assembly Scope ^2aff9526
+OPEN OBSERVE  →  Functional Context ^2aff9526
 
 RETAIN / RETRIEVE ^8600ff43
 
@@ -58,7 +65,7 @@ Memory ^8b1d4fcb
 
 Memory Retrieval ^29506d0a
 
-OPEN MEMORY VIEW  → ^32a84c09
+OPEN EVIDENCE, MEMORY & RETRIEVAL  → ^32a84c09
 
 REASON ^ed53a0ea
 
@@ -70,9 +77,9 @@ Planner Output ^b2d1548f
 
 OPEN CORTEX  → ^4a4e791e
 
-CONTRACT ^1023d996
+EXECUTIVE CONTROL ^1023d996
 
-Executive control ^88fe8392
+Manager + bounded contracts ^88fe8392
 
 Manager ^0d3523e5
 
@@ -110,12 +117,18 @@ Memory Update Request ^067c562c
 
 OPEN VERIFIER OVERVIEW  → ^cf84f398
 
+Selected landmarks, not complete architecture, exact Function membership or strict runtime order. Faint arrows are explanatory cues only. Presence is not implementation evidence. ^250e0b36
+
 Dashed guides: placement / optional · Solid bay arrows:
 Registry ^af6633a5
 
 BETWEEN MISSION RUNS ^e308dde2
 
-Train → certify → future activation ^d1e33fde
+Authorized future learning only ^d1e33fde
+
+Explanatory placements:
+Bridge: Acquire · Replay: Between Mission Runs
+PlannerOutput / memory updates: Cortex proposals ^bb393000
 
 SkillTrainer ^f20aec64
 
@@ -127,11 +140,11 @@ supplies ^39998924
 
 verifies ^8e044ed6
 
-OPEN WORKSHOP  → ^17147fa7
+OPEN SKILLTRAINER  → ^17147fa7
 
 ## Element Links
 
-1969d99a: [[Home/Research Atlas|Markdown Home / fallback]]
+1969d99a: [[Home/Research Atlas|Home]]
 
 32e89df0: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
@@ -151,7 +164,7 @@ fcfe52bb: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perceptio
 
 7419b4c9: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
 
-2aff9526: [[Assembly Scopes/Observe|Observe Assembly Scope]]
+2aff9526: [[Assembly Scopes/Observe|Observe · Functional Context]]
 
 1f1f8fdd: [[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]
 
@@ -319,15 +332,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": null,
       "locked": false,
       "opacity": 100,
-      "originalText": "One agent, opened for inspection",
-      "rawText": "One agent, opened for inspection",
+      "originalText": "Selective explanatory overview · selected roles and safety boundaries",
+      "rawText": "Selective explanatory overview · selected roles and safety boundaries",
       "roughness": 0,
       "roundness": null,
       "seed": 230226747,
       "strokeColor": "#526477",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "One agent, opened for inspection",
+      "text": "Selective explanatory overview · selected roles and safety boundaries",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -426,18 +439,18 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "1969d99a",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Home/Research Atlas|Markdown Home / fallback]]",
+      "link": "[[Home/Research Atlas|Home]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "←  MARKDOWN HOME / FALLBACK",
-      "rawText": "←  MARKDOWN HOME / FALLBACK",
+      "originalText": "←  HOME",
+      "rawText": "←  HOME",
       "roughness": 0,
       "roundness": null,
       "seed": 426367386,
       "strokeColor": "#426f7d",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "←  MARKDOWN HOME / FALLBACK",
+      "text": "←  HOME",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -1390,7 +1403,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
           "CMP-VISIBLE-STATE-BRIDGE": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
           "DAT-OBSERVATION": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]"
         },
-        "navigation_target": "[[Assembly Scopes/Observe|Observe Assembly Scope]]",
+        "navigation_target": "[[Assembly Scopes/Observe|Observe · Functional Context]]",
         "presentation_only": true,
         "presentation_summary": "All observation paths remain within the No-Spoiler Firewall",
         "presentation_title": "OBSERVE",
@@ -1836,7 +1849,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "containerId": null,
       "customData": {
         "navigation": "observation",
-        "navigation_target": "[[Assembly Scopes/Observe|Observe Assembly Scope]]"
+        "navigation_target": "[[Assembly Scopes/Observe|Observe · Functional Context]]"
       },
       "fillStyle": "solid",
       "fontFamily": 2,
@@ -1847,18 +1860,18 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "2aff9526",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Assembly Scopes/Observe|Observe Assembly Scope]]",
+      "link": "[[Assembly Scopes/Observe|Observe · Functional Context]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "OPEN OBSERVE  →  Observe Assembly Scope",
-      "rawText": "OPEN OBSERVE  →  Observe Assembly Scope",
+      "originalText": "OPEN OBSERVE  →  Functional Context",
+      "rawText": "OPEN OBSERVE  →  Functional Context",
       "roughness": 0,
       "roundness": null,
       "seed": 721392934,
       "strokeColor": "#426f7d",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "OPEN OBSERVE  →  Observe Assembly Scope",
+      "text": "OPEN OBSERVE  →  Functional Context",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -2273,15 +2286,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": "[[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "OPEN MEMORY VIEW  →",
-      "rawText": "OPEN MEMORY VIEW  →",
+      "originalText": "OPEN EVIDENCE, MEMORY & RETRIEVAL  →",
+      "rawText": "OPEN EVIDENCE, MEMORY & RETRIEVAL  →",
       "roughness": 0,
       "roundness": null,
       "seed": 849890313,
       "strokeColor": "#426f7d",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "OPEN MEMORY VIEW  →",
+      "text": "OPEN EVIDENCE, MEMORY & RETRIEVAL  →",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -2654,7 +2667,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
         "navigation_target": "[[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]",
         "presentation_only": true,
         "presentation_summary": "Manager validates proposals, grounds targets, and owns bounded contracts",
-        "presentation_title": "CONTRACT",
+        "presentation_title": "EXECUTIVE CONTROL",
         "visible_landmarks": [
           "Manager",
           "Manager Grounding",
@@ -2738,15 +2751,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": null,
       "locked": false,
       "opacity": 100,
-      "originalText": "CONTRACT",
-      "rawText": "CONTRACT",
+      "originalText": "EXECUTIVE CONTROL",
+      "rawText": "EXECUTIVE CONTROL",
       "roughness": 0,
       "roundness": null,
       "seed": 270784918,
       "strokeColor": "#26384b",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "CONTRACT",
+      "text": "EXECUTIVE CONTROL",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -2775,15 +2788,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": null,
       "locked": false,
       "opacity": 100,
-      "originalText": "Executive control",
-      "rawText": "Executive control",
+      "originalText": "Manager + bounded contracts",
+      "rawText": "Manager + bounded contracts",
       "roughness": 0,
       "roundness": null,
       "seed": 150897554,
       "strokeColor": "#526477",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "Executive control",
+      "text": "Manager + bounded contracts",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -4275,6 +4288,43 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "containerId": null,
       "fillStyle": "solid",
       "fontFamily": 2,
+      "fontSize": 11,
+      "frameId": null,
+      "groupIds": [],
+      "height": 13,
+      "id": "250e0b36",
+      "isDeleted": false,
+      "lineHeight": 1.25,
+      "link": null,
+      "locked": false,
+      "opacity": 100,
+      "originalText": "Selected landmarks, not complete architecture, exact Function membership or strict runtime order. Faint arrows are explanatory cues only. Presence is not implementation evidence.",
+      "rawText": "Selected landmarks, not complete architecture, exact Function membership or strict runtime order. Faint arrows are explanatory cues only. Presence is not implementation evidence.",
+      "roughness": 0,
+      "roundness": null,
+      "seed": 621677366,
+      "strokeColor": "#526477",
+      "strokeStyle": "solid",
+      "strokeWidth": 1,
+      "text": "Selected landmarks, not complete architecture, exact Function membership or strict runtime order. Faint arrows are explanatory cues only. Presence is not implementation evidence.",
+      "textAlign": "left",
+      "type": "text",
+      "updated": 0,
+      "version": 1,
+      "versionNonce": 1,
+      "verticalAlign": "top",
+      "width": 1940,
+      "x": 82,
+      "y": 1037
+    },
+    {
+      "angle": 0,
+      "autoResize": false,
+      "backgroundColor": "transparent",
+      "boundElements": null,
+      "containerId": null,
+      "fillStyle": "solid",
+      "fontFamily": 2,
       "fontSize": 13,
       "frameId": null,
       "groupIds": [],
@@ -4359,15 +4409,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": null,
       "locked": false,
       "opacity": 100,
-      "originalText": "Train → certify → future activation",
-      "rawText": "Train → certify → future activation",
+      "originalText": "Authorized future learning only",
+      "rawText": "Authorized future learning only",
       "roughness": 0,
       "roundness": null,
       "seed": 1373847518,
       "strokeColor": "#526477",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "Train → certify → future activation",
+      "text": "Authorized future learning only",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -4377,6 +4427,43 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "width": 500,
       "x": 100,
       "y": 1110
+    },
+    {
+      "angle": 0,
+      "autoResize": false,
+      "backgroundColor": "transparent",
+      "boundElements": null,
+      "containerId": null,
+      "fillStyle": "solid",
+      "fontFamily": 2,
+      "fontSize": 12,
+      "frameId": null,
+      "groupIds": [],
+      "height": 45,
+      "id": "bb393000",
+      "isDeleted": false,
+      "lineHeight": 1.25,
+      "link": null,
+      "locked": false,
+      "opacity": 100,
+      "originalText": "Explanatory placements:\nBridge: Acquire · Replay: Between Mission Runs\nPlannerOutput / memory updates: Cortex proposals",
+      "rawText": "Explanatory placements:\nBridge: Acquire · Replay: Between Mission Runs\nPlannerOutput / memory updates: Cortex proposals",
+      "roughness": 0,
+      "roundness": null,
+      "seed": 993603584,
+      "strokeColor": "#526477",
+      "strokeStyle": "solid",
+      "strokeWidth": 1,
+      "text": "Explanatory placements:\nBridge: Acquire · Replay: Between Mission Runs\nPlannerOutput / memory updates: Cortex proposals",
+      "textAlign": "left",
+      "type": "text",
+      "updated": 0,
+      "version": 1,
+      "versionNonce": 1,
+      "verticalAlign": "top",
+      "width": 480,
+      "x": 100,
+      "y": 1150
     },
     {
       "angle": 0,
@@ -4829,15 +4916,15 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "link": "[[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "OPEN WORKSHOP  →",
-      "rawText": "OPEN WORKSHOP  →",
+      "originalText": "OPEN SKILLTRAINER  →",
+      "rawText": "OPEN SKILLTRAINER  →",
       "roughness": 0,
       "roundness": null,
       "seed": 387219367,
       "strokeColor": "#7b604d",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "OPEN WORKSHOP  →",
+      "text": "OPEN SKILLTRAINER  →",
       "textAlign": "left",
       "type": "text",
       "updated": 0,

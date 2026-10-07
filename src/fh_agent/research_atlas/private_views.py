@@ -1852,6 +1852,8 @@ def _identity_page_function_context(
     columns = ["Participant" if participants else "Function"]
     if audit:
         columns.append("Stable ID / type")
+    elif participants:
+        columns.append("Technical type")
     if show_role:
         columns.append("Authored role")
     if show_order:
@@ -1865,6 +1867,8 @@ def _identity_page_function_context(
         cells = [_identity_page_human_link(atlas, identity, page_paths)]
         if audit:
             cells.append(f"`{identity}` · {node.type}")
+        elif participants:
+            cells.append(node.type)
         if show_role:
             cells.append(
                 reference_plain(edge.functional_role) if edge.functional_role is not None else "—"
@@ -2245,10 +2249,28 @@ def render_identity_page(
         "",
         "## Technical",
         "",
+    ]
+    if subject.type in {"System", "Component"}:
+        lines += [
+            "### Structural navigation",
+            "",
+            *_identity_page_location(atlas, model, paths),
+            "",
+            "Direct children from Registry `part_of` only; Function participation "
+            "creates no depth.",
+            "",
+            *("- " + human(identity) for identity in model.child_component_ids),
+            "",
+        ]
+    lines += [
         "### What this is",
         "",
-        f"{subject.name} is {'an' if subject.type == 'Interface' else 'a'} "
-        f"{subject.type.lower()} in the agent system.",
+        (
+            f"{subject.name} is the external environment in the experiment scope."
+            if subject.type == "Environment"
+            else f"{subject.name} is {'an' if subject.type == 'Interface' else 'a'} "
+            f"{subject.type.lower()} in the agent system."
+        ),
         "",
         "### Responsibility / why it exists",
         "",
@@ -2328,7 +2350,9 @@ def render_identity_page(
             if attached:
                 card += ["Research available — open component."]
             card += ["", _identity_page_entity_link(atlas, identity, "Open component", paths)]
-            lines += _identity_page_callout("aga-child", child.name, card) + [""]
+            lines += _identity_page_callout(
+                "aga-child", child.name, card, collapsed=len(model.child_component_ids) > 5
+            ) + [""]
         if not model.child_component_ids:
             lines += ["No direct subcomponents are registered.", ""]
     else:
@@ -3732,17 +3756,25 @@ def render_research_landscape(
         "regenerate after authored changes.",
         "",
     ]
-    body += ["## Scoped architecture-first Knowledge Graphs", ""]
+    body += [
+        "Current private scientific inventories; public Registry questions and threads "
+        "remain separate Program records on Home.",
+        "",
+    ]
+    body.extend(markdown_tables(steering))
+    body += [
+        "## Graph navigation",
+        "",
+    ]
     for subject, entity in sorted(atlas.entities.items()):
         if entity.type == "Component":
             body.append(_derived_link(scope_root(subject) / "Graph Profile.md", entity.name))
     body += [
         "",
-        "Each profile owns only its selected subtree and exact participants; "
-        "choose optional knowledge detail or RQ overlay from its profile page.",
+        "Each guide selects only its Component subtree and exact participants; "
+        "Architecture, Knowledge Detail and Questions remain separate modes.",
         "",
     ]
-    body.extend(markdown_tables(steering))
     body.extend(
         [
             "## Inspection and history",
@@ -4702,7 +4734,12 @@ def authored_snapshot(
             directories[:] = sorted(
                 name
                 for name in directories
-                if Path(parent) / name != vault / "_generated"
+                if Path(parent) / name
+                not in {
+                    vault / "_generated",
+                    vault / "Research Map",
+                    vault / "_Research Map Internals",
+                }
                 and not (Path(parent) / name).is_symlink()
             )
             for name in sorted(names):
@@ -5061,6 +5098,8 @@ def project(
     check: bool = False,
     preflight: bool = False,
 ) -> dict[PurePosixPath, bytes]:
+    if (vault_root / "Research Map Home.md").exists():
+        raise ProjectionError("Final Research Map uses the global workspace harness")
     if check and preflight:
         raise ProjectionError("Preflight and exact check are separate modes")
     # RA-1 performs all topology/marker/Git/Atlas/RA-2 checks, strictly without writes.

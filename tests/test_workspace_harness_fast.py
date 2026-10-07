@@ -253,7 +253,6 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
         positions = [visible.index(f"## {section}") for section in section_names]
         assert positions == sorted(positions)
         for predicate in (
-            "part_of",
             "consumes",
             "supplies",
             "presented_in_domain",
@@ -261,6 +260,11 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
             "related_to_research_question",
         ):
             assert f"`{predicate}`" not in normal
+        if expected_type == "Component":
+            assert normal.index("### Structural navigation") < normal.index("### What this is")
+            assert "`part_of`" in normal
+        else:
+            assert "`part_of`" not in normal
         assert "Public Registry source commit" not in normal
         assert "- Public Registry source commit:" in identity_page_audit_text(visible)
         assert f"Stable ID: `{identity}`" in identity_page_audit_text(visible)
@@ -320,7 +324,8 @@ def test_rm1_identity_pages_reuse_one_human_first_model_and_exact_routes(atlas):
     ].split("### Subcomponents / go deeper", 1)[0]
     assert f"**Uses:** {views._identity_page_human_link(atlas, 'DAT-SCREEN-FRAME')}" in related
     assert f"**Produces:** {views._identity_page_human_link(atlas, 'DAT-OBSERVATION')}" in related
-    assert "`part_of`" not in perception_summary
+    assert "### Structural navigation" in perception_summary
+    assert "`part_of`" in perception_summary
     assert "EVID-48-BUILDER" in identity_page_audit_text(perception)
 
     observation = tree[views.IDENTITY_PAGE_PATHS["DAT-OBSERVATION"]].decode()
@@ -909,115 +914,103 @@ def context(tmp_path: Path) -> workspace.WorkspaceContext:
 
 
 def test_apply_orders_one_exact_head_and_both_final_checks(context, monkeypatch, tmp_path):
+    from fh_agent.research_atlas.final_projection import ProductTree
+
     restore_point = tmp_path / "restore"
-    calls: list[tuple[str, str, bool, bool]] = []
+    restore_point.mkdir()
+    calls = []
+    tree = ProductTree({}, {}, {})
     monkeypatch.setattr(workspace, "resolve_context", lambda *_: context)
-    monkeypatch.setattr(
-        workspace,
-        "create_restore_point",
-        lambda *_: restore_point,
-    )
 
-    def technical(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("technical", source_ref, check, preflight))
+    def preflight(repo, vault, source):
+        calls.append(("preflight", source))
+        return tree, set()
 
-    def views(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("views", source_ref, check, preflight))
+    def restore(*args):
+        calls.append(("restore", context.source_commit))
+        return restore_point
 
-    monkeypatch.setattr(workspace, "technical_project", technical)
-    monkeypatch.setattr(workspace, "views_project", views)
+    def apply(vault, expected, actual):
+        assert expected is tree and actual == set()
+        calls.append(("apply-and-check", context.source_commit))
+
+    monkeypatch.setattr(workspace.product_migration, "preflight", preflight)
+    monkeypatch.setattr(workspace, "create_restore_point", restore)
+    monkeypatch.setattr(workspace.product_migration, "apply", apply)
     result = workspace.apply(context.repo_root, context.vault_root)
-
     assert result.restore_point == restore_point
     assert calls == [
-        ("technical", context.source_commit, False, True),
-        ("views", context.source_commit, False, True),
-        ("technical", context.source_commit, False, False),
-        ("views", context.source_commit, False, False),
-        ("technical", context.source_commit, True, False),
-        ("views", context.source_commit, True, False),
+        (stage, context.source_commit) for stage in ("preflight", "restore", "apply-and-check")
     ]
 
 
 def test_apply_stops_at_first_failed_projector_and_names_restore_point(
     context, monkeypatch, tmp_path
 ):
+    from fh_agent.research_atlas.final_projection import ProductTree
+
     restore_point = tmp_path / "restore"
-    calls: list[str] = []
+    restore_point.mkdir()
     monkeypatch.setattr(workspace, "resolve_context", lambda *_: context)
     monkeypatch.setattr(workspace, "create_restore_point", lambda *_: restore_point)
-
-    def technical(*args, preflight=False, **kwargs):
-        calls.append("technical-preflight" if preflight else "technical-apply")
-        if not preflight:
-            raise ProjectionError("synthetic failure")
-
-    monkeypatch.setattr(workspace, "technical_project", technical)
     monkeypatch.setattr(
-        workspace,
-        "views_project",
-        lambda *args, preflight=False, **kwargs: calls.append(
-            "views-preflight" if preflight else "views-apply"
-        ),
+        workspace.product_migration, "preflight", lambda *_: (ProductTree({}, {}, {}), set())
     )
-    with pytest.raises(workspace.WorkspaceError, match="technical projection failed.*restore"):
+
+    def fail(*args):
+        raise ProjectionError("synthetic failure")
+
+    monkeypatch.setattr(workspace.product_migration, "apply", fail)
+    with pytest.raises(workspace.WorkspaceError, match="migration failed.*restore"):
         workspace.apply(context.repo_root, context.vault_root)
-    assert calls == ["technical-preflight", "views-preflight", "technical-apply"]
 
 
 def test_final_check_failure_is_nonzero_apply_failure(context, monkeypatch, tmp_path):
+    from fh_agent.research_atlas.final_projection import MANIFESTS, ProductTree
+
     restore_point = tmp_path / "restore"
-    calls: list[tuple[str, bool]] = []
+    restore_point.mkdir()
     monkeypatch.setattr(workspace, "resolve_context", lambda *_: context)
     monkeypatch.setattr(workspace, "create_restore_point", lambda *_: restore_point)
-
-    def technical(*args, check=False, preflight=False, **kwargs):
-        calls.append(("technical", check, preflight))
-        if check:
-            raise ProjectionError("synthetic check failure")
-
-    monkeypatch.setattr(workspace, "technical_project", technical)
     monkeypatch.setattr(
-        workspace,
-        "views_project",
-        lambda *args, check=False, preflight=False, **kwargs: calls.append(
-            ("views", check, preflight)
+        workspace.product_migration,
+        "preflight",
+        lambda *_: (
+            ProductTree(
+                {p: b"" for p in MANIFESTS.values()}, {p: o for o, p in MANIFESTS.items()}, {}
+            ),
+            set(),
         ),
     )
-    with pytest.raises(
-        workspace.WorkspaceError, match="technical projection check failed.*restore"
-    ):
+
+    def fail(*args):
+        raise ProjectionError("synthetic check failure")
+
+    monkeypatch.setattr(workspace.product_migration, "verify", fail)
+    with pytest.raises(workspace.WorkspaceError, match="migration failed.*restore"):
         workspace.apply(context.repo_root, context.vault_root)
-    assert calls == [
-        ("technical", False, True),
-        ("views", False, True),
-        ("technical", False, False),
-        ("views", False, False),
-        ("technical", True, False),
-    ]
 
 
 def test_check_is_restore_free_and_runs_only_both_checks(context, monkeypatch):
-    calls: list[tuple[str, bool]] = []
+    from fh_agent.research_atlas.final_projection import ProductTree
+
+    calls = []
     monkeypatch.setattr(workspace, "resolve_context", lambda *_: context)
     monkeypatch.setattr(
         workspace,
         "create_restore_point",
         lambda *_: pytest.fail("check must not create a restore point"),
     )
-    monkeypatch.setattr(
-        workspace,
-        "technical_project",
-        lambda *args, check=False, **kwargs: calls.append(("technical", check)),
-    )
-    monkeypatch.setattr(
-        workspace,
-        "views_project",
-        lambda *args, check=False, **kwargs: calls.append(("views", check)),
-    )
+
+    def preflight(*args):
+        calls.append("preflight")
+        return ProductTree({}, {}, {}), set()
+
+    monkeypatch.setattr(workspace.product_migration, "preflight", preflight)
+    monkeypatch.setattr(workspace.product_migration, "verify", lambda *_: calls.append("verify"))
     result = workspace.check(context.repo_root, context.vault_root)
     assert result.restore_point is None
-    assert calls == [("technical", True), ("views", True)]
+    assert calls == ["preflight", "verify"]
 
 
 def test_w05_detail_endpoint_set_and_empty_verifier_lanes(atlas):
@@ -1931,7 +1924,7 @@ def test_anatomy_component_landmarks_reach_preferred_pages_and_nested_graph(atla
         assert projected["link"] == projected["customData"]["navigation_target"]
         assert projected["text"] == action["text"]
     action = public_actions["evidence-memory"]
-    assert "OPEN MEMORY VIEW" in action["text"]
+    assert "OPEN EVIDENCE, MEMORY & RETRIEVAL" in action["text"]
     assert action["link"].startswith(f"[[{DOMAIN_SLICE_PATH.with_suffix('')}|")
     private_slice = technical_projection.OWNED_ROOT / technical_projection.DOMAIN_SLICE
     assert private_by_id[action["id"]]["link"].startswith(f"[[{private_slice.with_suffix('')}|")
@@ -2009,7 +2002,9 @@ def test_multiple_parents_rename_removal_order_and_collision(monkeypatch):
     leaf = model(multi, "CMP-SYN-LEVEL-6")
     assert leaf.technical_parent_ids == ("CMP-SYN-LEVEL-4", "CMP-SYN-LEVEL-5")
     rendered = page(multi, leaf.subject.id)
-    assert rendered.count("→ Synthetic level 6") == 2
+    structural = rendered.split("### Structural navigation", 1)[1].split("### What this is", 1)[0]
+    assert structural.count("→ Synthetic level 6") == 2
+    assert identity_page_audit_text(rendered).count("→ Synthetic level 6") == 2
     shuffled = Atlas(
         dict(reversed(tuple(multi.entities.items()))), tuple(reversed(multi.relationships))
     )

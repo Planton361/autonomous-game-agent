@@ -17,13 +17,15 @@ from test_research_wiki_projection import (
     snapshot,
     write_note,
 )
-from test_research_wiki_schema import props
 from typer.testing import CliRunner
 
 from fh_agent.cli import app
 from fh_agent.research_atlas import private_projection as technical
 from fh_agent.research_atlas import private_views as views
+from fh_agent.research_atlas import product_migration as migration
 from fh_agent.research_atlas import workspace_harness as workspace
+from fh_agent.research_atlas.final_projection import MANIFESTS
+from fh_agent.research_atlas.preferred_paths import HOME, INTERNAL, PRODUCT, preferred_paths
 
 
 def _copy_source(repo: Path, relative: Path) -> None:
@@ -69,20 +71,22 @@ def setup(tmp_path: Path) -> tuple[Path, Path, str]:
 
 
 def _generated_snapshot(vault: Path) -> dict[str, str]:
-    return {
-        str(path.relative_to(vault)): technical.digest(path.read_bytes())
-        for root in workspace.RESTORED_ROOTS
-        for path in (vault / root).rglob("*")
-        if path.is_file()
-    }
+    result = {}
+    for relative in workspace.RESTORED_ROOTS:
+        root = vault / relative
+        paths = [root] if root.is_file() else root.rglob("*")
+        for path in paths:
+            if path.is_file():
+                result[str(path.relative_to(vault))] = technical.digest(path.read_bytes())
+    return result
 
 
 def _authored_snapshot(vault: Path) -> dict[str, str]:
-    derived_prefix = f"{views.OWNED_ROOT}/"
     return {
         path: digest
-        for path, digest in snapshot(vault, authored=True).items()
-        if not path.startswith(derived_prefix)
+        for path, digest in snapshot(vault).items()
+        if path != str(HOME)
+        and not any(PurePosixPath(path).is_relative_to(root) for root in migration.ROOTS)
     }
 
 
@@ -91,42 +95,25 @@ def test_apply_orders_restore_writes_and_checks_at_exact_head(setup, monkeypatch
     technical.project(repo, vault, source_commit)
     views.project(repo, vault, source_commit)
     before_generated = _generated_snapshot(vault)
-    before_authored = snapshot(vault, authored=True)
-    calls: list[tuple[str, str, bool, bool]] = []
-    technical_project = technical.project
-    views_project = views.project
+    before_authored = _authored_snapshot(vault)
+    calls = []
+    write = migration.atomic_write
 
-    def record_technical(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("technical", source_ref, check, preflight))
-        return technical_project(
-            repo_root, vault_root, source_ref, check=check, preflight=preflight
-        )
+    def record(root, path, data):
+        calls.append(path)
+        return write(root, path, data)
 
-    def record_views(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("views", source_ref, check, preflight))
-        return views_project(repo_root, vault_root, source_ref, check=check, preflight=preflight)
-
-    monkeypatch.setattr(workspace, "technical_project", record_technical)
-    monkeypatch.setattr(workspace, "views_project", record_views)
+    monkeypatch.setattr(migration, "atomic_write", record)
     result = workspace.apply(repo, vault)
-
     assert result.source_commit == source_commit
-    assert calls == [
-        ("technical", source_commit, False, True),
-        ("views", source_commit, False, True),
-        ("technical", source_commit, False, False),
-        ("views", source_commit, False, False),
-        ("technical", source_commit, True, False),
-        ("views", source_commit, True, False),
-    ]
+    assert set(calls[-2:]) == set(MANIFESTS.values())
     assert result.restore_point is not None
     assert _generated_snapshot(result.restore_point) == before_generated
-    assert json.loads((result.restore_point / "restore-point.json").read_text()) == {
-        "generated_roots_present": [str(root) for root in workspace.RESTORED_ROOTS],
-        "restore_point_schema_version": "1.0",
-        "source_commit": source_commit,
-    }
-    assert snapshot(vault, authored=True) == before_authored
+    metadata = json.loads((result.restore_point / "restore-point.json").read_text())
+    assert metadata["generated_roots_present"] == [str(technical.OWNED_ROOT), str(views.OWNED_ROOT)]
+    assert _authored_snapshot(vault) == before_authored
+    assert not list((vault / technical.OWNED_ROOT).rglob("*.*"))
+    assert not list((vault / views.OWNED_ROOT).rglob("*.*"))
 
 
 def test_apply_uses_private_vault_environment_fallback(setup, monkeypatch):
@@ -159,96 +146,45 @@ def test_restore_point_collision_never_overwrites_an_existing_point(setup):
 def test_restore_failure_stops_before_projector_writes(setup, monkeypatch):
     repo, vault, source_commit = setup
     technical.project(repo, vault, source_commit)
-    calls: list[str] = []
+    before = filesystem_state(vault)
 
     def fail_copy(*args, **kwargs):
         raise OSError("synthetic backup failure")
 
     monkeypatch.setattr(workspace.shutil, "copytree", fail_copy)
-
-    def preflight_technical(*args, preflight=False, **kwargs):
-        calls.append("technical-preflight" if preflight else "technical-apply")
-
-    def preflight_views(*args, preflight=False, **kwargs):
-        calls.append("views-preflight" if preflight else "views-apply")
-
-    monkeypatch.setattr(workspace, "technical_project", preflight_technical)
-    monkeypatch.setattr(workspace, "views_project", preflight_views)
     with pytest.raises(workspace.WorkspaceError, match="Restore-point copy failed"):
         workspace.apply(repo, vault)
-    assert calls == ["technical-preflight", "views-preflight"]
+    assert filesystem_state(vault) == before
 
 
 def test_first_projector_failure_stops_pipeline_and_reports_restore_point(setup, monkeypatch):
     repo, vault, _ = setup
-    calls: list[str] = []
+    before = filesystem_state(vault)
 
-    def fail_technical(*args, preflight=False, **kwargs):
-        calls.append("technical-preflight" if preflight else "technical-apply")
-        if not preflight:
-            raise technical.ProjectionError("synthetic technical failure")
+    def fail(*args):
+        raise OSError("synthetic replacement failure")
 
-    monkeypatch.setattr(workspace, "technical_project", fail_technical)
-    monkeypatch.setattr(
-        workspace,
-        "views_project",
-        lambda *args, preflight=False, **kwargs: calls.append(
-            "views-preflight" if preflight else "views-apply"
-        ),
-    )
-    with pytest.raises(
-        workspace.WorkspaceError, match="technical projection failed.*restore point"
-    ):
+    monkeypatch.setattr(migration, "atomic_write", fail)
+    with pytest.raises(workspace.WorkspaceError, match="migration failed.*restore point"):
         workspace.apply(repo, vault)
-    assert calls == ["technical-preflight", "views-preflight", "technical-apply"]
+    assert filesystem_state(vault) == before
 
 
 def test_second_projector_and_final_check_fail_closed_with_restore_point(setup, monkeypatch):
     repo, vault, source_commit = setup
-    calls: list[tuple[str, bool, bool]] = []
-    technical_project = technical.project
-    views_project = views.project
+    technical.project(repo, vault, source_commit)
+    views.project(repo, vault, source_commit)
+    original = _generated_snapshot(vault)
 
-    def record_technical(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("technical", check, preflight))
-        return technical_project(
-            repo_root, vault_root, source_ref, check=check, preflight=preflight
-        )
+    def fail_verify(*args):
+        raise technical.ProjectionError("synthetic final-check failure")
 
-    def fail_views(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("views", check, preflight))
-        if not check and not preflight:
-            raise views.ProjectionError("synthetic view failure")
-        return views_project(repo_root, vault_root, source_ref, check=check, preflight=preflight)
-
-    monkeypatch.setattr(workspace, "technical_project", record_technical)
-    monkeypatch.setattr(workspace, "views_project", fail_views)
-    with pytest.raises(workspace.WorkspaceError, match="direct views failed.*restore point"):
+    monkeypatch.setattr(migration, "verify", fail_verify)
+    with pytest.raises(workspace.WorkspaceError, match="migration failed.*restore point"):
         workspace.apply(repo, vault)
-    assert calls == [
-        ("technical", False, True),
-        ("views", False, True),
-        ("technical", False, False),
-        ("views", False, False),
-    ]
-
-    monkeypatch.setattr(workspace, "views_project", views_project)
-
-    def fail_final_check(repo_root, vault_root, source_ref, *, check=False, preflight=False):
-        calls.append(("technical", check, preflight))
-        if check:
-            raise technical.ProjectionError("synthetic final-check failure")
-        return technical_project(
-            repo_root, vault_root, source_ref, check=check, preflight=preflight
-        )
-
-    monkeypatch.setattr(workspace, "technical_project", fail_final_check)
-    with pytest.raises(
-        workspace.WorkspaceError, match="technical projection check failed.*restore point"
-    ):
-        workspace.apply(repo, vault)
-    assert calls[-1] == ("technical", True, False)
-    assert source_commit
+    points = list((vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).iterdir())
+    workspace.recover(repo, vault, points[0])
+    assert _generated_snapshot(vault) == original
 
 
 def test_unknown_owned_root_content_propagates_without_touching_authored_bytes(setup):
@@ -257,7 +193,7 @@ def test_unknown_owned_root_content_propagates_without_touching_authored_bytes(s
     unknown.parent.mkdir(parents=True)
     unknown.write_text("preserve", encoding="utf-8")
     before_authored = snapshot(vault, authored=True)
-    with pytest.raises(workspace.WorkspaceError, match="Unknown/unowned files"):
+    with pytest.raises(workspace.WorkspaceError, match="Unknown/unowned"):
         workspace.apply(repo, vault)
     assert snapshot(vault, authored=True) == before_authored
     assert unknown.read_text(encoding="utf-8") == "preserve"
@@ -268,16 +204,16 @@ def test_apply_preflights_both_roots_before_any_workspace_mutation(setup, fault)
     repo, vault, _ = setup
     first = workspace.apply(repo, vault)
     assert first.restore_point is not None
-    root = vault / views.OWNED_ROOT
+    root = vault / INTERNAL
     if fault == "unknown":
         unknown = root / "unowned.md"
         unknown.write_text("synthetic unowned data", encoding="utf-8")
-        expected_error = "Unknown/unowned derived files"
+        expected_error = "Unknown/unowned"
     elif fault == "corrupt-manifest":
-        (root / views.MANIFEST).write_text("not: [valid yaml", encoding="utf-8")
+        (vault / MANIFESTS[views.OWNER]).write_text("not: [valid yaml", encoding="utf-8")
         expected_error = "manifest"
     else:
-        page = root / views.LITERATURE_INSPECTION
+        page = vault / PRODUCT / "Views/Literature Inspection.md"
         page.write_text(
             page.read_text(encoding="utf-8").replace(views.OWNER, "synthetic-unowned"),
             encoding="utf-8",
@@ -297,8 +233,8 @@ def test_apply_preflights_both_roots_before_any_workspace_mutation(setup, fault)
 @pytest.mark.parametrize(
     ("root", "relative"),
     [
-        (technical.OWNED_ROOT, technical.MAP),
-        (views.OWNED_ROOT, views.LITERATURE_INSPECTION),
+        (PRODUCT, PurePosixPath("Diagrams/Agent Anatomy.excalidraw.md")),
+        (PRODUCT, PurePosixPath("Views/Literature Inspection.md")),
     ],
 )
 def test_missing_owned_output_is_checkable_and_deterministically_restored(setup, root, relative):
@@ -325,57 +261,47 @@ def test_missing_owned_output_is_checkable_and_deterministically_restored(setup,
     assert _authored_snapshot(vault) == before_authored
 
 
-def test_interrupted_direct_generation_is_rejected_by_check_then_recovers(setup, monkeypatch):
-    repo, vault, _ = setup
-    authored = vault / "authored/references/Synthetic Paper.md"
-    write_note(authored, props("paper", wiki_id="WPAPER-HARNESS", title="Synthetic paper"))
-    workspace.apply(repo, vault)
-    paper_bytes = authored.read_bytes()
-    steering_path = vault / views.OWNED_ROOT / views.STEERING_BASE
-    prior_steering = steering_path.read_bytes()
-
-    moved = vault / "authored/moved/Synthetic Paper.md"
-    moved.parent.mkdir(parents=True)
-    authored.rename(moved)
-    authored_before = _authored_snapshot(vault)
-    atomic_write = views.atomic_write
-
-    def interrupt_after_navigation(root, relative, data):
-        result = atomic_write(root, relative, data)
-        if relative == views.NAVIGATION:
-            raise OSError("synthetic interrupted direct-view generation")
-        return result
-
+@pytest.mark.parametrize("stage", ["replacement", "retirement", "first-manifest"])
+def test_interrupted_direct_generation_is_rejected_by_check_then_recovers(
+    setup, monkeypatch, stage
+):
+    repo, vault, source_commit = setup
+    technical.project(repo, vault, source_commit)
+    views.project(repo, vault, source_commit)
+    original = _generated_snapshot(vault)
+    authored = _authored_snapshot(vault)
+    write = migration.atomic_write
     with monkeypatch.context() as patch:
-        patch.setattr(views, "atomic_write", interrupt_after_navigation)
-        with pytest.raises(workspace.WorkspaceError, match="direct views failed"):
+
+        def interrupt(root, path, data):
+            write(root, path, data)
+            if stage == "replacement" and path == INTERNAL / "Audit/Declared References.md":
+                raise OSError("synthetic interrupted replacement")
+            if stage == "first-manifest" and path == sorted(MANIFESTS.values())[0]:
+                raise OSError("synthetic interrupted manifest")
+
+        patch.setattr(migration, "atomic_write", interrupt)
+        if stage == "retirement":
+            unlink = Path.unlink
+
+            def interrupt_unlink(path, *args, **kwargs):
+                unlink(path, *args, **kwargs)
+                if path.is_relative_to(vault / technical.OWNED_ROOT):
+                    raise OSError("synthetic interrupted retirement")
+
+            patch.setattr(Path, "unlink", interrupt_unlink)
+        with pytest.raises(workspace.WorkspaceError, match="migration failed"):
             workspace.apply(repo, vault)
-
-    assert steering_path.read_bytes() != prior_steering
-    interrupted_state = filesystem_state(vault)
-    with pytest.raises(workspace.WorkspaceError, match="drift"):
+    state = filesystem_state(vault)
+    with pytest.raises(workspace.WorkspaceError):
         workspace.check(repo, vault)
-    assert filesystem_state(vault) == interrupted_state
-    assert _authored_snapshot(vault) == authored_before
-    assert moved.read_bytes() == paper_bytes
-
+    assert filesystem_state(vault) == state
+    point = next((vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).iterdir())
+    workspace.recover(repo, vault, point)
+    assert _generated_snapshot(vault) == original
+    assert _authored_snapshot(vault) == authored
     workspace.apply(repo, vault)
     workspace.check(repo, vault)
-    recovered = _generated_snapshot(vault)
-    workspace.apply(repo, vault)
-    assert _generated_snapshot(vault) == recovered
-    assert _authored_snapshot(vault) == authored_before
-    assert moved.read_bytes() == paper_bytes
-
-    # Recovery of an expected generated replacement must not adopt operator edits.
-    edited = views.read_yaml(steering_path.read_text())
-    edited["views"][0]["name"] += " synthetic operator edit"
-    steering_path.write_text(views.yaml_text(edited))
-    protected = filesystem_state(vault)
-    with pytest.raises(workspace.WorkspaceError, match="Base changed semantically"):
-        workspace.apply(repo, vault)
-    assert filesystem_state(vault) == protected
-    assert _authored_snapshot(vault) == authored_before
 
 
 def test_complete_workspace_paths_links_and_markdown_fallback_are_portable(setup):
@@ -399,52 +325,14 @@ def test_complete_workspace_paths_links_and_markdown_fallback_are_portable(setup
     generated_paths = tuple(PurePosixPath(path) for path in _generated_snapshot(vault))
     technical.validate_portable_paths(generated_paths)
     inventory = set(generated_paths)
-    required = {
-        technical.OWNED_ROOT / technical.HOME,
-        technical.OWNED_ROOT / technical.ANATOMY,
-        technical.OWNED_ROOT / technical.DOMAIN_SLICE,
-        views.OWNED_ROOT / views.K3_HOME,
-        views.OWNED_ROOT / views.HIERARCHY,
-        views.OWNED_ROOT / views.RESEARCH_LANDSCAPE,
-        views.OWNED_ROOT / views.LITERATURE_INSPECTION,
-        views.OWNED_ROOT / views.NAVIGATION,
-        views.OWNED_ROOT / views.SOURCE_DETAIL,
-        views.OWNED_ROOT / views.SOURCE_INDEX,
-        views.OWNED_ROOT / views.REFERENCE_INDEX,
-        views.OWNED_ROOT / views.MANIFEST,
-        technical.OWNED_ROOT / technical.MANIFEST,
-        technical.OWNED_ROOT / technical.HERO_ASSET,
-    }
-    required.update(views.OWNED_ROOT / p for p in views.OBSIDIAN_MANAGED_BASES)
-    required.update(views.OWNED_ROOT / p for p in views.identity_page_paths(atlas).values())
-    required.update(views.OWNED_ROOT / p for p in views.rq_page_paths(records).values())
-    from fh_agent.research_atlas import knowledge_graph as graph
-
-    required.update(views.OWNED_ROOT / p for p in (graph.PROFILE, graph.AUDIT))
-    for identity, entity in atlas.entities.items():
-        if entity.type == "Component":
-            for mode in graph.MODES:
-                for name in ("Graph Profile.md", "Edge Audit.md"):
-                    required.add(views.OWNED_ROOT / graph.scope_root(identity, mode) / name)
-    for detail in views.technical_detail_models(atlas):
-        required.update(
-            views.OWNED_ROOT / p for p in views.technical_detail_paths(detail.endpoint_id)
-        )
-    assert required <= inventory
-
-    home = (vault / views.OWNED_ROOT / views.K3_HOME).read_text(encoding="utf-8")
-    landscape = (vault / views.OWNED_ROOT / views.RESEARCH_LANDSCAPE).read_text(encoding="utf-8")
-    direct_index = (vault / views.OWNED_ROOT / views.INDEX).read_text(encoding="utf-8")
-    assert "Markdown fallback" in home
-    assert "If Excalidraw is unavailable" in home
-    assert "Technical Hierarchy" in home
-    assert "Literature Inspection" in landscape and "Literature Inspection" in direct_index
-    for paths in views.COMPONENT_HUB_PATHS.values():
-        for path in (paths.overview, paths.technical, paths.research):
-            assert views.OWNED_ROOT / path in inventory
-        assert str(paths.research.with_suffix("")) in landscape
-        overview = (vault / views.OWNED_ROOT / paths.overview).read_text(encoding="utf-8")
-        assert str(paths.research.with_suffix("")) in overview
+    tree = migration.build(repo, vault, workspace.resolve_context(repo, vault).source_commit)
+    assert set(tree.files) == inventory
+    assert set(preferred_paths(atlas).values()) <= inventory
+    assert HOME in inventory
+    assert (vault / HOME).read_text().startswith("---\n")
+    assert "Markdown fallback" in (vault / HOME).read_text()
+    assert all(not p.is_relative_to(technical.OWNED_ROOT) for p in inventory)
+    assert all(not p.is_relative_to(views.OWNED_ROOT) for p in inventory)
 
     windows_absolute = re.compile(rb"(?<![A-Za-z])[A-Za-z]:[\\/]")
     for relative in generated_paths:
@@ -473,8 +361,8 @@ def test_complete_workspace_paths_links_and_markdown_fallback_are_portable(setup
     # source-history indexes, RQ readers, Graph proxies/audits, Bases and rich assets.
     for relative in generated_paths:
         if relative not in {
-            technical.OWNED_ROOT / technical.MANIFEST,
-            views.OWNED_ROOT / views.MANIFEST,
+            *MANIFESTS.values(),
+            INTERNAL / "Indexes/source-resolution-index.yaml",
         }:
             (vault / relative).unlink()
     missing_state = filesystem_state(vault)

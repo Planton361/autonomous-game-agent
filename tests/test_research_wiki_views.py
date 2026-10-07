@@ -505,7 +505,8 @@ def test_current_03_private_views_report_source_schema_truthfully():
 
     assert manifest["source_atlas_schema"] == "0.3"
     assert index_payload["source_atlas_schema"] == "0.3"
-    assert tree_digest(tree) == "fd9928f0e5116b60151e145a5331d99419621caf34f09c15ee57b1b6b5977c34"
+    # #159 changes reader layout/Steering presentation; Registry schema remains 0.3.
+    assert tree_digest(tree) == "e6a303aff1f3325f2ac33383cf775c752fb763fe11b4f57c996cb09a56e27f52"
 
 
 def test_current_03_source_schema_propagates_through_private_views():
@@ -2771,8 +2772,6 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     from test_g2_interface_attachment import rollout_records as g2_records
     from test_research_wiki_projection import SECRET
 
-    from fh_agent.research_atlas.workspace_harness import check as check_workspace
-
     repo, vault, sha = setup
     git(repo, "remote", "add", "origin", "https://github.com/Planton361/autonomous-game-agent.git")
     for r in g2_records():
@@ -2781,7 +2780,7 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     outputs = views.project(repo, vault, sha)
     after = filesystem_state(vault)
     assert all(after[path][3] == value[3] for path, value in before.items() if value[3] is not None)
-    assert check_workspace(repo, vault) is not None
+    assert views.project(repo, vault, sha, check=True) is not None
     assert filesystem_state(vault) == after
     manifest = yaml.safe_load(outputs[views.MANIFEST])
     assert manifest["view_schema_version"] == "2.17"
@@ -2818,7 +2817,7 @@ def test_g2_synthetic_projection_migration_authored_bytes_zero_write_and_export_
     assert filesystem_state(vault) == legacy_state
     migrated = views.project(repo, vault, sha)
     assert migrated == outputs
-    assert check_workspace(repo, vault) is not None
+    assert views.project(repo, vault, sha, check=True) is not None
     assert all(
         filesystem_state(vault)[path][3] == value[3]
         for path, value in before.items()
@@ -2864,7 +2863,7 @@ def test_human_reader_v212_migration_body_independence_private_export_and_zero_w
     assert filesystem_state(vault) == before
     assert views.project(repo, vault, sha) == outputs
     before = filesystem_state(vault)
-    workspace_check(repo, vault)
+    views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     assert outside_owned(vault) == authored_before
     note = vault / "authored" / (reader_records()[0]["title"] + ".md")
@@ -2873,7 +2872,7 @@ def test_human_reader_v212_migration_body_independence_private_export_and_zero_w
     )
     before = filesystem_state(vault)
     assert views.project(repo, vault, sha, check=True) == outputs
-    workspace_check(repo, vault)
+    views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     assert all(b"BODY-ONLY-SECRET" not in payload for payload in outputs.values())
     page = views.OWNED_ROOT / views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]
@@ -2884,7 +2883,7 @@ def test_human_reader_v212_migration_body_independence_private_export_and_zero_w
     )
     assert (vault / page).read_bytes() == outputs[views.IDENTITY_PAGE_PATHS["CMP-PERCEPTION"]]
     before = filesystem_state(vault)
-    workspace_check(repo, vault)
+    views.project(repo, vault, sha, check=True)
     assert filesystem_state(vault) == before
     for bad in (
         PurePosixPath("../public.md"),
@@ -2941,7 +2940,7 @@ def test_g4_catalog_projection_historical_migration_zero_write_and_private_isola
     outputs = views.project(repo, vault, sha)
     assert outside_owned(vault) == before_authored and snapshot(repo) == public_before
     before = filesystem_state(vault)
-    assert workspace_check(repo, vault) is not None
+    assert views.project(repo, vault, sha, check=True) is not None
     assert filesystem_state(vault) == before
     source_index = yaml.safe_load(outputs[SOURCE_INDEX])
     current = yaml.safe_load(outputs[views.MANIFEST])

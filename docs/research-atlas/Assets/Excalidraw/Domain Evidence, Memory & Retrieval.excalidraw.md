@@ -129,11 +129,11 @@ Component · CMP-MEM-RETRIEVAL ^a8a86a8d
 
 ← Back to Agent Anatomy ^715c8c01
 
-Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records ^ce6229d7
+Home ^ce6229d7
 
 Memory Retrieval → Overview ^9906f8c9
 
-If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records. ^a0119704
+If Excalidraw is unavailable, use Home and linked Markdown technical records. ^a0119704
 
 ## Element Links
 
@@ -231,9 +231,9 @@ a8a86a8d: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|CMP-MEM-RETRIEVAL 
 
 715c8c01: [[Assets/Excalidraw/Agent Anatomy.excalidraw|← Back to Agent Anatomy]]
 
-c64e6537: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
+c64e6537: [[Home/Research Atlas|Home]]
 
-ce6229d7: [[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]
+ce6229d7: [[Home/Research Atlas|Home]]
 
 d1b5d1cd: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval → Overview]]
 
@@ -2844,7 +2844,7 @@ d1b5d1cd: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval �
       "height": 64,
       "id": "c64e6537",
       "isDeleted": false,
-      "link": "[[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]",
+      "link": "[[Home/Research Atlas|Home]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2878,18 +2878,18 @@ d1b5d1cd: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval �
       "id": "ce6229d7",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": "[[Home/Research Atlas|Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records]]",
+      "link": "[[Home/Research Atlas|Home]]",
       "locked": false,
       "opacity": 100,
-      "originalText": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
-      "rawText": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
+      "originalText": "Home",
+      "rawText": "Home",
       "roughness": 0,
       "roundness": null,
       "seed": 1315056087,
       "strokeColor": "#26384b",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "Research Knowledge Home · Memory Retrieval Component Hub / Technical Hierarchy / exact records",
+      "text": "Home",
       "textAlign": "left",
       "type": "text",
       "updated": 0,
@@ -2987,15 +2987,15 @@ d1b5d1cd: [[Components/CMP-MEM-RETRIEVAL — Memory Retrieval|Memory Retrieval �
       "link": null,
       "locked": false,
       "opacity": 100,
-      "originalText": "If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records.",
-      "rawText": "If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records.",
+      "originalText": "If Excalidraw is unavailable, use Home and linked Markdown technical records.",
+      "rawText": "If Excalidraw is unavailable, use Home and linked Markdown technical records.",
       "roughness": 0,
       "roundness": null,
       "seed": 538023684,
       "strokeColor": "#526477",
       "strokeStyle": "solid",
       "strokeWidth": 1,
-      "text": "If Excalidraw is unavailable, use the Research Knowledge Home and linked Markdown technical records.",
+      "text": "If Excalidraw is unavailable, use Home and linked Markdown technical records.",
       "textAlign": "left",
       "type": "text",
       "updated": 0,

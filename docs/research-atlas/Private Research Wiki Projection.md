@@ -1,5 +1,11 @@
 # Private Research Wiki Projection
 
+Current generated routes and supported global ownership migration are specified in
+[Final Research Map](Final%20Research%20Map.md) (#159, accepted #158 target).
+Older path/pipeline descriptions below are retained as implementation history;
+the final operator workflow supersedes those presentation routes. Actual-vault
+migration still requires CONTROL exact-head review and separate G6 authorization.
+
 RA-1 projects the public Git/YAML Research Atlas into a physically separate private
 Obsidian vault. `docs/research-atlas/registry/` remains the authoritative technical
 source; generated notes are disposable views. No editable Registry copy is exported.
