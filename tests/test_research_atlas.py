@@ -695,6 +695,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                             "knowledge_graph",
                             "product_migration",
                             "obsidian_semantics",
+                            "historical_reference",
                         }
                         continue
                     assert node.module in {

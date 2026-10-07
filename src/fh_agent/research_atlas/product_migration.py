@@ -6,6 +6,7 @@ import re
 import unicodedata
 from pathlib import Path, PurePosixPath
 
+from . import historical_reference
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
@@ -163,6 +164,7 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
                 semantics.Ownership.EXCALIDRAW,
             }:
                 prior[full]["legacy_source_commit"] = provenance["source_commit"]
+                prior[full]["legacy_provenance"] = dict(metadata["provenance"])
         prior[path] = dict(
             sha256=digest(source.read_bytes()),
             owner=owner,
@@ -183,24 +185,33 @@ def prove_ownership(
         if not target.exists():
             continue
         data = target.read_bytes()
-        if row.get("legacy_source_commit") and digest(data) != row["sha256"]:
+        if row.get("legacy_source_commit"):
             revision = row["legacy_source_commit"]
             if revision not in references:
-                references[revision] = build(repo, source_vault, revision)
+                references[revision] = historical_reference.resolve(
+                    repo, source_vault, revision, build
+                )
             reference = references[revision]
+            provenance = read_yaml(utf8(reference.files[MANIFESTS[row["owner"]]]))["provenance"]
+            if row["legacy_provenance"] != provenance:
+                raise ProjectionError(
+                    "Historical manifest provenance differs from original reference"
+                )
             emitted = reference.files.get(path)
             if (
                 emitted is None
                 or reference.owners[path] != row["owner"]
                 or digest(emitted) != row["sha256"]
+                or not _owner(emitted, path, row["owner"])
             ):
                 raise ProjectionError(
                     "Cannot prove historical semantic ownership from emitted digest"
                 )
-            row.update(
-                ownership=semantics.classification(path).value,
-                semantic_sha256=semantics.semantic_digest(emitted, path, row["owner"]),
-            )
+            if digest(data) != row["sha256"]:
+                row.update(
+                    ownership=semantics.classification(path).value,
+                    semantic_sha256=semantics.semantic_digest(emitted, path, row["owner"]),
+                )
         if row["ownership"] == semantics.Ownership.STRICT.value:
             if not _owner(data, path, row["owner"]):
                 raise ProjectionError("Owned content lost its owner marker")

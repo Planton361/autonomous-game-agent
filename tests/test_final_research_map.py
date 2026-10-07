@@ -1,7 +1,10 @@
 """Synthetic-only final IA and global ownership migration acceptance evidence."""
 
+import base64
+import gzip
 import json
 import re
+import shutil
 from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
@@ -14,6 +17,7 @@ from rq_reader_fixtures import fictional_records
 from test_research_wiki_projection import filesystem_state, snapshot, write_note
 
 from fh_agent.research_atlas import final_projection
+from fh_agent.research_atlas import historical_reference as historical
 from fh_agent.research_atlas import knowledge_graph as graph
 from fh_agent.research_atlas import obsidian_semantics as semantics
 from fh_agent.research_atlas import private_projection as public
@@ -1022,6 +1026,15 @@ def test_historical_exact_receipt_remains_bounded(workspace_setup):
 
 def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup, monkeypatch):
     repo, vault, source_commit = workspace_setup
+    # A real same-renderer Git tree, not a synthetic commit label over missing code.
+    shutil.copytree(
+        ROOT / "src/fh_agent/research_atlas",
+        repo / "src/fh_agent/research_atlas",
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    shutil.copyfile(ROOT / "src/fh_agent/__init__.py", repo / "src/fh_agent/__init__.py")
+    source_commit = harness_fixtures.commit(repo)
     workspace.apply(repo, vault)
     build = migration.build
     prove = migration.prove_ownership
@@ -1074,6 +1087,179 @@ def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup, 
         read_yaml((vault / p).read_text())["product_schema_version"] == "1.1"
         for p in MANIFESTS.values()
     )
+
+
+def original_10_oracle():
+    """Public bytes emitted by actual commit A, not current renderer/schema downgrade."""
+    data = (ROOT / "src/fh_agent/research_atlas/historical_references/8e544d2.json.gz").read_bytes()
+    assert public.digest(data) == "c8cf4a6bbe318c895f2c4e68859b0599069ec4774147e990f32f0171cc3ec1af"
+    value = json.loads(gzip.decompress(data))
+    files = {PurePosixPath(p): base64.b64decode(v) for p, v in value["files"].items()}
+    assert public.digest(files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"]) == (
+        "2947d718331e317698a9da0c268411a37d3d1f1658364bf7543b742bad0ca39c"
+    )
+    return ProductTree(files, {PurePosixPath(p): v for p, v in value["owners"].items()}, {})
+
+
+@pytest.fixture
+def original_10_workspace(workspace_setup):
+    repo, vault, _ = workspace_setup
+    # Only synthetic inputs. Original Git objects are read locally, never fetched.
+    (vault / "authored/process.md").unlink()
+    shutil.copytree(
+        ROOT / "src/fh_agent/research_atlas",
+        repo / "src/fh_agent/research_atlas",
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    shutil.copyfile(ROOT / "src/fh_agent/__init__.py", repo / "src/fh_agent/__init__.py")
+    commit = harness_fixtures.commit(repo)
+    common = Path(harness_fixtures.git(ROOT, "rev-parse", "--git-common-dir"))
+    if not common.is_absolute():
+        common = ROOT / common
+    (repo / ".git/objects/info/alternates").write_text(str(common.resolve() / "objects") + "\n")
+    oracle = original_10_oracle()
+    for path, data in oracle.files.items():
+        (vault / path).parent.mkdir(parents=True, exist_ok=True)
+        (vault / path).write_bytes(data)
+    return repo, vault, commit, oracle
+
+
+def test_cross_revision_10_original_bytes_then_supported_upgrade(original_10_workspace):
+    repo, vault, commit, oracle = original_10_workspace
+    reference = historical.resolve(repo, vault, historical.HISTORICAL_COMMIT, migration.build)
+    assert reference.files == oracle.files
+    assert reference.owners == oracle.owners
+    current = migration.build(repo, vault, historical.HISTORICAL_COMMIT)
+    diagrams = [p for p in managed_paths(oracle) if not p.suffix == ".base"]
+    assert len(diagrams) == 9
+    assert all(current.files[p] != oracle.files[p] for p in diagrams)
+    for p in managed_paths(oracle):
+        (vault / p).write_bytes(rewrite_managed(oracle.files[p], p))
+    before = snapshot(vault)
+    result = workspace.apply(repo, vault)
+    assert result.source_commit == commit
+    assert result.restore_point is not None
+    assert all(
+        public.digest((result.restore_point / p).read_bytes()) == before[str(p)]
+        for p in oracle.files
+    )
+    assert (vault / "authored/keep.bin").read_bytes() == bytes(range(32))
+    state = filesystem_state(vault.parent)
+    workspace.check(repo, vault)
+    assert filesystem_state(vault.parent) == state
+    assert all(
+        read_yaml((vault / p).read_text())["product_schema_version"] == "1.1"
+        for p in MANIFESTS.values()
+    )
+
+
+@pytest.mark.parametrize(
+    ("fault", "reason"),
+    [
+        ("reference-corrupt", "Corrupt historical original reference"),
+        ("reference-missing", "No such file"),
+        ("reference-symlink", "Symlink boundary"),
+        ("git-object-missing", "Git source check"),
+        ("unsupported-renderer", "Unsupported historical renderer"),
+        ("wrong-commit", "Git source check"),
+        ("wrong-provenance", "Historical manifest provenance"),
+        ("wrong-sha", "historical semantic ownership"),
+        ("wrong-owner", "Invalid final owner manifest"),
+        ("wrong-path", "Unknown/unowned"),
+        ("unavailable-input", "Historical admissible inputs"),
+        ("canvas-side", "Owned content was edited"),
+        ("excalidraw-height", "Owned content was edited"),
+        ("excalidraw-whitespace", "Owned content was edited"),
+        ("excalidraw-image-route", "Generated illustration route"),
+    ],
+)
+def test_cross_revision_10_rejections_are_zero_write(
+    original_10_workspace, monkeypatch, fault, reason
+):
+    repo, vault, _, oracle = original_10_workspace
+    canvas = next(p for p in oracle.files if p.suffix == ".canvas")
+    anatomy = PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"
+    domain = PRODUCT / "Diagrams/Evidence, Memory & Retrieval.excalidraw.md"
+    # Exercise actual historical promotion, including harmless permitted serialization.
+    for p in managed_paths(oracle):
+        (vault / p).write_bytes(rewrite_managed(oracle.files[p], p))
+    if fault.startswith("reference-"):
+        path = repo.parent / "original-reference.json.gz"
+        if fault == "reference-corrupt":
+            path.write_bytes(historical.REFERENCE_PATH.read_bytes() + b"corrupt")
+        elif fault == "reference-symlink":
+            path.symlink_to(historical.REFERENCE_PATH)
+        monkeypatch.setattr(historical, "REFERENCE_PATH", path)
+    elif fault == "git-object-missing":
+        (repo / ".git/objects/info/alternates").unlink()
+    elif fault == "unsupported-renderer":
+        revision = harness_fixtures.git(repo, "rev-list", "--max-parents=0", "HEAD")
+        for path in MANIFESTS.values():
+            metadata = read_yaml((vault / path).read_text())
+            metadata["provenance"]["source_commit"] = revision
+            (vault / path).write_text(views.yaml_text(metadata))
+
+        def unexpected_build(*args):
+            raise AssertionError("Untrusted historical renderer must reject before build")
+
+        monkeypatch.setattr(migration, "build", unexpected_build)
+    elif fault in {"wrong-commit", "wrong-provenance", "wrong-sha", "wrong-owner", "wrong-path"}:
+        path = vault / MANIFESTS[public.OWNER]
+        metadata = read_yaml(path.read_text())
+        if fault == "wrong-commit":
+            metadata["provenance"]["source_commit"] = "f" * 40
+        elif fault == "wrong-provenance":
+            metadata["provenance"]["record_count"] += 1
+        elif fault == "wrong-owner":
+            metadata["generated_by"] = views.OWNER
+        else:
+            row = next(r for r in metadata["owned_files"] if r["path"] == str(anatomy))
+            if fault == "wrong-sha":
+                row["sha256"] = "b" * 64
+            else:
+                row["path"] = str(PRODUCT / "Diagrams/Untrusted.excalidraw.md")
+        path.write_text(views.yaml_text(metadata))
+    elif fault == "unavailable-input":
+        write_note(vault / "authored/process.md")
+    elif fault == "canvas-side":
+        (vault / canvas).write_bytes(canvas_mutation(oracle.files[canvas], "side"))
+    elif fault in {"excalidraw-height", "excalidraw-whitespace"}:
+        data = oracle.files[domain]
+        match, scene = drawing_scene(data)
+        element = next(e for e in scene["elements"] if e["type"] == "text")
+        if fault == "excalidraw-height":
+            element["height"] += 0.5
+        else:
+            element["text"] += " "
+        text = data.decode()
+        (vault / domain).write_text(
+            text[: match.start(1)] + json.dumps(scene) + text[match.end(1) :]
+        )
+    else:
+        (vault / anatomy).write_bytes(
+            oracle.files[anatomy].replace(
+                b"[[_Research Map Internals/Assets/Agent Anatomy Hero.svg]]",
+                b"[[Agent Anatomy Hero.svg]]",
+            )
+        )
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match=reason):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    assert not (vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).exists()
+
+
+def test_10_matching_bytes_do_not_hide_wrong_provenance(original_10_workspace):
+    repo, vault, _, _ = original_10_workspace
+    manifest = vault / MANIFESTS[public.OWNER]
+    metadata = read_yaml(manifest.read_text())
+    metadata["provenance"]["record_count"] += 1
+    manifest.write_text(views.yaml_text(metadata))
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="provenance"):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
 
 
 def test_semantic_receipt_recovery_preserves_plugin_bytes_and_blocks_edits(

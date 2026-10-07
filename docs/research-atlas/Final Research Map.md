@@ -154,6 +154,17 @@ reference semantically. If prior inputs cannot be reproduced, migration blocks;
 the current file is never its own ownership oracle. `check` detects an outdated
 manifest; supported `apply` advances it without manual deletion.
 
+Historical reference resolution does not execute manifest-selected code. The
+recorded `8e544d2e05180306a9580b5475c03e0bd91601ac` public/empty-input lineage
+uses pinned original emitted data independently produced by that exact historical
+code and assets. Its local immutable Git tree, original manifests, emitted hashes
+and admissible-input provenance must agree. Current rendered bytes with an old
+commit label are not a historical oracle. Other revisions require byte-identical
+renderer code/assets in local Git; unsupported or unreproducible inputs block.
+The reference's generation record is in
+`src/fh_agent/research_atlas/historical_references/README.md`. Resolving historical
+bytes does not accept new semantic differences or authorize an actual-vault apply.
+
 Checks remain zero-write. Apply proves ownership before restore-point creation,
 validates the copied snapshot, then restores canonical emitted bytes. External
 receipt schema `2.0` records exact before/after digests and ownership/semantic
