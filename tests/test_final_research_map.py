@@ -576,7 +576,7 @@ def test_all_generated_links_filters_and_canvas_routes_resolve(workspace_setup):
 @pytest.mark.parametrize(
     "fault", ["edit", "owner", "manifest", "unowned", "collision", "case", "symlink", "owner-lost"]
 )
-def test_failures_before_any_write_or_restore_point(workspace_setup, fault):
+def test_failures_before_any_write_or_restore_point(workspace_setup, fault, monkeypatch):
     repo, vault, source_commit = workspace_setup
     public.project(repo, vault, source_commit)
     views.project(repo, vault, source_commit)
@@ -604,9 +604,49 @@ def test_failures_before_any_write_or_restore_point(workspace_setup, fault):
         (vault / "research map").mkdir()
     else:
         (vault / HOME).symlink_to(vault / "authored/process.md")
+    build = migration.build
+    builds = []
+
+    def expected_build(*args):
+        assert fault == "case", "Invalid ownership must fail before current product construction"
+        builds.append(args[2])
+        return build(*args)
+
+    monkeypatch.setattr(migration, "build", expected_build)
     before = filesystem_state(vault.parent)
     with pytest.raises(workspace.WorkspaceError):
         workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    assert builds == ([source_commit] if fault == "case" else [])
+
+
+@pytest.mark.parametrize(
+    "guard", ["validate_portable_paths", "validate_source_history", "validate_read_provenance"]
+)
+def test_valid_ownership_still_reaches_later_preflight_guards(workspace_setup, monkeypatch, guard):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    build = migration.build
+    validate = getattr(migration, guard)
+    built = False
+
+    def expected_build(*args):
+        nonlocal built
+        result = build(*args)
+        built = True
+        return result
+
+    def reject_later(*args):
+        if not built:
+            return validate(*args)
+        raise ProjectionError("Synthetic later preflight guard")
+
+    monkeypatch.setattr(migration, "build", expected_build)
+    monkeypatch.setattr(migration, guard, reject_later)
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="Synthetic later preflight guard"):
+        workspace.apply(repo, vault)
+    assert built
     assert filesystem_state(vault.parent) == before
 
 
@@ -883,12 +923,18 @@ def assert_rejected_without_mutation(repo, vault, path, data):
     canonical = path.read_bytes()
     path.write_bytes(data)
     before = filesystem_state(vault.parent)
-    with pytest.raises(workspace.WorkspaceError):
-        workspace.check(repo, vault)
-    assert filesystem_state(vault.parent) == before
-    with pytest.raises(workspace.WorkspaceError):
-        workspace.apply(repo, vault)
-    assert filesystem_state(vault.parent) == before
+
+    def unexpected_build(*args):
+        raise AssertionError("Invalid ownership must fail before current product construction")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(migration, "build", unexpected_build)
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.check(repo, vault)
+        assert filesystem_state(vault.parent) == before
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.apply(repo, vault)
+        assert filesystem_state(vault.parent) == before
     path.write_bytes(canonical)
 
 
@@ -974,9 +1020,28 @@ def test_historical_exact_receipt_remains_bounded(workspace_setup):
     assert snapshot(vault) == before
 
 
-def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup):
-    repo, vault, _ = workspace_setup
+def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup, monkeypatch):
+    repo, vault, source_commit = workspace_setup
     workspace.apply(repo, vault)
+    build = migration.build
+    prove = migration.prove_ownership
+    in_proof = False
+    builds = []
+
+    def expected_build(*args):
+        builds.append((args[2], in_proof))
+        return build(*args)
+
+    def ownership_proof(*args):
+        nonlocal in_proof
+        in_proof = True
+        try:
+            return prove(*args)
+        finally:
+            in_proof = False
+
+    monkeypatch.setattr(migration, "build", expected_build)
+    monkeypatch.setattr(migration, "prove_ownership", ownership_proof)
     for manifest in MANIFESTS.values():
         value = read_yaml((vault / manifest).read_text())
         value["product_schema_version"] = "1.0"
@@ -998,9 +1063,13 @@ def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup):
     with pytest.raises(workspace.WorkspaceError, match="historical"):
         workspace.apply(repo, vault)
     assert filesystem_state(vault.parent) == before
+    assert builds == [(source_commit, True)]
+    builds.clear()
     (vault / MANIFESTS[public.OWNER]).write_bytes(intact_manifest)
     workspace.apply(repo, vault)
     workspace.check(repo, vault)
+    assert builds[0] == (source_commit, True)
+    assert (source_commit, False) in builds
     assert all(
         read_yaml((vault / p).read_text())["product_schema_version"] == "1.1"
         for p in MANIFESTS.values()

@@ -264,9 +264,10 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
     if legacy.keys() & current.keys():
         raise ProjectionError("Ambiguous ownership")
     prior = legacy | current
-    tree = build(repo, vault, commit)
     if actual - prior.keys():
         raise ProjectionError("Unknown/unowned product destination; no adoption")
+    prove_ownership(repo, vault, vault, prior)
+    tree = build(repo, vault, commit)
     # Exact current inventory is the finite ownership allowlist, not a namespace wildcard.
     for path, row in current.items():
         if path not in tree.files or tree.owners[path] != row["owner"]:
@@ -302,7 +303,6 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
                 break
             if parent.exists() and not parent.is_dir():
                 raise ProjectionError("Destination parent collision")
-    prove_ownership(repo, vault, vault, prior)
     source = INTERNAL / "Indexes/source-resolution-index.yaml"
     old_source = views.OWNED_ROOT / views.SOURCE_INDEX
     for path in (old_source, source):
