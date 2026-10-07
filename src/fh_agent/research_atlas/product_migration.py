@@ -274,20 +274,25 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
     validate_portable_paths(tree.files.keys() | actual)
     # Also reject case/Unicode aliases in existing directory entries, including
     # unowned sibling namespaces on case-sensitive Linux filesystems.
-    checked = set()
+    intended: dict[Path, dict[str, str]] = {}
     for relative in tree.files:
         parent = vault
         for name in relative.parts:
             key = unicodedata.normalize("NFD", name).casefold()
-            if parent.is_dir() and (parent, name) not in checked:
-                for sibling in parent.iterdir():
-                    if (
-                        unicodedata.normalize("NFD", sibling.name).casefold() == key
-                        and sibling.name != name
-                    ):
-                        raise ProjectionError("Destination case/Unicode collision")
-                checked.add((parent, name))
+            names = intended.setdefault(parent, {})
+            if key in names and names[key] != name:
+                raise ProjectionError("Destination case/Unicode collision")
+            names[key] = name
             parent /= name
+    # Read every parent live once against ALL intended child names. This retains
+    # the exhaustive alias check without a directory scan per destination name.
+    # No filesystem results survive this preflight; target_path stays live.
+    for parent, names in intended.items():
+        if parent.is_dir():
+            for sibling in parent.iterdir():
+                name = names.get(unicodedata.normalize("NFD", sibling.name).casefold())
+                if name is not None and sibling.name != name:
+                    raise ProjectionError("Destination case/Unicode collision")
     for path in tree.files.keys() | prior.keys():
         destination = target_path(vault, path)
         if destination.exists() and not destination.is_file():
