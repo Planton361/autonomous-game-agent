@@ -13,10 +13,11 @@ from pathlib import PurePosixPath
 from urllib.parse import quote, unquote, urlsplit
 
 from . import knowledge_graph as graph
+from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, preferred_paths
-from .private_projection import ProjectionError, digest, markdown_parts, read_yaml, utf8, yaml_text
+from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
 from .validator import Atlas
 
 MODES = {
@@ -584,13 +585,11 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         for path, data in sorted(files.items()):
             if owners[path] != owner:
                 continue
-            row = dict(path=str(path), sha256=digest(data))
-            if path.suffix == ".base":
-                row["semantic_sha256"] = views._base_semantic_digest(data)
+            row = dict(path=str(path), **semantics.record(data, path, owner))
             inventory.append(row)
         files[manifest_path] = yaml_text(
             dict(
-                product_schema_version="1.0",
+                product_schema_version="1.1",
                 generated_by=owner,
                 provenance=provenance,
                 owned_files=inventory,

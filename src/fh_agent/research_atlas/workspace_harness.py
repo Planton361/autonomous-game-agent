@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from . import obsidian_semantics as semantics
 from . import product_migration
 from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
@@ -221,16 +222,44 @@ def apply(
         tree, actual = product_migration.preflight(
             context.repo_root, context.vault_root, context.source_commit
         )
+        proven = product_migration.prove_ownership(
+            context.repo_root,
+            context.vault_root,
+            context.vault_root,
+            product_migration._legacy(context.vault_root)
+            | product_migration._current(context.vault_root),
+        )
     except (OSError, UnicodeError, ValueError) as exc:
         raise WorkspaceError(f"Research Map preflight failed: {exc}") from exc
     restore_point = create_restore_point(context, restore_root)
+    if product_migration._actual(restore_point) != actual or any(
+        not product_migration.intact((restore_point / p).read_bytes(), p, proven[p]) for p in actual
+    ):
+        raise WorkspaceError("Restore-point ownership changed during copy; no mutation")
     # External receipts support explicit recovery without adopting interrupted output.
     plan = {
+        "receipt_schema_version": "2.0",
         "source_commit": context.source_commit,
         "before": {
-            str(p): product_migration.digest((context.vault_root / p).read_bytes()) for p in actual
+            str(p): product_migration.digest((restore_point / p).read_bytes()) for p in actual
         },
         "after": {str(p): product_migration.digest(data) for p, data in tree.files.items()},
+        "before_ownership": {
+            str(p): dict(
+                owner=proven[p]["owner"],
+                **semantics.record(
+                    (restore_point / p).read_bytes(),
+                    p,
+                    proven[p]["owner"],
+                    semantics.Ownership(proven[p]["ownership"]),
+                ),
+            )
+            for p in actual
+        },
+        "after_ownership": {
+            str(p): dict(owner=tree.owners[p], **semantics.record(data, p, tree.owners[p]))
+            for p, data in tree.files.items()
+        },
     }
     (restore_point / "migration-plan.json").write_text(json.dumps(plan, sort_keys=True) + "\n")
     try:
@@ -277,10 +306,11 @@ def recover(repo_root: Path, vault_root: Path, restore_point: Path) -> Workspace
         ):
             raise WorkspaceError("Recovery point must be external")
         plan = json.loads((point / "migration-plan.json").read_text())
-        if (
-            set(plan) != {"source_commit", "before", "after"}
-            or plan["source_commit"] != context.source_commit
-        ):
+        semantic_receipt = plan.get("receipt_schema_version") == "2.0"
+        fields = {"source_commit", "before", "after"}
+        if semantic_receipt:
+            fields |= {"receipt_schema_version", "before_ownership", "after_ownership"}
+        if set(plan) != fields or plan["source_commit"] != context.source_commit:
             raise WorkspaceError("Recovery receipt does not match exact source head")
         expected = product_migration.build(
             context.repo_root, context.vault_root, context.source_commit
@@ -291,27 +321,44 @@ def recover(repo_root: Path, vault_root: Path, restore_point: Path) -> Workspace
         if plan["after"] != expected_digests:
             raise WorkspaceError("Recovery receipt does not match current frozen inputs/output")
         snapshot_files = product_migration._actual(point.resolve())
-        snapshot_owners = product_migration._legacy(point.resolve()) | product_migration._current(
-            point.resolve()
-        )
+        current_snapshot = product_migration._current(point.resolve())
+        if any(
+            p not in expected.files or expected.owners[p] != row["owner"]
+            for p, row in current_snapshot.items()
+        ):
+            raise WorkspaceError("Recovery snapshot exceeds finite final ownership")
+        snapshot_owners = product_migration._legacy(point.resolve()) | current_snapshot
         if {str(p) for p in snapshot_files} != set(
             plan["before"]
         ) or snapshot_files - snapshot_owners.keys():
             raise WorkspaceError("Recovery snapshot inventory is unowned or corrupt")
-        for relative in snapshot_files:
-            row = snapshot_owners[relative]
-            data = (point / relative).read_bytes()
-            semantic_base = relative.suffix == ".base" and row.get("semantic_sha256")
-            if not semantic_base and not product_migration._owner(data, relative, row["owner"]):
-                raise WorkspaceError("Recovery snapshot lost owner marker")
-            if semantic_base:
-                intact = (
-                    product_migration.views._base_semantic_digest(data) == row["semantic_sha256"]
+        snapshot_owners = product_migration.prove_ownership(
+            context.repo_root, context.vault_root, point.resolve(), snapshot_owners
+        )
+        if semantic_receipt:
+            expected_before = {
+                str(p): dict(
+                    owner=snapshot_owners[p]["owner"],
+                    **semantics.record(
+                        (point / p).read_bytes(),
+                        p,
+                        snapshot_owners[p]["owner"],
+                        semantics.Ownership(snapshot_owners[p]["ownership"]),
+                    ),
                 )
-            else:
-                intact = product_migration.digest(data) == row["sha256"]
-            if not intact:
-                raise WorkspaceError("Recovery snapshot ownership digest is corrupt")
+                for p in snapshot_files
+            }
+            expected_after = {
+                str(p): dict(
+                    owner=expected.owners[p], **semantics.record(data, p, expected.owners[p])
+                )
+                for p, data in expected.files.items()
+            }
+            if (
+                plan["before_ownership"] != expected_before
+                or plan["after_ownership"] != expected_after
+            ):
+                raise WorkspaceError("Recovery semantic receipt is corrupt")
         paths = set(plan["before"]) | set(plan["after"])
         product_migration.validate_portable_paths(paths)
         before = {Path(p): value for p, value in plan["before"].items()}
@@ -326,12 +373,23 @@ def recover(repo_root: Path, vault_root: Path, restore_point: Path) -> Workspace
             ):
                 raise WorkspaceError("Recovery receipt escapes generated boundaries")
             target = product_migration.target_path(context.vault_root, relative)
-            if target.exists() and (
-                not target.is_file()
-                or product_migration.digest(target.read_bytes())
-                not in {plan["before"].get(path), plan["after"].get(path)}
-            ):
-                raise WorkspaceError("Recovery output was edited or collided")
+            if target.exists():
+                if not target.is_file():
+                    raise WorkspaceError("Recovery output was edited or collided")
+                data = target.read_bytes()
+                matches = product_migration.digest(data) in {
+                    plan["before"].get(path),
+                    plan["after"].get(path),
+                }
+                if not matches and semantic_receipt:
+                    for phase in ("before_ownership", "after_ownership"):
+                        row = plan[phase].get(path)
+                        if row and row["ownership"] != semantics.Ownership.STRICT.value:
+                            matches = product_migration.intact(data, relative, row)
+                            if matches:
+                                break
+                if not matches:
+                    raise WorkspaceError("Recovery output was edited or collided")
             if Path(path) in before:
                 backup = product_migration.target_path(point.resolve(), relative)
                 if (

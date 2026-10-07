@@ -6,6 +6,7 @@ import re
 import unicodedata
 from pathlib import Path, PurePosixPath
 
+from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
 from .final_projection import LEDGER, MANIFESTS, ProductTree, package
@@ -76,13 +77,20 @@ def _legacy(vault: Path) -> dict[PurePosixPath, dict]:
             raise ProjectionError("Unknown/unowned legacy content")
         for path, item in inventory.items():
             full = module.OWNED_ROOT / path
-            prior[full] = dict(sha256=item.sha256, owner=module.OWNER)
+            prior[full] = dict(
+                sha256=item.sha256, owner=module.OWNER, ownership=semantics.Ownership.STRICT.value
+            )
             if path.suffix == ".base" and getattr(item, "semantic_sha256", None):
                 prior[full]["semantic_sha256"] = item.semantic_sha256
+                prior[full]["ownership"] = semantics.Ownership.BASE.value
         manifest = root / module.MANIFEST
         if manifest.exists():
             full = module.OWNED_ROOT / module.MANIFEST
-            prior[full] = dict(sha256=digest(manifest.read_bytes()), owner=module.OWNER)
+            prior[full] = dict(
+                sha256=digest(manifest.read_bytes()),
+                owner=module.OWNER,
+                ownership=semantics.Ownership.STRICT.value,
+            )
     return prior
 
 
@@ -95,7 +103,7 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
         metadata = read_yaml(utf8(source.read_bytes()))
         if (
             set(metadata) != {"product_schema_version", "generated_by", "provenance", "owned_files"}
-            or metadata["product_schema_version"] != "1.0"
+            or metadata["product_schema_version"] not in ("1.0", "1.1")
             or metadata["generated_by"] != owner
         ):
             raise ProjectionError("Invalid final owner manifest")
@@ -113,7 +121,13 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
         except ValueError as exc:
             raise ProjectionError("Corrupt final source provenance") from exc
         for row in metadata["owned_files"]:
-            if not isinstance(row, dict) or set(row) not in (
+            legacy = metadata["product_schema_version"] == "1.0"
+            fields = (
+                set(row) - ({"ownership"} if not legacy else set())
+                if isinstance(row, dict)
+                else set()
+            )
+            if not isinstance(row, dict) or fields not in (
                 {"path", "sha256"},
                 {"path", "sha256", "semantic_sha256"},
             ):
@@ -128,15 +142,82 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
                 r"[a-f0-9]{64}", row["sha256"]
             ):
                 raise ProjectionError("Invalid owned digest")
-            if (full.suffix == ".base") != ("semantic_sha256" in row):
-                raise ProjectionError("Invalid final Base ownership classification")
+            kind = semantics.classification(full)
+            if legacy:
+                kind = (
+                    semantics.Ownership.BASE
+                    if full.suffix == ".base"
+                    else semantics.Ownership.STRICT
+                )
+            elif row.get("ownership") != kind.value:
+                raise ProjectionError("Invalid final ownership classification")
+            if (kind != semantics.Ownership.STRICT) != ("semantic_sha256" in row):
+                raise ProjectionError("Invalid final semantic ownership classification")
             if "semantic_sha256" in row and not re.fullmatch(
                 r"[a-f0-9]{64}", str(row["semantic_sha256"])
             ):
-                raise ProjectionError("Invalid final Base semantic digest")
-            prior[full] = dict(row, owner=owner)
-        prior[path] = dict(sha256=digest(source.read_bytes()), owner=owner)
+                raise ProjectionError("Invalid final semantic digest")
+            prior[full] = dict(row, owner=owner, ownership=kind.value)
+            if legacy and semantics.classification(full) in {
+                semantics.Ownership.CANVAS,
+                semantics.Ownership.EXCALIDRAW,
+            }:
+                prior[full]["legacy_source_commit"] = provenance["source_commit"]
+        prior[path] = dict(
+            sha256=digest(source.read_bytes()),
+            owner=owner,
+            ownership=semantics.Ownership.STRICT.value,
+        )
     return prior
+
+
+def prove_ownership(
+    repo: Path, source_vault: Path, storage: Path, prior: dict[PurePosixPath, dict]
+) -> dict[PurePosixPath, dict]:
+    """Promote only reproducible 1.0 surfaces whose reference matches the old byte hash."""
+    references = {}
+    proven = {}
+    for path, original in prior.items():
+        row = dict(original)
+        target = target_path(storage, path)
+        if not target.exists():
+            continue
+        data = target.read_bytes()
+        if row.get("legacy_source_commit") and digest(data) != row["sha256"]:
+            revision = row["legacy_source_commit"]
+            if revision not in references:
+                references[revision] = build(repo, source_vault, revision)
+            reference = references[revision]
+            emitted = reference.files.get(path)
+            if (
+                emitted is None
+                or reference.owners[path] != row["owner"]
+                or digest(emitted) != row["sha256"]
+            ):
+                raise ProjectionError(
+                    "Cannot prove historical semantic ownership from emitted digest"
+                )
+            row.update(
+                ownership=semantics.classification(path).value,
+                semantic_sha256=semantics.semantic_digest(emitted, path, row["owner"]),
+            )
+        if row["ownership"] == semantics.Ownership.STRICT.value:
+            if not _owner(data, path, row["owner"]):
+                raise ProjectionError("Owned content lost its owner marker")
+            valid = digest(data) == row["sha256"]
+        else:
+            valid = intact(data, path, row)
+        if not valid:
+            raise ProjectionError("Owned content was edited; restore or preserve it")
+        proven[path] = row
+    return proven
+
+
+def intact(data: bytes, path: PurePosixPath, row: dict) -> bool:
+    kind = semantics.Ownership(row["ownership"])
+    if kind == semantics.Ownership.STRICT:
+        return _owner(data, path, row["owner"]) and digest(data) == row["sha256"]
+    return semantics.semantic_digest(data, path, row["owner"]) == row["semantic_sha256"]
 
 
 def build(repo: Path, vault: Path, commit: str) -> ProductTree:
@@ -216,18 +297,7 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
                 break
             if parent.exists() and not parent.is_dir():
                 raise ProjectionError("Destination parent collision")
-    for path in actual:
-        row = prior[path]
-        data = target_path(vault, path).read_bytes()
-        semantic_base = path.suffix == ".base" and row.get("semantic_sha256")
-        if not semantic_base and not _owner(data, path, row["owner"]):
-            raise ProjectionError("Owned content lost its owner marker")
-        if path.suffix == ".base" and row.get("semantic_sha256"):
-            intact = views._base_semantic_digest(data) == row["semantic_sha256"]
-        else:
-            intact = digest(data) == row["sha256"]
-        if not intact:
-            raise ProjectionError("Owned content was edited; restore or preserve it")
+    prove_ownership(repo, vault, vault, prior)
     source = INTERNAL / "Indexes/source-resolution-index.yaml"
     old_source = views.OWNED_ROOT / views.SOURCE_INDEX
     for path in (old_source, source):
@@ -254,8 +324,11 @@ def verify(vault: Path, tree: ProductTree) -> None:
         raise ProjectionError("Final inventory drift")
     for path, expected in tree.files.items():
         actual = target_path(vault, path).read_bytes()
-        if path.suffix == ".base":
-            equal = views._base_semantically_matches(actual, expected)
+        if semantics.classification(path) != semantics.Ownership.STRICT:
+            owner = tree.owners[path]
+            equal = semantics.semantic_digest(actual, path, owner) == semantics.semantic_digest(
+                expected, path, owner
+            )
         else:
             equal = actual == expected
         if not equal:

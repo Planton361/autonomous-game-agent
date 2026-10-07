@@ -975,7 +975,12 @@ def test_final_check_failure_is_nonzero_apply_failure(context, monkeypatch, tmp_
     monkeypatch.setattr(
         workspace.product_migration,
         "preflight",
-        lambda *_: (ProductTree({p: b"" for p in MANIFESTS.values()}, {}, {}), set()),
+        lambda *_: (
+            ProductTree(
+                {p: b"" for p in MANIFESTS.values()}, {p: o for o, p in MANIFESTS.items()}, {}
+            ),
+            set(),
+        ),
     )
 
     def fail(*args):

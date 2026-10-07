@@ -2,6 +2,7 @@
 
 import json
 import re
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
@@ -14,6 +15,7 @@ from test_research_wiki_projection import filesystem_state, snapshot, write_note
 
 from fh_agent.research_atlas import final_projection
 from fh_agent.research_atlas import knowledge_graph as graph
+from fh_agent.research_atlas import obsidian_semantics as semantics
 from fh_agent.research_atlas import private_projection as public
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import product_migration as migration
@@ -547,6 +549,7 @@ def test_recovery_refuses_edited_output_before_mutation(workspace_setup, monkeyp
 def test_obsidian_base_serialization_preserves_semantic_ownership(workspace_setup):
     repo, vault, _ = workspace_setup
     workspace.apply(repo, vault)
+
     path = vault / PRODUCT / "Tables/Technical Atlas Views.base"
     # Core Bases can reserialize YAML and drop comments; semantic ownership survives.
     path.write_text(views.yaml_text(read_yaml(path.read_text())))
@@ -554,6 +557,485 @@ def test_obsidian_base_serialization_preserves_semantic_ownership(workspace_setu
     workspace.check(repo, vault)
     assert filesystem_state(vault) == before
     workspace.apply(repo, vault)
+
+
+def managed_paths(tree):
+    return [p for p in tree.files if semantics.classification(p) != semantics.Ownership.STRICT]
+
+
+def drawing_scene(data):
+    match = re.search(r"```json\n(.*?)\n```", data.decode(), re.S)
+    return match, json.loads(match[1])
+
+
+def plugin_scene(scene):
+    digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    for rank, item in enumerate(scene["elements"]):
+        item.update(version=item["version"] + 1, versionNonce=739174, updated=1791370800000)
+        item["index"] = (
+            "a" + digits[rank]
+            if rank < 62
+            else "b" + digits[(rank - 62) // 62] + digits[(rank - 62) % 62]
+        )
+        item.setdefault("created", None)
+        item.setdefault("hasTextLink", False)
+        if item.get("boundElements") is None:
+            item["boundElements"] = []
+        if item["type"] == "text":
+            item.setdefault("labelPosition", None)
+            item.setdefault("baseFontSize", None)
+        if item["type"] == "image":
+            item.setdefault("crop", None)
+    scene["source"] = "https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.15.3"
+    scene["prevTextMode"] = "parsed"
+    scene["appState"].update(
+        theme="dark",
+        scrollX=-220.5,
+        scrollY=39,
+        zoom={"value": 1.25},
+        activeTool={"type": "selection", "customType": None, "lastActiveTool": None},
+        gridSize=20,
+        gridModeEnabled=False,
+        currentItemStrokeColor="#000000",
+        currentItemBackgroundColor="transparent",
+        currentItemFillStyle="solid",
+        currentItemFontSize=20,
+        currentItemFontFamily=2,
+    )
+    scene["files"] = {}  # Plugin syncFiles externalizes the strict generated SVG.
+    return scene
+
+
+def rewrite_managed(data, path, *, compressed=False):
+    """Actual-style syntax churn only; fixture compression uses the upstream JS codec."""
+    kind = semantics.classification(path)
+    if kind == semantics.Ownership.BASE:
+        value = read_yaml(data.decode())
+        properties = value.get("properties", {})
+        if "properties" in value:
+            value["properties"] = {
+                (key.removeprefix("note.") if key.startswith("note.") else key): item
+                for key, item in properties.items()
+            }
+        for view in value.get("views", []):
+            if "order" in view:
+                view["order"] = [key.removeprefix("note.") for key in view["order"]]
+            if "groupBy" in view:
+                view["groupBy"]["property"] = view["groupBy"]["property"].removeprefix("note.")
+            for sort in view.get("sort", []):
+                sort["property"] = sort["property"].removeprefix("note.")
+        return views.yaml_text(dict(reversed(tuple(value.items())))).encode()
+    if kind == semantics.Ownership.CANVAS:
+        value = json.loads(data)
+        value["nodes"][0]["x"] = float(value["nodes"][0]["x"])
+        for edge in value["edges"]:
+            # JSON Canvas specifies these defaults; no side/direction inference.
+            if edge.get("fromEnd") == "none":
+                edge.pop("fromEnd")
+            if edge.get("toEnd") == "arrow":
+                edge.pop("toEnd")
+        return json.dumps(dict(reversed(tuple(value.items()))), indent="\t").encode()
+    match, scene = drawing_scene(data)
+    scene = plugin_scene(scene)
+    if compressed:
+        name = "agent" if "Agent Anatomy" in path.name else "domain"
+        payload = (
+            (ROOT / "tests/fixtures/obsidian-reserialization" / (name + ".lz-base64"))
+            .read_text()
+            .rstrip()
+        )
+        language = "compressed-json"
+    else:
+        payload = json.dumps(dict(reversed(tuple(scene.items()))), indent="\t", ensure_ascii=False)
+        language = "json"
+    text = data.decode()
+    # Plugin Markdown caches can gain empty separating lines; preserve all entries.
+    text = text[: match.start()] + f"```{language}\n{payload}\n```" + text[match.end() :]
+    text = text.replace("## Text Elements\n\n", "## Text Elements\n\n\n")
+    return text.encode()
+
+
+def test_closed_manifest_classes_and_every_managed_format(baseline):
+    tree, _, _ = baseline
+    counts = {kind: 0 for kind in semantics.Ownership}
+    for owner, manifest in MANIFESTS.items():
+        metadata = read_yaml(tree.files[manifest].decode())
+        assert metadata["product_schema_version"] == "1.1"
+        for row in metadata["owned_files"]:
+            path = PurePosixPath(row["path"])
+            counts[semantics.Ownership(row["ownership"])] += 1
+            assert row == {"path": str(path), **semantics.record(tree.files[path], path, owner)}
+    assert counts == {
+        semantics.Ownership.STRICT: 506,
+        semantics.Ownership.BASE: 3,
+        semantics.Ownership.CANVAS: 7,
+        semantics.Ownership.EXCALIDRAW: 2,
+    }
+    for path in managed_paths(tree):
+        expected = semantics.semantic_digest(tree.files[path], path, tree.owners[path])
+        for compressed in {False, True} if path.name.endswith(".excalidraw.md") else {False}:
+            rewritten = rewrite_managed(tree.files[path], path, compressed=compressed)
+            assert rewritten != tree.files[path]
+            assert semantics.semantic_digest(rewritten, path, tree.owners[path]) == expected
+
+
+def canvas_mutation(data, fault):
+    value = json.loads(data)
+    node, edge = value["nodes"][0], value["edges"][0]
+    if fault == "destination":
+        node = next(n for n in value["nodes"] if "[[Research Map/" in n.get("text", ""))
+        node["text"] = node["text"].replace("Research Map/", "Wrong Destination/", 1)
+    elif fault == "endpoint":
+        edge["fromNode"] = edge["toNode"]
+    elif fault == "direction":
+        edge["fromEnd"], edge["toEnd"] = "arrow", "none"
+    elif fault == "side":
+        edge["fromSide"] = "left"
+    elif fault == "add-node":
+        value["nodes"].append(dict(node, id="added-project-node"))
+    elif fault == "remove-node":
+        value["nodes"].pop()
+    elif fault == "add-edge":
+        value["edges"].append(dict(edge, id="added-project-edge"))
+    elif fault == "remove-edge":
+        value["edges"].pop()
+    elif fault == "geometry":
+        node["x"] += 1
+    elif fault == "node-id":
+        node["id"] = "changed-project-identity"
+    elif fault == "edge-id":
+        edge["id"] = "changed-project-edge"
+    elif fault == "node-type":
+        node["type"] = "file"
+    elif fault == "relation-label":
+        edge["label"] = "inferred_relation"
+    elif fault == "metadata":
+        value["generated_by"] = "unrelated-author"
+    else:
+        value["canvas_view_schema_version"] = "999"
+    return json.dumps(value).encode()
+
+
+def excalidraw_mutation(data, fault):
+    match, scene = drawing_scene(data)
+    elements = scene["elements"]
+    if fault == "navigation":
+        next(e for e in elements if e.get("link"))["link"] = "[[Wrong Destination]]"
+    elif fault == "relation":
+        relation = next(e for e in elements if "atlas_relation" in e.get("customData", {}))[
+            "customData"
+        ]["atlas_relation"]
+        relation["target"] = "CMP-CORTEX" if relation["target"] != "CMP-CORTEX" else "CMP-BODY"
+    elif fault == "customData":
+        next(e for e in elements if e.get("customData"))["customData"]["operator_added"] = True
+    elif fault == "label":
+        next(e for e in elements if e["type"] == "text")["text"] = "Incorrect architecture"
+    elif fault == "remove-element":
+        elements.pop()
+    elif fault == "add-element":
+        elements.append(dict(elements[0], id="added-project-element"))
+    elif fault == "geometry":
+        elements[0]["x"] += 1
+    elif fault in {"index-order", "index-partial", "index-invalid"}:
+        plugin_scene(scene)
+        if fault == "index-order":
+            elements[0]["index"], elements[1]["index"] = elements[1]["index"], elements[0]["index"]
+        elif fault == "index-partial":
+            elements[0].pop("index")
+        else:
+            elements[0]["index"] = "invalid-key"
+    elif fault == "default-meaning":
+        elements[0]["hasTextLink"] = True
+    elif fault == "binding":
+        elements[0]["boundElements"] = [{"id": elements[1]["id"], "type": "text"}]
+    elif fault == "background":
+        scene["appState"]["viewBackgroundColor"] = "#ff0000"
+    elif fault == "unknown-appState":
+        scene["appState"]["project_semantics"] = "changed"
+    elif fault == "image":
+        key = next(iter(scene["files"]))
+        scene["files"][key]["dataURL"] += "changed"
+    elif fault == "source-revision":
+        return data.replace(b"source_commit: ", b"source_commit: changed", 1)
+    elif fault == "cache":
+        return data.replace(
+            b"## Text Elements\n", b"## Text Elements\nOperator authored content\n", 1
+        )
+    elif fault == "envelope":
+        return data.replace(public.OWNER.encode(), b"unrelated-author", 1)
+    else:
+        return data + b"\nOperator authored content\n"
+    text = data.decode()
+    return (text[: match.start(1)] + json.dumps(scene) + text[match.end(1) :]).encode()
+
+
+def assert_rejected_without_mutation(repo, vault, path, data):
+    canonical = path.read_bytes()
+    path.write_bytes(data)
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.check(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    path.write_bytes(canonical)
+
+
+def test_semantic_mutations_fail_before_restore_or_write(workspace_setup):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    current = {p: (vault / p).read_bytes() for p in migration._actual(vault)}
+    canvases = [p for p in current if p.suffix == ".canvas"]
+    canvas_faults = (
+        "destination",
+        "endpoint",
+        "direction",
+        "side",
+        "add-node",
+        "remove-node",
+        "add-edge",
+        "remove-edge",
+        "geometry",
+        "node-id",
+        "edge-id",
+        "node-type",
+        "relation-label",
+        "metadata",
+        "schema",
+    )
+    # Exercise the exact shared preflight ownership predicate for every Canvas
+    # and every mutation; then exercise full filesystem preflight for each fault,
+    # rotating through all seven finite surfaces rather than duplicating I/O.
+    for path in canvases:
+        row = dict(owner=views.OWNER, **semantics.record(current[path], path, views.OWNER))
+        for fault in canvas_faults:
+            try:
+                accepted = migration.intact(canvas_mutation(current[path], fault), path, row)
+            except (ValueError, KeyError):
+                accepted = False
+            assert not accepted, (path, fault)
+    for index, fault in enumerate(canvas_faults):
+        path = canvases[index % len(canvases)]
+        assert_rejected_without_mutation(
+            repo, vault, vault / path, canvas_mutation(current[path], fault)
+        )
+    excalidraws = [p for p in current if p.name.endswith(".excalidraw.md")]
+    core_scene_faults = {
+        "navigation",
+        "relation",
+        "customData",
+        "label",
+        "remove-element",
+        "add-element",
+        "envelope",
+        "authored",
+    }
+    for path, data in current.items():
+        kind = semantics.classification(path)
+        if kind == semantics.Ownership.EXCALIDRAW:
+            row = dict(owner=public.OWNER, **semantics.record(data, path, public.OWNER))
+            for index, fault in enumerate(
+                (
+                    "navigation",
+                    "relation",
+                    "customData",
+                    "label",
+                    "remove-element",
+                    "add-element",
+                    "geometry",
+                    "index-order",
+                    "index-partial",
+                    "index-invalid",
+                    "default-meaning",
+                    "binding",
+                    "background",
+                    "unknown-appState",
+                    "source-revision",
+                    "cache",
+                    "envelope",
+                    "authored",
+                )
+            ):
+                changed = excalidraw_mutation(data, fault)
+                try:
+                    accepted = migration.intact(changed, path, row)
+                except ValueError:
+                    accepted = False
+                assert not accepted, (path, fault)
+                # Every fault exercises both scene predicates. Core semantic
+                # edits exercise both full APIs/scenes; additional serialization
+                # guards rotate scenes for full zero-write preflight coverage.
+                if fault in core_scene_faults or path == excalidraws[index % len(excalidraws)]:
+                    assert_rejected_without_mutation(repo, vault, vault / path, changed)
+            if "Agent Anatomy" in path.name:
+                assert_rejected_without_mutation(
+                    repo, vault, vault / path, excalidraw_mutation(data, "image")
+                )
+        elif kind == semantics.Ownership.BASE:
+            value = read_yaml(data.decode())
+            value["filters"] = {"and": ['file.inFolder("unrelated")']}
+            assert_rejected_without_mutation(
+                repo, vault, vault / path, views.yaml_text(value).encode()
+            )
+            changed = read_yaml(data.decode())
+            changed["views"].append(deepcopy(changed["views"][0]))
+            assert_rejected_without_mutation(
+                repo, vault, vault / path, views.yaml_text(changed).encode()
+            )
+    # Strict generated Markdown remains byte-owned even for whitespace-only edits.
+    assert_rejected_without_mutation(repo, vault, vault / HOME, (vault / HOME).read_bytes() + b"\n")
+    asset = vault / INTERNAL / "Assets/Agent Anatomy Hero.svg"
+    assert_rejected_without_mutation(repo, vault, asset, asset.read_bytes() + b"edited")
+
+
+def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_setup):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    canonical = snapshot(vault)
+    rewritten = {}
+    for path in migration._actual(vault):
+        if semantics.classification(path) != semantics.Ownership.STRICT:
+            rewritten[path] = rewrite_managed(
+                (vault / path).read_bytes(), path, compressed=path.name.endswith(".excalidraw.md")
+            )
+            (vault / path).write_bytes(rewritten[path])
+    assert len(rewritten) == 12  # 2 Excalidraw + ALL 7 retained Canvas + 3 Bases.
+    before = filesystem_state(vault.parent)
+    workspace.check(repo, vault)
+
+    assert filesystem_state(vault.parent) == before
+    result = workspace.apply(repo, vault)
+    assert snapshot(vault) == canonical
+    assert len(migration._actual(vault)) == 520
+    receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
+    assert receipt["receipt_schema_version"] == "2.0"
+    for path, data in rewritten.items():
+        assert (result.restore_point / path).read_bytes() == data
+        assert receipt["before"][str(path)] == public.digest(data)
+        assert receipt["before_ownership"][str(path)][
+            "semantic_sha256"
+        ] == semantics.semantic_digest(data, path, receipt["before_ownership"][str(path)]["owner"])
+    workspace.check(repo, vault)
+
+
+def test_manifest_classification_is_closed_before_any_write(workspace_setup):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    manifest = vault / MANIFESTS[views.OWNER]
+    original = manifest.read_bytes()
+    for fault in (
+        "unknown",
+        "wrong-format",
+        "missing-semantic",
+        "extra-semantic",
+        "extra-field",
+        "unknown-version",
+    ):
+        value = read_yaml(original.decode())
+        strict = next(r for r in value["owned_files"] if r["ownership"] == "strict-bytes")
+        managed = next(r for r in value["owned_files"] if r["ownership"] != "strict-bytes")
+        if fault == "unknown":
+            managed["ownership"] = "arbitrary-ownership"
+        elif fault == "wrong-format":
+            strict["ownership"] = "obsidian-canvas-semantics"
+        elif fault == "missing-semantic":
+            managed.pop("semantic_sha256")
+        elif fault == "extra-semantic":
+            strict["semantic_sha256"] = "a" * 64
+        elif fault == "extra-field":
+            managed["adopt_unowned"] = True
+        else:
+            value["product_schema_version"] = "999"
+        assert_rejected_without_mutation(repo, vault, manifest, views.yaml_text(value).encode())
+
+
+def test_historical_exact_receipt_remains_bounded(workspace_setup):
+    repo, vault, _ = workspace_setup
+    before = snapshot(vault)
+    result = workspace.apply(repo, vault)
+    receipt = result.restore_point / "migration-plan.json"
+    plan = json.loads(receipt.read_text())
+    for key in ("receipt_schema_version", "before_ownership", "after_ownership"):
+        plan.pop(key)
+    receipt.write_text(json.dumps(plan))
+    path = next(p for p in migration._actual(vault) if p.suffix == ".canvas")
+    canonical = (vault / path).read_bytes()
+    (vault / path).write_bytes(rewrite_managed(canonical, path))
+    rewritten = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="edited"):
+        workspace.recover(repo, vault, result.restore_point)
+    assert filesystem_state(vault.parent) == rewritten
+    (vault / path).write_bytes(canonical)
+    workspace.recover(repo, vault, result.restore_point)
+    assert snapshot(vault) == before
+
+
+def test_bounded_10_manifest_upgrade_proves_rewritten_diagrams(workspace_setup):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    for manifest in MANIFESTS.values():
+        value = read_yaml((vault / manifest).read_text())
+        value["product_schema_version"] = "1.0"
+        for row in value["owned_files"]:
+            row.pop("ownership")
+            if not row["path"].endswith(".base"):
+                row.pop("semantic_sha256", None)
+        (vault / manifest).write_text(views.yaml_text(value))
+    for path in migration._actual(vault):
+        if semantics.classification(path) != semantics.Ownership.STRICT:
+            (vault / path).write_bytes(rewrite_managed((vault / path).read_bytes(), path))
+    metadata = read_yaml((vault / MANIFESTS[public.OWNER]).read_text())
+    intact_manifest = (vault / MANIFESTS[public.OWNER]).read_bytes()
+    next(r for r in metadata["owned_files"] if r["path"].endswith(".excalidraw.md"))["sha256"] = (
+        "b" * 64
+    )
+    (vault / MANIFESTS[public.OWNER]).write_text(views.yaml_text(metadata))
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="historical"):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    (vault / MANIFESTS[public.OWNER]).write_bytes(intact_manifest)
+    workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    assert all(
+        read_yaml((vault / p).read_text())["product_schema_version"] == "1.1"
+        for p in MANIFESTS.values()
+    )
+
+
+def test_semantic_receipt_recovery_preserves_plugin_bytes_and_blocks_edits(
+    workspace_setup, monkeypatch
+):
+    repo, vault, _ = workspace_setup
+    workspace.apply(repo, vault)
+    for path in migration._actual(vault):
+        if semantics.classification(path) != semantics.Ownership.STRICT:
+            (vault / path).write_bytes(rewrite_managed((vault / path).read_bytes(), path))
+    plugin_before = snapshot(vault)
+    write = migration.atomic_write
+
+    def interrupt(root, path, data):
+        write(root, path, data)
+        if path.suffix == ".canvas":
+            raise OSError("synthetic interruption")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(migration, "atomic_write", interrupt)
+        with pytest.raises(workspace.WorkspaceError, match="migration failed"):
+            workspace.apply(repo, vault)
+    point = max((vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).iterdir())
+    canvas = next(p for p in migration._actual(vault) if p.suffix == ".canvas")
+    canonical = (vault / canvas).read_bytes()
+    (vault / canvas).write_bytes(canvas_mutation(canonical, "direction"))
+    before = filesystem_state(vault)
+    with pytest.raises(workspace.WorkspaceError, match="edited"):
+        workspace.recover(repo, vault, point)
+    assert filesystem_state(vault) == before
+    (vault / canvas).write_bytes(rewrite_managed(canonical, canvas))
+    workspace.recover(repo, vault, point)
+    assert snapshot(vault) == plugin_before
+    workspace.check(repo, vault)
 
 
 def test_final_missing_owner_manifest_and_source_history_fail_closed(workspace_setup):

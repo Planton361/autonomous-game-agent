@@ -108,6 +108,60 @@ select only the corresponding internal proxy folders, never guides or audits.
 
 ## Supported migration and recovery
 
+Final manifests now use product schema `1.1` with one closed ownership class per
+file: `strict-bytes`, `obsidian-base-semantics`, `obsidian-canvas-semantics` or
+`obsidian-excalidraw-semantics`. Every row keeps the emitted-byte SHA-256; managed
+formats additionally keep a semantic SHA-256. The finite inventory and two logical
+owners are unchanged. Ordinary Markdown, indexes, Registry projections, manifests,
+ledger and the illustration remain exact-byte owned.
+
+Bases retain the accepted YAML and note-property shorthand equivalences, including
+removed owner comments; the manifest's finite path, owner and matching semantic
+digest prove ownership. Canvas accepts object-key/formatting changes and the
+documented `fromEnd=none` / `toEnd=arrow` defaults and equivalent JSON numeric
+spellings (`40` / `40.0`). Nodes, edge order, endpoints,
+sides, labels, metadata, preferred links, geometry and styling remain protected.
+
+Excalidraw accepts YAML/JSON object reserialization, plain or LZ-string Base64
+compressed drawing sections, cache section spacing, equivalent JSON numeric
+spellings and element `version`, `versionNonce`, `updated` bookkeeping counters.
+Restored fractional `index` keys are accepted only when all keys are valid and
+strictly increasing in the unchanged element/stacking order (or all are absent).
+Exact restore defaults are normalized: `created=null`, `hasTextLink=false`, empty
+`boundElements` (`null` / `[]`), text `labelPosition=null` / `baseFontSize=null`,
+and image `crop=null`. Non-default values, bindings and ordering changes stay
+protected. These rules follow the pinned [ordering](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/element/src/fractionalIndex.ts)
+and [restore implementation](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/excalidraw/data/restore.ts)
+in the plugin's `@zsviczian/excalidraw` dependency `0.18.140`.
+The finite save-time editor/viewport/tool preference keys in `EDITOR_FIELDS`,
+plugin release exporter URL and previous editor text mode are normalized. These
+are verified against the [plugin's save implementation](https://github.com/zsviczian/obsidian-excalidraw-plugin/blob/f30b4c5d3dcb66ac76ced8f05d9e95409ee94c79/src/view/ExcalidrawView.ts).
+No wildcard appState stripping is allowed: the scene background and every unknown
+field remain protected; frame visibility is also protected if a future generated
+scene contains frame elements. The Anatomy illustration may be inline or externalized
+only with its exact image identity, strict generated SVG digest and embedded-file
+route. It preserves all other scene fields, element/stacking order, geometry,
+styles, image semantics, links, customData, Registry triples, visible labels,
+Markdown text/link/embedded-file caches, project prose and every frontmatter,
+provenance and privacy field. Unknown
+churn is not silently discarded. A semantic edit or missing owner/schema fails
+closed; adding authored prose to a generated diagram is not an allowed save.
+
+Historical product manifest `1.0` remains readable. Rewritten old Canvas/Excalidraw
+may migrate only when regeneration with the recorded source revision produces
+bytes matching the old emitted SHA-256, then the current file matches that trusted
+reference semantically. If prior inputs cannot be reproduced, migration blocks;
+the current file is never its own ownership oracle. `check` detects an outdated
+manifest; supported `apply` advances it without manual deletion.
+
+Checks remain zero-write. Apply proves ownership before restore-point creation,
+validates the copied snapshot, then restores canonical emitted bytes. External
+receipt schema `2.0` records exact before/after digests and ownership/semantic
+records. Recovery verifies exact saved before bytes and receipt metadata before
+mutation, accepts only proven equivalent managed current output, restores the
+original plugin-written bytes, and blocks real edits. Historical exact receipts
+remain readable and retain their exact current-output guard.
+
 Use a clean, reviewed exact checkout and the existing marked external vault.
 Under #159, actual-vault use requires later CONTROL G6 authorization on an exact
 reviewed PR head. Implementation tests use temporary synthetic vaults only.

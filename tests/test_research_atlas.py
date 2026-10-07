@@ -694,12 +694,14 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                             "private_views",
                             "knowledge_graph",
                             "product_migration",
+                            "obsidian_semantics",
                         }
                         continue
                     assert node.module in {
                         "preferred_paths",
                         "final_projection",
                         "product_migration",
+                        "obsidian_semantics",
                         "anatomy",
                         "engineering_provenance",
                         "assembly_scopes",
