@@ -110,6 +110,16 @@ def setup(tmp_path):
     code = repo / "src/fh_agent/research_atlas/source.py"
     code.parent.mkdir(parents=True)
     code.write_text("# synthetic tracked source\n")
+    # Legacy-to-current workspace tests need the current AP1 source/dependency freeze.
+    from fh_agent.research_atlas.architecture_explanations import SOURCE, parse_explanations
+
+    catalog = parse_explanations((ROOT / SOURCE).read_bytes(), load_registry(ATLAS))
+    for relative in (
+        {str(SOURCE)} | {s.path for s in catalog.sources.values()} | catalog.dependencies.keys()
+    ):
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, target)
     asset = repo / technical.HERO_SOURCE
     asset.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / technical.HERO_SOURCE, asset)

@@ -706,6 +706,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "obsidian_semantics",
                         "anatomy",
                         "engineering_provenance",
+                        "architecture_explanations",
                         "assembly_scopes",
                         "schema",
                         "validator",
