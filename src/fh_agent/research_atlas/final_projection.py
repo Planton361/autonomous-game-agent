@@ -17,6 +17,15 @@ from . import knowledge_graph as graph
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
+from .diagram_canvas import (
+    CANVAS_NAVIGATION,
+    EXECUTION_CANVAS,
+    INTERACTION_CANVAS,
+    card_height,
+    execution_canvas,
+    identity_text,
+    interaction_canvas,
+)
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
 from .schema import Relationship
@@ -76,36 +85,44 @@ INTERACTION_ORIENTATION_IDS = (
 )
 
 
+INTERACTION_GROUPS = (
+    ("Observation and evidence", {"ENV-GAME-INSTANCE", "DAT-SCREEN-FRAME", "DAT-OBSERVATION"}),
+    (
+        "Bounded retrieval to Cortex",
+        {"IF-MEM-CORTEX", "CON-CORTEX-CONTEXT", "DAT-RETRIEVAL-SNAPSHOT"},
+    ),
+    ("Cortex intention to Manager", {"CMP-MANAGER", "IF-CORTEX-MANAGER", "CON-PLANNER-OUTPUT"}),
+    (
+        "Manager contracts and Body / Reflex",
+        {"CON-SKILL-CONTRACT", "CMP-BODY", "CMP-BOUNDED-REFLEX"},
+    ),
+    ("Primitive proposals and guarded input", {"CON-PRIMITIVE-ACTION", "DAT-ACTION-RESULT"}),
+    ("Independent verification", {"DAT-VISIBLE-OUTCOME", "CON-VERIFIER-RESULT"}),
+    (
+        "Evidence-linked memory requests",
+        {"CON-MEMORY-UPDATE-REQUEST", "CON-POST-MORTEM-OUTPUT"},
+    ),
+    (
+        "Optional future between-Mission-Run learning",
+        {"DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"},
+    ),
+)
+
+
 def interaction_map(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
     """Render only declared directed technical rows; panels add no facts."""
     edges = sorted(
         (e for e in atlas.relationships if e.relation in INTERACTION_RELATIONS),
         key=lambda e: (e.relation, e.source, e.target),
     )
-    groups = (
-        ("Observation and evidence", {"ENV-GAME-INSTANCE", "DAT-SCREEN-FRAME", "DAT-OBSERVATION"}),
-        (
-            "Bounded retrieval to Cortex",
-            {"IF-MEM-CORTEX", "CON-CORTEX-CONTEXT", "DAT-RETRIEVAL-SNAPSHOT"},
-        ),
-        ("Cortex intention to Manager", {"CMP-MANAGER", "IF-CORTEX-MANAGER", "CON-PLANNER-OUTPUT"}),
-        (
-            "Manager contracts and Body / Reflex",
-            {"CON-SKILL-CONTRACT", "CMP-BODY", "CMP-BOUNDED-REFLEX"},
-        ),
-        ("Primitive proposals and guarded input", {"CON-PRIMITIVE-ACTION", "DAT-ACTION-RESULT"}),
-        ("Independent verification", {"DAT-VISIBLE-OUTCOME", "CON-VERIFIER-RESULT"}),
-        (
-            "Evidence-linked memory requests",
-            {"CON-MEMORY-UPDATE-REQUEST", "CON-POST-MORTEM-OUTPUT"},
-        ),
-        (
-            "Optional future between-Mission-Run learning",
-            {"DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"},
-        ),
-    )
+    groups = INTERACTION_GROUPS
     body = [
         "# Interaction Map",
+        "",
+        f"[[{INTERACTION_CANVAS}|Open Interaction Map Canvas]]"
+        " — primary visual; pan/zoom and follow identity links.",
+        "",
+        f"![[{INTERACTION_CANVAS}]]",
         "",
         "[[Research Map Home|Home]] · "
         f"[[{ARCHITECTURE_TREE.with_suffix('')}|Composition hierarchy]] · "
@@ -258,6 +275,11 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
     body = [
         "# Ablaufdiagramm",
         "",
+        f"[[{EXECUTION_CANVAS}|Open Execution Flow Canvas]]"
+        " — primary visual; pan/zoom and follow identity links.",
+        "",
+        f"![[{EXECUTION_CANVAS}]]",
+        "",
         "[[Research Map Home|Home]] · [[#Markdown fallback|Markdown fallback]] · "
         "[[#Current implementation and preferred pages|Implementation and preferred pages]]",
         "",
@@ -267,8 +289,8 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
         "Arrows express authority prerequisites and conditional transitions, not a per-frame "
         "schedule or a strictly sequential order for asynchronous subsystem work. "
         "Process arrows never declare Registry relations or `part_of` ancestry. "
-        "The Architecture Tree remains the composition view; the Interaction Map is not "
-        "implemented by this page.",
+        "The Architecture Tree remains composition; Interaction Map "
+        "separately shows technical declarations.",
         "",
         "Native Obsidian Mermaid needs no community plugin. If it is unavailable, the "
         "complete ordered/conditional Markdown fallback below retains all gates, branches, "
@@ -584,7 +606,8 @@ def architecture_tree(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> tupl
         "",
         f"![[{ARCHITECTURE_CANVAS}]]",
         "",
-        "Read left to right: parent → contained Component. Lines mean containment only; "
+        "Read top to bottom: parent → contained Component. Local branch regions repeat "
+        "the same System identity for clarity. Lines mean containment only; "
         "the Registry declaration is child `part_of` parent. No control or data-flow "
         "arrows are shown. Native Canvas is optional for reading this page; the complete "
         "linked Markdown tree below needs no visual plugin.",
@@ -600,78 +623,125 @@ def architecture_tree(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> tupl
             id="legend",
             type="text",
             x=0,
-            y=-260,
-            width=880,
-            height=200,
+            y=-520,
+            width=1360,
+            height=440,
             text="**Architecture Tree · technical containment**\n\n"
-            "Read parent → child, left to right. Only Registry part_of creates lines. "
+            "Read parent → child, top to bottom. Local branches repeat the SAME System "
+            "identity to keep connections local; open one preferred page. "
+            "Only Registry part_of creates lines. "
             "No runtime sequence, control or data flow is implied.\n\n"
             f"[[{ARCHITECTURE_TREE.with_suffix('')}|Linked Markdown tree and context]] · "
-            "[[Research Map Home|Home]]",
+            "[[Research Map Home|Home]]\n\n" + CANVAS_NAVIGATION,
         )
     ]
     edges = []
-    row = 0
 
-    def visit(trail: tuple[str, ...]) -> float:
-        nonlocal row
-        identity = trail[-1]
-        node = atlas.entities[identity]
-        depth = len(trail) - 1
-        body.append(
-            "  " * depth + f"- {link(identity)} — {node.type} · `{identity}` · "
-            f"{node.technical.implementation_status}"
-        )
-        descendants = children.get(trail, [])
-        positions = [visit(child) for child in descendants]
-        if positions:
-            y = (positions[0] + positions[-1]) / 2
-        else:
-            y = row * 200
-            row += 1
+    def width(trail: tuple[str, ...]) -> int:
+        return max(500, sum(width(child) for child in children.get(trail, [])))
+
+    def height(trail: tuple[str, ...]) -> int:
+        own = card_height(identity_text(atlas, preferred, trail[-1]), 420)
+        return own + 140 + max((height(child) for child in children.get(trail, [])), default=0)
+
+    def card(trail: tuple[str, ...], x: float, y: float, span: int, card_id: str) -> int:
+        node = atlas.entities[trail[-1]]
+        text = identity_text(atlas, preferred, trail[-1])
+        size = card_height(text, 420)
         nodes.append(
             dict(
-                id=token(trail),
+                id=card_id,
                 type="text",
-                x=depth * 480,
+                x=x + (span - 420) / 2,
                 y=y,
-                width=400,
-                height=160,
+                width=420,
+                height=size,
                 color="5" if node.type == "System" else "4",
-                text=f"**{node.type}**\n\n{link(identity)}\n\n"
-                f"`{identity}` · {node.technical.implementation_status}",
+                text=text,
             )
         )
-        if depth:
+        return size
+
+    def visit(trail: tuple[str, ...], x: float, y: float, parent: str | None = None) -> None:
+        node = atlas.entities[trail[-1]]
+        depth = len(trail) - 1
+        body.append(
+            "  " * depth + f"- {link(trail[-1])} — {node.type} · `{trail[-1]}` · "
+            f"{node.technical.implementation_status}"
+        )
+        size = card(trail, x, y, width(trail), token(trail))
+        if parent:
             edges.append(
                 dict(
                     id="edge-" + token(trail),
-                    fromNode=token(trail[:-1]),
+                    fromNode=parent,
                     toNode=token(trail),
-                    fromSide="right",
-                    toSide="left",
+                    fromSide="bottom",
+                    toSide="top",
                     fromEnd="none",
                     toEnd="none",
                     label="contains",
                 )
             )
-        return y
+        child_x = x
+        for child in children.get(trail, []):
+            visit(child, child_x, y + size + 140, token(trail))
+            child_x += width(child)
 
-    roots = children.get((), [])
+    # Repeat the SAME System identity above each local branch, avoiding long
+    # connections across unrelated cards. These are occurrences, not new parents.
+    x = top = row_height = 0
     for kind, heading in (
         ("System", "System composition"),
         ("Component", "No System containment chain"),
     ):
-        matching = [trail for trail in roots if atlas.entities[trail[0]].type == kind]
-        if not matching:
+        roots = [trail for trail in children.get((), []) if atlas.entities[trail[0]].type == kind]
+        if not roots:
             continue
         body += [f"### {heading}", ""]
         if kind == "Component":
             body += ["These roots have no declared System ancestor; no attachment is inferred.", ""]
-            row += 1
-        for trail in matching:
-            visit(trail)
-        body.append("")
+            top += row_height + 200
+            x = row_height = 0
+        for root in roots:
+            branches = children.get(root, []) if kind == "System" else []
+            if branches:
+                node = atlas.entities[root[-1]]
+                body.append(
+                    f"- {link(root[-1])} — {node.type} · `{root[-1]}` · "
+                    f"{node.technical.implementation_status}"
+                )
+            for branch in branches or [root]:
+                span = width(branch)
+                root_height = (
+                    card_height(identity_text(atlas, preferred, root[-1]), 420) + 140
+                    if branches
+                    else 0
+                )
+                region_height = height(branch) + root_height + 80
+                if x and x + span > 3100:
+                    top += row_height + 180
+                    x = row_height = 0
+                nodes.append(
+                    dict(
+                        id="group-" + token(branch),
+                        type="group",
+                        x=x - 20,
+                        y=top - 50,
+                        width=span + 40,
+                        height=region_height,
+                        label=atlas.entities[branch[-1]].name,
+                        color="5",
+                    )
+                )
+                parent = None
+                if branches:
+                    parent = token(root) + "-" + token(branch)
+                    card(root, x, top, span, parent)
+                visit(branch, x, top + root_height, parent)
+                x += span + 100
+                row_height = max(row_height, region_height)
+            body.append("")
     body += [
         "## Context outside ancestry",
         "",
@@ -1084,6 +1154,11 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 1,
             ).encode()
 
+    files[EXECUTION_CANVAS] = execution_canvas(atlas, preferred)
+    files[INTERACTION_CANVAS] = interaction_canvas(
+        atlas, preferred, INTERACTION_RELATIONS, INTERACTION_GROUPS
+    )
+    owners[EXECUTION_CANVAS] = owners[INTERACTION_CANVAS] = views.OWNER
     add(INTERACTION_MAP, interaction_map(atlas, preferred))
     add(EXECUTION_FLOW, execution_flow(atlas, preferred))
     tree_body, tree_canvas = architecture_tree(atlas, preferred)
@@ -1175,12 +1250,15 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "# Using the Research Map\n\n[[Research Map Home|Home]]\n\n"
         "Navigate System → Component using only Registry part_of. Functions describe context.\n\n"
         f"Open [[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]] for the complete "
-        "technical composition, native Canvas and linked Markdown fallback.\n\n"
+        f"technical composition, [[{ARCHITECTURE_CANVAS}|Open Canvas]]"
+        " and linked Markdown fallback.\n\n"
         f"Open [[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]] for normative control "
-        "and verification gates, native Mermaid and the complete Markdown fallback; "
+        f"and verification gates, [[{EXECUTION_CANVAS}|Open Canvas]]"
+        " and the complete Markdown fallback; "
         "individual Registry statuses do not establish a demonstrated live loop.\n\n"
         f"Open [[{INTERACTION_MAP.with_suffix('')}|Interaction Map]] for exact directed "
-        "technical declarations, bounded Mermaid panels and the complete linked ledger. "
+        f"technical declarations, [[{INTERACTION_CANVAS}|Open Canvas]]"
+        " regions and the complete linked ledger. "
         "Interaction arrows are neither hierarchy nor execution sequence.\n\n"
         "Technical / Research / Sources sections share one preferred page. "
         "Audits are collapsed.\n\n"
@@ -1209,11 +1287,13 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
     ]
     home += [
         "- See the complete technical hierarchy: "
-        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]",
+        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]"
+        f" · [[{ARCHITECTURE_CANVAS}|Open Canvas]]",
         "- Understand bounded control and verification: "
-        f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]]",
+        f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]] · [[{EXECUTION_CANVAS}|Open Canvas]]",
         "- Understand declared technical interactions: "
-        f"[[{INTERACTION_MAP.with_suffix('')}|Interaction Map]]",
+        f"[[{INTERACTION_MAP.with_suffix('')}|Interaction Map]]"
+        f" · [[{INTERACTION_CANVAS}|Open Canvas]]",
         "- Explore functional context: [[#Functions|Functions]]",
         "- Read scientific inventories: [[Research Map/Views/Research Steering|Research Steering]]",
         "- Inspect literature: [[Research Map/Views/Literature Inspection|Literature Inspection]]",

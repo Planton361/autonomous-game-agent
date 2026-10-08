@@ -32,8 +32,10 @@ Research Map/
   Diagrams/
     Architecture Tree.md
     Architecture Tree.canvas
-    Execution Flow.md           # Ablaufdiagramm: Mermaid + Markdown fallback
-    Interaction Map.md          # directed Registry relations + linked ledger
+    Execution Flow.md           # Ablaufdiagramm: entry + Markdown fallback
+    Execution Flow.canvas       # primary control lifecycle
+    Interaction Map.md          # entry + complete linked relation ledger
+    Interaction Map.canvas      # primary typed technical interactions
     Agent Anatomy.excalidraw.md
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
@@ -110,7 +112,42 @@ is `(Component, mode, directed pair)`. Every origin, node, detail-only endpoint,
 inspection route and sparse-state diagnostic survives consolidation. Filters
 select only the corresponding internal proxy folders, never guides or audits.
 
-## Architecture Tree
+## Canvas-first architecture diagrams
+
+Issue #168 upgrades all three primary visuals to native Obsidian Canvas in
+`Research Map/Diagrams/`. Home's **Start here** and **Using the Research Map**
+provide direct **Open Canvas** links. Existing identity orientation links open the
+Markdown entry, which embeds and links its Canvas and retains the full fallback.
+Open the Canvas directly for text, pan/zoom and preferred identity links; embeds
+are shape previews. No community plugin is required.
+
+- **Architecture Tree.canvas:** top-down parent → child containment, with branches
+  wrapped into rows. Local branch regions repeat the same System identity to keep
+  connections local. Cards include Registry responsibility, implementation,
+  verification and authority. Only real `part_of` creates ancestry; repeated
+  paths and detached roots preserve the existing identity route.
+- **Execution Flow.canvas:** six numbered regions separate observation integrity,
+  intention/Manager authority, guarded execution, independent outcome verification,
+  Life Episode/Mission Run boundaries, and optional future between-run learning.
+  Detailed gates and conditional loops carry canonical/accepted overlay locators;
+  this is normative control, not a demonstrated runtime schedule.
+- **Interaction Map.canvas:** presentation regions draw every selected declared
+  relation once with exact source → target and relation name. Typed cards add
+  responsibility and verification detail. Identities with no selected declaration
+  appear as explicitly unconnected context; no link is inferred from shared data.
+
+Empty-private synthetic output is **526 files**. This adds two Canvas files and
+changes only the three diagram entry pages, Architecture Tree Canvas, Home, guide
+and derived manifest. All existing identity pages/routes and unrelated generated
+artifacts remain unchanged. The new files use existing `research-wiki-derived`
+Canvas semantic ownership; ownership/recovery rules are unchanged. Mermaid remains
+secondary fallback. Native Obsidian rendering/save acceptance and actual-vault
+rollout remain unverified and outside this contract; #161 is not executed.
+
+The sections below record the historical initial deliveries; the canvas-first
+navigation and current format above supersede their original visual descriptions.
+
+## Historical Architecture Tree delivery
 
 Issue #162 adds the first visualization step at
 `Research Map/Diagrams/Architecture Tree.md`. Reach it from Home's **Start here**,
@@ -154,7 +191,7 @@ repair the installed vault and does not establish Linux/Mac G6.
 Architecture Tree is the first of the three visualization steps. Issue #164 adds
 step 2 below; Issue #166 adds the Interaction Map as step 3.
 
-## Ablaufdiagramm / execution flow
+## Historical Ablaufdiagramm / execution flow delivery
 
 Issue #164 adds one first-class generated Markdown page:
 `Research Map/Diagrams/Execution Flow.md`, display title **Ablaufdiagramm**.
@@ -205,7 +242,7 @@ indexes, migration routes and the technical manifest remain byte-identical.
 Actual-vault ownership/save/recovery and #161's ON HOLD state are separate;
 #164 authorizes no vault apply/check/repair or Linux/Mac G6.
 
-## Interaction Map
+## Historical Interaction Map delivery
 
 Issue #166 completes Diagram 3 at `Research Map/Diagrams/Interaction Map.md`.
 Home and **Using the Research Map** link all three perspectives: composition,
