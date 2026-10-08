@@ -701,6 +701,7 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                     assert node.module in {
                         "preferred_paths",
                         "final_projection",
+                        "diagram_canvas",
                         "product_migration",
                         "obsidian_semantics",
                         "anatomy",
