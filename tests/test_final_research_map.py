@@ -392,7 +392,7 @@ def test_execution_flow_preferred_navigation_statuses_and_order_invariance(atlas
     linked_types = set()
     for identity in re.findall(r"`((?:SYS|CMP|FUNC|CON|DAT)-[^`]+)`", text):
         node = atlas.entities[identity]
-        assert f"[[{paths[identity].with_suffix('')}|{node.name}]]" in text
+        assert f"[[{paths[identity].with_suffix('')}\\|{node.name}]]" in text
         assert paths[identity] in tree.files
         technical = getattr(node, "technical", None)
         row = next(line for line in text.splitlines() if f"`{identity}`" in line)

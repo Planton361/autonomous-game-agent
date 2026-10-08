@@ -311,7 +311,7 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
             technical = getattr(node, "technical", None)
             status = technical.implementation_status if technical else "not applicable (context)"
             body.append(
-                f"| {context} | [[{preferred[identity].with_suffix('')}|{node.name}]] "
+                f"| {context} | [[{preferred[identity].with_suffix('')}\\|{node.name}]] "
                 f"· {node.type} · `{identity}` | {status} |"
             )
     body += ["", "[[Research Map Home|Return Home]]"]
