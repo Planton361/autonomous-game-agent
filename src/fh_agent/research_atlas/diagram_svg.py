@@ -289,11 +289,11 @@ def overview_svg() -> bytes:
     d.arrow("result", "transition", ((729, 632), (729, 554)), "VerifierResult", (744, 600))
     d.arrow("transition", "manager", ((530, 498), (442, 498)))
     d.arrow(
-        "manager",
-        "body",
-        ((442, 535), (475, 535), (475, 814), (442, 814)),
-        "continue valid",
-        (463, 765),
+        "transition",
+        "contract",
+        ((530, 535), (490, 535), (490, 665), (442, 665)),
+        "continue same active",
+        (505, 582),
     )
     d.arrow(
         "transition",
@@ -739,6 +739,7 @@ def execution_mermaid() -> str:
     body["Body / eligible Reflex"]
     safety["Safety / focus / mask / rate / stop / logging"]
     execute["InputExecutor: guarded input"]
+    game["GameInstance: visible environment response"]
     outcome["New visible Observation"]
     verifier["Independent Verifier"]
     result["VerifierResult + evidence"]
@@ -751,7 +752,8 @@ def execution_mermaid() -> str:
     contract --> body
     body --> safety
     safety --> execute
-    execute --> outcome
+    execute --> game
+    game --> outcome
     outcome --> verifier
     verifier --> result
     result --> evaluate""",
@@ -761,28 +763,44 @@ def execution_mermaid() -> str:
             """flowchart TD
     evaluate["Manager evaluates VerifierResult"]
     valid{"Contract remains valid?"}
-    body["Continue Body within active contract"]
+    contract["Same still-active Contract"]
+    body["Body continues within that same contract"]
     close["Close / suspend before any replan"]
     evaluate --> valid
-    valid -->|"yes: same permissions and budget"| body
+    valid -->|"yes: same permissions and budget"| contract
+    contract --> body
     valid -->|"no"| close""",
         ),
         (
             "Stop and rejected input",
             """flowchart TD
-    firewall["Firewall: forbidden access"]
-    reject["Integrity stop / log rejection"]
-    manager["Manager: unsafe / ambiguous / unavailable"]
-    safety["Safety: no focus / unsafe / unloggable"]
-    body["Body / Reflex stop signal"]
-    close["Manager closes / suspends active contract"]
-    stop["No executed action for a rejected proposal"]
-    firewall --> reject
-    manager --> reject
-    safety --> reject
-    body --> close
-    reject --> close
-    close --> stop""",
+    subgraph pre["Before contract authorization"]
+        manager["Manager rejects unsafe / ambiguous / unavailable proposal"]
+        reject["Reject before contract; log reason"]
+        unauthorized["No contract / no new action authorized; retain history"]
+        manager --> reject
+        reject --> unauthorized
+    end
+    subgraph active["During an active contract"]
+        safety["Safety: no focus / unsafe / unloggable"]
+        body["Body / Reflex stop signal"]
+        block["Block further input immediately"]
+        close["Manager closes / suspends current contract"]
+        history["Prior executed steps and evidence remain logged"]
+        safety --> block
+        body --> block
+        block --> close
+        close --> history
+    end
+    firewall["Firewall: forbidden access / integrity incident"]
+    emergency["Emergency stop"]
+    inhibit["Immediate input inhibition; log incident"]
+    present{"Active contract?"}
+    firewall --> inhibit
+    emergency --> inhibit
+    inhibit --> present
+    present -->|"yes"| block
+    present -->|"no"| unauthorized""",
         ),
         (
             "Conditional replan",

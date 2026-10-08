@@ -2776,7 +2776,7 @@ def test_ap2_process_boundaries_and_primary_navigation(ap1_products):
         ("verifier", "result"),
         ("result", "transition"),
         ("transition", "manager"),
-        ("manager", "body"),
+        ("transition", "contract"),
         ("transition", "cortex"),
         ("retrieval", "cortex"),
     } == edges
@@ -2786,7 +2786,8 @@ def test_ap2_process_boundaries_and_primary_navigation(ap1_products):
     assert len(panels) == 5
     assert "result --> evaluate" in panels[0]
     assert "same permissions and budget" in panels[1]
-    assert "reject --> close" in panels[2] and "Body / Reflex stop signal" in panels[2]
+    assert "reject --> unauthorized" in panels[2] and "Body / Reflex stop signal" in panels[2]
+    assert "block --> close" in panels[2] and "close --> history" in panels[2]
     assert panels[3].index("closes / suspends prior contract") < panels[3].index(
         "New Cortex intention"
     )
@@ -2910,3 +2911,136 @@ def test_ap2_svg_edits_are_rejected_without_writes(ap1_products, tmp_path, name)
     with pytest.raises(ProjectionError, match="Owned content was edited"):
         migration.prove_ownership(ROOT, tmp_path, tmp_path, prior)
     assert filesystem_state(tmp_path) == before
+
+
+def test_ap2_repair_continuation_traverses_same_active_contract(ap1_products):
+    import xml.etree.ElementTree as ET
+
+    _, tree, _, _ = ap1_products
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    overview = ET.fromstring(tree.files[PRODUCT / "Diagrams/System Overview.svg"])
+    arrows = overview.findall('.//s:g[@data-semantics="normative"]', ns)
+    assert {g.attrib["data-source"] for g in arrows if g.attrib["data-target"] == "body"} == {
+        "contract"
+    }
+    continuation = next(
+        g for g in arrows if "continue same active" in [t.text for t in g.findall("s:text", ns)]
+    )
+    assert (continuation.attrib["data-source"], continuation.attrib["data-target"]) == (
+        "transition",
+        "contract",
+    )
+    contracts = overview.findall('.//s:g[@data-node="contract"]', ns)
+    assert len(contracts) == 1  # Continuation reuses the existing contract, not a fresh one.
+    rect = contracts[0].find("s:rect", ns)
+    endpoint = continuation.find("s:polyline", ns).attrib["points"].split()[-1]
+    x, y = map(float, endpoint.split(","))
+    assert x == float(rect.attrib["x"]) + float(rect.attrib["width"])
+    assert float(rect.attrib["y"]) < y < float(rect.attrib["y"]) + float(rect.attrib["height"])
+    panels = re.findall(r"```mermaid\n(.*?)```", tree.files[EXECUTION_FLOW].decode(), re.S)
+    assert 'contract["Same still-active Contract"]' in panels[1]
+    assert 'valid -->|"yes: same permissions and budget"| contract' in panels[1]
+    assert "contract --> body" in panels[1]
+    assert not re.search(r"valid -->[^\n]*\bbody$", panels[1], re.M)
+
+
+def test_ap2_repair_rejection_stop_history_and_environment_path(ap1_products):
+    _, tree, _, _ = ap1_products
+    panels = re.findall(r"```mermaid\n(.*?)```", tree.files[EXECUTION_FLOW].decode(), re.S)
+
+    def edges(panel):
+        return set(re.findall(r"^\s*(\w+) --> (?:\|[^\n]+?\| )?(\w+)$", panel, re.M)) | set(
+            re.findall(r"^\s*(\w+) -->\|[^\n]+?\| (\w+)$", panel, re.M)
+        )
+
+    normal = edges(panels[0])
+    assert {("execute", "game"), ("game", "outcome"), ("outcome", "verifier")} <= normal
+    assert ("execute", "outcome") not in normal
+    assert 'game["GameInstance: visible environment response"]' in panels[0]
+    stop = panels[2]
+    stops = edges(stop)
+    assert {
+        ("manager", "reject"),
+        ("reject", "unauthorized"),
+        ("body", "block"),
+        ("safety", "block"),
+        ("block", "close"),
+        ("close", "history"),
+        ("firewall", "inhibit"),
+        ("emergency", "inhibit"),
+        ("inhibit", "present"),
+        ("present", "block"),
+        ("present", "unauthorized"),
+    } == stops
+    assert 'present{"Active contract?"}' in stop
+    assert 'present -->|"yes"| block' in stop and 'present -->|"no"| unauthorized' in stop
+    assert "Before contract authorization" in stop and "During an active contract" in stop
+    assert "No contract / no new action authorized; retain history" in stop
+    assert "Block further input immediately" in stop
+    assert "Manager closes / suspends current contract" in stop
+    assert "Prior executed steps and evidence remain logged" in stop
+    assert "Immediate input inhibition; log incident" in stop
+    assert "forbidden access / integrity incident" in stop
+    assert "No executed action" not in stop  # No global conclusion erases prior execution.
+
+    def reachable(start):
+        visited = set()
+        pending = [start]
+        while pending:
+            current = pending.pop()
+            if current not in visited:
+                visited.add(current)
+                pending.extend(target for source, target in stops if source == current)
+        return visited
+
+    assert reachable("reject") == {"reject", "unauthorized"}
+    assert reachable("body") == {"body", "block", "close", "history"}
+    assert reachable("safety") == {"safety", "block", "close", "history"}
+
+
+def test_ap2_repair_exact_candidate_delta_and_unaffected_products(
+    ap1_source, ap1_products, tmp_path, monkeypatch
+):
+    """Independently render exact e999495 code against identical synthetic inputs."""
+    atlas, catalog = ap1_source
+    _, after, technical, derived = ap1_products
+    revision = "e9994952a9de749cf741dd581c772a2325427d3f"
+    modules = {}
+    with monkeypatch.context() as patch:
+        for filename in ("diagram_svg", "final_projection"):
+            file = tmp_path / (filename + ".py")
+            file.write_bytes(
+                subprocess.run(
+                    ["git", "show", f"{revision}:src/fh_agent/research_atlas/{filename}.py"],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                ).stdout
+            )
+            name = "fh_agent.research_atlas." + filename
+            spec = spec_from_file_location(name, file)
+            module = module_from_spec(spec)
+            patch.setitem(sys.modules, name, module)
+            spec.loader.exec_module(module)
+            modules[filename] = module
+        before = modules["final_projection"].package(
+            atlas, technical, derived, explanations=catalog
+        )
+    assert len(before.files) == len(after.files) == 534
+    assert before.files.keys() == after.files.keys()
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        PRODUCT / "Diagrams/System Overview.svg",
+        EXECUTION_FLOW,
+        MANIFESTS[public.OWNER],
+        MANIFESTS[views.OWNER],
+    }
+    assert len(before.files.keys() - changed) == 530
+    assert before.routes == after.routes and before.owners == after.owners
+    assert (
+        before.files[EXECUTION_FLOW].decode().split("## Markdown fallback", 1)[1]
+        == (after.files[EXECUTION_FLOW].decode().split("## Markdown fallback", 1)[1])
+    )
+    before_panels = re.findall(r"```mermaid\n(.*?)```", before.files[EXECUTION_FLOW].decode(), re.S)
+    after_panels = re.findall(r"```mermaid\n(.*?)```", after.files[EXECUTION_FLOW].decode(), re.S)
+    assert before_panels[3:] == after_panels[3:]  # Replan/restart semantics unchanged.
