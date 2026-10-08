@@ -492,7 +492,7 @@ sources:
     sha256: f1964d0421f1cd43ad5cddb933017fae0545841a6cd2ec60073adf42fd69c71b
 components:
   CMP-CORTEX:
-    area: Reason
+    area: Strategic Reasoning
     responsibility: Cortex proposes the next evidence-grounded goal and a reusable skill, and can reflect
       on a completed attempt.
     why: Slow reasoning can weigh uncertainty and prior experience while Manager and Body preserve a bounded
@@ -561,7 +561,7 @@ components:
     - task-executor-test
     - run
   CMP-MEMORY:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Memory retains evidence-linked experience and revisable knowledge outside Cortex.
     why: A later decision should be able to inspect what happened and distinguish observation, inference
       and contradiction without relying on the planner remembering a conversation.
@@ -596,7 +596,7 @@ components:
     - restart
     - researchB
   CMP-MEM-RETRIEVAL:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Memory Retrieval supplies bounded evidence context to Cortex.
     why: The full database would overwhelm a planning call and blur relevant evidence with stale or contradictory
       material.
@@ -620,7 +620,7 @@ components:
     - context
     - context-test
   CMP-SCREEN-CAPTURE:
-    area: Acquire
+    area: Observation & Perception
     responsibility: Screen Capture acquires the visible RGB frame without interpreting it.
     why: Every later visual claim needs a concrete player-visible observation boundary.
     normative: Capture the intended game window, retain capture time and dimensions, and link the frame
@@ -642,7 +642,7 @@ components:
     - capture
     - capture-test
   CMP-VISIBLE-STATE-BRIDGE:
-    area: Acquire
+    area: Observation & Perception
     responsibility: The optional bridge adapts allowlisted, simultaneously visible fields in a separate
       bridge-assisted cohort.
     why: It supports diagnostic visible-data acquisition while preserving cohort and no-spoiler boundaries.
@@ -665,7 +665,7 @@ components:
     - bridge-test
     - modes
   CMP-NO-SPOILER-FIREWALL:
-    area: Observe
+    area: Observation & Perception
     responsibility: The firewall limits bridge-like inputs to visible allowlisted fields.
     why: Technical access to hidden state must not become epistemic permission.
     normative: Deny by default, reject forbidden access as an integrity incident, and retain contamination
@@ -689,7 +689,7 @@ components:
     - firewall-test
     - provenance
   CMP-PERCEPTION:
-    area: Observe
+    area: Observation & Perception
     responsibility: Perception turns visible screen signals into an evidence-linked Observation.
     why: Planning and control need typed visible signals with uncertainty, not unqualified claims about
       pixels.
@@ -715,7 +715,7 @@ components:
     - ocr
     - ocr-test
   CMP-OBSERVATION-BUILDER:
-    area: Observe
+    area: Observation & Perception
     responsibility: Observation Builder assembles one typed, screenshot-linked visible observation.
     why: A common payload keeps perceptual signals and their provenance together at module boundaries.
     normative: Combine admissible visible signals with evidence IDs without inventing goals or hidden
@@ -739,7 +739,7 @@ components:
     - firewall
     - ocr
   CMP-PERCEPTION-UI-STATE:
-    area: Observe
+    area: Observation & Perception
     responsibility: UI State Classification labels visible UI signals and exposes uncertainty.
     why: Body and Manager need to distinguish dialogue, menu, combat or death without guessing hidden
       state.
@@ -762,7 +762,7 @@ components:
     - ui
     - ui-test
   CMP-TEMPORAL-STATE:
-    area: Observe
+    area: Observation & Perception
     responsibility: Temporal State should stabilize recent visible observations into short-horizon control
       signals.
     why: One frame cannot establish motion, sustained no-progress or target continuity.
@@ -786,7 +786,7 @@ components:
     - runner
     - runner-test
   CMP-EVIDENCE-LEDGER:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Evidence Ledger anchors screenshots and event histories to inspectable records.
     why: Memory, grounding and verification must be traceable to what was actually observed and executed.
     normative: Retain immutable screenshot/text/action/outcome/receipt links, hashes, timestamps and run
@@ -813,7 +813,7 @@ components:
     - events-test
     - provenance
   CMP-MEM-EPISODIC:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Episodic Memory retains what happened in an observed trajectory.
     why: Later reasoning needs the sequence and outcome of an attempt, not just a disconnected proposition.
     normative: Record state summaries, goals, contracts, skills, actions and visible outcomes, including
@@ -837,7 +837,7 @@ components:
     - run
     - restart
   CMP-MEM-FACTS:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Semantic Facts stores evidence-backed propositions and their status.
     why: A reusable assertion should expose evidence, confidence and revision history rather than become
       an untraceable planner belief.
@@ -859,7 +859,7 @@ components:
     - facts
     - facts-test
   CMP-MEM-HYPOTHESES:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Hypotheses holds uncertain propositions without silently turning them into facts.
     why: Exploration needs testable possibilities and contradictions while preserving uncertainty.
     normative: Track confidence, supporting and contradicting evidence, status and possible test actions.
@@ -881,7 +881,7 @@ components:
     - facts
     - facts-test
   CMP-MEM-TOPOLOGY:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Topological Memory stores observed connectivity between visually characterized states.
     why: The agent may reuse its own transitions without reading an internal game map.
     normative: Build connections from admissible visible transitions, retaining evidence and uncertainty
@@ -903,7 +903,7 @@ components:
     - topology
     - topology-test
   CMP-MEM-STRATEGY:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Strategy / Experiment Memory records attempted approaches and their outcomes.
     why: Later decisions should distinguish a failed attempt, its rationale and an untested alternative.
     normative: Retain approach, rationale, visible result, failure mode and retry/modify/avoid implications
@@ -925,7 +925,7 @@ components:
     - strategy
     - strategy-test
   CMP-SKILL-COMPETENCE:
-    area: Retain and Retrieve
+    area: Evidence, Memory & Retrieval
     responsibility: Skill Competence Registry summarizes reusable-skill history.
     why: Planning should know the limits of available controllers before requesting a capability.
     normative: Associate skill version, controller, goal schema, validation metrics, failure modes and
@@ -992,7 +992,7 @@ components:
     - orchestrator
     - orchestrator-test
   CMP-BODY:
-    area: Act
+    area: Action & Safety
     responsibility: Body executes reusable skills within the active Manager contract and proposes one
       primitive at a time.
     why: Fast local control should remain independent of slow planning while obeying the same bounded
@@ -1024,7 +1024,7 @@ components:
     - run
     - arch8
   CMP-BOUNDED-REFLEX:
-    area: Act
+    area: Action & Safety
     responsibility: Bounded Reflex is the target fast Body path for declared immediate visible conditions.
     why: An urgent local response should not wait for a slow Cortex call, but it must keep contract authority
       intact.
@@ -1050,7 +1050,7 @@ components:
     - body-test
     - run
   CMP-SAFETY-FILTER:
-    area: Act
+    area: Action & Safety
     responsibility: SafetyFilter assesses a proposed movement against supplied hazard signals.
     why: An allowed action still needs a risk check before execution.
     normative: Keep valid contract, visible hazard constraints and safety enforcement distinct; a planner
@@ -1071,7 +1071,7 @@ components:
     - safety
     - safety-test
   CMP-INPUT-EXECUTOR:
-    area: Act
+    area: Action & Safety
     responsibility: InputExecutor is the guarded boundary that can send one primitive through an input
       backend.
     why: Actual keyboard input needs focus, rate and emergency-stop enforcement separate from planning.
@@ -1095,7 +1095,7 @@ components:
     - runner
     - task-executor
   CMP-INDEPENDENT-VERIFIER:
-    area: Verify and Learn
+    area: Independent Verification
     responsibility: Independent Verifier evaluates visible outcome without letting Cortex grade its own
       proposal.
     why: Execution and interpretation must not automatically become claimed success or reward.
@@ -1123,7 +1123,7 @@ components:
     - interaction
     - interaction-test
   CMP-REPLAY-BUFFER:
-    area: Verify and Learn
+    area: Between-Mission-Run Learning
     responsibility: Replay Buffer retains bounded transition material for optional later learning.
     why: Training data needs reusable observations/actions/outcomes without changing the active controller.
     normative: Collect only admissible, provenance-linked transitions with independently validated labels.
@@ -1148,7 +1148,7 @@ components:
     - run
     - modes
   CMP-SKILL-TRAINER:
-    area: Verify and Learn
+    area: Between-Mission-Run Learning
     responsibility: SkillTrainer is the target between-Mission-Run candidate-training responsibility.
     why: A controller should improve only through a separately authorized and auditable learning lifecycle.
     normative: After a Mission Run ends and a learning protocol authorizes it, select admissible demonstrations/failure
@@ -1172,7 +1172,7 @@ components:
     - cloning-test
     - run
   CMP-BODY-CERTIFICATION:
-    area: Verify and Learn
+    area: Between-Mission-Run Learning
     responsibility: Body Validation / Certification is the target gate between a trained candidate and
       future activation.
     why: A newly trained controller must not silently become executable because it produced a model file.
@@ -1202,50 +1202,58 @@ guides:
       or new technical parents. Individual Registry statuses describe bounded pieces; they do not establish
       a validated screen-only whole loop.
     sections:
-    - title: Acquire
+    - title: Observation & Perception
       text: '[[id:CMP-SCREEN-CAPTURE]] captures a visible frame from [[id:ENV-GAME-INSTANCE]]. The [[id:CMP-VISIBLE-STATE-BRIDGE]]
         is optional and belongs to a separate bridge-assisted cohort with screenshot binding; screen-only
-        never activates it. Neither acquisition route establishes task meaning.'
-    - title: Observe
-      text: '[[id:CMP-NO-SPOILER-FIREWALL]] filters optional bridge data. [[id:CMP-PERCEPTION]] uses its
-        real children [[id:CMP-OBSERVATION-BUILDER]] and [[id:CMP-PERCEPTION-UI-STATE]] to assemble [[id:DAT-OBSERVATION]].
-        [[id:CMP-TEMPORAL-STATE]] should stabilize short histories but remains target-only. Current OCR/spatial
-        production is limited; an image signature is not outcome evidence.'
-    - title: Retain and Retrieve
+        never activates it. Neither acquisition route establishes task meaning. [[id:CMP-NO-SPOILER-FIREWALL]]
+        filters optional bridge data. [[id:CMP-PERCEPTION]] uses its real children [[id:CMP-OBSERVATION-BUILDER]]
+        and [[id:CMP-PERCEPTION-UI-STATE]] to assemble [[id:DAT-OBSERVATION]]. [[id:CMP-TEMPORAL-STATE]] should
+        stabilize short histories but remains target-only. Current OCR/spatial production is limited; an image
+        signature is not outcome evidence.'
+    - title: Evidence, Memory & Retrieval
       text: '[[id:CMP-EVIDENCE-LEDGER]] anchors visible material. [[id:CMP-MEMORY]] contains [[id:CMP-MEM-EPISODIC]],
         [[id:CMP-MEM-FACTS]], [[id:CMP-MEM-HYPOTHESES]], [[id:CMP-MEM-TOPOLOGY]], [[id:CMP-MEM-STRATEGY]]
         and [[id:CMP-SKILL-COMPETENCE]]. [[id:CMP-MEM-RETRIEVAL]] is a System sibling of Memory; its bounded
-        context route reaches Cortex through [[id:IF-MEM-CORTEX]] and [[id:CON-CORTEX-CONTEXT]]. Current
-        context assembly consumes caller-selected memory; ranked snapshot retrieval is missing. See [[guide:Experience
-        to Knowledge]].'
-    - title: Reason
+        context route reaches Cortex through [[id:IF-MEM-CORTEX]] and [[id:CON-CORTEX-CONTEXT]]. Current context
+        assembly consumes caller-selected memory; ranked snapshot retrieval is missing. See [[guide:Experience
+        to Knowledge]]. Reflection/[[id:CON-POST-MORTEM-OUTPUT]] and [[id:CON-MEMORY-UPDATE-REQUEST]] propose
+        evidence-driven knowledge revisions within a Mission Run; admission ownership is design-open. Life
+        Episode continuity preserves admissible knowledge and frozen controller identities, as explained in
+        [[guide:Experience to Knowledge]].'
+    - title: Strategic Reasoning
       text: '[[id:CMP-CORTEX]] is slow and event-driven in the target architecture: new evidence, completion/failure,
         contradiction or relevant uncertainty can justify a call. It emits [[id:CON-PLANNER-OUTPUT]] through
-        [[id:IF-CORTEX-MANAGER]]. Current typed planning validates output and cited evidence scope. A
-        proposal is not permission, and Cortex never controls primitive keys or InputExecutor.'
+        [[id:IF-CORTEX-MANAGER]]. Current typed planning validates output and cited evidence scope. A proposal
+        is not permission, and Cortex never controls primitive keys or InputExecutor.'
     - title: Executive Control
-      text: '[[id:CMP-MANAGER]] validates capabilities and evidence, uses [[id:CMP-MANAGER-GROUNDING]]
-        to bind a visible target and [[id:CMP-MANAGER-SCHED-COMP]] to schedule and close [[id:CON-SKILL-CONTRACT]].
-        Manager alone opens, closes, suspends or replans bounded contracts. Ambiguity fails closed. A
-        skill contract is more concrete than a mission goal and more abstract than a key sequence.'
-    - title: Act
+      text: '[[id:CMP-MANAGER]] validates capabilities and evidence, uses [[id:CMP-MANAGER-GROUNDING]] to
+        bind a visible target and [[id:CMP-MANAGER-SCHED-COMP]] to schedule and close [[id:CON-SKILL-CONTRACT]].
+        Manager alone opens, closes, suspends or replans bounded contracts. Ambiguity fails closed. A skill
+        contract is more concrete than a mission goal and more abstract than a key sequence.'
+    - title: Action & Safety
       text: '[[id:CMP-BODY]] proposes one [[id:CON-PRIMITIVE-ACTION]] at a time within the active contract.
         [[id:CMP-BOUNDED-REFLEX]] is a target-only fast path under declared triggers and the same limits.
         [[id:CMP-SAFETY-FILTER]] assesses supplied hazards; [[id:CMP-INPUT-EXECUTOR]] sends guarded input
         only in correctly composed execution. Valid contract, allowed action, verified focus, rate capacity,
-        emergency stop and durable before/after logging are all required. Current heuristic skills and
-        input guards do not establish every canonical gate.'
-    - title: Verify and Learn
+        emergency stop and durable before/after logging are all required. Current heuristic skills and input
+        guards do not establish every canonical gate.'
+    - title: Independent Verification
       text: After an action affects [[id:ENV-GAME-INSTANCE]], acquire a new Observation. [[id:CMP-INDEPENDENT-VERIFIER]]
-        checks the visible outcome and supplies [[id:CON-VERIFIER-RESULT]] to Manager. Progress can continue
-        a still-valid contract; terminal/stop conditions close or suspend it. Replanning calls Cortex
-        with updated observation/memory context only when a new strategic decision is required and allowed.
-        Thus the loop is Observation → Cortex proposal → Manager contract → Body → guarded input → environment
-        → new Observation → Verifier → Manager transition, not a mandatory Cortex call per primitive.
-        Reflection/[[id:CON-POST-MORTEM-OUTPUT]] and [[id:CON-MEMORY-UPDATE-REQUEST]] propose knowledge
-        revisions; admission ownership is design-open. [[id:CMP-REPLAY-BUFFER]] retains partial transition
-        material; [[id:CMP-SKILL-TRAINER]] and [[id:CMP-BODY-CERTIFICATION]] remain target-only between-Mission-Run
-        mechanisms. See [[guide:Scientific Experiment]].
+        independently checks the visible outcome and supplies [[id:CON-VERIFIER-RESULT]] to Manager, abstaining
+        when evidence is insufficient. Progress can continue a still-valid contract; terminal/stop conditions
+        close or suspend it. Replanning calls Cortex with updated observation/memory context only when a new
+        strategic decision is required and allowed. Thus the loop is Observation → Cortex proposal → Manager
+        contract → Body → guarded input → environment → new Observation → Independent Verifier → VerifierResult
+        → Manager transition, not a mandatory Cortex call per primitive. Current skill-specific detectors
+        cover bounded visible conditions; a screenshot change alone is not success.
+    - title: Between-Mission-Run Learning
+      text: Optional, separately authorized learning occurs between Mission Runs. [[id:CMP-REPLAY-BUFFER]]
+        retains partial transition material; [[id:CMP-SKILL-TRAINER]] and [[id:CMP-BODY-CERTIFICATION]] remain
+        target-only candidate-training and held-out certification mechanisms. Only a certified candidate may
+        be activated for a later eligible Mission Run under an authorized learning protocol. No parameter
+        training or controller replacement occurs inside a Mission Run, including between its Life Episodes.
+        Evidence-driven knowledge revision is separate from parameter training. Current replay and dataset
+        helpers do not establish training, certification or activation. See [[guide:Scientific Experiment]].
     sources:
     - arch1
     - arch2

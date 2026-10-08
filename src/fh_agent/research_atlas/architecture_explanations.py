@@ -22,13 +22,13 @@ from .validator import Atlas
 
 SOURCE = PurePosixPath("docs/research-atlas/architecture_explanations.yaml")
 AREAS = (
-    "Acquire",
-    "Observe",
-    "Retain and Retrieve",
-    "Reason",
+    "Observation & Perception",
+    "Evidence, Memory & Retrieval",
+    "Strategic Reasoning",
     "Executive Control",
-    "Act",
-    "Verify and Learn",
+    "Action & Safety",
+    "Independent Verification",
+    "Between-Mission-Run Learning",
 )
 GUIDES = ("System Overview", "Experience to Knowledge", "Scientific Experiment")
 TOKEN = re.compile(r"\[\[(id|guide):([^\]]+)\]\]")
@@ -59,13 +59,13 @@ class SourceLocator(Record):
 
 class Explanation(Record):
     area: Literal[
-        "Acquire",
-        "Observe",
-        "Retain and Retrieve",
-        "Reason",
+        "Observation & Perception",
+        "Evidence, Memory & Retrieval",
+        "Strategic Reasoning",
         "Executive Control",
-        "Act",
-        "Verify and Learn",
+        "Action & Safety",
+        "Independent Verification",
+        "Between-Mission-Run Learning",
     ]
     responsibility: Text
     why: Text

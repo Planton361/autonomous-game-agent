@@ -2355,13 +2355,78 @@ def test_part_of_and_immediate_interactions_are_exact(ap1_source, ap1_products):
             )
 
 
-def test_guides_complete_cycle_continuity_and_research_boundaries(ap1_products):
+def test_guides_complete_cycle_continuity_and_research_boundaries(ap1_source, ap1_products):
+    atlas, catalog = ap1_source
     _, tree, _, _ = ap1_products
     bodies = {name: tree.files[PRODUCT / "Guides" / (name + ".md")].decode() for name in GUIDES}
     overview = bodies[GUIDES[0]]
-    assert tuple(re.findall(r"^## (.+)$", overview, re.M)) == (*AREAS, "Sources")
+    # Independent approved-design oracle: changing AREAS alone must not bless a new taxonomy.
+    groups = {
+        "Observation & Perception": {
+            "CMP-SCREEN-CAPTURE",
+            "CMP-VISIBLE-STATE-BRIDGE",
+            "CMP-NO-SPOILER-FIREWALL",
+            "CMP-PERCEPTION",
+            "CMP-OBSERVATION-BUILDER",
+            "CMP-PERCEPTION-UI-STATE",
+            "CMP-TEMPORAL-STATE",
+        },
+        "Evidence, Memory & Retrieval": {
+            "CMP-EVIDENCE-LEDGER",
+            "CMP-MEMORY",
+            "CMP-MEM-EPISODIC",
+            "CMP-MEM-FACTS",
+            "CMP-MEM-HYPOTHESES",
+            "CMP-MEM-TOPOLOGY",
+            "CMP-MEM-STRATEGY",
+            "CMP-SKILL-COMPETENCE",
+            "CMP-MEM-RETRIEVAL",
+        },
+        "Strategic Reasoning": {"CMP-CORTEX"},
+        "Executive Control": {
+            "CMP-MANAGER",
+            "CMP-MANAGER-GROUNDING",
+            "CMP-MANAGER-SCHED-COMP",
+        },
+        "Action & Safety": {
+            "CMP-BODY",
+            "CMP-BOUNDED-REFLEX",
+            "CMP-SAFETY-FILTER",
+            "CMP-INPUT-EXECUTOR",
+        },
+        "Independent Verification": {"CMP-INDEPENDENT-VERIFIER"},
+        "Between-Mission-Run Learning": {
+            "CMP-REPLAY-BUFFER",
+            "CMP-SKILL-TRAINER",
+            "CMP-BODY-CERTIFICATION",
+        },
+    }
+    assert AREAS == tuple(groups)
+    assert tuple(re.findall(r"^## (.+)$", overview, re.M)) == (*groups, "Sources")
+    identities = [identity for group in groups.values() for identity in group]
+    assert len(identities) == len(set(identities)) == 28
+    assert set(identities) == set(catalog.components)
+    paths = preferred_paths(atlas)
+    for area, group in groups.items():
+        assert {i for i, item in catalog.components.items() if item.area == area} == group
+        section = overview.split(f"## {area}\n", 1)[1].split("\n## ", 1)[0]
+        # Each Component occurs in its own didactic section, regardless of technical ancestry.
+        assert {i for i in identities if f"[[{paths[i].with_suffix('')}|" in section} == group
+        for identity in group:
+            assert (
+                f"[[Research Map/Guides/System Overview#{area}|{area}]]"
+                in tree.files[paths[identity]].decode()
+            )
     assert "not a mandatory Cortex call per primitive" in overview
-    assert "Verifier → Manager transition" in overview
+    assert (
+        "new Observation → Independent Verifier → VerifierResult → Manager transition" in overview
+    )
+    assert "abstaining when evidence is insufficient" in overview
+    assert "Progress can continue a still-valid contract" in overview
+    assert "Replanning calls Cortex" in overview
+    assert "No parameter training or controller replacement occurs inside a Mission Run" in overview
+    assert "is a System sibling of Memory" in overview
+    assert "admission ownership is design-open" in overview
     assert "valid contract" in overview and "durable before/after logging" in overview
     experience = bodies[GUIDES[1]]
     assert "Consolidation/Admission ownership is explicitly design-open" in experience
