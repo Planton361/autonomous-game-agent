@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import obsidian_semantics as semantics
 from . import product_migration
+from .final_projection import retired_graph_audit_owners
 from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
     OWNED_ROOT as TECHNICAL_ROOT,
@@ -322,10 +323,10 @@ def recover(repo_root: Path, vault_root: Path, restore_point: Path) -> Workspace
             raise WorkspaceError("Recovery receipt does not match current frozen inputs/output")
         snapshot_files = product_migration._actual(point.resolve())
         current_snapshot = product_migration._current(point.resolve())
-        if any(
-            p not in expected.files or expected.owners[p] != row["owner"]
-            for p, row in current_snapshot.items()
-        ):
+        # AP3 retires only the exact Component Edge Audit family. Its previous
+        # owned bytes still need to be restorable; no other absent path is adopted.
+        restorable = expected.owners | retired_graph_audit_owners(expected)
+        if any(restorable.get(p) != row["owner"] for p, row in current_snapshot.items()):
             raise WorkspaceError("Recovery snapshot exceeds finite final ownership")
         snapshot_owners = product_migration._legacy(point.resolve()) | current_snapshot
         if {str(p) for p in snapshot_files} != set(

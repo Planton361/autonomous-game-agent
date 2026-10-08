@@ -28,7 +28,7 @@ Research Map/
     Research Steering.md
     Literature Inspection.md
     Graphs.md
-  Graphs/<CMP-ID>.md
+  Graphs/<CMP-ID>.md           # profiles and collapsed complete per-mode Edge Audits
   Diagrams/
     Architecture Tree.md
     Architecture Tree.canvas
@@ -61,7 +61,6 @@ _Research Map Internals/
     Declared References.md
     Source Details.md
   Graphs/<CMP-ID>/
-    Edge Audit.md
     Architecture/Nodes/
     Knowledge Detail/Nodes/
     Questions/Nodes/
@@ -115,7 +114,7 @@ project Decisions have separate routes. Private RQ masters remain editable at
 their authored locations. Every other private scientific class retains its exact
 authored preferred page; no generic generated scientific-reader family exists.
 
-Each Component has one Graph guide and one Edge Audit. Architecture, Knowledge
+Each Component has one Graph guide with complete Edge Audit sections. Architecture, Knowledge
 Detail and Questions have distinct sections and proxy directories. Audit identity
 is `(Component, mode, directed pair)`. Every origin, node, detail-only endpoint,
 inspection route and sparse-state diagnostic survives consolidation. Filters
@@ -169,7 +168,8 @@ rules apply. The empty-private product grows
 guide, three explanatory Guides, three diagram entry pages, three Canvas captions,
 both owner manifests), no deletions; **516 existing outputs remain byte-identical**.
 All routes, Registry triples, private scientific originals, Graph proxies and
-technical/source audits stay intact. AP3 consolidation has not started.
+technical/source audits stay intact at this historical AP2 checkpoint. AP3 below
+consolidates the standalone Component Edge Audits.
 
 Rendering uses Phase-D's blue/green/orange/purple palette, Arial/sans-serif and
 opaque light backgrounds for light/dark contrast. Four diagrams use the pure
@@ -187,6 +187,70 @@ caption height changes add space, with graph nodes/edges otherwise preserved.
 SVG-internal links are not required: preferred identity links, complete Markdown
 tree/ledger and the execution fallback remain normal Obsidian routes. Static SVG
 renders and geometry checks do not establish native Obsidian G6 or comprehension.
+
+## AP3 finite consolidation and scientific authoring (#170)
+
+AP2 is accepted at `0299b89f036e6864199ff2d28c144f0231bae692`.
+[AP3 CONTROL contract](https://github.com/Planton361/autonomous-game-agent/pull/171#issuecomment-6066990306)
+authorizes only repository implementation and disposable synthetic fixtures.
+The supported Workspace build applies a pure consolidation pass to the reproducible
+AP2 intermediate package. The finite retain/retire decision is:
+
+| Generated family | Disposition | Concrete consumer / preservation reason |
+| --- | --- | --- |
+| `_Research Map Internals/Graphs/<CMP-ID>/Edge Audit.md` (28) | Retire standalone files | Every mode's node inventory, directed pair, typed origin, detail endpoint, inspection link and diagnostic moves into the existing `Research Map/Graphs/<CMP-ID>.md` under `Architecture audit`, `Knowledge Detail audit`, `Questions audit`. |
+| Component Graph guides (28) / shared instructions | Retain, consolidate audits | Existing profile headings, exact filters and manual activation remain. Identical instructions were already factored; complete audits now use collapsed disclosures on the same page. |
+| Mode-specific Graph proxies (234 in empty fixture) | Retain unchanged | Native filters select separate folders; populated modes have different nodes/edges. Preferred pages contain navigation links that would pollute filtered topology. Empty-fixture identity repetition does not prove interchangeable modes. |
+| Declared References / Source Details audits and three indexes | Retain information; rewire affected audit links | Typed resolution, provenance/version history, unresolved declarations and source warnings are unique inspection/recovery inputs. The technical interaction ledger cannot replace them. |
+| Three secondary AP2 Canvas views | Retain unchanged | Clickable identity cards, full typed interactions and detailed control gates remain secondary inspection routes; equivalence of those reader tasks to static primary assets is unproven. |
+| Seven Technical Relations Canvas views | Retain unchanged | Endpoint-specific typed relations and preferred identity inspection are distinct from the compact mechanism panels. |
+| Two Excalidraw views and Anatomy illustration | Retain unchanged | Selective Anatomy / Domain context and existing plugin/source inspection routes remain; removal would break those consumers without an equivalent tested replacement. |
+
+At identical empty-private inputs the final product is **534 → 506 files**:
+28 retired audit paths, zero additions, 58 changed existing outputs (28 Graph
+guides, 28 Component inspection-link updates, derived-owner manifest and route
+ledger), **448 byte-identical retained outputs**. AP1 explanation text, source
+references and identity paths remain; AP2 diagrams, Guides and the complete
+47-relation ledger are byte-identical. Both logical owners and ownership classes
+are unchanged. Every old generated audit link is rewritten to a resolving guide
+anchor, including rebased relative links. The route ledger records the exact
+retired final paths as well as legacy input routes; it is migration metadata,
+not a redirect file or an automatic repair of authored links.
+
+Only those finite retired paths are added to preflight/recovery's previous-output
+allowlist, with the original owner. Manifest/hash proof still precedes backup or
+mutation; edited, owner-lost, unowned, colliding and symlinked content fails closed.
+Replacements are verified before retirement. External receipts retain exact old
+bytes, including all 28 audits, and restore them without touching authored input.
+Checks remain zero-write; repeated apply retains identical generated bytes and
+the existing external-backup behavior. No `.obsidian` settings change.
+
+Component Research now links each actual direct RA-2 attachment once by authored
+identity, with literal type/maturity, Finding review state and ReadingNote read
+version. It uses the existing attachment resolver; ancestry/adjacency does not
+invent mappings. Rich Finding eligibility, schema and scientific acceptance gates
+remain unchanged. Empty-private pages receive no fictional research records.
+
+`test_ap3_synthetic_scientific_authoring_navigation_and_regeneration` demonstrates
+one fictional SourceFamily/version with URL, page 4 / Methods locator, one Paper,
+one draft ReadingNote and one draft/unverified Finding, each authored once. The
+note/finding explicitly map to Memory Retrieval and Temporal State; one in-review
+0.3 ResearchQuestion declares those two subjects and one literature row. Component
+Research, Research Steering, Literature Inspection and the question reader resolve
+the same originals. Finding prose is not promoted; no reviewed conclusion means
+the current gap state is unavailable. Regeneration, zero-write check, retirement,
+exact recovery and later authored-body edits preserve the originals. This is
+navigation/integrity evidence, not actual literature or scientific results.
+This populated fixture is **549 → 521 files**, zero additions, the same 28
+retirements, 59 changed outputs (the empty-fixture set plus Source Details audit
+link updates), and 462 byte-identical retained outputs. The two explicitly mapped
+Component pages additionally expose the compact authored-record links; other
+Components acquire no synthetic research association.
+
+Native Obsidian disclosure/readability and independent acceptance remain AP4.
+Any authored hard-path links to retired audits need a separately authorized rollout
+inventory; AP3 does not inspect or rewrite real authored links, receipts or Vault
+content. No actual-Vault apply/check/recover or merge is authorized here.
 
 ## Historical Canvas-first architecture diagrams
 

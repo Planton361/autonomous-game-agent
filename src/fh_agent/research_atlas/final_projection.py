@@ -34,8 +34,11 @@ from .diagram_canvas import (
 from .diagram_svg import primary_pages, secondary_canvases, svg_assets
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
+from .private_reference_index import ReferenceIndex
+from .research_presentation import ROLE_LABELS, literal, record_link
 from .schema import Relationship
 from .validator import Atlas
+from .wiki_schema import EpistemicRecord, Finding, ReadingNote
 
 MODES = {
     "architecture": "Architecture",
@@ -782,6 +785,194 @@ class ProductTree:
     files: dict[PurePosixPath, bytes]
     owners: dict[PurePosixPath, str]
     routes: dict[PurePosixPath, PurePosixPath]
+
+
+def retired_graph_audit_owners(tree: ProductTree) -> dict[PurePosixPath, str]:
+    """Finite previous-product paths with a currently emitted audit replacement."""
+    return {
+        path: views.OWNER
+        for path, replacement in tree.routes.items()
+        if path.name == "Edge Audit.md"
+        and path.parent.parent == INTERNAL / "Graphs"
+        and replacement == PRODUCT / "Graphs" / (path.parent.name + ".md")
+        and tree.owners.get(replacement) == views.OWNER
+        and path not in tree.files
+    }
+
+
+def component_research_links(
+    atlas: Atlas,
+    reference: ReferenceIndex,
+    records: tuple[EpistemicRecord, ...],
+    locators: dict[str, PurePosixPath],
+) -> dict[PurePosixPath, str]:
+    """Final-product navigation to actual direct records, never a Finding preview.
+
+    Older reader/Graph projections remain unchanged. This uses the accepted
+    attachment resolver and literal record status, not ancestry or inferred relevance.
+    """
+    by_id = {r.wiki_id: r for r in records}
+    attachments = views.attachment_index(reference)
+    preferred = preferred_paths(atlas)
+    sections = {}
+    for identity, page in preferred.items():
+        if atlas.entities[identity].type != "Component":
+            continue
+        model = views.identity_page_model(atlas, reference, identity, attachments=attachments)
+        owners: dict[str, set[str]] = {}
+        for row in model.direct_attachments:
+            owners.setdefault(row.source_wiki_id, set()).add(row.originating_role)
+        if not owners:
+            continue
+        lines = ["### Declared Research records", ""]
+        for owner, roles in sorted(owners.items()):
+            record = by_id.get(owner)
+            if record is None:
+                raise ProjectionError("Declared Component research record is unavailable")
+            status = record.doc_type + " · " + record.document_maturity
+            if isinstance(record, Finding):
+                status += " · review " + record.review_state
+            if isinstance(record, ReadingNote):
+                status += " · " + record.reading_depth.replace("_", " ")
+                if record.version_read is not None:
+                    status += " · version read " + literal(record.version_read)
+            lines += [
+                "- "
+                + record_link(record, locators, page)
+                + " — "
+                + status
+                + "; "
+                + ", ".join(ROLE_LABELS[r] for r in sorted(roles))
+                + ".",
+            ]
+        sections[page] = "\n".join(lines) + "\n\n"
+    return sections
+
+
+def consolidate_graph_audits(
+    tree: ProductTree, *, research_links: dict[PurePosixPath, str] | None = None
+) -> ProductTree:
+    """Fold only the finite generated Component audits into their Graph guides.
+
+    The AP2 package remains a reproducible intermediate product. Graph proxies,
+    filters and scientific originals are untouched by this final presentation pass.
+    Ownership validation and retirement belong to the existing workspace pipeline.
+    """
+    files, owners, routes = dict(tree.files), dict(tree.owners), dict(tree.routes)
+    for page, section in (research_links or {}).items():
+        if owners.get(page) != views.OWNER:
+            raise ProjectionError("Component research navigation has no owned identity page")
+        text = utf8(files[page])
+        marker = "\n## Sources & verification\n"
+        if text.count(marker) != 1:
+            raise ProjectionError("Component reader source section is missing or ambiguous")
+        files[page] = text.replace(marker, "\n" + section + marker, 1).encode()
+    audits = {
+        path: PRODUCT / "Graphs" / (path.parent.name + ".md")
+        for path in files
+        if path.name == "Edge Audit.md" and path.parent.parent == INTERNAL / "Graphs"
+    }
+
+    def target(path: PurePosixPath, anchor: str) -> tuple[PurePosixPath, str]:
+        return audits[path], (
+            anchor + " audit" if anchor in MODES.values() else anchor or "Edge audits"
+        )
+
+    def rewrite(
+        data: bytes, source: PurePosixPath, destination: PurePosixPath | None = None
+    ) -> bytes:
+        destination = destination or source
+        text = utf8(data)
+
+        def wiki(match: re.Match) -> str:
+            route, delimiter, label = match[1].partition("|")
+            escaped = route.endswith("\\")
+            path, _, anchor = route.rstrip("\\").partition("#")
+            old = PurePosixPath(path) if path else source
+            if old.suffix != ".md":
+                old = PurePosixPath(str(old) + ".md")
+            if old not in audits:
+                return match[0]
+            new, anchor = target(old, anchor)
+            if not path.endswith(".md"):
+                new = new.with_suffix("")
+            delimiter = "\\|" if escaped else delimiter
+            return "[[" + str(new) + "#" + anchor + (delimiter + label if delimiter else "") + "]]"
+
+        def markdown(match: re.Match) -> str:
+            url = urlsplit(match[2])
+            if url.scheme or url.netloc:
+                return match[0]
+            old = (
+                PurePosixPath(posixpath.normpath(str(source.parent / unquote(url.path))))
+                if url.path
+                else source
+            )
+            if old not in audits and source == destination:
+                return match[0]
+            new, anchor = (
+                target(old, unquote(url.fragment))
+                if old in audits
+                else (old, unquote(url.fragment))
+            )
+            relative = posixpath.relpath(str(new), str(destination.parent))
+            suffix = ("?" + url.query if url.query else "") + (
+                "#" + quote(anchor) if anchor else ""
+            )
+            return match[1] + quote(relative, safe="/.") + suffix + ")"
+
+        text = re.sub(r"\[\[([^\]]+)\]\]", wiki, text)
+        text = re.sub(r"(\[[^\]\n]*\]\()([^\)\n]+)\)", markdown, text)
+        return text.encode()
+
+    for audit, guide in sorted(audits.items()):
+        if guide not in files or owners[audit] != views.OWNER or owners[guide] != views.OWNER:
+            raise ProjectionError("Graph audit has no same-owner guide replacement")
+        body = markdown_parts(utf8(rewrite(files[audit], audit, guide)))[1]
+        intro, separator, rest = body.partition("\n## Architecture\n")
+        if not separator:
+            raise ProjectionError("Graph audit mode sections are missing")
+        _, _, intro = intro.partition("\n")  # Title only; identity and mode contract remain.
+        sections = ["\n## Edge audits\n", intro]
+        remainder = "\n## Architecture\n" + rest
+        for title in MODES.values():
+            _, separator, remainder = remainder.partition("\n## " + title + "\n")
+            if not separator:
+                raise ProjectionError("Graph audit mode sections are missing")
+            content = remainder.split("\n## ", 1)[0]
+            sections += [
+                "\n## " + title + " audit\n",
+                "> [!info]- Complete "
+                + title
+                + " edge audit\n>\n"
+                + "\n".join("> " + line for line in content.splitlines()),
+            ]
+        files[guide] += ("\n".join(sections) + "\n").encode()
+        del files[audit], owners[audit]
+    for path, data in list(files.items()):
+        if path.suffix in {".md", ".canvas", ".base"}:
+            files[path] = rewrite(data, path)
+    routes = {
+        source: audits.get(destination, destination) for source, destination in routes.items()
+    }
+    routes.update(audits)  # Exact accepted-AP2 retired routes, never a wildcard alias.
+    files[LEDGER] = yaml_text(
+        dict(
+            migration_schema_version="1.0",
+            generated_by=views.OWNER,
+            routes={str(s): str(t) for s, t in sorted(routes.items())},
+        )
+    ).encode()
+    for owner, manifest in MANIFESTS.items():
+        metadata = read_yaml(utf8(files[manifest]))
+        metadata["owned_files"] = [
+            dict(path=str(path), **semantics.record(data, path, owner))
+            for path, data in sorted(files.items())
+            if owners[path] == owner and path != manifest
+        ]
+        files[manifest] = yaml_text(metadata).encode()
+    public.validate_portable_paths(files)
+    return ProductTree(files, owners, routes)
 
 
 def package(

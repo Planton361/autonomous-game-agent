@@ -11,7 +11,15 @@ from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
 from .architecture_explanations import SOURCE, parse_explanations, validate_dependencies
-from .final_projection import LEDGER, MANIFESTS, ProductTree, package
+from .final_projection import (
+    LEDGER,
+    MANIFESTS,
+    ProductTree,
+    component_research_links,
+    consolidate_graph_audits,
+    package,
+    retired_graph_audit_owners,
+)
 from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
     ProjectionError,
@@ -268,7 +276,10 @@ def build(repo: Path, vault: Path, commit: str) -> ProductTree:
         ),
         source_catalog=views.load_catalog(vault),
     )
-    return package(atlas, technical, derived, explanations=explanations)
+    return consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=explanations),
+        research_links=component_research_links(atlas, reference, records, locators),
+    )
 
 
 def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[PurePosixPath]]:
@@ -282,9 +293,11 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
         raise ProjectionError("Unknown/unowned product destination; no adoption")
     prove_ownership(repo, vault, vault, prior)
     tree = build(repo, vault, commit)
-    # Exact current inventory is the finite ownership allowlist, not a namespace wildcard.
+    # Exact current output plus the reviewed previous-product retirement family;
+    # ownership was proved above. No namespace wildcard or unowned adoption.
+    allowed = tree.owners | retired_graph_audit_owners(tree)
     for path, row in current.items():
-        if path not in tree.files or tree.owners[path] != row["owner"]:
+        if allowed.get(path) != row["owner"]:
             raise ProjectionError("Ambiguous or invalid final ownership path")
     validate_portable_paths(tree.files.keys() | actual)
     # Also reject case/Unicode aliases in existing directory entries, including

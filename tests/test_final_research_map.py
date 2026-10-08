@@ -1042,7 +1042,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 534
+    assert len(receipt["after"]) == 506  # AP3 folds the 28 audits into existing Graph guides.
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -1335,7 +1335,7 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 534
+    assert len(migration._actual(vault)) == 506  # AP3's finite audit retirement.
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():
@@ -3044,3 +3044,528 @@ def test_ap2_repair_exact_candidate_delta_and_unaffected_products(
     before_panels = re.findall(r"```mermaid\n(.*?)```", before.files[EXECUTION_FLOW].decode(), re.S)
     after_panels = re.findall(r"```mermaid\n(.*?)```", after.files[EXECUTION_FLOW].decode(), re.S)
     assert before_panels[3:] == after_panels[3:]  # Replan/restart semantics unchanged.
+
+
+@pytest.fixture(scope="module")
+def ap3_products(ap1_source, ap1_products, tmp_path_factory):
+    """Render the exact accepted AP2 package independently, at identical inputs."""
+    atlas, catalog = ap1_source
+    _, intermediate_tree, technical, derived = ap1_products
+    revision = "0299b89f036e6864199ff2d28c144f0231bae692"
+    file = tmp_path_factory.mktemp("ap3-accepted-ap2") / "projection.py"
+    file.write_bytes(
+        subprocess.run(
+            ["git", "show", f"{revision}:src/fh_agent/research_atlas/final_projection.py"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    name = "fh_agent.research_atlas.ap3_accepted_ap2"
+    spec = spec_from_file_location(name, file)
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+        before = module.package(atlas, technical, derived, explanations=catalog)
+    finally:
+        del sys.modules[name]
+    assert before.files == intermediate_tree.files
+    assert before.routes == intermediate_tree.routes and before.owners == intermediate_tree.owners
+    return before, final_projection.consolidate_graph_audits(before)
+
+
+def test_ap3_exact_retirement_delta_and_accepted_product_preservation(ap3_products, atlas):
+    before, after = ap3_products
+    components = {i for i, n in atlas.entities.items() if n.type == "Component"}
+    retired = {INTERNAL / "Graphs" / i / "Edge Audit.md" for i in components}
+    assert len(before.files) == 534 and len(after.files) == 506
+    assert before.files.keys() - after.files.keys() == retired
+    assert not after.files.keys() - before.files.keys()
+    assert final_projection.retired_graph_audit_owners(after) == dict.fromkeys(retired, views.OWNER)
+    changed = {p for p in after.files if before.files[p] != after.files[p]}
+    # Exact finite changed set; all other AP1/AP2 outputs are byte-identical.
+    assert changed == {
+        *(PRODUCT / "Graphs" / (i + ".md") for i in components),
+        *(preferred_paths(atlas)[i] for i in components),
+        INTERNAL / "Migration/routes.yaml",
+        MANIFESTS[views.OWNER],
+    }
+    assert len(changed) == 58 and len(after.files.keys() - changed) == 448
+    for i in components:
+        page = preferred_paths(atlas)[i]
+        old = before.files[page].decode()
+        new = after.files[page].decode()
+        # Only generated inspection routes move, not explanations, refs or authority.
+        for title in MODES.values():
+            old = old.replace(
+                f"{INTERNAL / 'Graphs' / i / 'Edge Audit'}#{title}",
+                f"{PRODUCT / 'Graphs' / i}#{title} audit",
+            )
+        old = old.replace(
+            str(INTERNAL / "Graphs" / i / "Edge Audit"),
+            str(PRODUCT / "Graphs" / i) + "#Edge audits",
+        )
+        assert new == old
+    for owner, manifest in MANIFESTS.items():
+        entries = read_yaml(after.files[manifest].decode())["owned_files"]
+        assert (
+            read_yaml(after.files[manifest].decode())["provenance"]
+            == read_yaml(before.files[manifest].decode())["provenance"]
+        )
+        assert {PurePosixPath(r["path"]) for r in entries} == {
+            p for p in after.files if after.owners[p] == owner and p != manifest
+        }
+        assert all(
+            r
+            == dict(
+                path=r["path"],
+                **semantics.record(
+                    after.files[PurePosixPath(r["path"])], PurePosixPath(r["path"]), owner
+                ),
+            )
+            for r in entries
+        )
+    assert all(after.owners[p] == before.owners[p] for p in after.files)
+    assert all(
+        after.routes[s] == after.routes[d] if d in retired else after.routes[s] == d
+        for s, d in before.routes.items()
+    )
+
+
+@pytest.mark.parametrize("populated", [False, True])
+def test_ap3_graph_filters_proxies_audit_rows_and_diagnostics_are_lossless(atlas, populated):
+    records = fictional_records(atlas) if populated else ()
+    technical, derived, _, _ = intermediate(atlas, records)
+    before = package(atlas, technical, derived)
+    after = final_projection.consolidate_graph_audits(before)
+    proxies = {
+        p
+        for p in before.files
+        if p.is_relative_to(INTERNAL / "Graphs") and p.name != "Edge Audit.md"
+    }
+    assert len(proxies) == 234 if not populated else len(proxies) > 234
+    assert all(before.files[p] == after.files[p] for p in proxies)
+    for audit in final_projection.retired_graph_audit_owners(after):
+        guide = after.routes[audit]
+        old = before.files[audit].decode()
+        new = after.files[guide].decode()
+        for title in MODES.values():
+            section = new.split("\n## " + title + " audit\n", 1)[1].split("\n## ", 1)[0]
+            unquoted = "\n".join(
+                line[2:]
+                for line in section.splitlines()
+                if line.startswith("> ") and not line.startswith("> [!info]")
+            )
+            prior = old.split("\n## " + title + "\n", 1)[1].split("\n## ", 1)[0]
+            assert re.findall(r"^\|.*$", unquoted, re.M) == re.findall(r"^\|.*$", prior, re.M)
+            assert [
+                line
+                for line in unquoted.splitlines()
+                if line and "[[" not in line and "](" not in line and not line.startswith(">")
+            ] == [
+                line
+                for line in prior.splitlines()
+                if line and "[[" not in line and "](" not in line
+            ]
+            # All filters and manual activation instructions survive exactly once in the profile.
+            prior_profile = (
+                before.files[guide]
+                .decode()
+                .split("\n## " + title + "\n", 1)[1]
+                .split("\n## ", 1)[0]
+            )
+            profile = new.split("\n## " + title + "\n", 1)[1].split("\n## ", 1)[0]
+            assert re.findall(r"```text\n(.*?)```", profile, re.S) == re.findall(
+                r"```text\n(.*?)```", prior_profile, re.S
+            )
+            assert f"[[{guide.with_suffix('')}#{title} audit|" in profile
+        assert new.count("Manual activation: open native global Graph") == 1
+        assert "Effective identity: (Component, mode, directed pair). Modes never union." in new
+
+
+def test_ap3_deterministic_idempotent_and_resolving_audit_anchors(ap3_products):
+    before, after = ap3_products
+    reordered = ProductTree(
+        dict(reversed(list(before.files.items()))),
+        dict(reversed(list(before.owners.items()))),
+        dict(reversed(list(before.routes.items()))),
+    )
+    assert final_projection.consolidate_graph_audits(reordered) == after
+    assert final_projection.consolidate_graph_audits(after) == after
+    retired = final_projection.retired_graph_audit_owners(after)
+    for p, data in after.files.items():
+        if p.suffix not in {".md", ".canvas", ".base"}:
+            continue
+        for link in re.findall(r"\[\[([^\]]+)\]\]", data.decode()):
+            route, _, anchor = link.split("|", 1)[0].rstrip("\\").partition("#")
+            dest = PurePosixPath(route) if route else p
+            if dest.suffix != ".md":
+                dest = PurePosixPath(str(dest) + ".md")
+            assert dest not in retired
+            if dest.parent == PRODUCT / "Graphs" and anchor:
+                assert f"\n## {anchor}\n" in after.files[dest].decode(), (p, link)
+
+
+def install_ap2_product(repo, vault, monkeypatch):
+    """Existing AP2 generator product, using the same actual-compatible fixture inputs."""
+    with monkeypatch.context() as patch:
+        patch.setattr(migration, "consolidate_graph_audits", lambda tree, **kwargs: tree)
+        workspace.apply(repo, vault)
+    return {p: (vault / p).read_bytes() for p in migration._actual(vault)}
+
+
+def test_ap3_retirement_apply_check_and_exact_prior_bytes_restore(workspace_setup, monkeypatch):
+    repo, vault, sha = workspace_setup
+    before = install_ap2_product(repo, vault, monkeypatch)
+    authored = harness_fixtures._authored_snapshot(vault)
+    state = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="inventory drift"):
+        workspace.check(repo, vault)
+    assert filesystem_state(vault.parent) == state
+    candidate = migration.build(repo, vault, sha)
+    retired = final_projection.retired_graph_audit_owners(candidate)
+    result = workspace.apply(repo, vault)
+    assert len(retired) == 28 and all(not (vault / p).exists() for p in retired)
+    assert all((result.restore_point / p).read_bytes() == before[p] for p in retired)
+    receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
+    assert len(receipt["before"]) == 534 and len(receipt["after"]) == 506
+    assert set(receipt["before"]) - set(receipt["after"]) == set(map(str, retired))
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    state = filesystem_state(vault)
+    workspace.check(repo, vault)
+    assert filesystem_state(vault) == state
+    digests = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == digests
+    workspace.recover(repo, vault, result.restore_point)
+    assert {p: (vault / p).read_bytes() for p in migration._actual(vault)} == before
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+
+
+@pytest.mark.parametrize(
+    "fault", ["edited", "owner-lost", "unowned", "path-symlink", "subtree-symlink"]
+)
+def test_ap3_retired_or_unowned_content_blocks_before_backup_or_write(
+    workspace_setup, monkeypatch, fault
+):
+    repo, vault, _ = workspace_setup
+    install_ap2_product(repo, vault, monkeypatch)
+    audit = vault / INTERNAL / "Graphs/CMP-MEM-RETRIEVAL/Edge Audit.md"
+    if fault == "edited":
+        audit.write_bytes(audit.read_bytes() + b"Authored additions must survive.\n")
+    elif fault == "owner-lost":
+        audit.write_bytes(audit.read_bytes().replace(b"generated_by:", b"former_owner:"))
+    elif fault == "unowned":
+        audit.with_name("Unowned Audit.md").write_text("Authored, never adopt or delete.\n")
+    elif fault == "path-symlink":
+        audit.unlink()
+        audit.symlink_to(vault / "authored/process.md")
+    else:
+        root = audit.parent
+        outside = vault.parent / "synthetic-outside-subtree"
+        shutil.move(root, outside)
+        root.symlink_to(outside, target_is_directory=True)
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+
+
+def test_ap3_recovery_rejects_unlisted_retired_backup_even_with_matching_receipt(
+    workspace_setup, monkeypatch
+):
+    repo, vault, _ = workspace_setup
+    install_ap2_product(repo, vault, monkeypatch)
+    result = workspace.apply(repo, vault)
+    point = result.restore_point
+    fake = INTERNAL / "Graphs/CMP-UNKNOWN/Edge Audit.md"
+    payload = b"---\ngenerated_by: research-wiki-derived\n---\nUnknown retirement.\n"
+    path = point / fake
+    path.parent.mkdir(parents=True)
+    path.write_bytes(payload)
+    manifest = point / MANIFESTS[views.OWNER]
+    metadata = read_yaml(manifest.read_text())
+    row = dict(path=str(fake), **semantics.record(payload, fake, views.OWNER))
+    metadata["owned_files"].append(row)
+    manifest.write_text(public.yaml_text(metadata))
+    plan_path = point / "migration-plan.json"
+    plan = json.loads(plan_path.read_text())
+    plan["before"][str(fake)] = public.digest(payload)
+    plan["before_ownership"][str(fake)] = dict(
+        owner=views.OWNER, **semantics.record(payload, fake, views.OWNER)
+    )
+    plan["before"][str(MANIFESTS[views.OWNER])] = public.digest(manifest.read_bytes())
+    plan["before_ownership"][str(MANIFESTS[views.OWNER])] = dict(
+        owner=views.OWNER,
+        **semantics.record(manifest.read_bytes(), MANIFESTS[views.OWNER], views.OWNER),
+    )
+    plan_path.write_text(json.dumps(plan))
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError, match="finite final ownership"):
+        workspace.recover(repo, vault, point)
+    assert filesystem_state(vault.parent) == before
+
+
+def ap3_authoring_fixture(vault, atlas):
+    """One fictional source and single authored records; no scientific assertions."""
+    from fh_agent.research_atlas.source_resolution import CATALOG_INPUT, SourceCatalog
+    from fh_agent.research_atlas.wiki_schema import validate_wiki_records
+
+    subjects = ["CMP-MEM-RETRIEVAL", "CMP-TEMPORAL-STATE"]
+    common = dict(
+        wiki_schema_version="0.1",
+        epistemic_schema_version="0.3",
+        record_version=1,
+        document_maturity="draft",
+        privacy="private",
+        export_policy="deny",
+        atlas_refs=[],
+    )
+    paper = dict(
+        common,
+        wiki_id="WPAPER-AP3",
+        doc_type="paper",
+        title="Synthetic AP3 literature source",
+        document_maturity="in_review",
+        source_refs=["srcf-ap3"],
+        reading_note_refs=["READ-AP3"],
+        related_version_refs=["srcv-ap3-v1"],
+        research_direct_subject_refs=[*subjects, "WRQ-AP3"],
+        presentation_contexts=[
+            dict(
+                role="research_direct_subject_refs",
+                target_ref=target,
+                why_relevant="Synthetic navigation exercise, not a literature finding.",
+                reading_note_ref="READ-AP3",
+                finding_ref="WFIND-AP3",
+            )
+            for target in [*subjects, "WRQ-AP3"]
+        ],
+    )
+    reading = dict(
+        common,
+        wiki_id="READ-AP3",
+        doc_type="reading_note",
+        title="Synthetic AP3 single reading note",
+        paper_refs=["WPAPER-AP3"],
+        version_read="srcv-ap3-v1",
+        read_date="2026-10-08",
+        reading_depth="methods_checked",
+        checked_sections=["methods"],
+        finding_refs=["WFIND-AP3"],
+        rq_refs=["WRQ-AP3"],
+        research_direct_subject_refs=subjects,
+    )
+    finding = dict(
+        common,
+        wiki_id="WFIND-AP3",
+        doc_type="finding",
+        title="Synthetic AP3 unverified finding",
+        source_refs=["WPAPER-AP3"],
+        reading_note_refs=["READ-AP3"],
+        claim_origin="authors_result",
+        review_state="draft",
+        research_direct_subject_refs=subjects,
+        rq_refs=["WRQ-AP3"],
+        presentation_statement="UNVERIFIED-SYNTHETIC-STATEMENT-NOT-AN-ACCEPTED-FINDING",
+        presentation_source_locations=[
+            dict(reading_note_ref="READ-AP3", page="4", section="Methods")
+        ],
+    )
+    question = dict(
+        common,
+        wiki_id="WRQ-AP3",
+        doc_type="research_question",
+        title="Synthetic AP3 research question",
+        document_maturity="in_review",
+        question_stage="idea",
+        decision_state="none",
+        presentation_question="Synthetic question for two explicitly mapped Components?",
+        research_direct_subject_refs=subjects,
+        finding_refs=["WFIND-AP3"],
+        presentation_analysis=dict(
+            subject_contexts=[
+                dict(target_ref=s, why_matters="Synthetic explicit mapping.") for s in subjects
+            ],
+            literature_rows=[
+                dict(
+                    paper_ref="WPAPER-AP3",
+                    context_owner_ref="WPAPER-AP3",
+                    context_role="research_direct_subject_refs",
+                )
+            ],
+        ),
+    )
+    records = validate_wiki_records([paper, reading, finding, question], set(atlas.entities))
+    authored = {}
+    for record in records:
+        path = vault / "authored/Scientific authoring" / (record.wiki_id + ".md")
+        write_note(path, record.model_dump(mode="json", exclude_unset=True))
+        path.write_text(path.read_text() + "\nSYNTHETIC-AUTHORED-BODY-" + record.wiki_id + "\n")
+        authored[record.wiki_id] = path
+    catalog = SourceCatalog.model_validate(
+        dict(
+            source_catalog_schema_version="1.0",
+            privacy="private",
+            export_policy="deny",
+            families=[
+                dict(
+                    source_family_id="srcf-ap3",
+                    title="Synthetic AP3 literature source",
+                    preferred_version_ref="srcv-ap3-v1",
+                )
+            ],
+            versions=[
+                dict(
+                    source_version_id="srcv-ap3-v1",
+                    source_family_ref="srcf-ap3",
+                    label="Synthetic version 1",
+                    kind="preprint",
+                    status="available",
+                    availability="available",
+                    locator=dict(url="https://example.invalid/ap3/v1", page="4", section="Methods"),
+                )
+            ],
+        )
+    )
+    (vault / CATALOG_INPUT).write_text(catalog.model_dump_json(indent=2))
+    return records, authored, subjects
+
+
+def test_ap3_synthetic_scientific_authoring_navigation_and_regeneration(
+    workspace_setup, monkeypatch
+):
+    from fh_agent.research_atlas.research_steering import UNAVAILABLE
+    from fh_agent.research_atlas.source_resolution import SourceIndex
+
+    repo, vault, sha = workspace_setup
+    atlas = load_registry(repo / "docs/research-atlas")
+    records, authored, subjects = ap3_authoring_fixture(vault, atlas)
+    original = harness_fixtures._authored_snapshot(vault)
+    # Use the accepted private renderer too: the old product has the authored
+    # attachments in its complete audit, before AP3 exposes compact direct links.
+    file = vault.parent / "accepted-ap2-views.py"
+    file.write_bytes(
+        subprocess.run(
+            [
+                "git",
+                "show",
+                "0299b89f036e6864199ff2d28c144f0231bae692:src/fh_agent/research_atlas/private_views.py",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    name = "fh_agent.research_atlas.ap3_accepted_private_views"
+    spec = spec_from_file_location(name, file)
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+        with monkeypatch.context() as patch:
+            patch.setattr(views, "reference_views_tree", module.reference_views_tree)
+            old = install_ap2_product(repo, vault, monkeypatch)
+    finally:
+        del sys.modules[name]
+    candidate = migration.build(repo, vault, sha)
+    assert len(old) == 549 and len(candidate.files) == 521
+    retired = final_projection.retired_graph_audit_owners(candidate)
+    assert old.keys() - candidate.files.keys() == retired.keys()
+    assert not candidate.files.keys() - old.keys()
+    changed = {p for p in candidate.files if old[p] != candidate.files[p]}
+    assert changed == {
+        *(
+            PRODUCT / "Graphs" / (i + ".md")
+            for i, n in atlas.entities.items()
+            if n.type == "Component"
+        ),
+        *(preferred_paths(atlas)[i] for i, n in atlas.entities.items() if n.type == "Component"),
+        INTERNAL / "Audit/Source Details.md",
+        MANIFESTS[views.OWNER],
+        INTERNAL / "Migration/routes.yaml",
+    }
+    assert len(changed) == 59 and len(candidate.files) - len(changed) == 462
+    result = workspace.apply(repo, vault)
+    assert harness_fixtures._authored_snapshot(vault) == original
+    steering = (vault / PRODUCT / "Views/Research Steering.md").read_text()
+    literature = (vault / PRODUCT / "Views/Literature Inspection.md").read_text()
+    paths = preferred_paths(atlas)
+    for subject in subjects:
+        page = (vault / paths[subject]).read_text()
+        research = page.split("\n## Research\n", 1)[1].split("\n## Sources", 1)[0]
+        assert "Synthetic AP3 single reading note" in research
+        assert "Synthetic AP3 unverified finding" in research
+        assert "Synthetic question for two explicitly mapped Components?" in research
+        assert "finding · draft · review draft" in research
+        assert "UNVERIFIED-SYNTHETIC-STATEMENT" not in research
+        assert "draft" in research and "methods checked" in research
+        assert "version read srcv-ap3-v1" in research
+        assert len(re.findall(r"^- .*authored/Scientific%20authoring/", research, re.M)) == 3
+        for record in records[:3]:
+            assert authored[record.wiki_id].name in research
+        steering_links = {
+            (vault / PRODUCT / "Views" / unquote(url.split("#", 1)[0])).resolve()
+            for url in re.findall(r"\]\(([^)]+)\)", steering)
+            if "://" not in url
+        }
+        assert (vault / paths[subject]).resolve() in steering_links
+    unrelated = (
+        (vault / paths["CMP-CORTEX"])
+        .read_text()
+        .split("\n## Research\n", 1)[1]
+        .split("\n## Sources", 1)[0]
+    )
+    assert not any(r.title in unrelated for r in records)
+    assert "Synthetic AP3 literature source" in steering
+    assert "Synthetic question for two explicitly mapped Components?" in steering
+    assert UNAVAILABLE in steering  # No authored/reviewed conclusion; never infer a GAP.
+    assert "Synthetic AP3 single reading note" in literature
+    assert "srcv-ap3-v1" in literature and "Synthetic version 1" in literature
+    assert "draft" in literature and "Methods" in literature and "4" in literature
+    assert "https://example.invalid/ap3/v1" in literature
+    reader_paths = [
+        p for p in candidate.files if p.is_relative_to(PRODUCT / "Research/Question Readers")
+    ]
+    assert len(reader_paths) == 1
+    question_reader = candidate.files[reader_paths[0]].decode()
+    assert all(atlas.entities[s].name in question_reader for s in subjects)
+    assert "WPAPER-AP3" in question_reader
+    primary, _, audit = question_reader.partition("\n## Sources & audit\n")
+    assert "UNVERIFIED-SYNTHETIC-STATEMENT" not in primary
+    assert "Finding review/maturity unavailable" in audit
+    assert '"review_state": "draft"' in audit  # Literal audit is not accepted claim prose.
+    sources = SourceIndex.model_validate(
+        read_yaml(candidate.files[INTERNAL / "Indexes/source-resolution-index.yaml"].decode())
+    )
+    reading = next(r for r in sources.record_bindings if r.wiki_id == "READ-AP3")
+    assert reading.version_read.target_ref == "srcv-ap3-v1"
+    version = next(v for v in sources.catalog.versions if v.source_version_id == "srcv-ap3-v1")
+    assert version.locator.page == "4" and version.locator.section == "Methods"
+    snapshot_records, locators, current = views.authored_snapshot(vault, atlas)
+    assert len({r.wiki_id for r in current}) == len(current) == 4
+    assert len(snapshot_records.records) == 5  # Four RA-2 + one preserved legacy process.
+    assert all(locators[r.wiki_id] == authored[r.wiki_id].relative_to(vault) for r in records)
+    assert not any(p.stem in {"READ-AP3", "WPAPER-AP3", "WFIND-AP3"} for p in candidate.files)
+    assert next(r for r in current if r.wiki_id == "WFIND-AP3").review_state == "draft"
+    before_check = filesystem_state(vault)
+    workspace.check(repo, vault)
+    assert filesystem_state(vault) == before_check
+    digests = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == digests
+    workspace.recover(repo, vault, result.restore_point)
+    assert {p: (vault / p).read_bytes() for p in migration._actual(vault)} == old
+    workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    assert harness_fixtures._authored_snapshot(vault) == original
+    # A later edit to the single authored body remains intact on regeneration.
+    note = authored["READ-AP3"]
+    note.write_text(note.read_text() + "Synthetic later authored annotation.\n")
+    edited = note.read_bytes()
+    workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    assert note.read_bytes() == edited
