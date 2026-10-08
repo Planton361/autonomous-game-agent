@@ -31,6 +31,7 @@ from .diagram_canvas import (
     identity_text,
     interaction_canvas,
 )
+from .diagram_svg import primary_pages, secondary_canvases, svg_assets
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
 from .schema import Relationship
@@ -1427,6 +1428,16 @@ def package(
         home.append("")
     properties = markdown_parts(utf8(files[HOME]))[0]
     files[HOME] = ("---\n" + yaml_text(properties) + "---\n" + "\n".join(home) + "\n").encode()
+
+    if explanations is not None:
+        for path, body in primary_pages(files).items():
+            files[path] = body.encode()
+        files.update(secondary_canvases(files))
+        for path, data in svg_assets(atlas).items():
+            files[path] = data
+            # SVG is the existing strict public presentation asset class. Keep
+            # the closed migration owner rule; no derived-owner SVG adoption.
+            owners[path] = public.OWNER
 
     # Atlas index paths are vault-relative final routes, never old-root-relative paths.
     index = INTERNAL / "Indexes/atlas-id-index.yaml"

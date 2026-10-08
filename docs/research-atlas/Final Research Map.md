@@ -32,10 +32,15 @@ Research Map/
   Diagrams/
     Architecture Tree.md
     Architecture Tree.canvas
-    Execution Flow.md           # Ablaufdiagramm: entry + Markdown fallback
-    Execution Flow.canvas       # primary control lifecycle
-    Interaction Map.md          # entry + complete linked relation ledger
-    Interaction Map.canvas      # primary typed technical interactions
+    Execution Flow.md           # primary Mermaid sequence + separate recovery paths
+    Execution Flow.canvas       # secondary historical control lifecycle
+    Interaction Map.md          # SVG mechanisms + complete linked relation ledger
+    Interaction Map.canvas      # secondary full typed technical projection
+    System Overview.svg
+    Architecture Tree.svg       # pinned Graphviz render; open full-size and zoom
+    Interaction Map.svg
+    Experience to Knowledge.svg
+    Scientific Experiment.svg
     Agent Anatomy.excalidraw.md
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
@@ -138,7 +143,55 @@ existing files and every preferred identity route retain their bytes/paths.
 Synthetic source/link/determinism evidence is distinct from later native Obsidian
 acceptance and separately authorized actual-Vault rollout.
 
-## Canvas-first architecture diagrams
+## AP2 diagrams and reader navigation (#170)
+
+AP1 was accepted at `e133d5377f9e21d4bc26264cc3f452760dcf5747`;
+[AP2 CONTROL contract](https://github.com/Planton361/autonomous-game-agent/pull/171#issuecomment-6066231998)
+authorizes this presentation checkpoint only. Home retains Agent, Research and
+source/evidence routes plus direct Component entry. All 28 preferred Component
+pages and the accepted explanation source remain byte-identical at the same inputs.
+Guide prose/source locators remain intact; diagram captions and ordinary Markdown
+routes precede them. Native acceptance and actual-Vault rollout remain separate.
+
+| Role | Primary reading surface | Semantic boundary |
+| --- | --- | --- |
+| System Overview | SVG in its Guide | Closed normative loop, VerifierResult to Manager, separate retrieval; conditional replan versus continuing a valid contract |
+| Architecture Tree | Graphviz SVG in existing page, explicitly zoomable | One System, 28 unique Components, 28 real containment edges; linked Markdown hierarchy for navigation |
+| Execution Flow | Five Mermaid panels in existing page | Main sequence, continue, stop, replan and restart; complete source-backed Markdown fallback |
+| Interaction Map | Three SVG mechanism panels in existing page | 14 exact selected triples; unchanged complete 47-row directed typed linked ledger |
+| Experience to Knowledge | SVG in its Guide | Knowledge revision, same-run episode continuity, separately authorized between-run learning; admission design-open |
+| Scientific Experiment | SVG in its Guide | Nested Mission Run / Life Episode / Contract / primitive units, separate cohorts, frozen identity and provenance |
+
+Exactly five new SVG outputs are emitted under `Research Map/Diagrams/`; strict
+byte ownership under the existing public SVG asset class and existing recovery
+rules apply. The empty-private product grows
+**529 → 534 files**: five additions, thirteen changed existing outputs (Home, Using
+guide, three explanatory Guides, three diagram entry pages, three Canvas captions,
+both owner manifests), no deletions; **516 existing outputs remain byte-identical**.
+All routes, Registry triples, private scientific originals, Graph proxies and
+technical/source audits stay intact. AP3 consolidation has not started.
+
+Rendering uses Phase-D's blue/green/orange/purple palette, Arial/sans-serif and
+opaque light backgrounds for light/dark contrast. Four diagrams use the pure
+`diagram_svg` renderer v1 at 960px width with 17px minimum text; the wide hierarchy
+is a reference that requires zoom, never an obligatory Home thumbnail. Its pinned
+Graphviz 13.1.0 render was built using temporary `@hpcc-js/wasm-graphviz` 1.9.0;
+no runtime dependency was added. Reproduce the input with
+`diagram_svg.architecture_dot(atlas)`, then `Graphviz.dot(input)` using that version.
+`graphviz_tree.py` records the exact DOT hash and SVG bytes; changed topology,
+labels or status fail closed for re-render/review rather than silently emitting a
+stale diagram. Accessibility/provenance headers are deterministic postprocessing.
+
+All three Canvas views remain secondary and link back to their primary page;
+caption height changes add space, with graph nodes/edges otherwise preserved.
+SVG-internal links are not required: preferred identity links, complete Markdown
+tree/ledger and the execution fallback remain normal Obsidian routes. Static SVG
+renders and geometry checks do not establish native Obsidian G6 or comprehension.
+
+## Historical Canvas-first architecture diagrams
+
+The following records the #168 presentation checkpoint. AP2 above supersedes its
+primary-reader navigation; these Canvas artifacts now remain secondary.
 
 Issue #168 upgrades all three primary visuals to native Obsidian Canvas in
 `Research Map/Diagrams/`. Home's **Start here** and **Using the Research Map**

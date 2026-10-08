@@ -1042,7 +1042,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 529
+    assert len(receipt["after"]) == 534
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -1335,7 +1335,7 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 529
+    assert len(migration._actual(vault)) == 534
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():
@@ -2291,15 +2291,32 @@ def test_28_substantive_explanations_preferred_paths_and_exact_delta(ap1_source,
         if atlas.entities[identity].technical.implementation_status == "target-only":
             assert "Target-only:" in item.implementation and "missing" in item.implementation
     guides = {PRODUCT / "Guides" / (name + ".md") for name in GUIDES}
-    assert after.files.keys() - before.files.keys() == guides
+    assert after.files.keys() - before.files.keys() == guides | {
+        PRODUCT / "Diagrams" / (name + ".svg")
+        for name in (
+            "System Overview",
+            "Architecture Tree",
+            "Interaction Map",
+            "Experience to Knowledge",
+            "Scientific Experiment",
+        )
+    }
     assert not before.files.keys() - after.files.keys()
     changed = {p for p in before.files if before.files[p] != after.files[p]}
     assert changed == {paths[i] for i in components} | {
         HOME,
+        PRODUCT / "Guides/Using the Research Map.md",
+        ARCHITECTURE_TREE,
+        ARCHITECTURE_CANVAS,
+        EXECUTION_FLOW,
+        EXECUTION_CANVAS,
+        INTERACTION_MAP,
+        INTERACTION_CANVAS,
         final_projection.MANIFESTS["research-wiki-derived"],
+        MANIFESTS[public.OWNER],
     }
-    assert len(before.files) == 526 and len(after.files) == 529
-    assert len(before.files.keys() - changed) == 496
+    assert len(before.files) == 526 and len(after.files) == 534
+    assert len(before.files.keys() - changed) == 488
     assert before.routes == after.routes  # No alternate identity or migration route.
     assert all(before.owners[p] == after.owners[p] for p in before.files)
 
@@ -2402,7 +2419,7 @@ def test_guides_complete_cycle_continuity_and_research_boundaries(ap1_source, ap
         },
     }
     assert AREAS == tuple(groups)
-    assert tuple(re.findall(r"^## (.+)$", overview, re.M)) == (*groups, "Sources")
+    assert tuple(re.findall(r"^## (.+)$", overview, re.M)) == ("Diagram", *groups, "Sources")
     identities = [identity for group in groups.values() for identity in group]
     assert len(identities) == len(set(identities)) == 28
     assert set(identities) == set(catalog.components)
@@ -2577,3 +2594,319 @@ def test_invalid_heading_or_symbol_locator_is_rejected(ap1_source):
     data["sources"]["arch6"]["line"] = 999999
     with pytest.raises(ProjectionError, match="Invalid explanation source locator"):
         validate_dependencies(parse_explanations(yaml.safe_dump(data).encode(), atlas), ROOT)
+
+
+# AP2 runs in the same required migration job; no new CI selection or timing gate.
+@pytest.fixture(scope="module")
+def ap2_reviewed_tree(ap1_source, ap1_products, tmp_path_factory):
+    """Compare at identical inputs to the exact CONTROL-accepted AP1 code."""
+    atlas, catalog = ap1_source
+    _, _, technical, derived = ap1_products
+    revision = "e133d5377f9e21d4bc26264cc3f452760dcf5747"
+    source = subprocess.run(
+        ["git", "show", f"{revision}:src/fh_agent/research_atlas/final_projection.py"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    file = tmp_path_factory.mktemp("ap1-accepted") / "projection.py"
+    file.write_bytes(source)
+    name = "fh_agent.research_atlas.ap1_accepted_projection"
+    spec = spec_from_file_location(name, file)
+    module = module_from_spec(spec)
+    # dataclass introspection requires the module while loading trusted repository code.
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module.package(atlas, technical, derived, explanations=catalog)
+    finally:
+        del sys.modules[name]
+
+
+def test_ap2_exact_ap1_delta_ownership_and_preservation(
+    ap1_source, ap1_products, ap2_reviewed_tree
+):
+    from fh_agent.research_atlas.diagram_svg import SVG_NAMES
+
+    _, after, _, _ = ap1_products
+    before = ap2_reviewed_tree
+    svg = {PRODUCT / "Diagrams" / (title + ".svg") for title in SVG_NAMES}
+    assert len(before.files) == 529 and len(after.files) == 534
+    assert after.files.keys() - before.files.keys() == svg
+    assert not before.files.keys() - after.files.keys()
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        PRODUCT / "Guides/Using the Research Map.md",
+        *(PRODUCT / "Guides" / (name + ".md") for name in GUIDES),
+        ARCHITECTURE_TREE,
+        EXECUTION_FLOW,
+        INTERACTION_MAP,
+        ARCHITECTURE_CANVAS,
+        EXECUTION_CANVAS,
+        INTERACTION_CANVAS,
+        MANIFESTS[views.OWNER],
+        MANIFESTS[public.OWNER],
+    }
+    assert len(changed) == 13
+    assert len(before.files.keys() - changed) == 516
+    assert before.routes == after.routes
+    assert all(before.owners[p] == after.owners[p] for p in before.files)
+    manifest = read_yaml(after.files[MANIFESTS[public.OWNER]].decode())
+    for path in svg:
+        assert after.owners[path] == public.OWNER
+        row = next(r for r in manifest["owned_files"] if r["path"] == str(path))
+        assert row["sha256"] == hashlib.sha256(after.files[path]).hexdigest()
+        assert row["ownership"] == "strict-bytes"
+    # All prose, preferred Component bytes, references and research audits stay intact.
+    for path in (PRODUCT / "Guides" / (name + ".md") for name in GUIDES):
+        body = after.files[path].decode()
+        first, panel, rest = body.partition("\n## Diagram\n")
+        assert panel
+        resume = rest.index("\n## ")
+        assert (first + rest[resume:]).encode() == before.files[path]
+    ledger = "## Complete linked relation ledger"
+    assert (
+        after.files[INTERACTION_MAP].decode().split(ledger, 1)[1]
+        == (before.files[INTERACTION_MAP].decode().split(ledger, 1)[1])
+    )
+    for path in (ARCHITECTURE_CANVAS, EXECUTION_CANVAS, INTERACTION_CANVAS):
+        old = json.loads(before.files[path])
+        new = json.loads(after.files[path])
+        assert old["edges"] == new["edges"]
+        assert "Secondary historical Canvas" in new["nodes"][0]["text"]
+        assert "Open primary" in new["nodes"][0]["text"]
+        new["nodes"][0]["text"] = new["nodes"][0]["text"].split("\n\n", 1)[1]
+        new["nodes"][0]["height"] -= 64
+        assert new == old
+
+
+def test_ap2_drawn_tree_and_interaction_exact_sets(ap1_source, ap1_products):
+    import xml.etree.ElementTree as ET
+
+    from fh_agent.research_atlas.diagram_svg import architecture_dot, svg_assets
+    from fh_agent.research_atlas.graphviz_tree import DOT_SHA256
+
+    atlas, _ = ap1_source
+    _, tree, _, _ = ap1_products
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    drawing = ET.fromstring(tree.files[PRODUCT / "Diagrams/Architecture Tree.svg"])
+    nodes = drawing.findall('.//s:g[@class="node"]', ns)
+    assert {n.attrib["id"] for n in nodes} == {
+        i for i, n in atlas.entities.items() if n.type in {"System", "Component"}
+    }
+    assert len(nodes) == 29
+    edges = drawing.findall('.//s:g[@class="edge"]', ns)
+    actual = {tuple(e.attrib["id"].split(":")[1:]) for e in edges}
+    expected = {(e.source, e.target) for e in atlas.relationships if e.relation == "part_of"}
+    assert actual == expected and len(edges) == 28
+    assert hashlib.sha256(architecture_dot(atlas).encode()).hexdigest() == DOT_SHA256
+    for node in nodes:
+        texts = [t.text for t in node.findall("s:text", ns)]
+        assert atlas.entities[node.attrib["id"]].technical.implementation_status in texts
+    # Literal approved 14-triple oracle; a renderer constant alone cannot bless new edges.
+    approved = {
+        ("CMP-MEM-RETRIEVAL", "supplies", "IF-MEM-CORTEX"),
+        ("CMP-CORTEX", "consumes", "IF-MEM-CORTEX"),
+        ("CMP-CORTEX", "supplies", "CON-PLANNER-OUTPUT"),
+        ("CMP-MANAGER", "consumes", "CON-PLANNER-OUTPUT"),
+        ("CMP-CORTEX", "proposes_to", "CMP-MANAGER"),
+        ("CMP-MANAGER", "supplies", "CON-SKILL-CONTRACT"),
+        ("CMP-BODY", "executes", "CON-SKILL-CONTRACT"),
+        ("CON-SKILL-CONTRACT", "constrains", "CMP-BODY"),
+        ("CMP-BODY", "supplies", "CON-PRIMITIVE-ACTION"),
+        ("CMP-INPUT-EXECUTOR", "consumes", "CON-PRIMITIVE-ACTION"),
+        ("CMP-INDEPENDENT-VERIFIER", "supplies", "CON-VERIFIER-RESULT"),
+        ("CMP-MANAGER", "consumes", "CON-VERIFIER-RESULT"),
+        ("CMP-MEMORY", "consumes", "CON-VERIFIER-RESULT"),
+        ("CMP-REPLAY-BUFFER", "consumes", "CON-VERIFIER-RESULT"),
+    }
+    drawing = ET.fromstring(tree.files[PRODUCT / "Diagrams/Interaction Map.svg"])
+    arrows = drawing.findall('.//s:g[@data-semantics="registry"]', ns)
+    actual = {
+        (g.attrib["data-source"], g.attrib["data-relation"], g.attrib["data-target"])
+        for g in arrows
+    }
+    assert actual == approved and len(arrows) == 14
+    assert approved <= {(e.source, e.relation, e.target) for e in atlas.relationships}
+    ledger = tree.files[INTERACTION_MAP].decode().split("## Complete linked relation ledger")[1]
+    assert len(re.findall(r"^\| `", ledger, re.M)) == 47
+    assert not any("part_of" == g.attrib["data-relation"] for g in arrows)
+    changed = replace(
+        atlas,
+        relationships=tuple(
+            e
+            for e in atlas.relationships
+            if (e.source, e.relation, e.target) != ("CMP-CORTEX", "proposes_to", "CMP-MANAGER")
+        ),
+    )
+    with pytest.raises(ProjectionError, match="subset changed"):
+        svg_assets(changed)
+    changed = replace(
+        atlas,
+        relationships=tuple(
+            e
+            for e in atlas.relationships
+            if e.source != "CMP-MEM-RETRIEVAL" or e.relation != "part_of"
+        ),
+    )
+    with pytest.raises(ProjectionError, match="single-root"):
+        svg_assets(changed)
+
+
+def test_ap2_process_boundaries_and_primary_navigation(ap1_products):
+    import xml.etree.ElementTree as ET
+
+    _, tree, _, _ = ap1_products
+    ns = {"s": "http://www.w3.org/2000/svg"}
+    overview = ET.fromstring(tree.files[PRODUCT / "Diagrams/System Overview.svg"])
+    edges = {
+        (g.attrib["data-source"], g.attrib["data-target"])
+        for g in overview.findall('.//s:g[@data-semantics="normative"]', ns)
+    }
+    assert {
+        ("observation", "cortex"),
+        ("cortex", "manager"),
+        ("manager", "contract"),
+        ("contract", "body"),
+        ("body", "input"),
+        ("input", "game"),
+        ("game", "newobs"),
+        ("newobs", "verifier"),
+        ("verifier", "result"),
+        ("result", "transition"),
+        ("transition", "manager"),
+        ("manager", "body"),
+        ("transition", "cortex"),
+        ("retrieval", "cortex"),
+    } == edges
+    assert not overview.findall('.//s:g[@data-semantics="registry"]', ns)
+    text = tree.files[EXECUTION_FLOW].decode()
+    panels = re.findall(r"```mermaid\n(.*?)```", text, re.S)
+    assert len(panels) == 5
+    assert "result --> evaluate" in panels[0]
+    assert "same permissions and budget" in panels[1]
+    assert "reject --> close" in panels[2] and "Body / Reflex stop signal" in panels[2]
+    assert panels[3].index("closes / suspends prior contract") < panels[3].index(
+        "New Cortex intention"
+    )
+    assert "same Mission Run / frozen Body" in panels[4]
+    assert "already eligible Body; no retraining" in panels[4]
+    assert "between Mission Runs; separately authorized" in panels[4]
+    assert "candidate rejected; retain eligible prior Body" in panels[4]
+    home = tree.files[HOME].decode()
+    assert "## Understand the Agent" in home and "## Understand and review Research" in home
+    assert "## Inspect sources and evidence" in home and "Direct Component entry" in home
+    assert ".canvas" not in home
+    for title in ("System Overview", "Experience to Knowledge", "Scientific Experiment"):
+        body = tree.files[PRODUCT / "Guides" / (title + ".md")].decode()
+        assert "Open full-size SVG" in body and "**Normative**" in body
+        assert "**Implementation**" in body and "**Design-open**" in body
+    assert "Open full-size SVG and zoom" in tree.files[ARCHITECTURE_TREE].decode()
+    assert "Architecture Tree.svg" not in home
+    for path in (ARCHITECTURE_TREE, EXECUTION_FLOW, INTERACTION_MAP):
+        body = tree.files[path].decode()
+        assert "Secondary historical Canvas" in body
+        if path != EXECUTION_FLOW:
+            assert "![[Research Map/Diagrams/" in body
+        assert "![[Research Map/Diagrams/" + path.stem + ".canvas]]" not in body
+        # Every ordinary Obsidian route and local heading resolves, including SVGs.
+        for value in re.findall(r"\[\[([^\]]+)\]\]", body):
+            route, _, heading = value.split("|", 1)[0].rstrip("\\").partition("#")
+            target = (
+                path
+                if not route
+                else next((p for p in tree.files if str(p) in {route, route + ".md"}), None)
+            )
+            assert target is not None, (path, value)
+            if heading:
+                assert heading in re.findall(
+                    r"^\s*(?:>\s*)*#{1,6} (.+)$", tree.files[target].decode(), re.M
+                )
+
+
+def test_ap2_svg_geometry_labels_and_scientific_nesting(ap1_products):
+    import xml.etree.ElementTree as ET
+
+    _, tree, _, _ = ap1_products
+    ns = {"s": "http://www.w3.org/2000/svg"}
+
+    def box(rect):
+        a = rect.attrib
+        return tuple(float(a[k]) for k in ("x", "y", "width", "height"))
+
+    def overlaps(a, b):
+        x, y, w, h = a
+        u, v, m, n = b
+        return x < u + m and u < x + w and y < v + n and v < y + h
+
+    for name in (
+        "System Overview",
+        "Interaction Map",
+        "Experience to Knowledge",
+        "Scientific Experiment",
+    ):
+        root = ET.fromstring(tree.files[PRODUCT / "Diagrams" / (name + ".svg")])
+        assert root.attrib["width"] == "960"
+        cards = root.findall(".//s:g[@data-node]", ns)
+        rects = [box(c.find("s:rect", ns)) for c in cards]
+        for i, card in enumerate(cards):
+            x, y, w, h = rects[i]
+            assert 0 <= x < x + w <= 960 and 0 <= y < y + h <= float(root.attrib["height"])
+            for text in card.findall("s:text", ns):
+                assert float(text.attrib["font-size"]) >= 17
+                assert x < float(text.attrib["x"]) < x + w
+                assert y < float(text.attrib["y"]) <= y + h - 8
+            for other in rects[i + 1 :]:
+                # Explicit nesting is intentional in the scientific units figure.
+                nested = (
+                    x <= other[0]
+                    and y <= other[1]
+                    and x + w >= other[0] + other[2]
+                    and y + h >= other[1] + other[3]
+                )
+                assert not overlaps(rects[i], other) or (name == "Scientific Experiment" and nested)
+        labels = [box(r) for r in root.findall('.//s:rect[@data-label="true"]', ns)]
+        for i, label in enumerate(labels):
+            assert not any(overlaps(label, r) for r in rects), (name, label)
+            assert not any(overlaps(label, r) for r in labels[i + 1 :]), (name, label)
+    root = ET.fromstring(tree.files[PRODUCT / "Diagrams/Scientific Experiment.svg"])
+    cards = {
+        g.attrib["data-node"]: box(g.find("s:rect", ns))
+        for g in root.findall(".//s:g[@data-node]", ns)
+    }
+    for n in (1, 2):
+        x, y, w, h = cards[f"contract{n}"]
+        u, v, m, k = cards[f"action{n}"]
+        assert x < u and y < v and u + m < x + w and v + k <= y + h
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "System Overview",
+        "Architecture Tree",
+        "Interaction Map",
+        "Experience to Knowledge",
+        "Scientific Experiment",
+    ],
+)
+def test_ap2_svg_edits_are_rejected_without_writes(ap1_products, tmp_path, name):
+    _, tree, _, _ = ap1_products
+    path = PRODUCT / "Diagrams" / (name + ".svg")
+    target = tmp_path / str(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(tree.files[path])
+    prior = {
+        path: {
+            "owner": public.OWNER,
+            "ownership": "strict-bytes",
+            "sha256": hashlib.sha256(tree.files[path]).hexdigest(),
+        }
+    }
+    assert migration.prove_ownership(ROOT, tmp_path, tmp_path, prior) == prior
+    target.write_bytes(target.read_bytes() + b"<!-- user change -->")
+    before = filesystem_state(tmp_path)
+    with pytest.raises(ProjectionError, match="Owned content was edited"):
+        migration.prove_ownership(ROOT, tmp_path, tmp_path, prior)
+    assert filesystem_state(tmp_path) == before

@@ -702,6 +702,8 @@ def test_package_imports_only_stdlib_pydantic_yaml_and_itself():
                         "preferred_paths",
                         "final_projection",
                         "diagram_canvas",
+                        "diagram_svg",
+                        "graphviz_tree",
                         "product_migration",
                         "obsidian_semantics",
                         "anatomy",
