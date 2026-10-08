@@ -37,7 +37,7 @@ Research Map/
     Interaction Map.md          # SVG mechanisms + complete linked relation ledger
     Interaction Map.canvas      # secondary full typed technical projection
     System Overview.svg
-    Architecture Tree.svg       # pinned Graphviz render; open full-size and zoom
+    Architecture Tree.svg       # pinned single-root reference; Canvas for pan/zoom
     Interaction Map.svg
     Experience to Knowledge.svg
     Scientific Experiment.svg
@@ -155,8 +155,8 @@ routes precede them. Native acceptance and actual-Vault rollout remain separate.
 | Role | Primary reading surface | Semantic boundary |
 | --- | --- | --- |
 | System Overview | SVG in its Guide | Closed normative loop, VerifierResult to Manager, separate retrieval; conditional replan versus continuing a valid contract |
-| Architecture Tree | Graphviz SVG in existing page, explicitly zoomable | One System, 28 unique Components, 28 real containment edges; linked Markdown hierarchy for navigation |
-| Execution Flow | Five Mermaid panels in existing page | Main sequence, continue, stop, replan and restart; complete source-backed Markdown fallback |
+| Architecture Tree | Graphviz SVG in existing page; secondary Canvas pan/zoom | One System, 28 unique Components, 28 real containment edges; complete linked Markdown hierarchy for navigation; historical Canvas repeats the root in branch-local panels |
+| Execution Flow | Five sections, nine narrow Mermaid blocks in existing page | Main sequence, continue, stop, replan and restart; complete source-backed Markdown fallback |
 | Interaction Map | Three SVG mechanism panels in existing page | 14 exact selected triples; unchanged complete 47-row directed typed linked ledger |
 | Experience to Knowledge | SVG in its Guide | Knowledge revision, same-run episode continuity, separately authorized between-run learning; admission design-open |
 | Scientific Experiment | SVG in its Guide | Nested Mission Run / Life Episode / Contract / primitive units, separate cohorts, frozen identity and provenance |
@@ -174,13 +174,30 @@ consolidates the standalone Component Edge Audits.
 Rendering uses Phase-D's blue/green/orange/purple palette, Arial/sans-serif and
 opaque light backgrounds for light/dark contrast. Four diagrams use the pure
 `diagram_svg` renderer v1 at 960px width with 17px minimum text; the wide hierarchy
-is a reference that requires zoom, never an obligatory Home thumbnail. Its pinned
+is a structural reference, never an obligatory Home thumbnail. Native SVG
+enlargement has not been verified. Open the secondary historical Architecture
+Tree Canvas to pan/zoom through branch details, or use the complete linked Markdown
+hierarchy. The Canvas's branch-local root occurrences do not replace the accurate
+single-root SVG. Its pinned
 Graphviz 13.1.0 render was built using temporary `@hpcc-js/wasm-graphviz` 1.9.0;
 no runtime dependency was added. Reproduce the input with
 `diagram_svg.architecture_dot(atlas)`, then `Graphviz.dot(input)` using that version.
 `graphviz_tree.py` records the exact DOT hash and SVG bytes; changed topology,
 labels or status fail closed for re-render/review rather than silently emitting a
 stale diagram. Accessibility/provenance headers are deterministic postprocessing.
+
+The bounded AP4 repair exposes unique plain Home `Components` and `Functions`
+headings outside collapsed inventory disclosures, with four visible Component
+shortcuts and the complete expandable identity lists. Stop/rejection and restart
+each use three small top-down diagrams under their existing sections; full safety,
+continuity, terminal and learning qualifiers remain beside the diagrams and in the
+unchanged source-backed fallback. At identical empty or synthetic-authoring input,
+only Home, Architecture Tree, Execution Flow, Using the Research Map and the derived
+owner manifest change: five existing outputs, no additions or retirements. All other
+AP1–AP3 output bytes, routes and ownership classes remain intact. These source
+repairs require independent native AP4 replay at actual 1280×800 and 1024×768
+window bounds, sidebar open, Reading View and Live Preview; they do not declare
+AP4 acceptance.
 
 All three Canvas views remain secondary and link back to their primary page;
 caption height changes add space, with graph nodes/edges otherwise preserved.

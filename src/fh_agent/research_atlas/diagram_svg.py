@@ -773,34 +773,54 @@ def execution_mermaid() -> str:
         ),
         (
             "Stop and rejected input",
-            """flowchart TD
-    subgraph pre["Before contract authorization"]
-        manager["Manager rejects unsafe / ambiguous / unavailable proposal"]
-        reject["Reject before contract; log reason"]
-        unauthorized["No contract / no new action authorized; retain history"]
-        manager --> reject
-        reject --> unauthorized
-    end
-    subgraph active["During an active contract"]
-        safety["Safety: no focus / unsafe / unloggable"]
-        body["Body / Reflex stop signal"]
-        block["Block further input immediately"]
-        close["Manager closes / suspends current contract"]
-        history["Prior executed steps and evidence remain logged"]
-        safety --> block
-        body --> block
-        block --> close
-        close --> history
-    end
-    firewall["Firewall: forbidden access / integrity incident"]
+            (
+                (
+                    "Before contract authorization",
+                    """flowchart TD
+    manager["Manager rejects proposal"]
+    reject["Log rejection reason"]
+    unauthorized["No contract / no new action"]
+    manager --> reject
+    reject --> unauthorized""",
+                    "Unsafe, ambiguous or unavailable proposals are rejected before authorization. "
+                    "No new action is authorized; retain prior history.",
+                ),
+                (
+                    "During an active contract",
+                    """flowchart TD
+    safety["Safety stop"]
+    body["Body / Reflex stop"]
+    block["Block further input now"]
+    close["Manager closes / suspends"]
+    history["Retain steps and evidence"]
+    safety --> block
+    body --> block
+    block --> close
+    close --> history""",
+                    "No focus, unsafe input or unavailable durable logging blocks further input "
+                    "immediately, as does a Body / Reflex stop signal. Manager closes or suspends "
+                    "the current contract; prior executed steps and evidence remain logged.",
+                ),
+                (
+                    "Firewall or emergency stop",
+                    """flowchart TD
+    firewall["Firewall incident"]
     emergency["Emergency stop"]
-    inhibit["Immediate input inhibition; log incident"]
+    inhibit["Inhibit input; log incident"]
     present{"Active contract?"}
+    block["Active stop path above"]
+    unauthorized["No contract / no new action"]
     firewall --> inhibit
     emergency --> inhibit
     inhibit --> present
     present -->|"yes"| block
     present -->|"no"| unauthorized""",
+                    "Forbidden access is an integrity incident. Firewall and emergency stops "
+                    "inhibit input immediately and log the incident. If a contract is active, "
+                    "follow the active stop path above; otherwise no new action is authorized. "
+                    "Both paths retain prior history and evidence.",
+                ),
+            ),
         ),
         (
             "Conditional replan",
@@ -817,24 +837,85 @@ def execution_mermaid() -> str:
         ),
         (
             "Life Episode restart and independent Mission Runs",
-            """flowchart TD
-    close["Manager closes active contract"]
-    episode["Visible death: close Life Episode / post-mortem"]
-    context["New Observation; admissible Memory continuity"]
-    terminal["Mission Run closed; eligibility audit"]
-    next["Independent next Mission Run: fresh state / identity"]
-    learn["Eligible replay / candidate / held-out validation / certification"]
+            (
+                (
+                    "Life Episode closure and restart",
+                    """flowchart TD
+    close["Manager closes contract"]
+    episode["Close Life Episode"]
+    terminal{"Run terminal?"}
+    context["Same-run restart"]
+    audit["Mission Run closed"]
     close --> episode
-    episode -->|"permitted restart; same Mission Run / frozen Body"| context
-    close -->|"declared Mission Run terminal condition"| terminal
-    episode -->|"declared Mission Run terminal condition"| terminal
-    terminal -->|"already eligible Body; no retraining"| next
-    terminal -.->|"between Mission Runs; separately authorized"| learn
-    learn -.->|"activate certified candidate only"| next
-    learn -.->|"candidate rejected; retain eligible prior Body"| next""",
+    episode --> terminal
+    terminal -->|"no; restart permitted"| context
+    terminal -->|"yes"| audit""",
+                    "Visible death closes the Life Episode with evidence and post-mortem. "
+                    "A permitted restart in a nonterminal Mission Run uses a new Observation "
+                    "and admissible Memory continuity: same Mission Run, same frozen identities "
+                    "and Body weights. No model/controller replacement occurs between Life "
+                    "Episodes. Death, ordinary failure or timeout alone is not a Run terminal. "
+                    "Only declared Mission Run terminal conditions close the run, including "
+                    "a terminal without death after Manager closes the active contract. "
+                    "Application restart requires identity/provenance continuity "
+                    "or stops/quarantines.",
+                ),
+                (
+                    "Mission Run closure and independent next run",
+                    """flowchart TD
+    terminal["Declared Run terminal"]
+    close["Manager closes contract"]
+    audit["Eligibility audit"]
+    next["Next independent Mission Run"]
+    terminal --> close
+    close --> audit
+    audit -->|"eligible prior Body"| next""",
+                    "A declared terminal condition closes the Mission Run whether or not death "
+                    "occurred; Manager closes any active contract before the eligibility audit. "
+                    "An independently eligible next Mission Run can use the already eligible "
+                    "Body without retraining. It has protocol-defined fresh experimental state, "
+                    "a new identity/manifest and independently frozen identities; Memory "
+                    "inheritance and automatic run start are not authorized.",
+                ),
+                (
+                    "Optional between-Mission-Run learning",
+                    """flowchart TD
+    terminal["Mission Run closed"]
+    replay["Admissible replay"]
+    train["Train candidate"]
+    validate["Held-out validation"]
+    certify{"Certify candidate?"}
+    activate["Certified version only"]
+    retain["Retain eligible prior Body"]
+    terminal -.->|"separate authorization"| replay
+    replay -.-> train
+    train -.-> validate
+    validate -.-> certify
+    certify -.->|"certified"| activate
+    certify -.->|"rejected"| retain""",
+                    "This optional future protocol operates only between Mission Runs: collect "
+                    "admissible experience with frozen Body vN, verifier-labelled replay / "
+                    "demonstrations, train a candidate, perform held-out validation and "
+                    "safety/false-success checks, then certify or reject. Only a certified "
+                    "candidate may activate for the next independently eligible Mission Run. "
+                    "A rejected candidate never activates; the eligible prior Body remains "
+                    "available for the independent-run path above. Neither episode restart "
+                    "nor knowledge revision activates a candidate.",
+                ),
+            ),
         ),
     )
-    return "\n\n".join(f"## {title}\n\n```mermaid\n{code}\n```" for title, code in sections)
+    rendered = []
+    for title, content in sections:
+        if isinstance(content, str):
+            body = f"```mermaid\n{content}\n```"
+        else:
+            body = "\n\n".join(
+                f"### {subtitle}\n\n```mermaid\n{code}\n```\n\n{caption}"
+                for subtitle, code, caption in content
+            )
+        rendered.append(f"## {title}\n\n{body}")
+    return "\n\n".join(rendered)
 
 
 def primary_pages(files: dict[PurePosixPath, bytes]) -> dict[PurePosixPath, str]:
@@ -878,11 +959,16 @@ def primary_pages(files: dict[PurePosixPath, bytes]) -> dict[PurePosixPath, str]
         body[:start]
         + (
             "## Visual tree\n\n"
-            f"[[{diagrams / 'Architecture Tree.svg'}|Open full-size SVG and zoom]] — "
-            "large technical reference; open the asset and zoom to read i"
-            "ndividual branches. "
-            "The complete linked Markdown tree below is the normal identi"
-            "ty navigation fallback.\n\n"
+            f"[[{diagrams / 'Architecture Tree.svg'}|Open SVG structural reference]] · "
+            "[[Research Map/Diagrams/Architecture Tree.canvas|Open Canvas to pan/zoom]] · "
+            "[[#Linked Markdown tree|Complete linked Markdown hierarchy]]\n\n"
+            "For readable branch details, open the secondary historical Canvas, use its "
+            "native zoom controls and pan between identity cards. The Canvas repeats the "
+            "System root in branch-local panels; these are repeated occurrences of one "
+            "identity, not the single-root technical tree. The primary SVG below is the "
+            "accurate single-root structural reference; native SVG enlargement is not "
+            "verified. The complete linked Markdown hierarchy provides normal identity "
+            "navigation.\n\n"
             "One connected top-down System root, 28 unique Components and"
             " 28 exact `part_of` edges. "
             "Drawn parent → child; Registry declaration is child `part_of"
@@ -954,7 +1040,10 @@ def primary_pages(files: dict[PurePosixPath, bytes]) -> dict[PurePosixPath, str]
     body = body.replace("Ablaufdiagramm", "Execution Flow")
     body = body.replace(
         " and linked Markdown fallback.",
-        " and linked Markdown fallback. Open the full-size SVG to zoom.",
+        " and linked Markdown fallback. For hierarchy details, "
+        "[[Research Map/Diagrams/Architecture Tree.canvas|Open Canvas to pan/zoom]]; "
+        "its historical branch panels repeat the System root. The primary SVG is the "
+        "single-root reference; native SVG enlargement is not verified.",
     )
     result[path] = body.replace(
         "Navigate System → Component",
@@ -979,7 +1068,7 @@ def primary_pages(files: dict[PurePosixPath, bytes]) -> dict[PurePosixPath, str]
         "and linked ledger for exact structure and relations.",
         "and linked ledger for exact structure and relations.\n\n"
         "[[Research Map/Diagrams/Architecture Tree|Architecture Tree:"
-        " zoomable reference]] · "
+        " hierarchy and detail routes]] · "
         "[[Research Map/Diagrams/Interaction Map#Complete linked rela"
         "tion ledger|"
         "Complete interaction ledger]]",

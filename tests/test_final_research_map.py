@@ -2783,18 +2783,20 @@ def test_ap2_process_boundaries_and_primary_navigation(ap1_products):
     assert not overview.findall('.//s:g[@data-semantics="registry"]', ns)
     text = tree.files[EXECUTION_FLOW].decode()
     panels = re.findall(r"```mermaid\n(.*?)```", text, re.S)
-    assert len(panels) == 5
+    assert len(panels) == 9
     assert "result --> evaluate" in panels[0]
     assert "same permissions and budget" in panels[1]
-    assert "reject --> unauthorized" in panels[2] and "Body / Reflex stop signal" in panels[2]
-    assert "block --> close" in panels[2] and "close --> history" in panels[2]
-    assert panels[3].index("closes / suspends prior contract") < panels[3].index(
-        "New Cortex intention"
-    )
-    assert "same Mission Run / frozen Body" in panels[4]
-    assert "already eligible Body; no retraining" in panels[4]
-    assert "between Mission Runs; separately authorized" in panels[4]
-    assert "candidate rejected; retain eligible prior Body" in panels[4]
+    stop = text.split("## Stop and rejected input\n", 1)[1].split("\n## ", 1)[0]
+    assert "reject --> unauthorized" in stop and "Body / Reflex stop" in stop
+    assert "block --> close" in stop and "close --> history" in stop
+    replan = text.split("## Conditional replan\n", 1)[1].split("\n## ", 1)[0]
+    assert replan.index("closes / suspends prior contract") < replan.index("New Cortex intention")
+    restart = text.split("## Life Episode restart and independent Mission Runs\n", 1)[1]
+    assert "same Mission Run, same frozen identities" in restart and "Body weights" in restart
+    assert "already eligible Body without retraining" in restart
+    assert "only between Mission Runs" in restart and "separately authorized" in text
+    assert "A rejected candidate never activates" in restart
+    assert "eligible prior Body remains" in restart
     home = tree.files[HOME].decode()
     assert "## Understand the Agent" in home and "## Understand and review Research" in home
     assert "## Inspect sources and evidence" in home and "Direct Component entry" in home
@@ -2803,7 +2805,7 @@ def test_ap2_process_boundaries_and_primary_navigation(ap1_products):
         body = tree.files[PRODUCT / "Guides" / (title + ".md")].decode()
         assert "Open full-size SVG" in body and "**Normative**" in body
         assert "**Implementation**" in body and "**Design-open**" in body
-    assert "Open full-size SVG and zoom" in tree.files[ARCHITECTURE_TREE].decode()
+    assert "Open Canvas to pan/zoom" in tree.files[ARCHITECTURE_TREE].decode()
     assert "Architecture Tree.svg" not in home
     for path in (ARCHITECTURE_TREE, EXECUTION_FLOW, INTERACTION_MAP):
         body = tree.files[path].decode()
@@ -2957,7 +2959,12 @@ def test_ap2_repair_rejection_stop_history_and_environment_path(ap1_products):
     assert {("execute", "game"), ("game", "outcome"), ("outcome", "verifier")} <= normal
     assert ("execute", "outcome") not in normal
     assert 'game["GameInstance: visible environment response"]' in panels[0]
-    stop = panels[2]
+    stop = (
+        tree.files[EXECUTION_FLOW]
+        .decode()
+        .split("## Stop and rejected input\n", 1)[1]
+        .split("\n## ", 1)[0]
+    )
     stops = edges(stop)
     assert {
         ("manager", "reject"),
@@ -2975,12 +2982,12 @@ def test_ap2_repair_rejection_stop_history_and_environment_path(ap1_products):
     assert 'present{"Active contract?"}' in stop
     assert 'present -->|"yes"| block' in stop and 'present -->|"no"| unauthorized' in stop
     assert "Before contract authorization" in stop and "During an active contract" in stop
-    assert "No contract / no new action authorized; retain history" in stop
-    assert "Block further input immediately" in stop
-    assert "Manager closes / suspends current contract" in stop
-    assert "Prior executed steps and evidence remain logged" in stop
-    assert "Immediate input inhibition; log incident" in stop
-    assert "forbidden access / integrity incident" in stop
+    assert "No contract / no new action" in stop and "retain prior history" in stop
+    assert "blocks further input immediately" in stop
+    assert "Manager closes or suspends the current contract" in stop
+    assert "prior executed steps and evidence remain logged" in stop
+    assert "inhibit input immediately and log the incident" in stop
+    assert "Forbidden access is an integrity incident" in stop
     assert "No executed action" not in stop  # No global conclusion erases prior execution.
 
     def reachable(start):
@@ -3032,10 +3039,13 @@ def test_ap2_repair_exact_candidate_delta_and_unaffected_products(
     assert changed == {
         PRODUCT / "Diagrams/System Overview.svg",
         EXECUTION_FLOW,
+        HOME,
+        ARCHITECTURE_TREE,
+        PRODUCT / "Guides/Using the Research Map.md",
         MANIFESTS[public.OWNER],
         MANIFESTS[views.OWNER],
     }
-    assert len(before.files.keys() - changed) == 530
+    assert len(before.files.keys() - changed) == 527
     assert before.routes == after.routes and before.owners == after.owners
     assert (
         before.files[EXECUTION_FLOW].decode().split("## Markdown fallback", 1)[1]
@@ -3043,14 +3053,15 @@ def test_ap2_repair_exact_candidate_delta_and_unaffected_products(
     )
     before_panels = re.findall(r"```mermaid\n(.*?)```", before.files[EXECUTION_FLOW].decode(), re.S)
     after_panels = re.findall(r"```mermaid\n(.*?)```", after.files[EXECUTION_FLOW].decode(), re.S)
-    assert before_panels[3:] == after_panels[3:]  # Replan/restart semantics unchanged.
+    assert before_panels[3] == after_panels[5]  # Conditional replan remains byte-identical.
+    # AP4 changes restart presentation; semantic paths are independently checked below.
 
 
 @pytest.fixture(scope="module")
 def ap3_products(ap1_source, ap1_products, tmp_path_factory):
     """Render the exact accepted AP2 package independently, at identical inputs."""
     atlas, catalog = ap1_source
-    _, intermediate_tree, technical, derived = ap1_products
+    _, _, technical, derived = ap1_products
     revision = "0299b89f036e6864199ff2d28c144f0231bae692"
     file = tmp_path_factory.mktemp("ap3-accepted-ap2") / "projection.py"
     file.write_bytes(
@@ -3065,13 +3076,27 @@ def ap3_products(ap1_source, ap1_products, tmp_path_factory):
     spec = spec_from_file_location(name, file)
     module = module_from_spec(spec)
     sys.modules[name] = module
+    from fh_agent.research_atlas import diagram_svg
+
+    diagram_file = file.with_name("diagram_svg.py")
+    diagram_file.write_bytes(
+        subprocess.run(
+            ["git", "show", f"{revision}:src/fh_agent/research_atlas/diagram_svg.py"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    diagram_spec = spec_from_file_location("fh_agent.research_atlas.diagram_svg", diagram_file)
+    diagram_module = module_from_spec(diagram_spec)
+    sys.modules[diagram_spec.name] = diagram_module
     try:
+        diagram_spec.loader.exec_module(diagram_module)
         spec.loader.exec_module(module)
         before = module.package(atlas, technical, derived, explanations=catalog)
     finally:
+        sys.modules[diagram_spec.name] = diagram_svg
         del sys.modules[name]
-    assert before.files == intermediate_tree.files
-    assert before.routes == intermediate_tree.routes and before.owners == intermediate_tree.owners
     return before, final_projection.consolidate_graph_audits(before)
 
 
@@ -3569,3 +3594,177 @@ def test_ap3_synthetic_scientific_authoring_navigation_and_regeneration(
     workspace.apply(repo, vault)
     workspace.check(repo, vault)
     assert note.read_bytes() == edited
+
+
+def test_ap4_home_hash_routes_land_outside_disclosures(ap1_source, ap1_products):
+    atlas, _ = ap1_source
+    _, tree, _, _ = ap1_products
+    home = tree.files[HOME].decode()
+    headings = re.findall(r"^#{1,6} (.+)$", home, re.M)
+    for anchor in re.findall(r"\[\[#([^]|]+)(?:\|[^]]+)?\]\]", home):
+        assert headings.count(anchor) == 1, anchor
+        assert not re.search(rf"^>\s*## {re.escape(anchor)}$", home, re.M)
+    assert "[[#Components|Direct Component entry]]" in home
+    paths = preferred_paths(atlas)
+    for kind, label in (("Component", "Components"), ("Function", "Functions")):
+        section = home.split(f"\n## {label}\n", 1)[1].split("\n## ", 1)[0]
+        assert f"> [!info]- Expand all {label.lower()} identities" in section
+        for identity, node in atlas.entities.items():
+            if node.type == kind:
+                target = paths[identity]
+                assert target in tree.files
+                assert f"[[{target.with_suffix('')}|{node.name}]]" in section
+    visible = home.split("\n## Components\n", 1)[1].split("> [!info]-", 1)[0]
+    for identity in ("CMP-CORTEX", "CMP-MANAGER", "CMP-MEMORY", "CMP-MEM-RETRIEVAL"):
+        assert f"[[{paths[identity].with_suffix('')}|" in visible
+
+
+def test_ap4_stop_restart_small_panels_keep_conditions(ap1_products):
+    _, tree, _, _ = ap1_products
+    text = tree.files[EXECUTION_FLOW].decode()
+    sections = {
+        title: text.split(f"\n## {title}\n", 1)[1].split("\n## ", 1)[0]
+        for title in (
+            "Stop and rejected input",
+            "Life Episode restart and independent Mission Runs",
+        )
+    }
+    for section in sections.values():
+        panels = re.findall(r"```mermaid\n(.*?)```", section, re.S)
+        assert len(panels) == 3
+        for panel in panels:
+            assert panel.startswith("flowchart TD\n") and "subgraph" not in panel
+            labels = re.findall(r'"([^"]+)"', panel)
+            assert labels and max(map(len, labels)) <= 29
+            assert len(re.findall(r"-->|-\.->", panel)) <= 6
+    stop = sections["Stop and rejected input"]
+    for condition in (
+        "Unsafe, ambiguous or unavailable",
+        "No focus, unsafe input",
+        "unavailable durable logging",
+        "Body / Reflex stop signal",
+        "prior executed steps and evidence remain logged",
+        "Forbidden access is an integrity incident",
+        "inhibit input immediately",
+    ):
+        assert condition in stop
+    restart = sections["Life Episode restart and independent Mission Runs"]
+    for condition in (
+        "Visible death closes the Life Episode with evidence and post-mortem",
+        "new Observation and admissible Memory continuity",
+        "same Mission Run, same frozen identities and Body weights",
+        "No model/controller replacement occurs between Life Episodes",
+        "Death, ordinary failure or timeout alone is not a Run terminal",
+        "terminal condition closes the Mission Run whether or not death occurred",
+        "Application restart requires identity/provenance continuity or stops/quarantines",
+        "already eligible Body without retraining",
+        "fresh experimental state",
+        "new identity/manifest and independently frozen identities",
+        "Memory inheritance and automatic run start are not authorized",
+        "only between Mission Runs",
+        "frozen Body vN",
+        "verifier-labelled replay",
+        "held-out validation and safety/false-success checks",
+        "Only a certified candidate may activate",
+        "A rejected candidate never activates",
+        "Neither episode restart nor knowledge revision activates a candidate",
+    ):
+        assert condition in restart
+    panels = re.findall(r"```mermaid\n(.*?)```", restart, re.S)
+    assert 'terminal -->|"no; restart permitted"| context' in panels[0]
+    assert 'terminal -->|"yes"| audit' in panels[0]
+    assert "terminal --> close" in panels[1] and "close --> audit" in panels[1]
+    assert 'audit -->|"eligible prior Body"| next' in panels[1]
+    assert 'terminal -.->|"separate authorization"| replay' in panels[2]
+    assert 'certify -.->|"certified"| activate' in panels[2]
+    assert 'certify -.->|"rejected"| retain' in panels[2]
+
+
+def test_ap4_hierarchy_zoom_route_is_honest_and_linked(ap1_products):
+    _, tree, _, _ = ap1_products
+    page = tree.files[ARCHITECTURE_TREE].decode()
+    guide = tree.files[PRODUCT / "Guides/Using the Research Map.md"].decode()
+    for body in (page, guide):
+        assert f"[[{ARCHITECTURE_CANVAS}|Open Canvas to pan/zoom]]" in body
+        assert "native SVG enlargement is not verified" in body
+        assert "repeat" in body and "System root" in body
+        assert "single-root" in body
+        assert not re.search(r"SVG (?:and|to) zoom", body)
+    assert "[[#Linked Markdown tree|Complete linked Markdown hierarchy]]" in page
+    assert "native zoom controls and pan" in page
+    assert ARCHITECTURE_CANVAS in tree.files
+    assert "zoomable reference" not in tree.files[HOME].decode()
+
+
+@pytest.mark.parametrize("populated", [False, True])
+def test_ap4_exact_reviewed_head_delta_preserves_all_other_products(
+    workspace_setup, tmp_path, monkeypatch, populated
+):
+    repo, vault, sha = workspace_setup
+    if populated:
+        ap3_authoring_fixture(vault, load_registry(repo / "docs/research-atlas"))
+    authored = harness_fixtures._authored_snapshot(vault)
+    revision = "bd337d5f81209d3263f7a0dc67f3375e50f3fe4a"
+    modules = {}
+    with monkeypatch.context() as patch:
+        for filename in ("diagram_svg", "final_projection"):
+            file = tmp_path / (filename + ".py")
+            file.write_bytes(
+                subprocess.run(
+                    ["git", "show", f"{revision}:src/fh_agent/research_atlas/{filename}.py"],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                ).stdout
+            )
+            name = "fh_agent.research_atlas." + filename
+            spec = spec_from_file_location(name, file)
+            module = module_from_spec(spec)
+            patch.setitem(sys.modules, name, module)
+            spec.loader.exec_module(module)
+            modules[filename] = module
+        patch.setattr(migration, "package", modules["final_projection"].package)
+        patch.setattr(
+            migration,
+            "consolidate_graph_audits",
+            modules["final_projection"].consolidate_graph_audits,
+        )
+        before = migration.build(repo, vault, sha)
+    after = migration.build(repo, vault, sha)
+    assert len(before.files) == len(after.files) == (521 if populated else 506)
+    assert before.files.keys() == after.files.keys()
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        ARCHITECTURE_TREE,
+        EXECUTION_FLOW,
+        PRODUCT / "Guides/Using the Research Map.md",
+        MANIFESTS[views.OWNER],
+    }
+    assert before.routes == after.routes and before.owners == after.owners
+    assert (
+        before.files[INTERNAL / "Migration/routes.yaml"]
+        == after.files[INTERNAL / "Migration/routes.yaml"]
+    )
+    for heading in ("Linked Markdown tree",):
+        assert (
+            before.files[ARCHITECTURE_TREE].decode().split(f"## {heading}", 1)[1]
+            == after.files[ARCHITECTURE_TREE].decode().split(f"## {heading}", 1)[1]
+        )
+    assert (
+        before.files[EXECUTION_FLOW].decode().split("Legend: rectangles", 1)[1]
+        == after.files[EXECUTION_FLOW].decode().split("Legend: rectangles", 1)[1]
+    )
+    for heading in ("Main sequence", "Continue a valid active contract", "Conditional replan"):
+        assert (
+            before.files[EXECUTION_FLOW]
+            .decode()
+            .split(f"## {heading}\n", 1)[1]
+            .split("\n## ", 1)[0]
+            == after.files[EXECUTION_FLOW]
+            .decode()
+            .split(f"## {heading}\n", 1)[1]
+            .split("\n## ", 1)[0]
+        )
+    assert after == migration.build(repo, vault, sha)
+    assert harness_fixtures._authored_snapshot(vault) == authored

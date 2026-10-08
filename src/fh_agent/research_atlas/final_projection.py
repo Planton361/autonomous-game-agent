@@ -1610,7 +1610,20 @@ def package(
         "",
     ]
     for kind in FAMILIES:
-        home += [f"> [!info]- {labels[kind]}", ">", f"> ## {labels[kind]}", ">"]
+        if explanations is not None and kind in {"Component", "Function"}:
+            # Home hash routes must land outside closed Obsidian disclosures.
+            home += [f"## {labels[kind]}", ""]
+            if kind == "Component":
+                home += [
+                    " · ".join(
+                        f"[[{preferred[i].with_suffix('')}|{atlas.entities[i].name}]]"
+                        for i in ("CMP-CORTEX", "CMP-MANAGER", "CMP-MEMORY", "CMP-MEM-RETRIEVAL")
+                    ),
+                    "",
+                ]
+            home += [f"> [!info]- Expand all {labels[kind].lower()} identities", ">"]
+        else:
+            home += [f"> [!info]- {labels[kind]}", ">", f"> ## {labels[kind]}", ">"]
         home += [
             f"> - [[{path.with_suffix('')}|{atlas.entities[i].name}]]"
             for i, path in preferred.items()
