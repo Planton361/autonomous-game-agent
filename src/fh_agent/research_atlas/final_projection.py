@@ -33,6 +33,302 @@ MANIFESTS = {
 LEDGER = INTERNAL / "Migration/routes.yaml"
 ARCHITECTURE_TREE = PRODUCT / "Diagrams/Architecture Tree.md"
 ARCHITECTURE_CANVAS = PRODUCT / "Diagrams/Architecture Tree.canvas"
+EXECUTION_FLOW = PRODUCT / "Diagrams/Execution Flow.md"
+EXECUTION_FLOW_ORIENTATION_IDS = (
+    "SYS-AGA",
+    "CMP-CORTEX",
+    "CMP-MANAGER",
+    "CMP-BODY",
+    "CMP-INDEPENDENT-VERIFIER",
+    "FUNC-EXECUTIVE-CONTROL",
+)
+
+
+def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
+    """Explain canonical control gates, independently of Registry containment."""
+    repository = "https://github.com/Planton361/autonomous-game-agent/blob/main/"
+    architecture = repository + "docs/canonical/02_ARCHITECTURE_CANONICAL.md"
+    overlay = repository + "docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md"
+
+    def source(label: str, anchor: str) -> str:
+        return f"[{label}]({architecture}#{anchor})"
+
+    body = [
+        "# Ablaufdiagramm",
+        "",
+        "[[Research Map Home|Home]] · [[#Markdown fallback|Markdown fallback]] · "
+        "[[#Current implementation and preferred pages|Implementation and preferred pages]]",
+        "",
+        "## Normative control lifecycle",
+        "",
+        "This is the normative/target architecture, not a trace of a demonstrated live loop. "
+        "Arrows express authority prerequisites and conditional transitions, not a per-frame "
+        "schedule or a strictly sequential order for asynchronous subsystem work. "
+        "Process arrows never declare Registry relations or `part_of` ancestry. "
+        "The Architecture Tree remains the composition view; the Interaction Map is not "
+        "implemented by this page.",
+        "",
+        "Native Obsidian Mermaid needs no community plugin. If it is unavailable, the "
+        "complete ordered/conditional Markdown fallback below retains all gates, branches, "
+        "sources and preferred-page navigation. Native visual rendering remains unverified "
+        "until inspected in Obsidian.",
+        "",
+        "```mermaid",
+        "flowchart TD",
+        '    capture["GameInstance / Screen Capture"]',
+        '    bridge["Optional visible-only Bridge"]',
+        '    firewall{"No-Spoiler Firewall"}',
+        '    context["Observation / Perception<br/>Temporal State + evidence / retrieval"]',
+        '    cortex["Event-driven Cortex<br/>typed evidence-linked intention"]',
+        '    manager{"Manager validation<br/>policy / target / capability"}',
+        '    contract["Valid bounded Skill Contract"]',
+        '    body["Body / eligible Reflex<br/>one allowed primitive proposal"]',
+        '    safety{"Separate SafetyFilter / input gate<br/>focus / action mask / budget<br/>'
+        'rate limit / stop / logging"}',
+        '    execute["InputExecutor: guarded execution"]',
+        '    outcome["Visible outcome / observation"]',
+        '    verifier["Independent Verifier<br/>typed result + evidence"]',
+        '    evaluate{"Manager evaluates outcome"}',
+        '    reject["Reject / stop<br/>log reason; no executed action"]',
+        '    close["Manager closes / suspends<br/>prior contract, if active"]',
+        '    episode["Death: close Life Episode<br/>evidence + post-mortem"]',
+        '    terminal["Declared Mission Run termination"]',
+        '    learn["Optional future protocol<br/>replay / train / validate / certify"]',
+        '    next["Next independently eligible Mission Run<br/>eligible Body; fresh state<br/>'
+        'independently frozen identity"]',
+        "    capture --> firewall",
+        '    bridge -.->|"optional allowlisted visible feed"| firewall',
+        '    firewall -->|"admissible evidence"| context',
+        '    firewall -->|"forbidden access: integrity stop"| reject',
+        '    context -->|"meaningful event; no active prior contract"| cortex',
+        "    cortex --> manager",
+        '    manager -->|"valid and grounded"| contract',
+        '    manager -->|"ambiguous / unsafe / unavailable"| reject',
+        "    contract --> body",
+        "    body --> safety",
+        '    safety -->|"all checks pass"| execute',
+        '    safety -->|"no focus / unsafe / unloggable"| reject',
+        "    execute --> outcome",
+        "    outcome --> verifier",
+        "    verifier --> evaluate",
+        '    evaluate -->|"continue valid active contract"| body',
+        '    evaluate -->|"terminal contract result / stop"| close',
+        '    reject -->|"Manager stop authority"| close',
+        '    close -->|"nonterminal nondeath replan event; fresh evidence"| context',
+        '    close -->|"visible death"| episode',
+        '    close -->|"other declared Mission Run terminal condition"| terminal',
+        '    episode -->|"permitted restart; same Mission Run / frozen Body"| context',
+        '    episode -->|"declared Mission Run terminal condition"| terminal',
+        '    terminal -->|"already eligible Body; no retraining"| next',
+        '    terminal -.->|"between Mission Runs; separately authorized"| learn',
+        '    learn -.->|"activate certified candidate only"| next',
+        '    learn -.->|"candidate rejected; retain eligible prior Body"| next',
+        "```",
+        "",
+        "Legend: rectangles describe bounded responsibilities; diamonds are validation or "
+        "evaluation gates. Solid arrows are conditional control prerequisites. Dotted "
+        "arrows are optional paths. A rejected proposal is never an executed action. "
+        "All boundary records are typed, logged and evidence-linked. Learning is outside "
+        "the running Mission Run. Post-terminal paths require independent run eligibility, "
+        "not automatic start: the already eligible Body can be reused without retraining, "
+        "and candidate rejection never activates that candidate or forbids an eligible "
+        "prior version. Visual labels are short; the fallback supplies the "
+        "complete conditions. Use the preferred-page table below for identity navigation.",
+        "",
+        "## Markdown fallback",
+        "",
+        "1. **Observation entry.** GameInstance → Screen Capture; optionally an allowlisted "
+        "visible-only Bridge supplies information simultaneously visible to a player. "
+        "Both pass the deny-by-default No-Spoiler Firewall before Observation/Perception → "
+        "Temporal State → evidence and bounded retrieval. Hidden game state is never "
+        "authority; forbidden access is an integrity incident and stops admissible "
+        "continuation. These are conceptual prerequisites, not a subsystem clock. "
+        + source("Architecture §§1–5", "1-normative-architecture")
+        + ".",
+        "",
+        "2. **Event-driven intention.** On meaningful new evidence, completion/failure, "
+        "contradiction, death, deadlock, resource/risk alarm or relevant uncertainty, "
+        "Cortex receives bounded evidence/retrieval context and proposes a typed "
+        "evidence-linked goal, universal capability, constraints and success criteria. "
+        "It is not invoked per frame. Cortex cannot directly call InputExecutor or emit "
+        "primitive keys, timings or low-level action sequences. For replanning, the prior "
+        "Manager contract must first be closed/suspended; initial planning needs no prior "
+        "active contract. "
+        + source("Architecture §2", "2-multi-timescale-control")
+        + "; "
+        + source("§6", "6-cortex-contract")
+        + "; "
+        + source("§7", "7-manager--executive-contract")
+        + ".",
+        "",
+        "3. **Manager validation and contracting.** Validate schema/no-spoiler policy, "
+        "available executable capability and typed visible evidence-linked target. "
+        "Ambiguous, insufficiently grounded, unsafe or unavailable proposals reject/stop; "
+        "Body must not guess. Only Manager opens a valid bounded Skill Contract: target, "
+        "universal skill, allowed actions, budget, risk, independent verifier, timeout, "
+        "termination and evidence/logging requirements. No execution before that gate. "
+        + source("Architecture §§7–8", "7-manager--executive-contract")
+        + ".",
+        "",
+        "4. **One authorized proposal.** Body uses current visual/temporal state within "
+        "the active contract and proposes one primitive at a time. Optional fast Reflex "
+        "is inside Body/Manager authority: Manager declares immediate visible triggers, "
+        "eligibility, cooldown, action mask and termination. Reflex cannot invent goals, "
+        "extend budgets, change memory truth, suppress stop/replan or bypass safety/logging. "
+        "Insufficient evidence means wait/stop/replan. "
+        + source("Architecture §9", "9-body-design")
+        + "; "
+        + source("§10", "10-reflex")
+        + ".",
+        "",
+        "5. **Separate enforcement gate.** SafetyFilter/InputExecutor requires an active "
+        "valid Manager contract, verified target-window focus, contract-allowed action, "
+        "action/risk budgets and rate-limit capacity, functional emergency stop and durable "
+        "proposal/execution/rejection logging with before/after evidence linkage. Only "
+        "when all checks pass may InputExecutor execute. No focus, unsafe action, exhausted "
+        "budget, failed stop or unavailable logging rejects/stops; record the rejection "
+        "without labelling it an executed action. Wrong-window input is a hard failure. "
+        + source("Architecture §14", "14-safetyinput")
+        + ".",
+        "",
+        "6. **Independent outcome and Manager evaluation.** Execution → visible outcome "
+        "and new observation → independent Verifier → typed result and evidence → Manager. "
+        "Cortex never grades itself; a screenshot/hash change alone is not success. "
+        "Manager may continue only a still-valid active contract using refreshed visible "
+        "state, returning to step 4 and checking step 5 again for each proposal. "
+        "Success, failure, timeout, no-progress, target loss, safety event, contamination, "
+        "death or contradiction closes/suspends the contract. A pre-execution rejection "
+        "takes the Manager stop path directly; it does not fabricate a visible Verifier "
+        "success or an action outcome. "
+        + source("Architecture §7", "7-manager--executive-contract")
+        + "; "
+        + source("§11", "11-independent-verification-and-reward")
+        + ".",
+        "",
+        "7. **Closure before replanning.** Manager closes/suspends the prior contract, "
+        "if active, before invoking Cortex again. If the Mission Run is nonterminal and "
+        "a meaningful event warrants replanning, return through fresh admissible "
+        "observation/evidence/retrieval to step 2. No deterministic per-frame replan loop "
+        "is implied. Evidence-backed memory/post-mortem updates retain provenance and "
+        "separate observations from inferred causes; memory never grants execution authority. "
+        + source("Architecture §§5,7", "7-manager--executive-contract")
+        + "; "
+        + f"[Overlay: mutable state]({overlay}#mission-run-identity-and-mutable-state).",
+        "",
+        "8. **Mission Run / Life Episode branch.** Visible death closes the Life Episode "
+        "with evidence and post-mortem. An authorized/permitted restart may open another "
+        "Life Episode in the same nonterminal Mission Run with the same frozen identities. "
+        "There is no between-Life-Episode model/controller replacement or Body-weight "
+        "update. Death, ordinary failure or timeout alone does not terminate a Mission Run. "
+        "Declared terminal conditions are independently verified mission success, frozen "
+        "budget exhaustion, explicit manual stop, unrecoverable safety/integrity stop or "
+        "unrecoverable environment/harness failure. An application restart preserves "
+        "identity/provenance or stops/quarantines when continuity cannot be established. "
+        + f"[Overlay: nested units]({overlay}#nested-experimental-units); "
+        + f"[identity freeze]({overlay}#mission-run-identity-and-mutable-state); "
+        + f"[restart and terminals]({overlay}#restart-and-terminal-semantics).",
+        "",
+        "9. **Independent Mission Runs and optional future learning.** A new independently "
+        "eligible Mission Run may begin without retraining using the already eligible Body "
+        "version. It starts with protocol-defined fresh experimental state, a new mission "
+        "identity/manifest and independently frozen identities, including Body version and "
+        "weights. Neither path authorizes automatic run start or within-Mission-Run "
+        "parameter/controller replacement. Only between Mission Runs, "
+        "under a separately authorized future protocol: collect admissible experience "
+        "with frozen Body vN → verifier-labelled replay/demonstrations → train candidate "
+        "vN+1 → held-out validation and safety/false-success checks → certify or reject → "
+        "activate only a certified version for the next eligible Mission Run. A rejected "
+        "candidate must never activate; rejection does not prevent a new independently "
+        "eligible Mission Run with the already eligible Body version. Neither "
+        "ordinary episode restart nor memory consolidation activates a candidate. "
+        "Independent Mission Runs begin with protocol-defined fresh experimental state; "
+        "cross-Mission-Run inherited memory is not enabled by default. "
+        + source("Architecture §12", "12-learning-lifecycle")
+        + "; "
+        + f"[Overlay: precedence]({overlay}"
+        "#explicit-precedence-mapping-to-canonical-architecture-and-protocol).",
+        "",
+        "## Current implementation and preferred pages",
+        "",
+        "Registry statuses below describe individual identities, not coverage of every "
+        "normative gate or proof that the full lifecycle has been demonstrated live. "
+        "Open preferred pages for current implementation references, verification and "
+        "limitations. Functions describe context and have no implementation status field. "
+        "A missing Registry mapping implies no omitted capability or scientific weakness. "
+        "This drawing establishes neither Phase-D nor Phase-H exit: "
+        f"[Roadmap status rule]({repository}"
+        "docs/canonical/03_RESEARCH_ROADMAP_CANONICAL.md#status-rule).",
+        "",
+        "Current code provides bounded hierarchical attempts and replanning in "
+        f"[hierarchical_step.py]({repository}src/fh_agent/manager/hierarchical_step.py) and "
+        f"[replan_loop.py]({repository}src/fh_agent/manager/replan_loop.py). "
+        f"[SkillRunner]({repository}src/fh_agent/manager/skill_runner.py) connects "
+        "contract action checks, evidence-linked action records, independent verification "
+        "and Manager stops. "
+        f"[InputExecutor]({repository}src/fh_agent/game/input_executor.py) checks "
+        "focus, rate limit and stop state; emergency-stop checking is configurable and "
+        "logging/contract checks also live in callers. Its existence alone does not "
+        "certify the complete normative enforcement gate. These code surfaces and "
+        "Registry labels are implementation context, not scientific results or Live evidence.",
+        "",
+        "| Lifecycle context | Preferred identity / type | Registry implementation status |",
+        "| --- | --- | --- |",
+    ]
+    groups = (
+        ("System", ("SYS-AGA",)),
+        (
+            "Observation entry",
+            (
+                "CMP-SCREEN-CAPTURE",
+                "CMP-VISIBLE-STATE-BRIDGE",
+                "CMP-NO-SPOILER-FIREWALL",
+                "CMP-PERCEPTION",
+                "CMP-TEMPORAL-STATE",
+                "CMP-EVIDENCE-LEDGER",
+                "CMP-MEM-RETRIEVAL",
+                "DAT-OBSERVATION",
+            ),
+        ),
+        ("Intention", ("CMP-CORTEX", "CON-CORTEX-CONTEXT", "CON-PLANNER-OUTPUT")),
+        ("Authority", ("CMP-MANAGER", "FUNC-EXECUTIVE-CONTROL", "CON-SKILL-CONTRACT")),
+        (
+            "Execution",
+            (
+                "CMP-BODY",
+                "CMP-BOUNDED-REFLEX",
+                "CMP-SAFETY-FILTER",
+                "CMP-INPUT-EXECUTOR",
+                "DAT-ACTION-RESULT",
+            ),
+        ),
+        (
+            "Verification",
+            ("CMP-INDEPENDENT-VERIFIER", "CON-VERIFIER-RESULT", "DAT-VISIBLE-OUTCOME"),
+        ),
+        ("Evidence and post-mortem", ("CMP-MEMORY", "CON-POST-MORTEM-OUTPUT")),
+        (
+            "Between Mission Runs",
+            (
+                "CMP-REPLAY-BUFFER",
+                "CMP-SKILL-TRAINER",
+                "DAT-CANDIDATE-BODY-VERSION",
+                "CMP-BODY-CERTIFICATION",
+            ),
+        ),
+    )
+    for context, identities in groups:
+        for identity in identities:
+            if identity not in preferred:
+                continue
+            node = atlas.entities[identity]
+            technical = getattr(node, "technical", None)
+            status = technical.implementation_status if technical else "not applicable (context)"
+            body.append(
+                f"| {context} | [[{preferred[identity].with_suffix('')}\\|{node.name}]] "
+                f"· {node.type} · `{identity}` | {status} |"
+            )
+    body += ["", "[[Research Map Home|Return Home]]"]
+    return "\n".join(body)
 
 
 def architecture_tree(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> tuple[str, bytes]:
@@ -568,6 +864,16 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 1,
             ).encode()
 
+        if identity in EXECUTION_FLOW_ORIENTATION_IDS:
+            text = utf8(files[page])
+            files[page] = text.replace(
+                f"[[{HOME.with_suffix('')}|Home]]",
+                f"[[{HOME.with_suffix('')}|Home]] · "
+                f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]]",
+                1,
+            ).encode()
+
+    add(EXECUTION_FLOW, execution_flow(atlas, preferred))
     tree_body, tree_canvas = architecture_tree(atlas, preferred)
     add(ARCHITECTURE_TREE, tree_body)
     files[ARCHITECTURE_CANVAS] = tree_canvas
@@ -658,6 +964,9 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "Navigate System → Component using only Registry part_of. Functions describe context.\n\n"
         f"Open [[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]] for the complete "
         "technical composition, native Canvas and linked Markdown fallback.\n\n"
+        f"Open [[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]] for normative control "
+        "and verification gates, native Mermaid and the complete Markdown fallback; "
+        "individual Registry statuses do not establish a demonstrated live loop.\n\n"
         "Technical / Research / Sources sections share one preferred page. "
         "Audits are collapsed.\n\n"
         "Graph modes Architecture, Knowledge Detail and Questions are separate projections.\n\n"
@@ -686,6 +995,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
     home += [
         "- See the complete technical hierarchy: "
         f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]",
+        "- Understand bounded control and verification: "
+        f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]]",
         "- Explore functional context: [[#Functions|Functions]]",
         "- Read scientific inventories: [[Research Map/Views/Research Steering|Research Steering]]",
         "- Inspect literature: [[Research Map/Views/Literature Inspection|Literature Inspection]]",

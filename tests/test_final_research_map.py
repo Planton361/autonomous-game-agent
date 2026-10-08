@@ -5,8 +5,10 @@ import gzip
 import json
 import re
 import shutil
+import sys
 from copy import deepcopy
 from dataclasses import replace
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
@@ -27,10 +29,13 @@ from fh_agent.research_atlas import workspace_harness as workspace
 from fh_agent.research_atlas.final_projection import (
     ARCHITECTURE_CANVAS,
     ARCHITECTURE_TREE,
+    EXECUTION_FLOW,
+    EXECUTION_FLOW_ORIENTATION_IDS,
     MANIFESTS,
     MODES,
     ProductTree,
     architecture_tree,
+    execution_flow,
     package,
 )
 from fh_agent.research_atlas.preferred_paths import HOME, INTERNAL, PRODUCT, preferred_paths
@@ -128,8 +133,8 @@ def baseline(atlas):
 def test_exact_synthetic_inventory_and_owner_counts(atlas, baseline):
     tree, technical, derived = baseline
     assert len(technical) + len(derived) == 696
-    assert len(tree.files) == 522
-    assert 696 - 522 == 174
+    assert len(tree.files) == 523
+    assert 696 - 523 == 173
     assert set(tree.routes) - {
         views.OWNED_ROOT / views.LEGACY_MEMORY_WORKBENCH,
         views.OWNED_ROOT / views.LEGACY_VERIFIER_WORKBENCH,
@@ -289,6 +294,244 @@ def test_architecture_tree_context_never_adds_ancestry_and_cycle_rejects(atlas):
     )
     with pytest.raises(ProjectionError, match="containment cycle"):
         architecture_tree(cyclic, preferred_paths(atlas))
+
+
+def test_execution_flow_gates_and_complete_plain_markdown_fallback(atlas, baseline):
+    text = baseline[0].files[EXECUTION_FLOW].decode()
+    assert text.count("```mermaid\n") == 1
+    diagram = text.split("```mermaid\n")[1].split("```", 1)[0]
+    assert diagram.startswith("flowchart TD\n")
+    # Source-grounded authority branches, independent of containment or runtime tests.
+    edges = set(re.findall(r"^    (\w+) (?:-->|-\.->)(?:\|[^\n]+?\|)? (\w+)$", diagram, re.M))
+    assert ("cortex", "manager") in edges
+    assert not any(
+        target in {"body", "safety", "execute"} for origin, target in edges if origin == "cortex"
+    )
+    assert {
+        ("manager", "contract"),
+        ("contract", "body"),
+        ("body", "safety"),
+        ("safety", "execute"),
+        ("execute", "outcome"),
+        ("outcome", "verifier"),
+        ("verifier", "evaluate"),
+        ("evaluate", "close"),
+        ("close", "context"),
+    } <= edges
+    assert {origin for origin, target in edges if target == "execute"} == {"safety"}
+    assert {
+        ("firewall", "reject"),
+        ("manager", "reject"),
+        ("safety", "reject"),
+        ("reject", "close"),
+        ("capture", "firewall"),
+        ("bridge", "firewall"),
+    } <= edges
+    assert "no focus / unsafe / unloggable" in diagram
+    assert "optional allowlisted visible feed" in diagram
+    assert "Body / eligible Reflex" in diagram
+    assert "no active prior contract" in diagram
+    assert "same Mission Run / frozen Body" in diagram
+    assert "between Mission Runs; separately authorized" in diagram
+    assert {origin for origin, target in edges if target == "learn"} == {"terminal"}
+    assert ("learn", "next") in edges
+
+    fallback = re.sub(r"```mermaid\n.*?```", "", text, flags=re.S)
+    assert list(map(int, re.findall(r"^(\d+)\. ", fallback, re.M))) == list(range(1, 10))
+    for required in (
+        "Hidden game state is never authority",
+        "Cortex cannot directly call InputExecutor",
+        "not invoked per frame",
+        "Only Manager opens a valid bounded Skill Contract",
+        "Reflex cannot invent goals",
+        "functional emergency stop",
+        "durable proposal/execution/rejection logging with before/after evidence linkage",
+        "without labelling it an executed action",
+        "Cortex never grades itself",
+        "screenshot/hash change alone is not success",
+        "Success, failure, timeout, no-progress, target loss, safety event, "
+        "contamination, death or contradiction",
+        "Manager stop path directly",
+        "closes/suspends the prior contract",
+        "no between-Life-Episode model/controller replacement or Body-weight update",
+        "Only between Mission Runs",
+        "separately authorized future protocol",
+        "held-out validation and safety/false-success checks",
+        "certify or reject",
+        "activate only a certified version",
+        "not a trace of a demonstrated live loop",
+        "neither Phase-D nor Phase-H exit",
+        "missing Registry mapping implies no omitted capability or scientific weakness",
+        "not a per-frame schedule or a strictly sequential order",
+        "Process arrows never declare Registry relations or `part_of` ancestry",
+        "Native visual rendering remains unverified",
+    ):
+        assert required in fallback
+    for locator in (
+        "02_ARCHITECTURE_CANONICAL.md#1-normative-architecture",
+        "#2-multi-timescale-control",
+        "#6-cortex-contract",
+        "#7-manager--executive-contract",
+        "#9-body-design",
+        "#10-reflex",
+        "#11-independent-verification-and-reward",
+        "#12-learning-lifecycle",
+        "#14-safetyinput",
+        "ALIGN-2026-09-19-v1.0/README.md#nested-experimental-units",
+        "#mission-run-identity-and-mutable-state",
+        "#restart-and-terminal-semantics",
+        "03_RESEARCH_ROADMAP_CANONICAL.md#status-rule",
+    ):
+        assert locator in fallback
+
+
+def test_execution_flow_independent_run_without_training_and_optional_candidate_paths(baseline):
+    text = baseline[0].files[EXECUTION_FLOW].decode()
+    diagram = text.split("```mermaid\n")[1].split("```", 1)[0]
+    # A real direct transition must coexist with separately authorized learning;
+    # merely describing learning as optional does not supply a no-training route.
+    assert re.search(
+        r'^    terminal -->\|"already eligible Body; no retraining"\| next$', diagram, re.M
+    )
+    assert re.search(
+        r'^    terminal -\.->\|"between Mission Runs; separately authorized"\| learn$',
+        diagram,
+        re.M,
+    )
+    assert re.search(
+        r'^    learn -\.->\|"activate certified candidate only"\| next$', diagram, re.M
+    )
+    assert re.search(
+        r'^    learn -\.->\|"candidate rejected; retain eligible prior Body"\| next$',
+        diagram,
+        re.M,
+    )
+    assert "Next independently eligible Mission Run" in diagram
+    assert "eligible Body; fresh state" in diagram and "independently frozen identity" in diagram
+    fallback = re.sub(r"```mermaid\n.*?```", "", text, flags=re.S)
+    for required in (
+        "may begin without retraining using the already eligible Body version",
+        "protocol-defined fresh experimental state, a new mission identity/manifest",
+        "independently frozen identities, including Body version and weights",
+        "Neither path authorizes automatic run start or within-Mission-Run "
+        "parameter/controller replacement",
+        "Only between Mission Runs",
+        "separately authorized future protocol",
+        "held-out validation and safety/false-success checks",
+        "activate only a certified version",
+        "A rejected candidate must never activate",
+        "rejection does not prevent a new independently eligible Mission Run "
+        "with the already eligible Body version",
+        "no between-Life-Episode model/controller replacement or Body-weight update",
+    ):
+        assert required in fallback
+
+
+def test_execution_flow_preferred_navigation_statuses_and_order_invariance(atlas, baseline):
+    tree = baseline[0]
+    paths = preferred_paths(atlas)
+    text = tree.files[EXECUTION_FLOW].decode()
+    linked_types = set()
+    for identity in re.findall(r"`((?:SYS|CMP|FUNC|CON|DAT)-[^`]+)`", text):
+        node = atlas.entities[identity]
+        assert f"[[{paths[identity].with_suffix('')}\\|{node.name}]]" in text
+        assert paths[identity] in tree.files
+        technical = getattr(node, "technical", None)
+        row = next(line for line in text.splitlines() if f"`{identity}`" in line)
+        assert (technical.implementation_status if technical else "not applicable (context)") in row
+        linked_types.add(node.type)
+    assert linked_types == {"System", "Component", "Function", "Contract", "DataArtifact"}
+    assert "CMP-BOUNDED-REFLEX` | target-only" in text
+    assert "CMP-TEMPORAL-STATE` | target-only" in text
+    route = f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]]"
+    navigation = {HOME, PRODUCT / "Guides/Using the Research Map.md"} | {
+        paths[i] for i in EXECUTION_FLOW_ORIENTATION_IDS
+    }
+    assert {p for p, data in tree.files.items() if route.encode() in data} == navigation
+    reordered = replace(
+        atlas,
+        entities=dict(reversed(list(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    assert execution_flow(reordered, preferred_paths(reordered)) == execution_flow(atlas, paths)
+    # Changing a contextual relation never interprets a process arrow as ancestry.
+    altered = replace(
+        atlas,
+        relationships=atlas.relationships
+        + (Relationship(source="CMP-CORTEX", relation="controls", target="CMP-BODY"),),
+    )
+    assert execution_flow(altered, paths) == execution_flow(atlas, paths)
+    unmapped = replace(
+        atlas, entities={i: n for i, n in atlas.entities.items() if i != "CMP-TEMPORAL-STATE"}
+    )
+    unmapped_paths = {i: p for i, p in paths.items() if i != "CMP-TEMPORAL-STATE"}
+    without_mapping = execution_flow(unmapped, unmapped_paths)
+    assert "Temporal State + evidence / retrieval" in without_mapping
+    assert "missing Registry mapping implies no omitted capability" in without_mapping
+    metadata = markdown_parts(text)[0]
+    assert metadata["generated_by"] == views.OWNER
+    manifest = read_yaml(tree.files[MANIFESTS[views.OWNER]].decode())
+    record = next(r for r in manifest["owned_files"] if r["path"] == str(EXECUTION_FLOW))
+    assert record["ownership"] == "strict-bytes"
+    assert "semantic_sha256" not in record
+
+
+def test_execution_flow_independent_frozen_baseline_product_delta(
+    atlas, baseline, tmp_path, monkeypatch
+):
+    # Execute only the reviewed immutable generator at the Issue's exact base,
+    # with the SAME frozen synthetic inputs. Current code is never the baseline oracle.
+    revision = "7628d264316c04a59f6b7d89f43609352fbc6d8c"
+    source = harness_fixtures.git(
+        ROOT, "show", f"{revision}:src/fh_agent/research_atlas/final_projection.py"
+    )
+    file = tmp_path / "baseline_final_projection.py"
+    file.write_text(source)
+    name = "fh_agent.research_atlas._issue164_baseline"
+    spec = spec_from_file_location(name, file)
+    module = module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, module)
+    spec.loader.exec_module(module)
+    after, technical, derived = baseline
+    before = module.package(atlas, technical, derived)
+    assert len(before.files) == 522 and len(after.files) == 523
+    assert set(after.files) - set(before.files) == {EXECUTION_FLOW}
+    assert not set(before.files) - set(after.files)
+    paths = preferred_paths(atlas)
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        PRODUCT / "Guides/Using the Research Map.md",
+        MANIFESTS[views.OWNER],
+    } | {paths[i] for i in EXECUTION_FLOW_ORIENTATION_IDS}
+    assert before.routes == after.routes
+    assert {p: after.owners[p] for p in before.owners} == before.owners
+    # Everything else, including Tree/Canvas, all seven relation Canvases,
+    # Bases, Excalidraw, Graphs, Registry, ledger and technical manifest is byte-identical.
+    assert all(before.files[p] == after.files[p] for p in before.files.keys() - changed)
+    assert after.owners[EXECUTION_FLOW] == views.OWNER
+    assert package(atlas, technical, derived).files == after.files
+
+    # The bounded CONTROL repair changes only the diagram and its manifest hash
+    # relative to the reviewed PR head, retaining every other generated byte.
+    reviewed_revision = "3772366f7beb7e826ec9ecce317becadce281472"
+    file.write_text(
+        harness_fixtures.git(
+            ROOT, "show", f"{reviewed_revision}:src/fh_agent/research_atlas/final_projection.py"
+        )
+    )
+    name = "fh_agent.research_atlas._issue164_reviewed"
+    spec = spec_from_file_location(name, file)
+    module = module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, name, module)
+    spec.loader.exec_module(module)
+    reviewed = module.package(atlas, technical, derived)
+    assert after.files.keys() == reviewed.files.keys()
+    assert {p for p in reviewed.files if reviewed.files[p] != after.files[p]} == {
+        EXECUTION_FLOW,
+        MANIFESTS[views.OWNER],
+    }
+    assert after.routes == reviewed.routes and after.owners == reviewed.owners
 
 
 @pytest.mark.parametrize("family", ["canvas", "excalidraw", "base-and-strict"])
@@ -773,7 +1016,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 522
+    assert len(receipt["after"]) == 523
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -926,7 +1169,7 @@ def test_closed_manifest_classes_and_every_managed_format(baseline):
             counts[semantics.Ownership(row["ownership"])] += 1
             assert row == {"path": str(path), **semantics.record(tree.files[path], path, owner)}
     assert counts == {
-        semantics.Ownership.STRICT: 507,
+        semantics.Ownership.STRICT: 508,
         semantics.Ownership.BASE: 3,
         semantics.Ownership.CANVAS: 8,
         semantics.Ownership.EXCALIDRAW: 2,
@@ -1066,7 +1309,7 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 522
+    assert len(migration._actual(vault)) == 523
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():

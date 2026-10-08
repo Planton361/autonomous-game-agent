@@ -32,6 +32,7 @@ Research Map/
   Diagrams/
     Architecture Tree.md
     Architecture Tree.canvas
+    Execution Flow.md           # Ablaufdiagramm: Mermaid + Markdown fallback
     Agent Anatomy.excalidraw.md
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
@@ -144,13 +145,64 @@ Research relations never become tree ancestry.
 Both new files use existing `research-wiki-derived` ownership. Markdown remains
 strict-byte owned; Canvas uses the existing closed Canvas semantic rules. No
 ownership, migration, recovery, save-stability or `.obsidian` policy changes.
-The current empty-private synthetic output is **522 files**, adding these two
-artifacts to the accepted #159 **520-file** baseline. Actual-vault rollout and
-#161's on-hold disposition remain separate; this Delivery does not apply or
+The #162 empty-private synthetic output was **522 files**, adding these two
+artifacts to the accepted #159 **520-file** baseline; #164 adds one page (523 total).
+Actual-vault rollout and #161's on-hold disposition remain separate; this Delivery does not apply or
 repair the installed vault and does not establish Linux/Mac G6.
 
-Architecture Tree is the first of the three visualization steps. Ablaufdiagramm
-and Interaction Map remain later bounded contracts; neither is implemented here.
+Architecture Tree is the first of the three visualization steps. Issue #164 adds
+only step 2 below. Interaction Map remains a later bounded contract.
+
+## Ablaufdiagramm / execution flow
+
+Issue #164 adds one first-class generated Markdown page:
+`Research Map/Diagrams/Execution Flow.md`, display title **Ablaufdiagramm**.
+Reach it from Home's **Start here**, **Using the Research Map**, or the Home row
+on the System, Cortex, Manager, Body, Independent Verifier and Executive Control
+preferred pages. Its linked identity/status table opens existing preferred
+System/Component/Function/Contract/DataArtifact pages; navigation does not depend
+on Mermaid click handlers. No new identity, Registry relation or technical
+ancestry is inferred from a process arrow.
+
+The native Obsidian Mermaid flowchart shows normative authority prerequisites:
+admissible observation/evidence → event-driven Cortex intention → Manager
+validation → bounded Skill Contract → Body/eligible Reflex proposal → separate
+SafetyFilter/InputExecutor gate → visible outcome → independent Verifier →
+Manager evaluation. Rejection records no executed action. Continued execution
+requires a valid active contract; a meaningful replan follows contract
+closure/suspension. Death closes a Life Episode; permitted restart preserves the
+Mission Run's frozen identities and Body weights. Optional future
+replay/training/held-out validation/certification is outside the running Mission
+Run and requires a separately authorized protocol. A new independently eligible
+Mission Run can instead begin without retraining using the already eligible Body,
+with fresh experimental state and independently frozen identities. Only a
+certified candidate may activate; rejecting a candidate does not prevent another
+independently eligible run with the prior eligible version. Neither path implies
+automatic run start or within-Mission-Run parameter/controller replacement.
+
+These arrows explain intended control, not a deterministic per-frame schedule or
+strict order for asynchronous internals. The complete numbered **Markdown
+fallback** covers every gate and branch with canonical source locators and the
+accepted `ALIGN-2026-09-19-v1.0` overlay. It remains readable with Mermaid disabled.
+Native visual rendering remains **unverified until inspected in Obsidian**.
+No community plugin, new backend, parser, Canvas or external media is added.
+
+The implementation table reads individual Registry statuses, including
+`target-only` Temporal State, Reflex and Body certification. Functions have no
+implementation-status field. Current bounded hierarchical/replan code and guarded
+input are linked separately; neither those code surfaces nor the drawing proves
+a demonstrated full live loop, a Phase-D/H exit or a scientific result. Missing
+Registry mappings imply no omitted capability or scientific weakness.
+
+With frozen identical synthetic inputs, the independent exact-main baseline
+comparison adds only this page and changes Home, the generated guide, six
+orientation pages and the derived manifest. Empty-private output is **523 files**.
+The page uses existing `research-wiki-derived` **strict-byte** ownership; the
+manifest updates normally. Architecture Tree Markdown/Canvas, seven Technical
+Relations Canvases, Bases, Excalidraw, Graph modes, Registry projections, source
+indexes, migration routes and the technical manifest remain byte-identical.
+Actual-vault ownership/save/recovery and #161's ON HOLD state are separate;
+#164 authorizes no vault apply/check/repair or Linux/Mac G6.
 
 ## Supported migration and recovery
 
@@ -275,8 +327,9 @@ filters and source/reference routes use final destinations.
 ## Evidence and remaining gate
 
 The #159 automated empty-private synthetic baseline had 696 legacy files and 520
-final files: 176 fewer (25.3%). With #162's two Architecture Tree artifacts, current
-output is 522 files, 174 fewer than the legacy baseline. These are not actual
+final files: 176 fewer (25.3%). With #162's two Architecture Tree artifacts, synthetic
+output was 522 files, 174 fewer than the legacy baseline. With #164, current
+output is 523 files, 173 fewer than that baseline. These are not actual
 private-vault counts. Populated
 synthetic tests prove no duplicate non-RQ readers, exact per-mode Graph parity,
 portable links, source protections, deterministic/idempotent generation, authored
@@ -291,5 +344,5 @@ explicit M0 authorization.
 
 Presentation repairs change generated bytes. A previous actual-vault apply/check
 does not certify the repaired head; do not apply it until CONTROL reviews that exact
-head. Ablaufdiagramm and Interaction Map remain future work, outside the
-Architecture Tree Delivery described above.
+head. The Ablaufdiagramm is the bounded #164 Delivery described above. Interaction
+Map remains future work; no later diagram or actual-vault rollout is authorized here.
