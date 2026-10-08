@@ -94,7 +94,8 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
         '    episode["Death: close Life Episode<br/>evidence + post-mortem"]',
         '    terminal["Declared Mission Run termination"]',
         '    learn["Optional future protocol<br/>replay / train / validate / certify"]',
-        '    next["Next eligible Mission Run<br/>certified Body only"]',
+        '    next["Next independently eligible Mission Run<br/>eligible Body; fresh state<br/>'
+        'independently frozen identity"]',
         "    capture --> firewall",
         '    bridge -.->|"optional allowlisted visible feed"| firewall',
         '    firewall -->|"admissible evidence"| context',
@@ -118,15 +119,20 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
         '    close -->|"other declared Mission Run terminal condition"| terminal',
         '    episode -->|"permitted restart; same Mission Run / frozen Body"| context',
         '    episode -->|"declared Mission Run terminal condition"| terminal',
+        '    terminal -->|"already eligible Body; no retraining"| next',
         '    terminal -.->|"between Mission Runs; separately authorized"| learn',
-        '    learn -.->|"certified version only; reject blocks activation"| next',
+        '    learn -.->|"activate certified candidate only"| next',
+        '    learn -.->|"candidate rejected; retain eligible prior Body"| next',
         "```",
         "",
         "Legend: rectangles describe bounded responsibilities; diamonds are validation or "
         "evaluation gates. Solid arrows are conditional control prerequisites. Dotted "
         "arrows are optional paths. A rejected proposal is never an executed action. "
         "All boundary records are typed, logged and evidence-linked. Learning is outside "
-        "the running Mission Run. Visual labels are short; the fallback supplies the "
+        "the running Mission Run. Post-terminal paths require independent run eligibility, "
+        "not automatic start: the already eligible Body can be reused without retraining, "
+        "and candidate rejection never activates that candidate or forbids an eligible "
+        "prior version. Visual labels are short; the fallback supplies the "
         "complete conditions. Use the preferred-page table below for identity navigation.",
         "",
         "## Markdown fallback",
@@ -222,11 +228,18 @@ def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
         + f"[identity freeze]({overlay}#mission-run-identity-and-mutable-state); "
         + f"[restart and terminals]({overlay}#restart-and-terminal-semantics).",
         "",
-        "9. **Optional future learning outside the loop.** Only between Mission Runs, "
+        "9. **Independent Mission Runs and optional future learning.** A new independently "
+        "eligible Mission Run may begin without retraining using the already eligible Body "
+        "version. It starts with protocol-defined fresh experimental state, a new mission "
+        "identity/manifest and independently frozen identities, including Body version and "
+        "weights. Neither path authorizes automatic run start or within-Mission-Run "
+        "parameter/controller replacement. Only between Mission Runs, "
         "under a separately authorized future protocol: collect admissible experience "
         "with frozen Body vN → verifier-labelled replay/demonstrations → train candidate "
         "vN+1 → held-out validation and safety/false-success checks → certify or reject → "
-        "activate only a certified version for the next eligible Mission Run. Neither "
+        "activate only a certified version for the next eligible Mission Run. A rejected "
+        "candidate must never activate; rejection does not prevent a new independently "
+        "eligible Mission Run with the already eligible Body version. Neither "
         "ordinary episode restart nor memory consolidation activates a candidate. "
         "Independent Mission Runs begin with protocol-defined fresh experimental state; "
         "cross-Mission-Run inherited memory is not enabled by default. "

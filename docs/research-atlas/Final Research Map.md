@@ -173,7 +173,12 @@ requires a valid active contract; a meaningful replan follows contract
 closure/suspension. Death closes a Life Episode; permitted restart preserves the
 Mission Run's frozen identities and Body weights. Optional future
 replay/training/held-out validation/certification is outside the running Mission
-Run and requires a separately authorized protocol.
+Run and requires a separately authorized protocol. A new independently eligible
+Mission Run can instead begin without retraining using the already eligible Body,
+with fresh experimental state and independently frozen identities. Only a
+certified candidate may activate; rejecting a candidate does not prevent another
+independently eligible run with the prior eligible version. Neither path implies
+automatic run start or within-Mission-Run parameter/controller replacement.
 
 These arrows explain intended control, not a deterministic per-frame schedule or
 strict order for asynchronous internals. The complete numbered **Markdown
