@@ -29,8 +29,10 @@ from fh_agent.research_atlas import workspace_harness as workspace
 from fh_agent.research_atlas.final_projection import (
     ARCHITECTURE_CANVAS,
     ARCHITECTURE_TREE,
+    EXECUTION_CANVAS,
     EXECUTION_FLOW,
     EXECUTION_FLOW_ORIENTATION_IDS,
+    INTERACTION_CANVAS,
     INTERACTION_MAP,
     INTERACTION_ORIENTATION_IDS,
     INTERACTION_RELATIONS,
@@ -137,8 +139,8 @@ def baseline(atlas):
 def test_exact_synthetic_inventory_and_owner_counts(atlas, baseline):
     tree, technical, derived = baseline
     assert len(technical) + len(derived) == 696
-    assert len(tree.files) == 524
-    assert 696 - 524 == 172
+    assert len(tree.files) == 526
+    assert 696 - 526 == 170
     assert set(tree.routes) - {
         views.OWNED_ROOT / views.LEGACY_MEMORY_WORKBENCH,
         views.OWNED_ROOT / views.LEGACY_VERIFIER_WORKBENCH,
@@ -150,7 +152,7 @@ def test_exact_synthetic_inventory_and_owner_counts(atlas, baseline):
     assert set(tree.owners.values()) == {public.OWNER, views.OWNER}
     assert set(tree.owners) == set(tree.files)
     assert sum(p.suffix == ".base" for p in tree.files) == 3
-    assert sum(p.suffix == ".canvas" for p in tree.files) == 8
+    assert sum(p.suffix == ".canvas" for p in tree.files) == 10
     assert {ARCHITECTURE_TREE, ARCHITECTURE_CANVAS} <= tree.files.keys()
     assert set(preferred_paths(atlas).values()) <= tree.files.keys()
     assert len(preferred_paths(atlas)) == 61
@@ -217,7 +219,7 @@ def assert_architecture_parity(atlas, body, payload):
             stack[depth:] = [match[3]]
             markdown_trails.add(tuple(stack))
     for node in canvas["nodes"]:
-        if node["id"] == "legend":
+        if node["id"] == "legend" or node["type"] != "text":
             continue
         identity = re.search(r"`((?:SYS|CMP)-[^`]+)`", node["text"])[1]
         assert f"[[{paths[identity].with_suffix('')}|" in node["text"]
@@ -231,7 +233,7 @@ def assert_architecture_parity(atlas, body, payload):
     assert visual_pairs == markdown_pairs == declared
     assert len(canvas["edges"]) == len(markdown_trails) - sum(len(t) == 1 for t in markdown_trails)
     assert all(e["label"] == "contains" and e["toEnd"] == "none" for e in canvas["edges"])
-    cards = [n for n in canvas["nodes"] if n["id"] != "legend"]
+    cards = [n for n in canvas["nodes"] if n["id"] != "legend" and n["type"] == "text"]
     for index, left in enumerate(cards):
         for right in cards[index + 1 :]:
             assert (
@@ -1024,7 +1026,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 524
+    assert len(receipt["after"]) == 526
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -1179,7 +1181,7 @@ def test_closed_manifest_classes_and_every_managed_format(baseline):
     assert counts == {
         semantics.Ownership.STRICT: 509,
         semantics.Ownership.BASE: 3,
-        semantics.Ownership.CANVAS: 8,
+        semantics.Ownership.CANVAS: 10,
         semantics.Ownership.EXCALIDRAW: 2,
     }
     for path in managed_paths(tree):
@@ -1310,14 +1312,14 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
                 (vault / path).read_bytes(), path, compressed=path.name.endswith(".excalidraw.md")
             )
             (vault / path).write_bytes(rewritten[path])
-    assert len(rewritten) == 13  # 2 Excalidraw + all 8 Canvas (including the tree) + 3 Bases.
+    assert len(rewritten) == 15  # 2 Excalidraw + all 10 Canvas + 3 Bases.
     before = filesystem_state(vault.parent)
     workspace.check(repo, vault)
 
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 524
+    assert len(migration._actual(vault)) == 526
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():
@@ -1746,9 +1748,11 @@ def test_generated_exclusion_is_rooted_and_authored_nested_names_stay_inputs(wor
 ISSUE166_BASE = "3c028f74068d027e98c68a267d72036e1a8fb647"
 
 
-def immutable_interaction_base(atlas, technical, derived, tmp_path, monkeypatch):
+def immutable_interaction_base(
+    atlas, technical, derived, tmp_path, monkeypatch, revision=ISSUE166_BASE
+):
     source = harness_fixtures.git(
-        ROOT, "show", f"{ISSUE166_BASE}:src/fh_agent/research_atlas/final_projection.py"
+        ROOT, "show", f"{revision}:src/fh_agent/research_atlas/final_projection.py"
     )
     file = tmp_path / "issue166_baseline.py"
     file.write_text(source)
@@ -1886,7 +1890,15 @@ def test_interaction_order_content_sparse_optional_and_status_changes(atlas):
 
 
 def test_interaction_independent_frozen_product_delta(atlas, baseline, tmp_path, monkeypatch):
-    after, technical, derived = baseline
+    _, technical, derived = baseline
+    after = immutable_interaction_base(
+        atlas,
+        technical,
+        derived,
+        tmp_path,
+        monkeypatch,
+        revision="1bc0a8acf6625fa71bf2b7d6287ed73c35181647",
+    )
     before = immutable_interaction_base(atlas, technical, derived, tmp_path, monkeypatch)
     assert len(before.files) == 523 and len(after.files) == len(before.files) + 1
     assert set(after.files) - set(before.files) == {INTERACTION_MAP}
@@ -1905,8 +1917,251 @@ def test_interaction_independent_frozen_product_delta(atlas, baseline, tmp_path,
     assert before.files[ARCHITECTURE_TREE] == after.files[ARCHITECTURE_TREE]
     assert before.files[EXECUTION_FLOW] == after.files[EXECUTION_FLOW]
     assert after.owners[INTERACTION_MAP] == views.OWNER
-    assert package(atlas, technical, derived).files == after.files
+    assert (
+        immutable_interaction_base(
+            atlas,
+            technical,
+            derived,
+            tmp_path,
+            monkeypatch,
+            revision="1bc0a8acf6625fa71bf2b7d6287ed73c35181647",
+        ).files
+        == after.files
+    )
     # Enumerated paths are retained in pytest output and PR evidence.
     print(
         "Interaction Map generated delta:", *sorted(map(str, changed | {INTERACTION_MAP})), sep="\n"
     )
+
+
+ISSUE168_BASE = "1bc0a8acf6625fa71bf2b7d6287ed73c35181647"
+
+
+def canvas_relation_rows(data):
+    canvas = json.loads(data)
+    nodes = {n["id"]: n for n in canvas["nodes"]}
+
+    def identity(node):
+        return re.search(r"`([A-Z]+-[^`]+)`", node["text"])[1]
+
+    return [
+        (e["label"], identity(nodes[e["fromNode"]]), identity(nodes[e["toNode"]]))
+        for e in canvas["edges"]
+    ]
+
+
+def assert_canvas_geometry(data):
+    canvas = json.loads(data)
+    nodes = {n["id"]: n for n in canvas["nodes"]}
+    assert len(nodes) == len(canvas["nodes"])
+    assert len({e["id"] for e in canvas["edges"]}) == len(canvas["edges"])
+    for edge in canvas["edges"]:
+        assert edge["fromNode"] in nodes and edge["toNode"] in nodes
+    cards = [n for n in nodes.values() if n["type"] == "text"]
+    for index, left in enumerate(cards):
+        for right in cards[index + 1 :]:
+            assert (
+                left["x"] + left["width"] <= right["x"]
+                or right["x"] + right["width"] <= left["x"]
+                or left["y"] + left["height"] <= right["y"]
+                or right["y"] + right["height"] <= left["y"]
+            ), (left, right)
+    for card in cards:
+        if card["id"] == "legend":
+            continue
+        groups = [n for n in nodes.values() if n["type"] == "group"]
+        if groups:
+            assert any(
+                g["x"] <= card["x"]
+                and g["y"] <= card["y"]
+                and g["x"] + g["width"] >= card["x"] + card["width"]
+                and g["y"] + g["height"] >= card["y"] + card["height"]
+                for g in groups
+            )
+    return canvas, nodes
+
+
+def test_three_primary_canvases_navigation_and_vertical_detail(atlas, baseline):
+    tree = baseline[0]
+    for page, path in (
+        (ARCHITECTURE_TREE, ARCHITECTURE_CANVAS),
+        (EXECUTION_FLOW, EXECUTION_CANVAS),
+        (INTERACTION_MAP, INTERACTION_CANVAS),
+    ):
+        assert path in tree.files and tree.owners[path] == views.OWNER
+        for navigation in (HOME, PRODUCT / "Guides/Using the Research Map.md"):
+            assert f"[[{path}|Open Canvas]]" in tree.files[navigation].decode()
+        assert f"![[{path}]]" in tree.files[page].decode()
+        assert f"[[{path}|Open " in tree.files[page].decode()
+        canvas, _ = assert_canvas_geometry(tree.files[path])
+        legend = next(n for n in canvas["nodes"] if n["id"] == "legend")["text"]
+        for destination in (ARCHITECTURE_CANVAS, EXECUTION_CANVAS, INTERACTION_CANVAS):
+            assert f"[[{destination}|" in legend
+    canvas, nodes = assert_canvas_geometry(tree.files[ARCHITECTURE_CANVAS])
+    for edge in canvas["edges"]:
+        assert edge["fromSide"] == "bottom" and edge["toSide"] == "top"
+        assert nodes[edge["fromNode"]]["y"] < nodes[edge["toNode"]]["y"]
+    for node in nodes.values():
+        if node["id"] != "legend" and node["type"] == "text":
+            identity = re.search(r"`((?:SYS|CMP)-[^`]+)`", node["text"])[1]
+            actual = atlas.entities[identity]
+            assert actual.description in node["text"]
+            assert actual.technical.verification_status in node["text"]
+            assert actual.technical.architecture_authority in node["text"]
+    assert max(n["y"] for n in nodes.values()) > max(n["x"] for n in nodes.values())
+
+
+def test_interaction_canvas_exact_rows_context_and_order_invariance(atlas, baseline):
+    from fh_agent.research_atlas.diagram_canvas import interaction_canvas
+
+    paths = preferred_paths(atlas)
+    data = baseline[0].files[INTERACTION_CANVAS]
+    canvas, nodes = assert_canvas_geometry(data)
+    assert sorted(canvas_relation_rows(data)) == interaction_rows(
+        baseline[0].files[INTERACTION_MAP].decode()
+    )
+    assert len(canvas["edges"]) == 47
+    assert all(e["toEnd"] == "arrow" for e in canvas["edges"])
+    identities = {
+        re.search(r"`([A-Z]+-[^`]+)`", n["text"])[1]
+        for n in nodes.values()
+        if n["type"] == "text" and n["id"] != "legend"
+    }
+    assert identities == {
+        i
+        for i, n in atlas.entities.items()
+        if n.type in {"Component", "Interface", "Contract", "DataArtifact", "Environment"}
+    }
+    for n in nodes.values():
+        if n["type"] != "text" or n["id"] == "legend":
+            continue
+        identity = re.search(r"`([A-Z]+-[^`]+)`", n["text"])[1]
+        assert atlas.entities[identity].description in n["text"]
+        assert f"[[{paths[identity].with_suffix('')}|" in n["text"]
+    reordered = replace(
+        atlas,
+        entities=dict(reversed(list(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    assert (
+        interaction_canvas(
+            reordered,
+            preferred_paths(reordered),
+            INTERACTION_RELATIONS,
+            final_projection.INTERACTION_GROUPS,
+        )
+        == data
+    )
+    additions = (
+        Relationship(relation="consumes", source="CMP-BODY", target="CON-CORTEX-CONTEXT"),
+        Relationship(relation="updates", source="CMP-MEMORY", target="DAT-OBSERVATION"),
+    )
+    changed = replace(atlas, relationships=atlas.relationships + additions)
+    actual = canvas_relation_rows(
+        interaction_canvas(
+            changed, paths, INTERACTION_RELATIONS, final_projection.INTERACTION_GROUPS
+        )
+    )
+    assert sorted(actual) == sorted(
+        canvas_relation_rows(data) + [(e.relation, e.source, e.target) for e in additions]
+    )
+    assert ("controls", "CMP-CORTEX", "CMP-BODY") not in actual
+    empty = replace(
+        atlas,
+        relationships=tuple(
+            e for e in atlas.relationships if e.relation not in INTERACTION_RELATIONS
+        ),
+    )
+    rendered = interaction_canvas(
+        empty, paths, INTERACTION_RELATIONS, final_projection.INTERACTION_GROUPS
+    )
+    assert_canvas_geometry(rendered)
+    assert canvas_relation_rows(rendered) == []
+
+
+def test_execution_canvas_source_gates_boundaries_and_independence(atlas, baseline):
+    from fh_agent.research_atlas.diagram_canvas import execution_canvas
+
+    data = baseline[0].files[EXECUTION_CANVAS]
+    canvas, nodes = assert_canvas_geometry(data)
+    assert len([n for n in nodes.values() if n["type"] == "group"]) == 6
+    assert len([n for n in nodes.values() if n["type"] == "text" and n["id"] != "legend"]) == 39
+    pairs = {(e["fromNode"], e["toNode"]) for e in canvas["edges"]}
+    assert ("cortex", "execute") not in pairs and ("cortex", "proposal") not in pairs
+    for gate in ("validate", "capability", "ground", "safety", "focus", "capacity", "logging"):
+        assert (gate, "reject") in pairs
+    for required in (
+        ("close", "observation"),
+        ("evaluate", "body"),
+        ("reflex", "proposal"),
+        ("episode", "restart"),
+        ("restart", "capture"),
+        ("episode", "terminal"),
+        ("continuity", "reject"),
+        ("terminal", "next"),
+        ("certify", "next"),
+    ):
+        assert required in pairs
+    candidate_paths = [
+        e for e in canvas["edges"] if e["fromNode"] == "certify" and e["toNode"] == "next"
+    ]
+    assert len({(e["fromSide"], e["toSide"]) for e in candidate_paths}) == 2
+    assert {s for s, t in pairs if t == "train"} == {"replay"}
+    assert "after termination + separate authorization" in next(
+        e["label"] for e in canvas["edges"] if e["toNode"] == "train"
+    )
+    assert "same frozen identities/Body weights" in nodes["restart"]["text"]
+    assert "No primitive keys/timings" in nodes["cortex"]["text"]
+    for node in nodes.values():
+        if node["type"] == "text" and node["id"] != "legend":
+            assert (
+                "[Source](https://github.com/Planton361/autonomous-game-agent/blob/main/docs/"
+                in node["text"]
+            )
+    reordered = replace(
+        atlas,
+        entities=dict(reversed(list(atlas.entities.items()))),
+        relationships=tuple(reversed(atlas.relationships)),
+    )
+    assert execution_canvas(reordered, preferred_paths(reordered)) == data
+    context = Relationship(relation="controls", source="CMP-CORTEX", target="CMP-BODY")
+    altered = replace(atlas, relationships=atlas.relationships + (context,))
+    assert execution_canvas(altered, preferred_paths(altered)) == data
+
+
+def test_canvas_upgrade_independent_exact_main_delta(atlas, baseline, tmp_path, monkeypatch):
+    after, technical, derived = baseline
+    before = immutable_interaction_base(
+        atlas, technical, derived, tmp_path, monkeypatch, revision=ISSUE168_BASE
+    )
+    assert len(before.files) == 524 and len(after.files) == 526
+    added = {EXECUTION_CANVAS, INTERACTION_CANVAS}
+    assert set(after.files) - set(before.files) == added
+    assert not set(before.files) - set(after.files)
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        PRODUCT / "Guides/Using the Research Map.md",
+        MANIFESTS[views.OWNER],
+        ARCHITECTURE_TREE,
+        ARCHITECTURE_CANVAS,
+        EXECUTION_FLOW,
+        INTERACTION_MAP,
+    }
+    assert before.routes == after.routes
+    assert before.owners == {p: after.owners[p] for p in before.owners}
+    assert package(atlas, technical, derived).files == after.files
+    # Added detail is measured against the immutable prior visual content, not current code.
+    prior = json.loads(before.files[ARCHITECTURE_CANVAS])
+    current = json.loads(after.files[ARCHITECTURE_CANVAS])
+    assert sum(len(n["text"]) for n in current["nodes"] if n["type"] == "text") > 2 * sum(
+        len(n["text"]) for n in prior["nodes"]
+    )
+    old_stages = re.findall(r"^    \w+[\[{]", before.files[EXECUTION_FLOW].decode(), re.M)
+    new_stages = [
+        n
+        for n in json.loads(after.files[EXECUTION_CANVAS])["nodes"]
+        if n["type"] == "text" and n["id"] != "legend"
+    ]
+    assert len(new_stages) >= 2 * len(old_stages)
+    print("Canvas-first exact-main delta:", *sorted(map(str, changed | added)), sep="\n")
