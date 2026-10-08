@@ -10,6 +10,7 @@ from . import historical_reference
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
+from .architecture_explanations import SOURCE, parse_explanations, validate_dependencies
 from .final_projection import LEDGER, MANIFESTS, ProductTree, package
 from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
@@ -240,6 +241,8 @@ def build(repo: Path, vault: Path, commit: str) -> ProductTree:
     for filename in public.REGISTRY_FILES:
         no_symlink_boundary(repo / public.SOURCE_PATHS[0] / filename)
     atlas = load_registry(repo / "docs/research-atlas")
+    explanations = parse_explanations(views.source_bytes(repo, SOURCE), atlas)
+    validate_dependencies(explanations, repo)
     snapshot, locators, records = views.authored_snapshot(vault, atlas)
     reference = views.build_index(atlas, snapshot, commit)
     technical = public.projection_tree(
@@ -265,7 +268,7 @@ def build(repo: Path, vault: Path, commit: str) -> ProductTree:
         ),
         source_catalog=views.load_catalog(vault),
     )
-    return package(atlas, technical, derived)
+    return package(atlas, technical, derived, explanations=explanations)
 
 
 def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[PurePosixPath]]:

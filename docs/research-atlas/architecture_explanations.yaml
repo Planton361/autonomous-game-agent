@@ -1,0 +1,1408 @@
+# Presentation-only AP1 synthesis; pending CONTROL review, not truth authority.
+explanation_version: '1.0'
+source_revision: a1aca251a1c5b868eb20b5f2e26f59a3b5d3d6df
+review_status: pending-control-review
+control_reference: https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6065272859
+sources:
+  arch1:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 1. Normative architecture
+    line: 3
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch2:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 2. Multi-timescale control
+    line: 54
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch3:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 3. Perception and Observation
+    line: 67
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch4:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 4. Temporal State
+    line: 83
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch5:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 5. Memory architecture
+    line: 97
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch6:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 6. Cortex contract
+    line: 126
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch7:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 7. Manager / Executive contract
+    line: 152
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch8:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 8. Skill abstraction
+    line: 166
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch9:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 9. Body design
+    line: 182
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch10:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 10. Reflex
+    line: 206
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch11:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 11. Independent verification and reward
+    line: 219
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch12:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 12. Learning lifecycle
+    line: 249
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch13:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 13. Cortex provider abstraction
+    line: 275
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  arch14:
+    kind: normative
+    path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
+    locator: 14. Safety/Input
+    line: 285
+    sha256: ba484042b7d8948fe83cc67cdfdf2ff07d104cd6bb12c1d8e556346b7716f82e
+  run:
+    kind: normative
+    path: docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md
+    locator: Mission Run identity and mutable state
+    line: 121
+    sha256: 0206959ec6eee5dd69f449bba6a2448466db259727728271e8d2acbcd3aa3c76
+  restart:
+    kind: normative
+    path: docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md
+    locator: Restart and terminal semantics
+    line: 151
+    sha256: 0206959ec6eee5dd69f449bba6a2448466db259727728271e8d2acbcd3aa3c76
+  units:
+    kind: normative
+    path: docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md
+    locator: Nested experimental units
+    line: 63
+    sha256: 0206959ec6eee5dd69f449bba6a2448466db259727728271e8d2acbcd3aa3c76
+  control:
+    kind: normative
+    path: docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md
+    locator: Single project-control workflow
+    line: 180
+    sha256: 0206959ec6eee5dd69f449bba6a2448466db259727728271e8d2acbcd3aa3c76
+  modes:
+    kind: normative
+    path: docs/canonical/04_RESEARCH_PROTOCOL_CANONICAL.md
+    locator: 4. Run modes
+    line: 36
+    sha256: 7dc0451e5eb867ee22171210775414b488e7dc056211b99e56be0e628fd57d5e
+  provenance:
+    kind: normative
+    path: docs/canonical/04_RESEARCH_PROTOCOL_CANONICAL.md
+    locator: 6. Evidence and provenance
+    line: 65
+    sha256: 7dc0451e5eb867ee22171210775414b488e7dc056211b99e56be0e628fd57d5e
+  cohorts:
+    kind: normative
+    path: docs/canonical/04_RESEARCH_PROTOCOL_CANONICAL.md
+    locator: 12. Statistical/reporting principles
+    line: 198
+    sha256: 7dc0451e5eb867ee22171210775414b488e7dc056211b99e56be0e628fd57d5e
+  researchA:
+    kind: normative
+    path: docs/canonical/07_RESEARCH_PROGRAM_SOT.md
+    locator: 4. Strang A – Modelle, Persona-Instruktionen und Erfahrungserwerb
+    line: 42
+    sha256: cc1ba5a9e979bbd929341a480bc45ac09323ce64136c586c92f016d4d8dfee5e
+  researchB:
+    kind: normative
+    path: docs/canonical/07_RESEARCH_PROGRAM_SOT.md
+    locator: 5. Strang B – aus Erfahrungen handlungsrelevantes Wissen synthetisieren
+    line: 68
+    sha256: cc1ba5a9e979bbd929341a480bc45ac09323ce64136c586c92f016d4d8dfee5e
+  cortex:
+    kind: implementation
+    path: src/fh_agent/planner/cortex.py
+    locator: Cortex.plan_next_goal
+    line: 30
+    sha256: 3763eea19ca57060707555a54990dd22ac57b9b83879b308cb1b47a843e826a0
+  cortex-test:
+    kind: test
+    path: tests/test_cortex.py
+    locator: test_cortex_validates_fake_llm_output
+    line: 89
+    sha256: aaceb8bbeebde624d9ec26a1aad1bababc86c58ffc29a8218eb41386cc520f94
+  context:
+    kind: implementation
+    path: src/fh_agent/planner/context.py
+    locator: build_plan_context
+    line: 71
+    sha256: 9277f50b76c9872ea2d8c8bd19510027923964a96e21c1791fc9d0ea77cacd36
+  context-test:
+    kind: test
+    path: tests/test_planner_context.py
+    locator: test_context_accepts_evidence_backed_fact
+    line: 15
+    sha256: a082bd5fa1d3357e56b6c65dc2004f21d3a3efda013421fabf14252de623f993
+  task-manager:
+    kind: implementation
+    path: src/fh_agent/manager/task_manager.py
+    locator: TaskManager.create_task_from_planner_output
+    line: 86
+    sha256: cdc7b98dd9af91f0947a26f3bb062d93e81d9500bc25b3e96ed48f1b389afcb3
+  task-manager-test:
+    kind: test
+    path: tests/test_task_manager.py
+    locator: test_valid_planner_output_creates_valid_task_spec
+    line: 90
+    sha256: 439cced3d69dfd80f97e74af9dab1bbc30ea7bc9f8e238a8ae06a30bd48699cc
+  orchestrator:
+    kind: implementation
+    path: src/fh_agent/manager/orchestrator.py
+    locator: ManagerOrchestrator.complete_from_skill_run
+    line: 136
+    sha256: e5a42a9e19a85488918693c7790c575ae7a26711945927c8e71273eaa771baf4
+  orchestrator-test:
+    kind: test
+    path: tests/test_manager_orchestrator.py
+    locator: test_submit_planner_output_creates_queued_scheduled_task
+    line: 103
+    sha256: bdb92395cf83911acd9ea8937298be99769953434aff91186b08f4b921258a9a
+  task-executor:
+    kind: implementation
+    path: src/fh_agent/manager/task_executor.py
+    locator: ManagerTaskExecutor.execute_current_task
+    line: 42
+    sha256: c96d05c535de4149a6842d461887fdd298a1c127cd17f7835219358a82f067c9
+  task-executor-test:
+    kind: test
+    path: tests/test_task_executor.py
+    locator: test_no_running_task_rejects_before_observation_or_input
+    line: 159
+    sha256: 5b84ceaace9011e1af73d3ca23166ea2c21242721f05aa329b6d97d39099f24c
+  memory:
+    kind: implementation
+    path: src/fh_agent/memory/db.py
+    locator: MemoryDB.insert_observation
+    line: 78
+    sha256: 6ceb06573fc6686d729693b48e4b307508433daea208e13a184253f34678b991
+  memory-test:
+    kind: test
+    path: tests/test_memory_db.py
+    locator: test_schema_initializes_successfully
+    line: 35
+    sha256: b945f94dabd9b36d23de129cb658d8fa8535605f016097fa86e3db6d7359c91d
+  capture:
+    kind: implementation
+    path: src/fh_agent/perception/subprocess_capture.py
+    locator: SubprocessPpmScreenCapture.capture
+    line: 44
+    sha256: 592bb3340c3c0ec56bacccc7b65ba09d5cb43cd0eedea30e37d50534de6398ad
+  capture-test:
+    kind: test
+    path: tests/test_subprocess_capture.py
+    locator: test_capture_returns_raw_screen_frame_without_interpreting_pixels
+    line: 19
+    sha256: 30d4d3511f6e4ed2e65b5f4b6883fc7c8d419997eab055336faafe629c964edd
+  bridge:
+    kind: implementation
+    path: src/fh_agent/bridge/observation_source.py
+    locator: BridgeObservationSource.observe
+    line: 52
+    sha256: 233fc9b0e8125b14ac0e7d8961cb1e291ffbb60418273c7df115d89ea335594c
+  bridge-test:
+    kind: test
+    path: tests/test_bridge_observation_source.py
+    locator: test_construction_does_not_read_a_payload
+    line: 117
+    sha256: bdc09dea10543e4508b73f1315136f3f39ea14c55ee11ea71a89149bb091b59a
+  firewall:
+    kind: implementation
+    path: src/fh_agent/bridge/firewall.py
+    locator: NoSpoilerFirewall.sanitize
+    line: 62
+    sha256: 3da9ea5d3c083b0ac0336968e02a1e4c51d69b02150df272fd24eded075720b7
+  firewall-test:
+    kind: test
+    path: tests/test_firewall_allowlist.py
+    locator: test_allowed_fields_are_sanitized_and_can_build_observation
+    line: 13
+    sha256: 29d91ed90e7abbb30c4ac36f00fc32e22a984b8f86774193e5b0e9ed13c27518
+  builder:
+    kind: implementation
+    path: src/fh_agent/observation/observation_builder.py
+    locator: ObservationBuilder.build
+    line: 22
+    sha256: 5ee26fb462e18285f2881bc03ef1c9f7837919f9d429224f6d0465f27910c30e
+  builder-test:
+    kind: test
+    path: tests/test_observation_builder.py
+    locator: test_observation_builder_produces_valid_json_from_frame_bridge_and_ocr
+    line: 32
+    sha256: 5bd9ff1d05e753045bff08cd62a2ae8054f543da9f4971261621d1223dc88691
+  ocr:
+    kind: implementation
+    path: src/fh_agent/perception/ocr.py
+    locator: NoOpOcrEngine
+    line: 24
+    sha256: 67085cc06e543369125ea17dd714824fc093a16edbf4d6bf8a23b78449c2b661
+  ocr-test:
+    kind: test
+    path: tests/test_observation_builder.py
+    locator: test_observation_builder_produces_valid_json_from_frame_bridge_and_ocr
+    line: 32
+    sha256: 5bd9ff1d05e753045bff08cd62a2ae8054f543da9f4971261621d1223dc88691
+  ui:
+    kind: implementation
+    path: src/fh_agent/perception/ui_state.py
+    locator: classify_ui_state
+    line: 15
+    sha256: f8af8b4a495951093f0ec200f3b14fcca7a1ddeb7823c159fba9eeda48dbbc06
+  ui-test:
+    kind: test
+    path: tests/test_ui_state.py
+    locator: test_classifier_prioritizes_death_over_other_visible_ui_flags
+    line: 5
+    sha256: 3e177013570d2a26c54b9a9d56ae441fa4e45cba60b0539eb69edf080395d5a7
+  runner:
+    kind: implementation
+    path: src/fh_agent/manager/skill_runner.py
+    locator: SkillRunner.run
+    line: 76
+    sha256: dff15a3165a493ddd6ddcfaad2707c7458b26191c43b45535b05136333042151
+  runner-test:
+    kind: test
+    path: tests/test_skill_runner.py
+    locator: test_runner_rejects_continue_dialogue_when_start_observation_is_not_dialogue
+    line: 218
+    sha256: a1095ff9166af742baa4f2c1b1d8f60788c0fc90c04e21a8ee28b8744256644b
+  evidence:
+    kind: implementation
+    path: src/fh_agent/memory/evidence.py
+    locator: EvidenceStore.save_screenshot
+    line: 47
+    sha256: 7cd016706d9052e177445d564af97c2b2b4afe31293725e20bee460f328f9c56
+  evidence-test:
+    kind: test
+    path: tests/test_evidence_store.py
+    locator: test_evidence_store_saves_dummy_screenshots_with_hashes
+    line: 31
+    sha256: 5d9ed2320e7fc508a06bd8f638a94bed62519dd988e6b9aa381933cefbc0d97c
+  events:
+    kind: implementation
+    path: src/fh_agent/memory/event_log.py
+    locator: EventLogger
+    line: 30
+    sha256: 78c93f4a94ee272c56f35b04902880e5396558487cdeb61cc380503eb3d19696
+  events-test:
+    kind: test
+    path: tests/test_event_log.py
+    locator: test_event_log_appends_and_reads_records_in_order
+    line: 37
+    sha256: 31608ed86398cd7954af66c8a591a996a18bcbc556d3b7270fe42f7df042728f
+  facts:
+    kind: implementation
+    path: src/fh_agent/memory/facts.py
+    locator: FactStore.update_fact_status
+    line: 89
+    sha256: aee81ca8c368feeac835966f1816e5a4e37ab1ea682bbb06de6d34463db4c67c
+  facts-test:
+    kind: test
+    path: tests/test_memory_facts.py
+    locator: test_create_get_list_and_update_fact
+    line: 27
+    sha256: b0abe87c5d0cfa07b0b835474965528b1aa54beb8e752574168ea676139d43b4
+  topology:
+    kind: implementation
+    path: src/fh_agent/memory/room_graph.py
+    locator: RoomGraphStore.record_transition
+    line: 158
+    sha256: ffcaa9fe96ff5da37ad1e6e821359fe4945cca1c038b430130ddc10ee3e02f3f
+  topology-test:
+    kind: test
+    path: tests/test_room_graph_memory.py
+    locator: test_room_create_with_evidence
+    line: 30
+    sha256: d8b4b750ca0d113e681d2d76af97c015342eccb663dfb8ecba3030856d2bf269
+  strategy:
+    kind: implementation
+    path: src/fh_agent/memory/strategy_graph.py
+    locator: StrategyGraphStore.record_outcome
+    line: 226
+    sha256: b5f1fe7d456ee75c8fbc51ed41771177bdae833e9fb609ca39db0f0205fa6a0c
+  strategy-test:
+    kind: test
+    path: tests/test_strategy_graph_memory.py
+    locator: test_create_get_and_list_strategy
+    line: 32
+    sha256: bc8079cb0915dfcfe40793e354b5e3197043bfa382038e7ed0818b206e71b84d
+  competence:
+    kind: implementation
+    path: src/fh_agent/memory/skill_registry.py
+    locator: SkillRegistry.get_skill_stats
+    line: 46
+    sha256: 50e66260afaf0d0df419e0f4871722f42a977f247034ed21545c811ad4e59729
+  competence-test:
+    kind: test
+    path: tests/test_skill_registry_memory.py
+    locator: test_empty_stats_for_unknown_skill
+    line: 53
+    sha256: f9c6b6147f765a72d9c4b65d7ff4d1cfae80d8dae9eea90a01ea0ad4109e3200
+  grounding:
+    kind: implementation
+    path: src/fh_agent/manager/grounding.py
+    locator: BoundedObservationGroundingService.ground
+    line: 64
+    sha256: fd3ccb9914e6196bcb7b7ca9f2e51854504b004688a199d6e5d3e0653943a10d
+  grounding-test:
+    kind: test
+    path: tests/test_grounding.py
+    locator: test_one_visible_object_grounds_interact_visible_object
+    line: 58
+    sha256: 0ef5655237220942dade9e9f8b24d81f81acd4f40296f648378d774417805495
+  submission:
+    kind: implementation
+    path: src/fh_agent/manager/grounded_cortex_submission.py
+    locator: GroundedCortexTaskSubmitter.plan_ground_and_submit
+    line: 43
+    sha256: 618053dd3c3a7d994eea1fc509578dd4c7f29c1e5044cbae5204d28d2a10de52
+  submission-test:
+    kind: test
+    path: tests/test_grounded_cortex_submission.py
+    locator: test_targetless_submission_forwards_planning_inputs_without_grounding
+    line: 133
+    sha256: fa8c38a15c8ce028360d76b9d3a353cfc73052401a57bf91cd613bbc35362e64
+  body:
+    kind: implementation
+    path: src/fh_agent/body/skills/basic_reach_target.py
+    locator: BasicReachTargetSkill.next_action
+    line: 48
+    sha256: 483002f495824d875238a9b7be9226130c2cd4db4aebde447f6a61f4925a28af
+  body-test:
+    kind: test
+    path: tests/test_basic_reach_target_skill.py
+    locator: test_basic_reach_target_accepts_canonical_visible_screen_point_target
+    line: 36
+    sha256: 6a0e6eab86f61ac9b527486e825fd6373a0c08208ba5403eaaaa597c00e5b8dc
+  safety:
+    kind: implementation
+    path: src/fh_agent/body/safety_filter.py
+    locator: SafetyFilter.assess_action
+    line: 58
+    sha256: 6f89158b7a7d0214d9a588fb6d4d522b8a4bf9a33f9eecef3ad06258c1853192
+  safety-test:
+    kind: test
+    path: tests/test_safety_filter.py
+    locator: test_safety_filter_blocks_actions_at_or_above_threshold
+    line: 9
+    sha256: 678a40405b09513ef223fe5ebfce972889dfd8b0ae8db83cda4aaab79f839704
+  input:
+    kind: implementation
+    path: src/fh_agent/game/input_executor.py
+    locator: InputExecutor.execute
+    line: 68
+    sha256: 8fe66970cbfcd38b95141b30222daf9006094b1b8541c51a0f20e3020d634d13
+  input-test:
+    kind: test
+    path: tests/test_input_executor_safety.py
+    locator: test_primitive_actions_are_exactly_the_allowed_set
+    line: 37
+    sha256: 5d25a9571077b83f365c6171e9cedddbde19f717be3f3af73bcbdf4a694cba60
+  verifier:
+    kind: implementation
+    path: src/fh_agent/verifier/reach_target.py
+    locator: ReachTargetVerifier.verify
+    line: 23
+    sha256: 95952cadcdbd2ca6b21d5efdf60e5179722b179c70e8a11d8e23c88dde40ca92
+  verifier-test:
+    kind: test
+    path: tests/test_reach_target_verifier.py
+    locator: test_exact_target_position_with_outcome_evidence_is_success
+    line: 45
+    sha256: 2b151badbbba4fdb13c9b06e839cf46cfbb77d6513c75f3426e2e554f3264298
+  dialogue:
+    kind: implementation
+    path: src/fh_agent/verifier/dialogue.py
+    locator: ContinueDialogueVerifier.verify
+    line: 10
+    sha256: 20ffecceeac04bfde6bb36b87ff9ed59cf1c0b27b3c85344f962dbf9f39e11a1
+  dialogue-test:
+    kind: test
+    path: tests/test_dialogue_verifier.py
+    locator: test_visible_dialogue_text_change_with_evidence_is_success
+    line: 33
+    sha256: 6bf4de213dda3d816ef7f81c8ccc9064e61a1e3096198757a9c19e3c6ba86771
+  interaction:
+    kind: implementation
+    path: src/fh_agent/verifier/interaction.py
+    locator: InteractVisibleObjectVerifier.verify
+    line: 16
+    sha256: dbd38c03e358dbbe72875e23009d744ae2398bb0cdb0e8a63b2eda592d9a6681
+  interaction-test:
+    kind: test
+    path: tests/test_interaction_verifier.py
+    locator: test_supported_ui_transitions_with_evidence_are_success
+    line: 70
+    sha256: 22bca7bbb292ddaf4dae8aa2b7d599e5d555ceffae7fced32b16673319a813e3
+  replay:
+    kind: implementation
+    path: src/fh_agent/rl/replay_buffer.py
+    locator: ReplayBuffer.sample
+    line: 62
+    sha256: 68412e8b183ee133b0453f5f8f2cc7ea799c62ad9db7449c723408baffe7ab67
+  replay-test:
+    kind: test
+    path: tests/test_replay_buffer.py
+    locator: test_replay_transition_stores_required_fields
+    line: 22
+    sha256: 430db0cc56f62e2a65c0b0bfc16609f25e1a8d7bd6bf7ee8c920df9976c9c2af
+  cloning:
+    kind: implementation
+    path: src/fh_agent/rl/behavior_cloning.py
+    locator: build_behavior_cloning_dataset
+    line: 71
+    sha256: 91dc90abe637706c684de24edc14ba50be44d01933920705500ff8925a2f6116
+  cloning-test:
+    kind: test
+    path: tests/test_behavior_cloning.py
+    locator: test_action_mapping_is_deterministic_and_invertible
+    line: 48
+    sha256: f1964d0421f1cd43ad5cddb933017fae0545841a6cd2ec60073adf42fd69c71b
+components:
+  CMP-CORTEX:
+    area: Reason
+    responsibility: Cortex proposes the next evidence-grounded goal and a reusable skill, and can reflect
+      on a completed attempt.
+    why: Slow reasoning can weigh uncertainty and prior experience while Manager and Body preserve a bounded
+      execution boundary.
+    normative: On meaningful new evidence, completion, failure, contradiction or a strategically relevant
+      alarm, reason over a bounded CortexContext. Propose a goal, capability, constraints, success criteria
+      and evidence-linked memory requests. Never emit primitive keys, timings or direct InputExecutor
+      calls.
+    mechanism: When plan_next_goal is called, it checks the requested skill set, builds CortexContext
+      from Observation and the caller-supplied memory summary, loads the prompt, and invokes the injected
+      LLMClient. It parses PlannerOutput, rejects cited evidence outside the context and rejects an unavailable
+      selected skill. The returned proposal still requires Manager validation and grounding. post_mortem
+      separately parses reflection output; neither call writes memory or executes a skill.
+    inputs: Observation, supplied facts/hypotheses/recent outcomes, available skills and risk constraints.
+    outputs: PlannerOutput, or PostMortemOutput for reflection; both are proposals.
+    implementation: Typed planning, context validation and provider injection exist. Fake/local/API provider
+      choice is a separate configuration and cohort concern. Cortex itself has no primitive execution
+      path.
+    limitations: The memory summary is supplied by the caller; this is not automatic ranked retrieval.
+      Event-driven invocation is a responsibility of the surrounding runtime. Valid JSON and evidence-scope
+      checks do not prove a goal is useful, true or scientifically effective.
+    example: 'Illustrative: visible text and a cited screenshot support a proposal to continue dialogue.
+      Manager must still accept the capability; the Verifier later decides the visible outcome.'
+    research_relevance: Existing program question and experience-to-action thread concern produced proposals
+      and later evidence use. Their actual mappings and measurement links below are navigation, not findings.
+    sources:
+    - arch6
+    - cortex
+    - cortex-test
+    - context
+    - context-test
+    - arch2
+    - arch13
+  CMP-MANAGER:
+    area: Executive Control
+    responsibility: Manager converts valid Cortex intent into bounded, visibly grounded skill contracts
+      and owns their lifecycle.
+    why: A plausible suggestion must pass capability, evidence, budget and termination checks before it
+      can authorize action.
+    normative: Validate the proposal and no-spoiler policy, reject unavailable capabilities or ambiguous
+      targets, bind a visible target, action set, budget, risk, verifier, timeout and provenance, then
+      schedule execution. Close or suspend the old contract before replanning.
+    mechanism: TaskManager creates TaskSpec from PlannerOutput and required typed grounding. ManagerOrchestrator
+      enqueues and starts it through TaskScheduler. ManagerTaskExecutor resolves the current task to Body
+      and Verifier bindings. Completion requires the matching task and skill; Manager stop or canonical
+      VerifierResult drives closure, while missing/nonterminal outcomes leave it open. Grounding and Scheduling
+      and Completion are the registered children, not separate sources of primitive authority.
+    inputs: PlannerOutput, GroundingResult from visible candidates, VerifierResult and Manager stop conditions.
+    outputs: TaskSpec / bounded Skill Contract, scheduled task state and completion events.
+    implementation: Proposal validation, typed contracts, grounding, scheduling and bounded execution
+      composition are present; event sinks/logging must be configured by the caller.
+    limitations: A TaskSpec object alone does not establish every runtime safety or Mission Run gate.
+      Public mark_success/mark_failure APIs require correct caller authority; their existence is not an
+      independent verification result. No full official screen-only loop is certified here.
+    example: 'Illustrative: two equally supported object candidates cause grounding rejection. Body receives
+      no guessed target; a fresh planning decision follows the closed/suspended attempt.'
+    research_relevance: Existing proposal-to-contract research navigation and disposition measurement
+      describe a possible observation point; they do not validate an instrument or an experiment.
+    sources:
+    - arch7
+    - task-manager
+    - task-manager-test
+    - orchestrator
+    - orchestrator-test
+    - task-executor
+    - task-executor-test
+    - run
+  CMP-MEMORY:
+    area: Retain and Retrieve
+    responsibility: Memory retains evidence-linked experience and revisable knowledge outside Cortex.
+    why: A later decision should be able to inspect what happened and distinguish observation, inference
+      and contradiction without relying on the planner remembering a conversation.
+    normative: Keep episodic trajectories, facts, hypotheses, observed topology, attempted strategies
+      and skill competence with provenance. Expose relevant context through bounded retrieval. After death,
+      separate observed outcome from inferred cause. Consolidation/Admission ownership remains design-open;
+      no automatic fact gate is established.
+    mechanism: MemoryDB stores typed observations, actions and skill results as SQLite records. FactStore
+      manages proposition status, confidence and evidence; RoomGraphStore records observed transitions;
+      StrategyGraphStore records attempts and outcomes; SkillRegistry aggregates history. Callers perform
+      these writes. The six true children implement different storage responsibilities; Memory Retrieval
+      is a sibling System component, not a child or a Cortex submodule.
+    inputs: Observation and caller-provided action/skill records; declared VerifierResult, PostMortemOutput
+      and MemoryUpdateRequest context.
+    outputs: Persisted experience and queryable records. A requested update is not automatically admitted
+      knowledge.
+    implementation: SQLite persistence and the specialized stores exist. The overall memory lifecycle
+      is partial.
+    limitations: There is no complete ranked retrieval snapshot, autonomous synthesis or accepted consolidation/admission
+      owner. Fact status is caller-controlled storage metadata, not proof. Life Episode continuity is
+      allowed with provenance within one Mission Run; independent Mission Runs do not inherit memory automatically.
+    example: 'Illustrative: a failed interaction and its screenshot are stored; “the object may require
+      another approach” stays a hypothesis. A later context can cite the attempt without treating the
+      inferred cause as observed.'
+    research_relevance: Experience-to-knowledge is the program context, not a fabricated Memory-specific
+      research mapping. Use only the actual attached records and sources below.
+    sources:
+    - arch5
+    - memory
+    - memory-test
+    - run
+    - restart
+    - researchB
+  CMP-MEM-RETRIEVAL:
+    area: Retain and Retrieve
+    responsibility: Memory Retrieval supplies bounded evidence context to Cortex.
+    why: The full database would overwhelm a planning call and blur relevant evidence with stale or contradictory
+      material.
+    normative: On a planning context request, select goal-relevant facts, hypotheses, episodes, topology
+      and skill history; consider evidence quality, contradictions, recency and past failures. Produce
+      a bounded snapshot with provenance rather than granting action authority.
+    mechanism: The current build_plan_context consumes a memory_summary supplied by its caller. It coerces
+      known facts, hypotheses and recent outcomes into typed notes, validates content and serializes CortexContext
+      deterministically. This is context assembly, not database selection or ranking.
+    inputs: Caller-selected memory_summary and Observation.
+    outputs: IF-MEM-CORTEX / CortexContext; the versioned RetrievalSnapshot remains target-only.
+    implementation: Storage and context assembly provide a partial memory-to-Cortex path.
+    limitations: No implemented ranker, relevance policy, bounded versioned snapshot builder or complete
+      retrieval evaluation is established. It is a System child beside Memory.
+    example: 'Illustrative: a caller supplies a previous failed attempt as recent_skill_outcomes; Cortex
+      can read it, but this does not demonstrate that a retrieval policy found it.'
+    research_relevance: Existing retrieval-delivery measurement asks what evidence reached Cortex. A context
+      builder alone cannot establish memory utility.
+    sources:
+    - arch5
+    - context
+    - context-test
+  CMP-SCREEN-CAPTURE:
+    area: Acquire
+    responsibility: Screen Capture acquires the visible RGB frame without interpreting it.
+    why: Every later visual claim needs a concrete player-visible observation boundary.
+    normative: Capture the intended game window, retain capture time and dimensions, and link the frame
+      to durable evidence before deriving state.
+    mechanism: SubprocessPpmScreenCapture runs an explicitly configured command once with a timeout. It
+      checks exit status, parses a binary P6 PPM header, validates dimensions and exact RGB byte count,
+      and returns ScreenFrame. Capture-session composition can persist screenshot evidence; the adapter
+      does not decide UI meaning.
+    inputs: Explicit capture argv and capture clock.
+    outputs: ScreenFrame with RGB bytes, dimensions and time.
+    implementation: Subprocess capture and frame validation exist.
+    limitations: The configured command must target the correct visible surface. Valid raster bytes alone
+      prove neither window identity nor meaningful perception or task success.
+    example: 'Illustrative: malformed PPM output is rejected before Observation construction.'
+    research_relevance: Provides an evidence acquisition boundary; no Component-specific finding is inferred
+      from capture tests.
+    sources:
+    - arch3
+    - capture
+    - capture-test
+  CMP-VISIBLE-STATE-BRIDGE:
+    area: Acquire
+    responsibility: The optional bridge adapts allowlisted, simultaneously visible fields in a separate
+      bridge-assisted cohort.
+    why: It supports diagnostic visible-data acquisition while preserving cohort and no-spoiler boundaries.
+    normative: Keep screenshots mandatory; accept only allowlisted information visible to an ordinary
+      player, record receipts and provenance, and never enable the bridge in screen-only.
+    mechanism: BridgeObservationSource requests one raw payload, passes it through VisibleBridgeAdapter,
+      verifies the declared mode, and in bridge-assisted mode requires screenshot_id to equal the latest
+      durable screenshot for that run. Sanitization supplies the Observation; mode or screenshot mismatches
+      fail.
+    inputs: Visible payload, expected run mode, run ID and screenshot evidence lookup.
+    outputs: Canonical Observation after sanitization and screenshot binding.
+    implementation: The bridge adapter and current-screenshot binding are implemented.
+    limitations: Binding an ID does not independently prove every field is visible. Runtime eligibility,
+      isolation and surface validation remain separate obligations; results cannot be pooled with screen-only.
+    example: 'Illustrative: a payload citing an older screenshot is rejected even when its keys are allowlisted.'
+    research_relevance: Diagnostic cohort context only; no comparative result is supplied.
+    sources:
+    - arch3
+    - bridge
+    - bridge-test
+    - modes
+  CMP-NO-SPOILER-FIREWALL:
+    area: Observe
+    responsibility: The firewall limits bridge-like inputs to visible allowlisted fields.
+    why: Technical access to hidden state must not become epistemic permission.
+    normative: Deny by default, reject forbidden access as an integrity incident, and retain contamination
+      provenance rather than silently repairing an official run.
+    mechanism: NoSpoilerFirewall.sanitize checks raw top-level keys for the forbidden set and raises FirewallViolation
+      on a match; it returns only allowed fields and drops other keys. ObservationBuilder and bridge sanitization
+      use this boundary.
+    inputs: Raw bridge-like mapping and explicit allowlist/forbidden set.
+    outputs: Sanitized visible mapping or a violation.
+    implementation: Key-based filtering and rejection are implemented.
+    limitations: This class alone does not verify visibility, recursively classify arbitrary payloads
+      or durably quarantine a Mission Run. Its error must be logged and handled by the surrounding integrity
+      boundary.
+    example: 'Illustrative: a hidden map identifier raises a violation; it is never admitted as a location
+      fact.'
+    research_relevance: Integrity is an eligibility constraint, not a scientific success metric established
+      by a unit test.
+    sources:
+    - arch3
+    - firewall
+    - firewall-test
+    - provenance
+  CMP-PERCEPTION:
+    area: Observe
+    responsibility: Perception turns visible screen signals into an evidence-linked Observation.
+    why: Planning and control need typed visible signals with uncertainty, not unqualified claims about
+      pixels.
+    normative: Extract visible text/UI, nonsemantic spatial candidates and confidence with screenshot
+      links. Report visibility rather than deciding goals, quest meaning or success.
+    mechanism: Observation Builder sanitizes optional bridge fields, computes a frame signature, calls
+      OCR, classifies UI and normalizes visible sprite positions/hashes into Observation. UI State Classification
+      and Observation Builder are the true children. SpatialPerceptionProducer is a declared interface,
+      not a demonstrated pixel detector.
+    inputs: ScreenFrame, screenshot evidence, optional sanitized bridge fields and last action result.
+    outputs: Observation with text, UI, spatial signals and evidence references.
+    implementation: Observation assembly and deterministic UI rules exist; overall perception is partial.
+    limitations: Default OCR returns no text; static OCR is a fixture. No learned pixel detector or validated
+      screen-only perception quality is established. A signature change is not success.
+    example: 'Illustrative: absent text and visible UI signals can yield unknown rather than an invented
+      screen meaning.'
+    research_relevance: Perception quality requires separate datasets and measurements; existing source
+      attachments below are the available record set.
+    sources:
+    - arch3
+    - builder
+    - builder-test
+    - ocr
+    - ocr-test
+  CMP-OBSERVATION-BUILDER:
+    area: Observe
+    responsibility: Observation Builder assembles one typed, screenshot-linked visible observation.
+    why: A common payload keeps perceptual signals and their provenance together at module boundaries.
+    normative: Combine admissible visible signals with evidence IDs without inventing goals or hidden
+      semantic identity.
+    mechanism: On build, sanitize bridge data, compute the frame signature, ask the configured OCR engine,
+      classify UI, normalize visible sprites and construct Observation with screenshot/evidence linkage
+      and optional last action result.
+    inputs: ScreenFrame, EvidenceRecord, optional bridge mapping and ActionResult.
+    outputs: Observation ready for context/control consumers.
+    implementation: Assembly is implemented with injectable OCR and deny-by-default sanitization.
+    limitations: The default OCR backend contributes no text. Assembly does not itself provide a learned
+      detector, temporal stabilization or independent outcome verification.
+    example: 'Illustrative: visible sprite positions are normalized with the screenshot evidence ID, rather
+      than assigned hidden game identities.'
+    research_relevance: Supports observable input provenance; assembly tests do not validate perceptual
+      accuracy.
+    sources:
+    - arch3
+    - builder
+    - builder-test
+    - firewall
+    - ocr
+  CMP-PERCEPTION-UI-STATE:
+    area: Observe
+    responsibility: UI State Classification labels visible UI signals and exposes uncertainty.
+    why: Body and Manager need to distinguish dialogue, menu, combat or death without guessing hidden
+      state.
+    normative: Derive UI state from admissible visible information, keep confidence and evidence, and
+      report uncertainty when signals are insufficient.
+    mechanism: classify_ui_state checks explicit visible death, combat, menu and message-window signals,
+      then OCR spans and visible position information through deterministic rules. It returns a UI classification
+      and confidence; insufficient signals return unknown.
+    inputs: Sanitized visible UI fields and OCR TextSpan objects.
+    outputs: UIStateClassification used by Observation Builder.
+    implementation: Deterministic rules are implemented.
+    limitations: No trained or calibrated pixel UI classifier is established. Supplied bridge signals
+      are not evidence of screen-only accuracy.
+    example: 'Illustrative: a visible message-window flag selects dialogue; no supporting signals yields
+      unknown.'
+    research_relevance: UI-state accuracy is a possible measurement responsibility, not a new mapping
+      or reported F1 score.
+    sources:
+    - arch3
+    - ui
+    - ui-test
+  CMP-TEMPORAL-STATE:
+    area: Observe
+    responsibility: Temporal State should stabilize recent visible observations into short-horizon control
+      signals.
+    why: One frame cannot establish motion, sustained no-progress or target continuity.
+    normative: On successive evidence-linked observations, maintain recent positions, appearance/disappearance
+      events, stable UI transitions, progress windows, repeated-action loops and target visibility. Report
+      uncertainty and alarms to bounded control; never infer hidden identity from persistence alone.
+    mechanism: The normative mechanism compares a short history and emits stabilized signals or a no-progress/visibility
+      warning. Current code has local step/history handling in SkillRunner; there is no central Temporal
+      State component implementing this mechanism. A frame hash alone is not temporal reasoning.
+    inputs: Recent Observations, evidence times and action history.
+    outputs: Target continuity, motion/progress windows and uncertainty signals (target architecture).
+    implementation: 'Target-only: local execution history exists, but the centralized temporal mechanism
+      is missing.'
+    limitations: No complete stabilization, motion estimator or common temporal summary is established.
+    example: 'Normative illustration: several unchanged target positions after allowed moves can raise
+      no-progress; one unchanged image cannot establish that conclusion.'
+    research_relevance: A target responsibility is not evidence of a research gap or measured control
+      quality.
+    sources:
+    - arch4
+    - runner
+    - runner-test
+  CMP-EVIDENCE-LEDGER:
+    area: Retain and Retrieve
+    responsibility: Evidence Ledger anchors screenshots and event histories to inspectable records.
+    why: Memory, grounding and verification must be traceable to what was actually observed and executed.
+    normative: Retain immutable screenshot/text/action/outcome/receipt links, hashes, timestamps and run
+      provenance. Record observations, proposed/executed/rejected actions, contracts and outcomes with
+      before/after linkage.
+    mechanism: EvidenceStore writes PPM screenshot bytes and returns an EvidenceRecord with ID, run, path,
+      SHA-256, capture time and dimensions. EventLogger appends JSONL event records when configured. These
+      are pieces of the ledger, not a single complete integrity lifecycle.
+    inputs: Captured frame or existing screenshot, run ID and runtime events.
+    outputs: Screenshot EvidenceRecord and append-only event material.
+    implementation: Screenshot metadata and event storage exist; the overall ledger is partial.
+    limitations: EvidenceStore can write to an existing generated ID path; a frozen metadata object alone
+      does not enforce immutable files. Optional runtime logging and these stores do not establish complete
+      contract/run provenance or contamination quarantine.
+    example: 'Illustrative: an action event can cite before/after screenshot IDs; the hashes allow later
+      byte inspection without claiming the action succeeded.'
+    research_relevance: Provenance is required for scientific evidence; stored bytes are not a result
+      or accepted claim.
+    sources:
+    - arch5
+    - evidence
+    - evidence-test
+    - events
+    - events-test
+    - provenance
+  CMP-MEM-EPISODIC:
+    area: Retain and Retrieve
+    responsibility: Episodic Memory retains what happened in an observed trajectory.
+    why: Later reasoning needs the sequence and outcome of an attempt, not just a disconnected proposition.
+    normative: Record state summaries, goals, contracts, skills, actions and visible outcomes, including
+      death or stall, with evidence and Life Episode/Mission Run identity.
+    mechanism: MemoryDB inserts and reads Observation, ActionResult and SkillResult records in SQLite;
+      event logs provide additional trajectory material. Callers link these records. There is no dedicated
+      consolidated episode entity or complete episode retrieval lifecycle.
+    inputs: Typed observations, actions and skill results with run/evidence linkage.
+    outputs: Persisted trajectory material for later inspection.
+    implementation: Trajectory record persistence is partial episodic infrastructure.
+    limitations: Storage tables alone do not assemble an interpretable Life Episode or enforce complete
+      overlay continuity and consolidation.
+    example: 'Illustrative: preserve the action preceding visible death; its temporal position does not
+      prove that action caused death.'
+    research_relevance: Cross-episode synthesis is program context. Only explicit research attachments
+      establish local mappings.
+    sources:
+    - arch5
+    - memory
+    - memory-test
+    - run
+    - restart
+  CMP-MEM-FACTS:
+    area: Retain and Retrieve
+    responsibility: Semantic Facts stores evidence-backed propositions and their status.
+    why: A reusable assertion should expose evidence, confidence and revision history rather than become
+      an untraceable planner belief.
+    normative: Keep observed knowledge distinct from uncertain hypotheses; retain provenance and revise
+      contradicted propositions explicitly. Admission/consolidation ownership is design-open.
+    mechanism: FactStore creates a proposition only with evidence IDs, persists its status/confidence,
+      lists or reads it, updates status/confidence and appends deduplicated evidence. mark_contradicted
+      changes status. These operations are requested by callers.
+    inputs: Claim, evidence IDs, status and optional confidence.
+    outputs: StoredFact and updated provenance/status.
+    implementation: Fact persistence and explicit updates are implemented.
+    limitations: A caller can assign status; the store does not independently prove truth or automatically
+      admit Cortex requests. Evidence support/contradiction adjudication is missing.
+    example: 'Illustrative: “a visible menu appeared after interaction” can cite screenshots; a possible
+      explanation should remain a hypothesis.'
+    research_relevance: Storage tests are technical evidence, not accepted facts about the game or literature.
+    sources:
+    - arch5
+    - facts
+    - facts-test
+  CMP-MEM-HYPOTHESES:
+    area: Retain and Retrieve
+    responsibility: Hypotheses holds uncertain propositions without silently turning them into facts.
+    why: Exploration needs testable possibilities and contradictions while preserving uncertainty.
+    normative: Track confidence, supporting and contradicting evidence, status and possible test actions.
+      A tested interpretation still needs admissible evidence and explicit knowledge revision.
+    mechanism: On an explicit caller update, the current FactStore can store hypothesis and contradicted
+      statuses, change confidence and append evidence. It shares proposition storage with Semantic Facts;
+      no separate hypothesis testing/adjudication engine is implemented.
+    inputs: Uncertain claim, evidence, confidence and caller-selected status.
+    outputs: Revisable proposition with hypothesis/contradicted metadata.
+    implementation: Status/confidence storage exists; the full hypothesis lifecycle is partial.
+    limitations: Supporting versus contradicting evidence and test-action lifecycle are not separately
+      modeled by this API. No automatic promotion or consolidation authority is established.
+    example: 'Illustrative: “this visible object may open a menu” stays uncertain until an authorized
+      interaction provides outcome evidence.'
+    research_relevance: Relevant to experience synthesis as a design context; no new Component-to-Research
+      edge is inferred.
+    sources:
+    - arch5
+    - facts
+    - facts-test
+  CMP-MEM-TOPOLOGY:
+    area: Retain and Retrieve
+    responsibility: Topological Memory stores observed connectivity between visually characterized states.
+    why: The agent may reuse its own transitions without reading an internal game map.
+    normative: Build connections from admissible visible transitions, retaining evidence and uncertainty
+      about state identity. Never use map/event IDs or hidden topology.
+    mechanism: RoomGraphStore upserts caller-provided visible signatures and records evidence-linked transitions,
+      lists neighbors and checks metadata for forbidden keys. It stores observed graph material; it does
+      not discover routes from hidden state.
+    inputs: Visible room/state signature, evidence, transition endpoints and metadata.
+    outputs: Room records and observed neighbor transitions.
+    implementation: Evidence-linked graph persistence is implemented.
+    limitations: Signatures and endpoints are supplied by callers. Reliable visual reidentification and
+      autonomous route planning are not demonstrated by the store; it is not an internal game map.
+    example: 'Illustrative: moving between two visibly characterized states records an observed edge,
+      without claiming all exits are known.'
+    research_relevance: Observed structure may inform experience reuse; only attached research records
+      constitute mappings.
+    sources:
+    - arch5
+    - topology
+    - topology-test
+  CMP-MEM-STRATEGY:
+    area: Retain and Retrieve
+    responsibility: Strategy / Experiment Memory records attempted approaches and their outcomes.
+    why: Later decisions should distinguish a failed attempt, its rationale and an untested alternative.
+    normative: Retain approach, rationale, visible result, failure mode and retry/modify/avoid implications
+      with provenance; interpretation is not a verified cause.
+    mechanism: On a caller request, StrategyGraphStore creates caller-supplied evidence-backed strategies,
+      appends evidence, updates status and records outcomes. It can list strategies and their outcome
+      histories; it does not autonomously synthesize or validate an approach.
+    inputs: Strategy key/text, evidence, status/confidence and observed outcome record.
+    outputs: StrategyRecord and StrategyOutcomeRecord histories.
+    implementation: Strategy and outcome storage are implemented.
+    limitations: Caller-supplied status/outcomes do not prove causal effectiveness. There is no automatic
+      synthesis, scientific experiment execution or accepted finding.
+    example: 'Illustrative: record an attempted interaction as unsuccessful and preserve its screenshot;
+      “try a different visible option” remains a proposal.'
+    research_relevance: Agent strategy memory is not a scientific Experiment record. Existing private
+      schemas remain the authored research authority.
+    sources:
+    - arch5
+    - strategy
+    - strategy-test
+  CMP-SKILL-COMPETENCE:
+    area: Retain and Retrieve
+    responsibility: Skill Competence Registry summarizes reusable-skill history.
+    why: Planning should know the limits of available controllers before requesting a capability.
+    normative: Associate skill version, controller, goal schema, validation metrics, failure modes and
+      activation state; use evidence to estimate competence without granting new authority.
+    mechanism: When queried for a skill name or recent results, SkillRegistry reads persisted skill_results,
+      computes counts, success rate, average reward/steps and failure-reason counts, and returns recent
+      results. It is a read-only history aggregate over MemoryDB.
+    inputs: Persisted SkillResult records and skill name.
+    outputs: SkillStats and recent result histories.
+    implementation: Historical aggregates exist; canonical competence tracking is partial.
+    limitations: No versioned controller identity, held-out certification metrics or activation state
+      is supplied by this API. Historical success rates are not certified competence.
+    example: 'Illustrative: a skill with repeated recorded target-loss outcomes can expose that history;
+      it does not automatically disable or retrain the controller.'
+    research_relevance: History is technical trajectory material, not a scientific comparison or validated
+      competence instrument.
+    sources:
+    - arch5
+    - competence
+    - competence-test
+  CMP-MANAGER-GROUNDING:
+    area: Executive Control
+    responsibility: Grounding binds Manager intent to a typed visible target.
+    why: Body must act on evidence-linked coordinates or objects rather than guess which thing the planner
+      meant.
+    normative: Use current visible evidence to resolve one typed target; reject insufficient confidence,
+      incompatible type or ambiguity before contract issuance.
+    mechanism: BoundedObservationGroundingService selects from visible candidates under bounded confidence
+      rules. GroundedCortexTaskSubmitter builds a request from current Observation evidence and submits
+      the result with the proposal. TaskManager checks skill target requirements before creating TaskSpec.
+    inputs: Goal/skill request, visible candidate positions/hashes and evidence IDs.
+    outputs: GroundingResult containing a typed target or grounding_failed.
+    implementation: Bounded selection and grounded submission are implemented.
+    limitations: A grounding result does not create a pixel detector or establish semantic game identity.
+      Ambiguous/unsupported candidates fail closed; grounding alone never sends input.
+    example: 'Illustrative: two equally plausible candidates are rejected rather than selecting one arbitrarily.'
+    research_relevance: Target linkage is a technical precondition; no separate study or finding is manufactured.
+    sources:
+    - arch7
+    - grounding
+    - grounding-test
+    - submission
+    - submission-test
+  CMP-MANAGER-SCHED-COMP:
+    area: Executive Control
+    responsibility: Scheduling and Completion queues contracts and closes the matching active attempt.
+    why: A new plan must not overlap an unclosed action authority or mistake an unrelated result for completion.
+    normative: Track bounded task lifecycle and consumed budget; use independent outcomes or Manager stop
+      conditions to close/suspend before replanning.
+    mechanism: ManagerOrchestrator delegates enqueue/start/tick to TaskScheduler. complete_from_skill_run
+      checks current task ID and skill name, then uses Manager stop when present or canonical VerifierResult.
+      Missing/nonterminal outcomes return without closing; completion events go to the configured sink.
+    inputs: TaskSpec, skill run result, task/run/event identity.
+    outputs: Current task transitions and TaskCompletionEvent.
+    implementation: Queueing and matching-result completion are implemented.
+    limitations: This code-derived child is not a new canonical subsystem. Optional event sinks and lower-level
+      mark APIs require correct caller composition; no complete Mission Run continuity proof follows.
+    example: 'Illustrative: a result for a different task ID raises an error instead of closing the current
+      contract.'
+    research_relevance: Disposition/completion records may support later measurements; no measurement
+      validity is claimed.
+    sources:
+    - arch7
+    - orchestrator
+    - orchestrator-test
+  CMP-BODY:
+    area: Act
+    responsibility: Body executes reusable skills within the active Manager contract and proposes one
+      primitive at a time.
+    why: Fast local control should remain independent of slow planning while obeying the same bounded
+      interface.
+    normative: Use authorized visible/temporal state, grounded target, goal/skill, short history and allowed-action
+      mask. Preserve the controller/weights through the Mission Run. A future learned shared policy uses
+      the same contract interface.
+    mechanism: ManagerTaskExecutor resolves a current task to a SkillCatalog binding; SkillRunner bounds
+      steps and rejects proposals outside the skill action mask. Heuristic skills such as BasicReachTargetSkill
+      choose one short move from a grounded visible point, or wait when information is insufficient. Guarded
+      input and independent verification remain separate.
+    inputs: Active TaskSpec, Observation, grounded target and permitted actions.
+    outputs: One Primitive Action Vocabulary proposal per step and skill-run material.
+    implementation: Reusable heuristic execution is implemented. Bounded Reflex is the true registered
+      child but remains target-only.
+    limitations: A learned goal-conditioned Body and full canonical skill breadth are not established.
+      Optional runner logging must be composed correctly; controller replacement between Life Episodes
+      is forbidden.
+    example: 'Illustrative: reach a visible point using successive short moves and new observations, stopping
+      on verified arrival or Manager stop.'
+    research_relevance: Heuristic availability is an engineering baseline, not evidence that learning
+      or cross-game transfer works.
+    sources:
+    - arch9
+    - body
+    - body-test
+    - runner
+    - task-executor
+    - run
+    - arch8
+  CMP-BOUNDED-REFLEX:
+    area: Act
+    responsibility: Bounded Reflex is the target fast Body path for declared immediate visible conditions.
+    why: An urgent local response should not wait for a slow Cortex call, but it must keep contract authority
+      intact.
+    normative: Manager declares triggers, eligibility, cooldown, action mask and termination. When a visible
+      trigger qualifies, select only a contract-allowed action, then pass ordinary safety/input/logging.
+      Stop/replan has priority; never invent goals or enlarge budgets.
+    mechanism: The target mechanism checks declared immediate conditions and cooldown, chooses within
+      the active mask and returns to ordinary bounded execution or stop. No separate executable reflex
+      path was found. BasicReachTargetSkill is ordinary heuristic Body action selection and is not relabeled
+      Reflex.
+    inputs: Active contract, declared triggers/cooldown and immediate visible signals.
+    outputs: Contract-allowed primitive proposal or wait/stop (normative).
+    implementation: 'Target-only: heuristic skills exist, but the declared reflex mechanism is missing.'
+    limitations: No trigger/cooldown/eligibility lifecycle or measured containment is implemented for
+      a distinct Reflex path.
+    example: 'Normative illustration: a declared hazard response may wait or retreat only if that action
+      is already allowed; it cannot open another goal.'
+    research_relevance: Reflex containment requires later explicit validation, not an assumed mapping
+      or result.
+    sources:
+    - arch10
+    - body
+    - body-test
+    - run
+  CMP-SAFETY-FILTER:
+    area: Act
+    responsibility: SafetyFilter assesses a proposed movement against supplied hazard signals.
+    why: An allowed action still needs a risk check before execution.
+    normative: Keep valid contract, visible hazard constraints and safety enforcement distinct; a planner
+      or skill cannot bypass the input gates.
+    mechanism: The pure SafetyFilter predicts the next position for a movement candidate, computes risk
+      from supplied HazardSignal objects and compares it with its threshold. It returns allowed/rejected
+      risk information and can assess several candidates. It does not acquire hazard pixels or send keys.
+    inputs: Current ScreenPoint, proposed action and supplied hazards.
+    outputs: SafetyFilterResult with blocked flag, risk score and reasons.
+    implementation: Synthetic navigation risk assessment is implemented; full safety filtering is partial.
+    limitations: Visible hazard acquisition and a universal runtime risk boundary are not established.
+      This filter alone does not enforce focus, emergency stop, contract or durable logging.
+    example: 'Illustrative: a move predicted to enter a supplied hazard region is rejected; the test does
+      not prove the hazard detector exists.'
+    research_relevance: Risk assessments are technical checks, not measured real-game safety outcomes.
+    sources:
+    - arch14
+    - safety
+    - safety-test
+  CMP-INPUT-EXECUTOR:
+    area: Act
+    responsibility: InputExecutor is the guarded boundary that can send one primitive through an input
+      backend.
+    why: Actual keyboard input needs focus, rate and emergency-stop enforcement separate from planning.
+    normative: Execute only with active valid Manager contract, verified intended window, allowed action,
+      rate capacity, functional emergency stop and durable before/after evidence logging.
+    mechanism: InputExecutor.execute checks emergency stop, target focus and rate capacity before backend.send;
+      blocked paths return ActionResult. ManagerTaskExecutor and SkillRunner separately compose current-task
+      and action-mask checks; transition logging must be configured. The executor is not the success authority.
+    inputs: Primitive proposal, target-window/focus service, rate limiter and emergency stop.
+    outputs: Executed or blocked ActionResult.
+    implementation: Guarded primitive execution is implemented.
+    limitations: 'The class alone does not enforce all canonical preconditions: active contract, action
+      mask and durable evidence linkage depend on surrounding composition. A sent key is not task success.'
+    example: 'Illustrative: focus loss blocks backend.send and returns a blocked result.'
+    research_relevance: Input safety is a hard eligibility boundary; synthetic checks are not authorization
+      for Live execution.
+    sources:
+    - arch14
+    - input
+    - input-test
+    - runner
+    - task-executor
+  CMP-INDEPENDENT-VERIFIER:
+    area: Verify and Learn
+    responsibility: Independent Verifier evaluates visible outcome without letting Cortex grade its own
+      proposal.
+    why: Execution and interpretation must not automatically become claimed success or reward.
+    normative: Prefer deterministic visible success/failure and progress detectors; abstain on uncertainty.
+      Return canonical outcomes, failure category and evidence. Rewards require validated events; image/hash
+      changes alone are not success.
+    mechanism: ReachTargetVerifier independently checks visible death or arrival at an evidence-linked
+      grounded point, otherwise abstaining. ContinueDialogueVerifier and InteractVisibleObjectVerifier
+      evaluate their bounded visible conditions. SkillRunner obtains VerifierResult; Manager consumes
+      it for lifecycle transitions. Cortex reflection is separate.
+    inputs: Task/grounded target and before/after visible Observations.
+    outputs: 'VerifierResult: success, progress, failure or abstain with evidence.'
+    implementation: Deterministic skill-specific verifiers and a catalog exist.
+    limitations: Limited detectors do not validate every outcome, confidence calibration or false-success
+      rate. The separate Visible Outcome artifact remains target-only; a screenshot change is insufficient.
+    example: 'Illustrative: new pixels without visible target arrival cause abstention rather than success.'
+    research_relevance: Existing verified-outcome measurement remains distinct from detector availability;
+      no scientific result is supplied.
+    sources:
+    - arch11
+    - verifier
+    - verifier-test
+    - dialogue
+    - dialogue-test
+    - interaction
+    - interaction-test
+  CMP-REPLAY-BUFFER:
+    area: Verify and Learn
+    responsibility: Replay Buffer retains bounded transition material for optional later learning.
+    why: Training data needs reusable observations/actions/outcomes without changing the active controller.
+    normative: Collect only admissible, provenance-linked transitions with independently validated labels.
+      Separate cohorts and contamination; use eligible material only under authorized between-Mission-Run
+      training.
+    mechanism: ReplayBuffer appends typed ReplayTransition objects into a fixed-capacity FIFO and can
+      sample them with a seed. ReplayTransition recursively rejects forbidden metadata keys. obs/action/reward/next_obs/done/task
+      are supplied by callers; the buffer does not validate official run eligibility.
+    inputs: ReplayTransition with observation, action, reward, next observation, done, task and metadata.
+    outputs: Retained transitions and deterministic seeded samples.
+    implementation: FIFO storage and sampling exist; complete replay eligibility is partial.
+    limitations: No complete Mission Run/Life Episode/contract/verifier provenance admission or official
+      training gate is enforced. Supplied reward is not automatically a validated scientific label.
+    example: 'Illustrative: a capacity-three buffer discards the oldest of four synthetic transitions;
+      this is storage behavior, not training.'
+    research_relevance: Replay provides engineering material; no learning effect or new research finding
+      is inferred.
+    sources:
+    - arch12
+    - replay
+    - replay-test
+    - run
+    - modes
+  CMP-SKILL-TRAINER:
+    area: Verify and Learn
+    responsibility: SkillTrainer is the target between-Mission-Run candidate-training responsibility.
+    why: A controller should improve only through a separately authorized and auditable learning lifecycle.
+    normative: After a Mission Run ends and a learning protocol authorizes it, select admissible demonstrations/failure
+      subsets, train a candidate version, preserve training provenance and send the candidate for held-out
+      validation. Never train or replace parameters between Life Episodes inside a Mission Run.
+    mechanism: The target mechanism consumes eligible replay/demonstrations and produces a versioned candidate.
+      Current build_behavior_cloning_dataset only converts synthetic transitions into supervised examples,
+      optionally filtering positive rewards; it neither fits weights nor builds or deploys a candidate
+      controller.
+    inputs: Admissible transition/demonstration set and frozen authorized training configuration.
+    outputs: Candidate Body Version (target-only), not an active controller.
+    implementation: 'Target-only: dataset-building helpers exist, candidate training is missing.'
+    limitations: No fitted candidate, complete training provenance, held-out lifecycle or deployment path
+      is established. Positive caller-supplied reward is not an eligibility certificate.
+    example: 'Normative illustration: failed target-reaching traces may motivate a later training set;
+      the current frozen Mission Run remains unchanged.'
+    research_relevance: Learning is planned architecture, not a reported experimental improvement.
+    sources:
+    - arch12
+    - cloning
+    - cloning-test
+    - run
+  CMP-BODY-CERTIFICATION:
+    area: Verify and Learn
+    responsibility: Body Validation / Certification is the target gate between a trained candidate and
+      future activation.
+    why: A newly trained controller must not silently become executable because it produced a model file.
+    normative: Evaluate a candidate on held-out scenarios, safety and false-success checks, then certify
+      or reject it. Activate only a certified version for a next eligible Mission Run under separate authorization.
+    mechanism: The normative gate binds candidate identity to held-out evidence and a certification/rejection
+      decision, then controls future eligibility. Current behavior-cloning helpers only build datasets;
+      no certification registry, candidate activation or complete validation pipeline is implemented.
+    inputs: Candidate Body Version, held-out scenarios, validation evidence and authorized criteria.
+    outputs: Certification/rejection and future activation eligibility (target architecture).
+    implementation: 'Target-only: certification and activation mechanisms are missing.'
+    limitations: Unit tests for data conversion are not held-out controller validation. No current source
+      establishes an executable certify/reject/activate path.
+    example: 'Normative illustration: a candidate with unsafe outcomes is rejected even if its average
+      reward is higher; it cannot replace Body during an active Mission Run.'
+    research_relevance: Certification requires future evidence; no empirical safety or efficacy claim
+      is made.
+    sources:
+    - arch12
+    - cloning
+    - cloning-test
+    - run
+guides:
+  System Overview:
+    intro: The Agent observes admissible visible evidence, proposes goals, authorizes bounded execution
+      and independently verifies the result. The seven sections below are reading areas, not Components
+      or new technical parents. Individual Registry statuses describe bounded pieces; they do not establish
+      a validated screen-only whole loop.
+    sections:
+    - title: Acquire
+      text: '[[id:CMP-SCREEN-CAPTURE]] captures a visible frame from [[id:ENV-GAME-INSTANCE]]. The [[id:CMP-VISIBLE-STATE-BRIDGE]]
+        is optional and belongs to a separate bridge-assisted cohort with screenshot binding; screen-only
+        never activates it. Neither acquisition route establishes task meaning.'
+    - title: Observe
+      text: '[[id:CMP-NO-SPOILER-FIREWALL]] filters optional bridge data. [[id:CMP-PERCEPTION]] uses its
+        real children [[id:CMP-OBSERVATION-BUILDER]] and [[id:CMP-PERCEPTION-UI-STATE]] to assemble [[id:DAT-OBSERVATION]].
+        [[id:CMP-TEMPORAL-STATE]] should stabilize short histories but remains target-only. Current OCR/spatial
+        production is limited; an image signature is not outcome evidence.'
+    - title: Retain and Retrieve
+      text: '[[id:CMP-EVIDENCE-LEDGER]] anchors visible material. [[id:CMP-MEMORY]] contains [[id:CMP-MEM-EPISODIC]],
+        [[id:CMP-MEM-FACTS]], [[id:CMP-MEM-HYPOTHESES]], [[id:CMP-MEM-TOPOLOGY]], [[id:CMP-MEM-STRATEGY]]
+        and [[id:CMP-SKILL-COMPETENCE]]. [[id:CMP-MEM-RETRIEVAL]] is a System sibling of Memory; its bounded
+        context route reaches Cortex through [[id:IF-MEM-CORTEX]] and [[id:CON-CORTEX-CONTEXT]]. Current
+        context assembly consumes caller-selected memory; ranked snapshot retrieval is missing. See [[guide:Experience
+        to Knowledge]].'
+    - title: Reason
+      text: '[[id:CMP-CORTEX]] is slow and event-driven in the target architecture: new evidence, completion/failure,
+        contradiction or relevant uncertainty can justify a call. It emits [[id:CON-PLANNER-OUTPUT]] through
+        [[id:IF-CORTEX-MANAGER]]. Current typed planning validates output and cited evidence scope. A
+        proposal is not permission, and Cortex never controls primitive keys or InputExecutor.'
+    - title: Executive Control
+      text: '[[id:CMP-MANAGER]] validates capabilities and evidence, uses [[id:CMP-MANAGER-GROUNDING]]
+        to bind a visible target and [[id:CMP-MANAGER-SCHED-COMP]] to schedule and close [[id:CON-SKILL-CONTRACT]].
+        Manager alone opens, closes, suspends or replans bounded contracts. Ambiguity fails closed. A
+        skill contract is more concrete than a mission goal and more abstract than a key sequence.'
+    - title: Act
+      text: '[[id:CMP-BODY]] proposes one [[id:CON-PRIMITIVE-ACTION]] at a time within the active contract.
+        [[id:CMP-BOUNDED-REFLEX]] is a target-only fast path under declared triggers and the same limits.
+        [[id:CMP-SAFETY-FILTER]] assesses supplied hazards; [[id:CMP-INPUT-EXECUTOR]] sends guarded input
+        only in correctly composed execution. Valid contract, allowed action, verified focus, rate capacity,
+        emergency stop and durable before/after logging are all required. Current heuristic skills and
+        input guards do not establish every canonical gate.'
+    - title: Verify and Learn
+      text: After an action affects [[id:ENV-GAME-INSTANCE]], acquire a new Observation. [[id:CMP-INDEPENDENT-VERIFIER]]
+        checks the visible outcome and supplies [[id:CON-VERIFIER-RESULT]] to Manager. Progress can continue
+        a still-valid contract; terminal/stop conditions close or suspend it. Replanning calls Cortex
+        with updated observation/memory context only when a new strategic decision is required and allowed.
+        Thus the loop is Observation → Cortex proposal → Manager contract → Body → guarded input → environment
+        → new Observation → Verifier → Manager transition, not a mandatory Cortex call per primitive.
+        Reflection/[[id:CON-POST-MORTEM-OUTPUT]] and [[id:CON-MEMORY-UPDATE-REQUEST]] propose knowledge
+        revisions; admission ownership is design-open. [[id:CMP-REPLAY-BUFFER]] retains partial transition
+        material; [[id:CMP-SKILL-TRAINER]] and [[id:CMP-BODY-CERTIFICATION]] remain target-only between-Mission-Run
+        mechanisms. See [[guide:Scientific Experiment]].
+    sources:
+    - arch1
+    - arch2
+    - arch3
+    - arch4
+    - arch5
+    - arch6
+    - arch7
+    - arch9
+    - arch10
+    - arch11
+    - arch12
+    - arch14
+    - run
+  Experience to Knowledge:
+    intro: Knowledge revision changes evidence-linked records; parameter training changes a controller.
+      These are separate operations with different authority and timing. This guide describes the target
+      mechanism and the bounded stores currently present, not an observed learning result.
+    sections:
+    - title: Evidence and episodes
+      text: 'Start from screenshots, visible text, allowed actions and independently checked outcomes
+        in [[id:CMP-EVIDENCE-LEDGER]]. [[id:CMP-MEM-EPISODIC]] retains trajectory material: what was visible,
+        proposed, authorized, executed and observed afterward. Current SQLite observations/actions/skill
+        results and event logging provide material, not a complete consolidated episode entity.'
+    - title: Facts, hypotheses and strategies
+      text: '[[id:CMP-MEM-FACTS]] stores propositions, status/confidence and evidence. [[id:CMP-MEM-HYPOTHESES]]
+        must preserve uncertainty and contradiction; it currently shares FactStore status storage rather
+        than a complete test/adjudication lifecycle. [[id:CMP-MEM-TOPOLOGY]] records observed connections,
+        never internal maps. [[id:CMP-MEM-STRATEGY]] stores caller-supplied approaches and outcomes; [[id:CMP-SKILL-COMPETENCE]]
+        summarizes skill history rather than certifying a controller. Example: a failed visible interaction
+        is an outcome; “the object requires another approach” is an interpretation, not an observed fact.'
+    - title: Revision and admission remain open
+      text: '[[id:CMP-CORTEX]] can propose [[id:CON-MEMORY-UPDATE-REQUEST]] and [[id:CON-POST-MORTEM-OUTPUT]].
+        [[id:CMP-INDEPENDENT-VERIFIER]] supplies outcome evidence. None of these contracts automatically
+        writes or accepts a fact. Consolidation/Admission ownership is explicitly design-open; no new
+        Component, automatic promotion gate or hidden writer is introduced. Current store APIs permit
+        caller-driven updates, which still require admissible provenance.'
+    - title: Retrieval and later decisions
+      text: '[[id:CMP-MEM-RETRIEVAL]] should select bounded, goal-relevant context, including contradictory
+        evidence and prior failures, for [[id:CON-CORTEX-CONTEXT]]. Current build_plan_context consumes
+        a supplied summary; ranked retrieval and a versioned snapshot are missing. Memory can influence
+        a proposed goal, but only [[id:CMP-MANAGER]] authorizes its execution. A memory revision cannot
+        expand permissions or budgets.'
+    - title: Life Episode continuity
+      text: Ordinary death closes the Life Episode with visible evidence and a post-mortem separating
+        observation from inferred cause. If no terminal Mission Run condition is reached, a later Life
+        Episode may retain admissible evidence, hypotheses, topology and strategies with provenance under
+        the same Mission Run. Model, provider, prompts, Body version/weights and other frozen identities
+        stay fixed. Process restart requires verified continuity; loss of provenance stops or quarantines
+        the run.
+    - title: Independent Mission Runs and parameter training
+      text: Independent Mission Runs require their own identity, eligibility and protocol-defined starting
+        state. Memory inheritance is not automatic; controlled history transfer needs a separate scientific
+        contract. Optional [[id:CMP-REPLAY-BUFFER]] → [[id:CMP-SKILL-TRAINER]] → [[id:DAT-CANDIDATE-BODY-VERSION]]
+        → [[id:CMP-BODY-CERTIFICATION]] training is separately authorized between Mission Runs, never
+        between Life Episodes in one Mission Run. Dataset helpers do not train, certify or activate a
+        controller.
+    - title: Research route
+      text: The experience-to-knowledge question belongs to Research B; it is not a result established
+        by storage code. Use [[Research Map/Views/Research Steering|Research Steering]] for existing questions
+        and mapped records, and [[Research Map/Views/Literature Inspection|Literature Inspection]] for
+        available literature. Author once under the existing private record contract; generated pages
+        link the same record to its declared Components. Missing mappings imply no novelty, gap or completeness
+        judgment.
+    sources:
+    - arch5
+    - arch6
+    - arch11
+    - arch12
+    - run
+    - restart
+    - researchB
+  Scientific Experiment:
+    intro: The experiment unit is the Mission Run, not a primitive or an ordinary death. This guide explains
+      the accepted protocol and research context; no experiment was executed and no outcome is supplied
+      by this Research Map.
+    sections:
+    - title: Units and authority
+      text: Mission Run > Life Episode > Grounded Skill Contract > primitive action. A Mission Run is
+        one serious mission attempt with declared terminal conditions and frozen identity. Ordinary death
+        ends a Life Episode; another may continue within the same Mission Run. [[id:CMP-MANAGER]] owns
+        contracts, [[id:CMP-BODY]] acts within them, [[id:CMP-INPUT-EXECUTOR]] guards input and [[id:CMP-INDEPENDENT-VERIFIER]]
+        checks visible outcomes. Cortex proposes; it never issues keys or grades its own success.
+    - title: Frozen identity and admissible change
+      text: Freeze run ID/mode, protocol/configuration/budgets, Cortex model/provider/prompt/config hashes,
+        Body/controller/weights, harness and executable identities, and evidence/Manager/Verifier/safety
+        boundaries before the first observation. During a Mission Run, admissible evidence-linked memory,
+        hypotheses, contradictions, topology, strategies, plans, temporal observations and contract state
+        may evolve. Budget consumption is allowed; silent budget expansion is not. Knowledge revision
+        does not authorize parameter learning or boundary changes.
+    - title: Restart and terminal conditions
+      text: Application restart preserves the Mission Run only with manifest, frozen identity and provenance
+        continuity. Otherwise stop or quarantine for review. Mission Run terminal conditions are independently
+        verified mission success, frozen budget exhaustion, explicit authorized stop, unrecoverable integrity/safety
+        failure or environment/harness failure. Contract timeout, no-progress, target loss and ordinary
+        death do not automatically terminate the Mission Run. See [[guide:Experience to Knowledge]].
+    - title: Run modes and separate cohorts
+      text: screen-only is the primary official cohort, using pixels/OCR/visible outcomes and admissible
+        memory with local inference and network isolation. bridge-assisted is a separate official diagnostic
+        cohort with mandatory screenshots and deny-by-default visible bridge fields; never pool it with
+        screen-only. debug is development/synthetic instrumentation, excluded from headline results. networked-api-exploratory
+        is a separate capability-ceiling/development cohort. contaminated remains in accounting but is
+        permanently excluded from admissible memory, training and official metrics.
+    - title: Research A and Research B
+      text: 'Research A asks how model configuration and behavioral instructions shape experience acquisition:
+        goals, exploration, risk, repetition and stopping. Research B asks how experience across episodes
+        becomes evidence-backed knowledge that supports later decisions. These are selected working directions,
+        not proven causal chains or novelty claims. Existing [[id:RQ-PROGRAM-AB-001]] and [[id:THREAD-EXPERIENCE-TO-ACTION-001]]
+        provide program navigation; local Component mappings are only the explicitly attached records.
+        No confirmatory treatment, comparator, endpoint or scientific freeze is created by this guide.'
+    - title: Provenance and evidence
+      text: Record Git/dirty identity, model/provider/artifact, prompt/configuration hashes, seed, frozen
+        budgets, host/runtime, window identity/resolution, allowlist/firewall version, official network-isolation
+        proof and before/action/after evidence linkage. Grounded targets, memory updates and verifier
+        outcomes need evidence IDs. Missing mandatory provenance invalidates an official claim; it is
+        not reconstructed later from memory. Test PASS is technical evidence, not scientific outcome or
+        phase exit. Independent visible-evidence review and separate cohort analysis remain required by
+        the protocol.
+    - title: Where to read and write research
+      text: Use [[Research Map/Views/Research Steering|Research Steering]] and [[Research Map/Views/Literature
+        Inspection|Literature Inspection]]. Existing private RQ, reading note, finding and other records
+        stay authored once at their current paths; generated views merely project/link explicit mappings.
+        Zotero/source PDFs remain literature authority. No private records, manuscript master or accepted
+        findings are populated here.
+    sources:
+    - units
+    - run
+    - restart
+    - modes
+    - provenance
+    - cohorts
+    - researchA
+    - researchB
+    - arch7
+    - arch11
+dependencies:
+  docs/research-atlas/registry/evidence.yaml: 01dbdd39d2c4f11374c4e5f66e7d6f653d3b3e9921d2172f278c7292459e1528
+  docs/research-atlas/registry/nodes.yaml: 286ae4007889b3839a57a67d5f2362e7c04be3c9396074fe8ba1494980fc0ee0
+  docs/research-atlas/registry/relationships.yaml: 7af499b6868d543b6c98deec07a238b7183f71503fa932cdb43e38674fd6bdb6
+  src/fh_agent/body/skills/__init__.py: 9174217187aa5bbb0e41d8960f81e7206851f430fdf15ba20f55f85e7ff2ce04
+  src/fh_agent/body/skills/basic_reach_target.py: 483002f495824d875238a9b7be9226130c2cd4db4aebde447f6a61f4925a28af
+  src/fh_agent/body/skills/continue_dialogue.py: e52a891022892d93658f59624d5f73762aa55cc38924ab33891f7f023580574f
+  src/fh_agent/body/skills/interact_visible.py: a54a4bcbce3f5a1b4811affffe728612cdd9c9864264a2ec3a74c3a4ddb44046
+  src/fh_agent/body/skills/safe_reach_target.py: 561c2e249b6ee28ba5892e40e27845f6851fdcc63df9352f7e100a1c64572b9e
+  src/fh_agent/bridge/bridge_server.py: f45da4c024c5d4fb9a7cfd87561267da8237f5e32541ecb845a22bd975433c2d
+  src/fh_agent/bridge/evidence_sync.py: 33605c1c5a03e2ae0406d5e9adef0d53cb8282567bc823eca9559b5d2f6f181b
+  src/fh_agent/bridge/sanitizer.py: ad64776dfab0e3cdc8649ffbf6c037cab3d0f5ab938d10ec178372193e329238
+  src/fh_agent/manager/scheduler.py: 6f0961b9107e970f7775993f147d9b15ecefcf51340cf8de66a8af4fd8f54106
+  src/fh_agent/manager/skill_catalog.py: 4101adfc943f2836f8621febde3b81c2e2239091a25e546f501c0b0e0b37681f
+  src/fh_agent/manager/target_ref.py: 0e22a2d79d7a714e2d9abddb0ff5471ebc6d130bf59e3d1f629ad4487d266256
+  src/fh_agent/manager/task_spec.py: a7afe75d84fd3c26c3297f7451fde66a0093d295f09e8b593ef4b89ef18908b4
+  src/fh_agent/memory/schema.sql: 5025ba85e66ba58f377239c1f2e9b639af10cca296f6a880e55124adfdbadbb7
+  src/fh_agent/observation/schemas.py: 8aae6d004160b97f1f6c75ba3f0d25f9c225c1f7bcc4fa98c42a307ab3ab7a45
+  src/fh_agent/observation/visible_sprite_normalization.py: 6c466a5c1e0576a5e2a026c478c4e74b205d0be66c8827ff73cdf1a99a1ea5da
+  src/fh_agent/perception/screen_capture.py: 9f37ba0a2b2088b8755bbb98d8886d1abaf2ec0be543eb385639bde45e96b722
+  src/fh_agent/planner/planner_output.py: 9d16f35cc6146433202d709250436a274bd2d3a23d42c404a7347780dcdb4925
+  src/fh_agent/planner/prompts/plan_next_goal.md: 7b17017fb71857b1a55364d5b623ff0a95cfe3a55ec0b30dbb3213649fa09805
+  src/fh_agent/planner/prompts/post_mortem.md: 7fae0a783ae32e78cb693d1d8dae46c15306c35c3469592a133cb7bd9f536e20
+  src/fh_agent/planner/prompts/system_no_spoiler.md: 20c78bd8f5de26e367cb7df6419c77febe3b14fc113b90d32b97397242e8ceeb
+  src/fh_agent/skill_capabilities.py: 766e9fdae8c5170904e74d5e5952340f6ad44396aae8c2c24a29f05609898605

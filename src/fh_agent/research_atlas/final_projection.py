@@ -17,6 +17,11 @@ from . import knowledge_graph as graph
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
+from .architecture_explanations import (
+    ExplanationCatalog,
+    component_technical,
+    guide_pages,
+)
 from .diagram_canvas import (
     CANVAS_NAVIGATION,
     EXECUTION_CANVAS,
@@ -778,7 +783,13 @@ class ProductTree:
     routes: dict[PurePosixPath, PurePosixPath]
 
 
-def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
+def package(
+    atlas: Atlas,
+    technical: dict,
+    derived: dict,
+    *,
+    explanations: ExplanationCatalog | None = None,
+) -> ProductTree:
     """Inventory every old path before rendering; preserve all mode audit sections."""
     preferred = preferred_paths(atlas)
     old_pages = views.identity_page_paths(atlas)
@@ -1127,6 +1138,43 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 + f"\n[[{HOME.with_suffix('')}|Return Home]]\n"
             ).encode()
 
+        if node.type == "Component" and explanations is not None:
+            text = utf8(files[page])
+            before, technical_marker, rest = text.partition("## Technical\n")
+            old_technical, research_marker, research = rest.partition("## Research\n")
+            old_technical = old_technical.replace(
+                "No separate mechanism explanation is authored in this snapshot. "
+                "Inspect Sources & verification for detail.",
+                "The current source-backed mechanism is in Technical above.",
+            ).replace(
+                "No separate limitation statement is authored here; this does not "
+                "establish completeness.",
+                "The current source-backed limitations are in Technical above.",
+            )
+            if not technical_marker or not research_marker:
+                raise ProjectionError("Component reader sections are missing")
+            item = explanations.components[identity]
+            source_marker = "## Sources & verification\n"
+            source_panel = explanations.provenance(item.sources)
+            preserved = (
+                "\n> [!info]- Previous technical presentation / complete detail\n>\n"
+                + "\n".join("> " + line for line in old_technical.splitlines())
+            )
+            research = research.replace(
+                source_marker, source_marker + "\n" + source_panel + preserved + "\n\n", 1
+            )
+            files[page] = (
+                before
+                + component_technical(
+                    explanations, identity, atlas, preferred, INTERACTION_RELATIONS
+                )
+                + "\n## Research\n\n"
+                + item.research_relevance
+                + "\n\n"
+                + "[[Research Map/Views/Research Steering|Research Steering]] · "
+                "[[Research Map/Views/Literature Inspection|Literature Inspection]]\n\n" + research
+            ).encode()
+
         if node.type in {"System", "Component"}:
             text = utf8(files[page])
             files[page] = text.replace(
@@ -1270,6 +1318,10 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "Internal storage has no landing page. Agent Anatomy and Evidence, Memory & Retrieval "
         "are secondary diagrams.",
     )
+    if explanations is not None:
+        for path, body in guide_pages(explanations, atlas, preferred).items():
+            add(path, body)
+
     home = [
         "# Research Map Home",
         "",
@@ -1280,6 +1332,28 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "Missing Research mappings imply no novelty, gap or completeness judgment.",
         "",
     ]
+    if explanations is not None:
+        home += [
+            "## Understand the Agent",
+            "",
+            "[[Research Map/Guides/System Overview|System Overview]] · "
+            "[[Research Map/Guides/Experience to Knowledge|Experience to Knowledge]]",
+            "",
+            "Component routes below remain direct entry points.",
+            "",
+            "## Understand and review Research",
+            "",
+            "[[Research Map/Guides/Scientific Experiment|Scientific Experiment]] · "
+            "[[Research Map/Views/Research Steering|Research Steering]] · "
+            "[[Research Map/Views/Literature Inspection|Literature Inspection]]",
+            "",
+            "## Inspect sources",
+            "",
+            "Open a preferred Component page for source-backed mechanism, implementation "
+            "limits and collapsed complete provenance; use the existing technical diagrams "
+            "and linked ledger for exact structure and relations.",
+            "",
+        ]
     system_paths = [p for i, p in preferred.items() if atlas.entities[i].type == "System"]
     home += ["## Start here", ""]
     home += [

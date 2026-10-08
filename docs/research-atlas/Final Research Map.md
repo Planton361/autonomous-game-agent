@@ -40,7 +40,11 @@ Research Map/
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
   Tables/                     # three Bases
-  Guides/Using the Research Map.md
+  Guides/
+    Using the Research Map.md
+    System Overview.md
+    Experience to Knowledge.md
+    Scientific Experiment.md
 _Research Map Internals/
   Registry/Records/
   Registry/Evidence/
@@ -112,6 +116,28 @@ is `(Component, mode, directed pair)`. Every origin, node, detail-only endpoint,
 inspection route and sparse-state diagnostic survives consolidation. Filters
 select only the corresponding internal proxy folders, never guides or audits.
 
+## AP1 explanatory content checkpoint (#170)
+
+The supported Workspace build reads `architecture_explanations.yaml`, a typed,
+presentation-only source outside Registry. It supplies all 28 existing Component
+mechanisms and limitations, plus the three Guides above. System Overview has seven
+functional sections, not new identities or parents. Component pages retain the
+existing Research sections and complete audits through collapsed disclosure.
+Home adds Agent, Research and source routes; diagrams and Graphs remain unchanged.
+
+Source locators pin the inspected base revision and supporting file fingerprints.
+Changed supporting code, tests, canonical/overlay or Registry inputs stop generation
+for content review; unrelated commits do not force a source-revision rewrite.
+The explanation source is **pending CONTROL content review**, not automatically
+approved. Review the exact-head Draft PR before AP2. Test locators identify inspected
+source; they do not claim new runtime/scientific validation.
+
+Empty-private AP1 output is **529 files**: the previous 526 plus three Guides.
+Only 28 Component pages, Home and the derived manifest change; the remaining 496
+existing files and every preferred identity route retain their bytes/paths.
+Synthetic source/link/determinism evidence is distinct from later native Obsidian
+acceptance and separately authorized actual-Vault rollout.
+
 ## Canvas-first architecture diagrams
 
 Issue #168 upgrades all three primary visuals to native Obsidian Canvas in
@@ -136,7 +162,7 @@ are shape previews. No community plugin is required.
   responsibility and verification detail. Identities with no selected declaration
   appear as explicitly unconnected context; no link is inferred from shared data.
 
-Empty-private synthetic output is **526 files**. This adds two Canvas files and
+Pre-AP1 empty-private synthetic output is **526 files**. This adds two Canvas files and
 changes only the three diagram entry pages, Architecture Tree Canvas, Home, guide
 and derived manifest. All existing identity pages/routes and unrelated generated
 artifacts remain unchanged. The new files use existing `research-wiki-derived`

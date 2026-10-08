@@ -1,10 +1,13 @@
 """Synthetic-only final IA and global ownership migration acceptance evidence."""
 
+import ast
 import base64
 import gzip
+import hashlib
 import json
 import re
 import shutil
+import subprocess
 import sys
 from copy import deepcopy
 from dataclasses import replace
@@ -14,6 +17,7 @@ from urllib.parse import unquote
 
 import pytest
 import test_workspace_harness as harness_fixtures
+import yaml
 from projection_test_cache import cached_full_projections  # noqa: F401
 from rq_reader_fixtures import fictional_records
 from test_research_wiki_projection import filesystem_state, snapshot, write_note
@@ -26,6 +30,13 @@ from fh_agent.research_atlas import private_projection as public
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import product_migration as migration
 from fh_agent.research_atlas import workspace_harness as workspace
+from fh_agent.research_atlas.architecture_explanations import (
+    AREAS,
+    GUIDES,
+    SOURCE,
+    parse_explanations,
+    validate_dependencies,
+)
 from fh_agent.research_atlas.final_projection import (
     ARCHITECTURE_CANVAS,
     ARCHITECTURE_TREE,
@@ -50,7 +61,7 @@ from fh_agent.research_atlas.private_reference_index import build_index, make_sn
 from fh_agent.research_atlas.reader_export import export_reader
 from fh_agent.research_atlas.rq_presentation import RQReader
 from fh_agent.research_atlas.schema import Relationship
-from fh_agent.research_atlas.validator import load_registry
+from fh_agent.research_atlas.validator import Atlas, load_registry
 
 ROOT = Path(__file__).resolve().parents[1]
 COMMIT = "a" * 40
@@ -86,12 +97,17 @@ def cached_pure_packaging():
             technical_cache[key] = technical_render(atlas, commit, digests)
         return dict(technical_cache[key])
 
-    def final(atlas, technical, derived):
+    def final(atlas, technical, derived, *, explanations=None):
         # Include byte content and original ordering. Reordered/changed inputs
         # exercise the real renderer independently; no pickle is loaded/executed.
-        key = (atlas_key(atlas), tuple(technical.items()), tuple(derived.items()))
+        key = (
+            atlas_key(atlas),
+            tuple(technical.items()),
+            tuple(derived.items()),
+            explanations.model_dump_json() if explanations is not None else None,
+        )
         if key not in final_cache:
-            final_cache[key] = final_render(atlas, technical, derived)
+            final_cache[key] = final_render(atlas, technical, derived, explanations=explanations)
         result = final_cache[key]
         return ProductTree(dict(result.files), dict(result.owners), dict(result.routes))
 
@@ -1026,7 +1042,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 526
+    assert len(receipt["after"]) == 529
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -1319,7 +1335,7 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 526
+    assert len(migration._actual(vault)) == 529
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():
@@ -2228,3 +2244,271 @@ def test_execution_canvas_optional_restart_entry_and_repair_delta(
     )
     assert len(canvas["edges"]) == len(json.loads(before.files[EXECUTION_CANVAS])["edges"]) + 1
     assert package(atlas, technical, derived).files == tree.files
+
+
+# AP1 presentation content runs in the existing required migration acceptance module.
+@pytest.fixture(scope="module")
+def ap1_source():
+    atlas = load_registry(ROOT / "docs/research-atlas")
+    catalog = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
+    return atlas, catalog
+
+
+@pytest.fixture(scope="module")
+def ap1_products(ap1_source):
+    atlas, catalog = ap1_source
+    technical, derived, _, _ = intermediate(atlas)
+    before = final_projection.package(atlas, technical, derived)
+    after = final_projection.package(atlas, technical, derived, explanations=catalog)
+    return before, after, technical, derived
+
+
+def test_28_substantive_explanations_preferred_paths_and_exact_delta(ap1_source, ap1_products):
+    atlas, catalog = ap1_source
+    before, after, _, _ = ap1_products
+    paths = preferred_paths(atlas)
+    components = {i for i, node in atlas.entities.items() if node.type == "Component"}
+    assert len(components) == len(catalog.components) == 28
+    assert len(set(paths[i] for i in components)) == 28
+    for identity in components:
+        item = catalog.components[identity]
+        body = after.files[paths[identity]].decode()
+        technical = body.split("## Technical\n", 1)[1].split("## Research\n", 1)[0]
+        assert item.mechanism in technical and len(item.mechanism.split()) >= 30
+        assert item.normative in technical and item.limitations in technical
+        assert item.responsibility in technical and item.why in technical
+        assert item.inputs in technical and item.outputs in technical
+        assert item.example in technical and item.research_relevance in body
+        assert "No separate mechanism" not in technical
+        assert "No separate limitation" not in technical
+        assert "**Normative target:**" in technical
+        assert "**Current mechanism and boundary:**" in technical
+        assert "Registry implementation:" in technical
+        assert "pending CONTROL content review" in body
+        for key in item.sources:
+            locator = catalog.sources[key]
+            assert f"/{catalog.source_revision}/{locator.path}#L{locator.line}" in body
+        if atlas.entities[identity].technical.implementation_status == "target-only":
+            assert "Target-only:" in item.implementation and "missing" in item.implementation
+    guides = {PRODUCT / "Guides" / (name + ".md") for name in GUIDES}
+    assert after.files.keys() - before.files.keys() == guides
+    assert not before.files.keys() - after.files.keys()
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {paths[i] for i in components} | {
+        HOME,
+        final_projection.MANIFESTS["research-wiki-derived"],
+    }
+    assert len(before.files) == 526 and len(after.files) == 529
+    assert len(before.files.keys() - changed) == 496
+    assert before.routes == after.routes  # No alternate identity or migration route.
+    assert all(before.owners[p] == after.owners[p] for p in before.files)
+
+
+def test_part_of_and_immediate_interactions_are_exact(ap1_source, ap1_products):
+    atlas, _ = ap1_source
+    _, tree, _, _ = ap1_products
+    paths = preferred_paths(atlas)
+    edges = [e for e in atlas.relationships if e.relation == "part_of"]
+    assert len(edges) == 28
+    assert {e.source for e in edges} == {
+        i for i, node in atlas.entities.items() if node.type == "Component"
+    }
+    for edge in edges:
+        assert (
+            paths[edge.target].with_suffix("").as_posix() in tree.files[paths[edge.source]].decode()
+        )
+        expected_parent = (
+            PRODUCT / "Components"
+            if atlas.entities[edge.target].type == "System"
+            else paths[edge.target].with_suffix("")
+        )
+        assert paths[edge.source].parent == expected_parent
+    for identity, node in atlas.entities.items():
+        if node.type != "Component":
+            continue
+        body = tree.files[paths[identity]].decode()
+        table = body.split("### Immediate typed interactions", 1)[1].split(
+            "### Current implementation state", 1
+        )[0]
+        rows = [line for line in table.splitlines() if line.startswith("| `")]
+        declared = sorted(
+            (
+                e
+                for e in atlas.relationships
+                if e.relation in final_projection.INTERACTION_RELATIONS
+                and identity in {e.source, e.target}
+            ),
+            key=lambda e: (e.relation, e.source, e.target),
+        )
+        assert len(rows) == len(declared)
+        for row, edge in zip(rows, declared, strict=True):
+            assert row.startswith(f"| `{edge.relation}` |")
+            left = str(paths[edge.source].with_suffix(""))
+            right = str(paths[edge.target].with_suffix(""))
+            assert row.index(left) <= row.rindex(right)
+        for child in (e.source for e in edges if e.target == identity):
+            assert (
+                str(paths[child].with_suffix(""))
+                in body.split("### True subcomponents", 1)[1].split(
+                    "### Immediate typed interactions", 1
+                )[0]
+            )
+
+
+def test_guides_complete_cycle_continuity_and_research_boundaries(ap1_products):
+    _, tree, _, _ = ap1_products
+    bodies = {name: tree.files[PRODUCT / "Guides" / (name + ".md")].decode() for name in GUIDES}
+    overview = bodies[GUIDES[0]]
+    assert tuple(re.findall(r"^## (.+)$", overview, re.M)) == (*AREAS, "Sources")
+    assert "not a mandatory Cortex call per primitive" in overview
+    assert "Verifier → Manager transition" in overview
+    assert "valid contract" in overview and "durable before/after logging" in overview
+    experience = bodies[GUIDES[1]]
+    assert "Consolidation/Admission ownership is explicitly design-open" in experience
+    assert "Memory inheritance is not automatic" in experience
+    assert "never between Life Episodes in one Mission Run" in experience
+    experiment = bodies[GUIDES[2]]
+    assert "Mission Run > Life Episode > Grounded Skill Contract > primitive action" in experiment
+    assert "silent budget expansion is not" in experiment
+    for mode in (
+        "screen-only",
+        "bridge-assisted",
+        "debug",
+        "networked-api-exploratory",
+        "contaminated",
+    ):
+        assert mode in experiment
+    assert "Research A" in experiment and "Research B" in experiment
+    assert "no experiment was executed" in experiment
+    assert "never pool" in experiment and "Missing mandatory provenance" in experiment
+
+
+def test_guide_and_component_links_resolve_including_heading_targets(ap1_source, ap1_products):
+    atlas, catalog = ap1_source
+    _, tree, _, _ = ap1_products
+    paths = preferred_paths(atlas)
+    changed = (
+        {HOME}
+        | {paths[i] for i in catalog.components}
+        | {PRODUCT / "Guides" / (name + ".md") for name in GUIDES}
+    )
+    for path in changed:
+        body = tree.files[path].decode()
+        assert "[[id:" not in body and "[[guide:" not in body
+        for value in re.findall(r"\[\[([^\]]+)\]\]", body):
+            target = value.split("|", 1)[0].rstrip("\\")
+            route, _, heading = target.partition("#")
+            resolved = (
+                path
+                if not route
+                else next((p for p in tree.files if str(p) in {route, route + ".md"}), None)
+            )
+            assert resolved is not None, (path, target)
+            if heading:
+                headings = re.findall(
+                    r"^\s*(?:>\s*)*#{1,6} (.+)$", tree.files[resolved].decode(), re.M
+                )
+                assert heading in headings, (path, target)
+    for identity in catalog.components:
+        assert (
+            str(paths[identity].with_suffix(""))
+            in tree.files[PRODUCT / "Guides/System Overview.md"].decode()
+        )
+
+
+def test_deterministic_content_and_order_permutations(ap1_source, ap1_products):
+    atlas, catalog = ap1_source
+    _, tree, technical, derived = ap1_products
+    again = final_projection.package(atlas, technical, derived, explanations=catalog)
+    assert again == tree
+    reordered = Atlas(
+        dict(reversed(list(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        source_atlas_schema=atlas.source_atlas_schema,
+    )
+    other = final_projection.package(reordered, technical, derived, explanations=catalog)
+    assert other.files == tree.files and other.routes == tree.routes
+
+
+def test_source_revision_fingerprints_and_exact_symbols(ap1_source):
+    _, catalog = ap1_source
+    validate_dependencies(catalog, ROOT)
+    # Recorded exact base really contains the inspected bytes, independent of current HEAD.
+    for path, expected in {
+        **{s.path: s.sha256 for s in catalog.sources.values()},
+        **catalog.dependencies,
+    }.items():
+        payload = subprocess.run(
+            ["git", "show", f"{catalog.source_revision}:{path}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert hashlib.sha256(payload).hexdigest() == expected
+    for locator in catalog.sources.values():
+        if locator.kind == "test":
+            assert locator.locator in {
+                n.name
+                for n in ast.walk(ast.parse((ROOT / locator.path).read_text()))
+                if isinstance(n, ast.FunctionDef)
+            }
+
+
+@pytest.mark.parametrize(
+    "mutation", ["coverage", "guides", "locator", "source", "type", "approval", "link"]
+)
+def test_invalid_source_fails_closed(ap1_source, mutation):
+    atlas, _ = ap1_source
+    data = yaml.safe_load((ROOT / SOURCE).read_text())
+    if mutation == "coverage":
+        data["components"].pop("CMP-CORTEX")
+    elif mutation == "guides":
+        data["guides"]["Extra"] = data["guides"]["System Overview"]
+    elif mutation == "locator":
+        data["sources"]["cortex"]["path"] = "../private-secret.md"
+    elif mutation == "source":
+        data["components"]["CMP-CORTEX"]["sources"].append("invented")
+    elif mutation == "type":
+        data["sources"]["cortex"]["kind"] = "scientific-result"
+    elif mutation == "approval":
+        data["review_status"] = "approved"
+    else:
+        data["guides"]["System Overview"]["intro"] += " [[id:CMP-INVENTED]]"
+    with pytest.raises(ProjectionError):
+        parse_explanations(yaml.safe_dump(data).encode(), atlas)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/fh_agent/planner/cortex.py",
+        "docs/canonical/02_ARCHITECTURE_CANONICAL.md",
+        "docs/research-atlas/registry/relationships.yaml",
+    ],
+)
+def test_supporting_change_requires_review_but_unrelated_change_does_not(
+    ap1_source, tmp_path, path
+):
+    _, catalog = ap1_source
+    for relative in {s.path for s in catalog.sources.values()} | catalog.dependencies.keys():
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / relative, destination)
+    (tmp_path / "unrelated.md").write_text("An unrelated future commit\n")
+    validate_dependencies(catalog, tmp_path)
+    changed = tmp_path / path
+    changed.write_text(changed.read_text() + "\n# supporting source changed\n")
+    with pytest.raises(ProjectionError, match="review required"):
+        validate_dependencies(catalog, tmp_path)
+
+
+def test_invalid_heading_or_symbol_locator_is_rejected(ap1_source):
+    atlas, catalog = ap1_source
+    data = catalog.model_dump(mode="json")
+    data["sources"]["cortex"]["locator"] = "Cortex.invented"
+    with pytest.raises(ProjectionError, match="Invalid explanation source locator"):
+        validate_dependencies(parse_explanations(yaml.safe_dump(data).encode(), atlas), ROOT)
+    data = catalog.model_dump(mode="json")
+    data["sources"]["arch6"]["line"] = 999999
+    with pytest.raises(ProjectionError, match="Invalid explanation source locator"):
+        validate_dependencies(parse_explanations(yaml.safe_dump(data).encode(), atlas), ROOT)
