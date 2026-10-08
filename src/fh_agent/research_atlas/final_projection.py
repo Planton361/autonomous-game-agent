@@ -19,6 +19,7 @@ from . import private_projection as public
 from . import private_views as views
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
+from .schema import Relationship
 from .validator import Atlas
 
 MODES = {
@@ -42,6 +43,207 @@ EXECUTION_FLOW_ORIENTATION_IDS = (
     "CMP-INDEPENDENT-VERIFIER",
     "FUNC-EXECUTIVE-CONTROL",
 )
+
+
+INTERACTION_MAP = PRODUCT / "Diagrams/Interaction Map.md"
+INTERACTION_RELATIONS = frozenset(
+    {
+        "supplies",
+        "consumes",
+        "controls",
+        "constrains",
+        "proposes_to",
+        "grounds",
+        "executes",
+        "observes",
+        "verifies",
+        "updates",
+        "retrieves_from",
+    }
+)
+INTERACTION_ORIENTATION_IDS = (
+    "SYS-AGA",
+    "CMP-CORTEX",
+    "CMP-MANAGER",
+    "CMP-BODY",
+    "CMP-MEM-RETRIEVAL",
+    "CMP-INDEPENDENT-VERIFIER",
+    "IF-MEM-CORTEX",
+    "IF-CORTEX-MANAGER",
+    "CON-CORTEX-CONTEXT",
+    "CON-PLANNER-OUTPUT",
+    "CON-SKILL-CONTRACT",
+)
+
+
+def interaction_map(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
+    """Render only declared directed technical rows; panels add no facts."""
+    edges = sorted(
+        (e for e in atlas.relationships if e.relation in INTERACTION_RELATIONS),
+        key=lambda e: (e.relation, e.source, e.target),
+    )
+    groups = (
+        ("Observation and evidence", {"ENV-GAME-INSTANCE", "DAT-SCREEN-FRAME", "DAT-OBSERVATION"}),
+        (
+            "Bounded retrieval to Cortex",
+            {"IF-MEM-CORTEX", "CON-CORTEX-CONTEXT", "DAT-RETRIEVAL-SNAPSHOT"},
+        ),
+        ("Cortex intention to Manager", {"CMP-MANAGER", "IF-CORTEX-MANAGER", "CON-PLANNER-OUTPUT"}),
+        (
+            "Manager contracts and Body / Reflex",
+            {"CON-SKILL-CONTRACT", "CMP-BODY", "CMP-BOUNDED-REFLEX"},
+        ),
+        ("Primitive proposals and guarded input", {"CON-PRIMITIVE-ACTION", "DAT-ACTION-RESULT"}),
+        ("Independent verification", {"DAT-VISIBLE-OUTCOME", "CON-VERIFIER-RESULT"}),
+        (
+            "Evidence-linked memory requests",
+            {"CON-MEMORY-UPDATE-REQUEST", "CON-POST-MORTEM-OUTPUT"},
+        ),
+        (
+            "Optional future between-Mission-Run learning",
+            {"DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"},
+        ),
+    )
+    body = [
+        "# Interaction Map",
+        "",
+        "[[Research Map Home|Home]] · "
+        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Composition hierarchy]] · "
+        f"[[{EXECUTION_FLOW.with_suffix('')}|Execution sequence]] · "
+        "[[#Complete linked relation ledger|Markdown fallback]]",
+        "",
+        "## Reading the map",
+        "",
+        "Arrows preserve Registry source → target and the exact relation name. "
+        "In particular, consumes points from actor to payload; there is no presentation "
+        "inversion. Shared payloads never imply a direct Component connection. "
+        "These arrows are technical declarations, not temporal ordering. Architecture Tree "
+        "alone shows part_of ancestry; Ablaufdiagramm explains control prerequisites. "
+        "contributes_to_function is functional context, not ancestry or interaction. "
+        "supports and other research/evidence/provenance relations are excluded.",
+        "",
+        "Legend: each node names its actual Registry type and stable ID; System/Component "
+        "labels also show Registry implementation status. supplies / consumes describe "
+        "payload declarations; controls is authority, proposes_to is intention, constrains "
+        "is a limit, grounds binds a target, executes declares contract execution, observes "
+        "and verifies remain distinct. updates / retrieves_from are shown only if declared. "
+        "Panels are presentation-only and their order is not a schedule.",
+        "",
+        "Native Obsidian Mermaid requires no community plugin. Native visual rendering and "
+        "laptop legibility remain unverified until inspected in app. Every relation and "
+        "identity can be read and opened in the linked Markdown ledger without Mermaid.",
+        "",
+        "## Authority and implementation limits",
+        "",
+        "Cortex proposes evidence-grounded intention, never primitive keys/timings or direct "
+        "InputExecutor control. Manager alone validates, grounds and opens/closes/suspends "
+        "bounded contracts. Body and fast Reflex act only within an active Manager contract; "
+        "Reflex cannot invent goals, extend budgets or suppress stop/replan. Safety/input "
+        "requires valid contract, verified target-window focus, allowed action, rate-limit "
+        "capacity, functional emergency stop and durable before/after evidence logging. "
+        "Independent Verifier determines visible outcomes; Cortex never grades itself and "
+        "a screenshot/hash change alone is not success.",
+        "",
+        "Optional Bridge is deny-by-default, allowlisted and simultaneously visible to a "
+        "player; hidden-state access is an integrity incident. No absent firewall edge is "
+        "invented. Memory requests retain evidence/provenance and grant no execution "
+        "authority. Future learning/certification requires separate authorization between "
+        "Mission Runs; Body weights remain frozen across Life Episodes within a Mission Run. "
+        "No in-run replacement or candidate activation edge is inferred.",
+        "",
+        "Boundary explanations: "
+        "[Canonical Architecture §§6–14](https://github.com/Planton361/autonomous-game-agent/"
+        "blob/main/docs/canonical/02_ARCHITECTURE_CANONICAL.md#6-cortex-contract); "
+        "[accepted Mission Run overlay](https://github.com/Planton361/autonomous-game-agent/"
+        "blob/main/docs/orchestration/releases/ALIGN-2026-09-19-v1.0/README.md"
+        "#mission-run-identity-and-mutable-state).",
+        "",
+        "Individual implemented / partial / target-only statuses do not certify a working "
+        "full loop, scientific finding or phase exit. Missing or unmapped relations imply "
+        "no capability, completeness or novelty conclusion. Preferred pages retain current "
+        "verification, implementation references and limitations.",
+        "",
+        "## Coverage",
+        "",
+        f"Selected Registry set: **{len(edges)} directed relations**, "
+        f"**{len({e.relation for e in edges})} populated relation types**. "
+        "Every selected row is drawn exactly once and appears exactly once in the ledger. "
+        "No selected edge is intentionally omitted. Unrecognized presentation targets go "
+        "in bounded additional panels; empty panels state their sparse Registry status.",
+        "",
+        "Source: [validated Registry relationships](https://github.com/Planton361/"
+        "autonomous-game-agent/blob/main/docs/research-atlas/registry/relationships.yaml). "
+        "Selected vocabulary: " + ", ".join(f"`{r}`" for r in sorted(INTERACTION_RELATIONS)) + ".",
+        "",
+    ]
+
+    def token(identity: str) -> str:
+        return identity.replace("-", "_")
+
+    def panel_index(edge: Relationship) -> int:
+        # Keep guarded input's declared Environment control beside its vocabulary.
+        if edge.source == "CMP-INPUT-EXECUTOR":
+            return 4
+        return next((i for i, (_, targets) in enumerate(groups) if edge.target in targets), -1)
+
+    panels = [
+        (title, [e for e in edges if panel_index(e) == i]) for i, (title, _) in enumerate(groups)
+    ]
+    remaining = [e for e in edges if panel_index(e) == -1]
+    # Bound future additions as well as today's panels, without dropping relations.
+    if remaining:
+        panels.append(("Additional declared technical interactions", remaining))
+    for title, selected in panels:
+        body += [f"### {title}", "", f"{len(selected)} declared relations; source → target.", ""]
+        if not selected:
+            body += ["No selected Registry relations in this panel; no connection inferred.", ""]
+        for start in range(0, len(selected), 8):
+            chunk = selected[start : start + 8]
+            body += ["```mermaid", "flowchart LR"]
+            for identity in sorted({i for e in chunk for i in (e.source, e.target)}):
+                node = atlas.entities[identity]
+                label = node.name.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;")
+                status = (
+                    " · " + node.technical.implementation_status
+                    if node.type in {"System", "Component"}
+                    else ""
+                )
+                body.append(
+                    f'    {token(identity)}["{label}<br/>{node.type}{status}<br/>{identity}"]'
+                )
+            for edge in chunk:
+                body.append(f'    {token(edge.source)} -->|"{edge.relation}"| {token(edge.target)}')
+            body += [
+                "```",
+                "",
+                "Exact row identities and preferred links: "
+                "[[#Complete linked relation ledger|ledger]].",
+                "",
+            ]
+    body += [
+        "## Complete linked relation ledger",
+        "",
+        "Exact (relation, source, target) tuples. Types and statuses are Registry values; "
+        "both endpoints open their one existing preferred page.",
+        "",
+        "| Relation | Source identity / type / status | Target identity / type / status |",
+        "| --- | --- | --- |",
+    ]
+
+    def endpoint(identity: str) -> str:
+        node = atlas.entities[identity]
+        status = node.technical.implementation_status
+        return (
+            f"[[{preferred[identity].with_suffix('')}\\|{node.name}]] "
+            f"· `{identity}` · {node.type} · {status}"
+        )
+
+    for edge in edges:
+        body.append(f"| `{edge.relation}` | {endpoint(edge.source)} | {endpoint(edge.target)} |")
+    if not edges:
+        body += ["", "No selected technical relations; no interaction inferred."]
+    body += ["", "[[Research Map Home|Return Home]]"]
+    return "\n".join(body)
 
 
 def execution_flow(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
@@ -873,6 +1075,16 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 1,
             ).encode()
 
+        if identity in INTERACTION_ORIENTATION_IDS:
+            text = utf8(files[page])
+            files[page] = text.replace(
+                f"[[{HOME.with_suffix('')}|Home]]",
+                f"[[{HOME.with_suffix('')}|Home]] · "
+                f"[[{INTERACTION_MAP.with_suffix('')}|Interaction Map]]",
+                1,
+            ).encode()
+
+    add(INTERACTION_MAP, interaction_map(atlas, preferred))
     add(EXECUTION_FLOW, execution_flow(atlas, preferred))
     tree_body, tree_canvas = architecture_tree(atlas, preferred)
     add(ARCHITECTURE_TREE, tree_body)
@@ -967,6 +1179,9 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         f"Open [[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]] for normative control "
         "and verification gates, native Mermaid and the complete Markdown fallback; "
         "individual Registry statuses do not establish a demonstrated live loop.\n\n"
+        f"Open [[{INTERACTION_MAP.with_suffix('')}|Interaction Map]] for exact directed "
+        "technical declarations, bounded Mermaid panels and the complete linked ledger. "
+        "Interaction arrows are neither hierarchy nor execution sequence.\n\n"
         "Technical / Research / Sources sections share one preferred page. "
         "Audits are collapsed.\n\n"
         "Graph modes Architecture, Knowledge Detail and Questions are separate projections.\n\n"
@@ -997,6 +1212,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]",
         "- Understand bounded control and verification: "
         f"[[{EXECUTION_FLOW.with_suffix('')}|Ablaufdiagramm]]",
+        "- Understand declared technical interactions: "
+        f"[[{INTERACTION_MAP.with_suffix('')}|Interaction Map]]",
         "- Explore functional context: [[#Functions|Functions]]",
         "- Read scientific inventories: [[Research Map/Views/Research Steering|Research Steering]]",
         "- Inspect literature: [[Research Map/Views/Literature Inspection|Literature Inspection]]",

@@ -33,6 +33,7 @@ Research Map/
     Architecture Tree.md
     Architecture Tree.canvas
     Execution Flow.md           # Ablaufdiagramm: Mermaid + Markdown fallback
+    Interaction Map.md          # directed Registry relations + linked ledger
     Agent Anatomy.excalidraw.md
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
@@ -151,7 +152,7 @@ Actual-vault rollout and #161's on-hold disposition remain separate; this Delive
 repair the installed vault and does not establish Linux/Mac G6.
 
 Architecture Tree is the first of the three visualization steps. Issue #164 adds
-only step 2 below. Interaction Map remains a later bounded contract.
+step 2 below; Issue #166 adds the Interaction Map as step 3.
 
 ## Ablaufdiagramm / execution flow
 
@@ -203,6 +204,54 @@ Relations Canvases, Bases, Excalidraw, Graph modes, Registry projections, source
 indexes, migration routes and the technical manifest remain byte-identical.
 Actual-vault ownership/save/recovery and #161's ON HOLD state are separate;
 #164 authorizes no vault apply/check/repair or Linux/Mac G6.
+
+## Interaction Map
+
+Issue #166 completes Diagram 3 at `Research Map/Diagrams/Interaction Map.md`.
+Home and **Using the Research Map** link all three perspectives: composition,
+execution prerequisites and technical interactions. A finite orientation row links
+the new page from System, Cortex, Manager, Body, Memory Retrieval, Independent
+Verifier, the two Interfaces, Cortex Context, Planner Output and Skill Contract.
+No new preferred identities or scientific readers are created.
+
+Eight titled presentation groups cover observation/evidence, bounded retrieval,
+Cortex intention to Manager, Manager contracts and Body/Reflex, primitive proposals
+and guarded input, independent verification, memory requests, and optional future
+between-Mission-Run learning. Native Mermaid blocks contain at most eight edges;
+a group splits into multiple blocks as needed. Additional targets use bounded
+additional blocks. Empty groups explicitly report no selected Registry records.
+These groups and their order create no architectural or temporal facts.
+
+Every selected Registry row is drawn once and listed once in the complete linked
+Markdown ledger. Current schema 0.3 has **47 directed rows in nine populated types**
+within the eleven-type selection: `supplies`, `consumes`, `controls`, `constrains`,
+`proposes_to`, `grounds`, `executes`, `observes`, `verifies`, `updates`,
+`retrieves_from`. Exact source, target, relation and stable identity survive.
+`consumes` retains actor → payload direction; there is no presentation inversion.
+Shared payloads never create a direct Component connection. `part_of`,
+`contributes_to_function`, `supports` and other research/provenance edges are
+excluded. Every endpoint opens its existing preferred page in Markdown.
+
+Node labels retain actual types; System/Component labels show Registry implementation
+status. The ledger shows endpoint type and Registry status for every row. Statuses
+and arrows certify neither a working full loop nor scientific findings/phase exits.
+Missing declarations imply no capability, completeness or novelty conclusion.
+Authority explanations retain Cortex/Manager/Body/Reflex, safety, independent
+verification, visible-only bridge and frozen Mission Run boundaries, with canonical
+and accepted overlay locators. No learning activation or undeclared firewall edge
+is inferred. Native Obsidian rendering and laptop legibility remain **unverified
+until inspected in app**; no community plugin or new asset is required.
+
+Independent comparison runs the immutable `main@3c028f74068d027e98c68a267d72036e1a8fb647`
+generator on identical frozen synthetic inputs. It proves **523 → 524 files**:
+one strict-byte `research-wiki-derived` page, with only Home, guide, eleven
+orientation pages and the derived owner manifest changed. All pre-existing routes
+and owners remain identical. Architecture Tree, Ablaufdiagramm, seven relation
+Canvases, two Excalidraw surfaces, Bases, Graph output, Registry projections,
+indexes, migration ledger and technical manifest remain byte-identical.
+The previous #164 delta test continues against its immutable merged generator.
+This is synthetic product evidence; actual-vault rollout, #161's hold and G6
+remain separate and are not executed by this Delivery.
 
 ## Supported migration and recovery
 
@@ -329,7 +378,8 @@ filters and source/reference routes use final destinations.
 The #159 automated empty-private synthetic baseline had 696 legacy files and 520
 final files: 176 fewer (25.3%). With #162's two Architecture Tree artifacts, synthetic
 output was 522 files, 174 fewer than the legacy baseline. With #164, current
-output is 523 files, 173 fewer than that baseline. These are not actual
+output was 523 files, 173 fewer than that baseline. With #166, output is
+524 files, 172 fewer than the legacy baseline. These are not actual
 private-vault counts. Populated
 synthetic tests prove no duplicate non-RQ readers, exact per-mode Graph parity,
 portable links, source protections, deterministic/idempotent generation, authored
@@ -344,5 +394,5 @@ explicit M0 authorization.
 
 Presentation repairs change generated bytes. A previous actual-vault apply/check
 does not certify the repaired head; do not apply it until CONTROL reviews that exact
-head. The Ablaufdiagramm is the bounded #164 Delivery described above. Interaction
-Map remains future work; no later diagram or actual-vault rollout is authorized here.
+head. The Ablaufdiagramm and Interaction Map are the bounded #164/#166 Deliveries
+described above. No actual-vault rollout is authorized by these diagram changes.
