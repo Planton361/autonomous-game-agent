@@ -4,6 +4,7 @@ The older renderers are pure intermediate representations and bounded migration
 readers. Only this package is written by the supported workspace harness.
 """
 
+import hashlib
 import json
 import posixpath
 import re
@@ -16,7 +17,7 @@ from . import knowledge_graph as graph
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
-from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, preferred_paths
+from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
 from .validator import Atlas
 
@@ -30,6 +31,176 @@ MANIFESTS = {
     views.OWNER: INTERNAL / "Manifests/research-map.yaml",
 }
 LEDGER = INTERNAL / "Migration/routes.yaml"
+ARCHITECTURE_TREE = PRODUCT / "Diagrams/Architecture Tree.md"
+ARCHITECTURE_CANVAS = PRODUCT / "Diagrams/Architecture Tree.canvas"
+
+
+def architecture_tree(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> tuple[str, bytes]:
+    """Render the same exact containment forest as Markdown and native Canvas.
+
+    Multiple ancestry paths repeat an identity, never choose a preferred parent.
+    Each occurrence opens the one preferred identity page. Unrooted Components
+    remain visible without an invented System edge.
+    """
+    trails = {
+        trail
+        for identity, node in atlas.entities.items()
+        if node.type in {"System", "Component"}
+        for trail in containment_paths(atlas, identity)
+    }
+
+    def order(trail: tuple[str, ...]) -> tuple:
+        return tuple((atlas.entities[i].name.casefold(), i) for i in trail)
+
+    children: dict[tuple[str, ...], list[tuple[str, ...]]] = {}
+    for trail in sorted(trails, key=order):
+        children.setdefault(trail[:-1], []).append(trail)
+
+    def link(identity: str) -> str:
+        title = re.sub(r"[\r\n`*_[\]#<>|]", " ", atlas.entities[identity].name)
+        title = " ".join(title.split())
+        return f"[[{preferred[identity].with_suffix('')}|{title}]]"
+
+    def token(trail: tuple[str, ...]) -> str:
+        return hashlib.sha256("\0".join(trail).encode()).hexdigest()[:16]
+
+    body = [
+        "# Architecture Tree",
+        "",
+        "[[Research Map Home|Home]] · [[#Linked Markdown tree|Linked Markdown tree]]",
+        "",
+        "Technical composition of the System and its Components. Only Registry `part_of` "
+        "creates ancestry; siblings are ordered by title, not runtime order or priority.",
+        "",
+        "The tree includes implemented, partial and target-only identities. "
+        "It does not certify capability or scientific results. Open an identity for its "
+        "responsibility, verification and limitations.",
+        "",
+        "## Visual tree",
+        "",
+        f"[[{ARCHITECTURE_CANVAS}|Open Architecture Tree Canvas]] — pan/zoom to inspect; "
+        "follow each card's identity link.",
+        "",
+        "The embed previews shapes only. Open the Canvas directly for card labels and "
+        "identity navigation, or use the linked Markdown tree below.",
+        "",
+        f"![[{ARCHITECTURE_CANVAS}]]",
+        "",
+        "Read left to right: parent → contained Component. Lines mean containment only; "
+        "the Registry declaration is child `part_of` parent. No control or data-flow "
+        "arrows are shown. Native Canvas is optional for reading this page; the complete "
+        "linked Markdown tree below needs no visual plugin.",
+        "",
+        "## Linked Markdown tree",
+        "",
+        "Indentation means exact technical containment. Every repeated identity has the "
+        "same preferred page; multiple paths do not select an architectural parent.",
+        "",
+    ]
+    nodes = [
+        dict(
+            id="legend",
+            type="text",
+            x=0,
+            y=-260,
+            width=880,
+            height=200,
+            text="**Architecture Tree · technical containment**\n\n"
+            "Read parent → child, left to right. Only Registry part_of creates lines. "
+            "No runtime sequence, control or data flow is implied.\n\n"
+            f"[[{ARCHITECTURE_TREE.with_suffix('')}|Linked Markdown tree and context]] · "
+            "[[Research Map Home|Home]]",
+        )
+    ]
+    edges = []
+    row = 0
+
+    def visit(trail: tuple[str, ...]) -> float:
+        nonlocal row
+        identity = trail[-1]
+        node = atlas.entities[identity]
+        depth = len(trail) - 1
+        body.append(
+            "  " * depth + f"- {link(identity)} — {node.type} · `{identity}` · "
+            f"{node.technical.implementation_status}"
+        )
+        descendants = children.get(trail, [])
+        positions = [visit(child) for child in descendants]
+        if positions:
+            y = (positions[0] + positions[-1]) / 2
+        else:
+            y = row * 200
+            row += 1
+        nodes.append(
+            dict(
+                id=token(trail),
+                type="text",
+                x=depth * 480,
+                y=y,
+                width=400,
+                height=160,
+                color="5" if node.type == "System" else "4",
+                text=f"**{node.type}**\n\n{link(identity)}\n\n"
+                f"`{identity}` · {node.technical.implementation_status}",
+            )
+        )
+        if depth:
+            edges.append(
+                dict(
+                    id="edge-" + token(trail),
+                    fromNode=token(trail[:-1]),
+                    toNode=token(trail),
+                    fromSide="right",
+                    toSide="left",
+                    fromEnd="none",
+                    toEnd="none",
+                    label="contains",
+                )
+            )
+        return y
+
+    roots = children.get((), [])
+    for kind, heading in (
+        ("System", "System composition"),
+        ("Component", "No System containment chain"),
+    ):
+        matching = [trail for trail in roots if atlas.entities[trail[0]].type == kind]
+        if not matching:
+            continue
+        body += [f"### {heading}", ""]
+        if kind == "Component":
+            body += ["These roots have no declared System ancestor; no attachment is inferred.", ""]
+            row += 1
+        for trail in matching:
+            visit(trail)
+        body.append("")
+    body += [
+        "## Context outside ancestry",
+        "",
+        "Functions, Interfaces, Contracts, Data Artifacts, Measurements and Environments "
+        "are typed context, not Component parents. Function participation, Domain grouping, "
+        "control, evidence and Research relations add no depth here. Inspect those relations "
+        "on the preferred identity pages or the existing "
+        "[[Research Map/Views/Graphs|Component Graph guides]].",
+        "",
+        "[[Research Map Home#Functions|Functions]] · "
+        "[[Research Map Home#Interfaces|Interfaces]] · "
+        "[[Research Map Home#Contracts|Contracts]] · "
+        "[[Research Map Home#Data Artifacts|Data Artifacts]] · "
+        "[[Research Map Home#Measurements|Measurements]] · "
+        "[[Research Map Home#Environments|Environments]]",
+        "",
+        "[[Research Map Home|Return Home]]",
+    ]
+    canvas = dict(
+        generated_by=views.OWNER,
+        canvas_view_schema_version="1.0",
+        nodes=nodes,
+        edges=edges,
+    )
+    return "\n".join(body), (
+        json.dumps(canvas, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode()
 
 
 @dataclass(frozen=True)
@@ -388,6 +559,20 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 + f"\n[[{HOME.with_suffix('')}|Return Home]]\n"
             ).encode()
 
+        if node.type in {"System", "Component"}:
+            text = utf8(files[page])
+            files[page] = text.replace(
+                f"[[{HOME.with_suffix('')}|Home]]",
+                f"[[{HOME.with_suffix('')}|Home]] · "
+                f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]",
+                1,
+            ).encode()
+
+    tree_body, tree_canvas = architecture_tree(atlas, preferred)
+    add(ARCHITECTURE_TREE, tree_body)
+    files[ARCHITECTURE_CANVAS] = tree_canvas
+    owners[ARCHITECTURE_CANVAS] = views.OWNER
+
     for identity, node in sorted(atlas.entities.items()):
         if node.type != "Component":
             continue
@@ -471,6 +656,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         PRODUCT / "Guides/Using the Research Map.md",
         "# Using the Research Map\n\n[[Research Map Home|Home]]\n\n"
         "Navigate System → Component using only Registry part_of. Functions describe context.\n\n"
+        f"Open [[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]] for the complete "
+        "technical composition, native Canvas and linked Markdown fallback.\n\n"
         "Technical / Research / Sources sections share one preferred page. "
         "Audits are collapsed.\n\n"
         "Graph modes Architecture, Knowledge Detail and Questions are separate projections.\n\n"
@@ -497,6 +684,8 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         f"- Explore technical composition: [[{p.with_suffix('')}|System]]" for p in system_paths
     ]
     home += [
+        "- See the complete technical hierarchy: "
+        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]",
         "- Explore functional context: [[#Functions|Functions]]",
         "- Read scientific inventories: [[Research Map/Views/Research Steering|Research Steering]]",
         "- Inspect literature: [[Research Map/Views/Literature Inspection|Literature Inspection]]",

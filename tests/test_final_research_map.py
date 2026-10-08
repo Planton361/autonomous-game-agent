@@ -24,7 +24,15 @@ from fh_agent.research_atlas import private_projection as public
 from fh_agent.research_atlas import private_views as views
 from fh_agent.research_atlas import product_migration as migration
 from fh_agent.research_atlas import workspace_harness as workspace
-from fh_agent.research_atlas.final_projection import MANIFESTS, MODES, ProductTree, package
+from fh_agent.research_atlas.final_projection import (
+    ARCHITECTURE_CANVAS,
+    ARCHITECTURE_TREE,
+    MANIFESTS,
+    MODES,
+    ProductTree,
+    architecture_tree,
+    package,
+)
 from fh_agent.research_atlas.preferred_paths import HOME, INTERNAL, PRODUCT, preferred_paths
 from fh_agent.research_atlas.private_projection import ProjectionError, markdown_parts, read_yaml
 from fh_agent.research_atlas.private_reference_index import build_index, make_snapshot
@@ -120,8 +128,8 @@ def baseline(atlas):
 def test_exact_synthetic_inventory_and_owner_counts(atlas, baseline):
     tree, technical, derived = baseline
     assert len(technical) + len(derived) == 696
-    assert len(tree.files) == 520
-    assert 696 - 520 == 176
+    assert len(tree.files) == 522
+    assert 696 - 522 == 174
     assert set(tree.routes) - {
         views.OWNED_ROOT / views.LEGACY_MEMORY_WORKBENCH,
         views.OWNED_ROOT / views.LEGACY_VERIFIER_WORKBENCH,
@@ -133,7 +141,8 @@ def test_exact_synthetic_inventory_and_owner_counts(atlas, baseline):
     assert set(tree.owners.values()) == {public.OWNER, views.OWNER}
     assert set(tree.owners) == set(tree.files)
     assert sum(p.suffix == ".base" for p in tree.files) == 3
-    assert sum(p.suffix == ".canvas" for p in tree.files) == 7
+    assert sum(p.suffix == ".canvas" for p in tree.files) == 8
+    assert {ARCHITECTURE_TREE, ARCHITECTURE_CANVAS} <= tree.files.keys()
     assert set(preferred_paths(atlas).values()) <= tree.files.keys()
     assert len(preferred_paths(atlas)) == 61
     assert len(set(preferred_paths(atlas).values())) == 61
@@ -183,6 +192,103 @@ def test_exact_component_paths_and_function_non_ancestry(atlas, baseline):
             assert "## Technical" in text and "## Research" in text
             assert "Sources" in text and "[!info]-" in text
             assert "Return Home" in text
+
+
+def assert_architecture_parity(atlas, body, payload):
+    paths = preferred_paths(atlas)
+    canvas = json.loads(payload)
+    actors = {i for i, n in atlas.entities.items() if n.type in {"System", "Component"}}
+    nodes = {}
+    markdown_trails = set()
+    stack = []
+    for line in body.splitlines():
+        match = re.match(r"^( *)- \[\[.*\]\] — (System|Component) · `([^`]+)`", line)
+        if match:
+            depth = len(match[1]) // 2
+            stack[depth:] = [match[3]]
+            markdown_trails.add(tuple(stack))
+    for node in canvas["nodes"]:
+        if node["id"] == "legend":
+            continue
+        identity = re.search(r"`((?:SYS|CMP)-[^`]+)`", node["text"])[1]
+        assert f"[[{paths[identity].with_suffix('')}|" in node["text"]
+        assert atlas.entities[identity].technical.implementation_status in node["text"]
+        nodes[node["id"]] = identity
+    assert set(nodes.values()) == actors
+    assert {trail[-1] for trail in markdown_trails} == actors
+    visual_pairs = {(nodes[e["toNode"]], nodes[e["fromNode"]]) for e in canvas["edges"]}
+    markdown_pairs = {(trail[-1], trail[-2]) for trail in markdown_trails if len(trail) > 1}
+    declared = {(e.source, e.target) for e in atlas.relationships if e.relation == "part_of"}
+    assert visual_pairs == markdown_pairs == declared
+    assert len(canvas["edges"]) == len(markdown_trails) - sum(len(t) == 1 for t in markdown_trails)
+    assert all(e["label"] == "contains" and e["toEnd"] == "none" for e in canvas["edges"])
+    cards = [n for n in canvas["nodes"] if n["id"] != "legend"]
+    for index, left in enumerate(cards):
+        for right in cards[index + 1 :]:
+            assert (
+                left["x"] + left["width"] <= right["x"]
+                or right["x"] + right["width"] <= left["x"]
+                or left["y"] + left["height"] <= right["y"]
+                or right["y"] + right["height"] <= left["y"]
+            ), (left, right)
+    return markdown_trails, nodes
+
+
+def test_architecture_tree_complete_ancestry_navigation_and_fallback(atlas, baseline):
+    tree = baseline[0]
+    body = tree.files[ARCHITECTURE_TREE].decode()
+    assert_architecture_parity(atlas, body, tree.files[ARCHITECTURE_CANVAS])
+    route = f"[[{ARCHITECTURE_TREE.with_suffix('')}|Architecture Tree]]"
+    for page in [HOME, PRODUCT / "Guides/Using the Research Map.md"] + [
+        p
+        for i, p in preferred_paths(atlas).items()
+        if atlas.entities[i].type in {"System", "Component"}
+    ]:
+        assert route in tree.files[page].decode()
+    assert f"![[{ARCHITECTURE_CANVAS}]]" in body
+    assert "embed previews shapes only" in body
+    assert f"[[{ARCHITECTURE_CANVAS}|Open Architecture Tree Canvas]]" in body
+    assert "## Linked Markdown tree" in body
+    assert "## Context outside ancestry" in body
+    assert "target-only" in body and "does not certify capability" in body
+    assert "child `part_of` parent" in body
+
+
+def test_architecture_tree_multiple_paths_detached_roots_and_order_invariance(atlas):
+    # A multi-parent ancestor repeats its descendant paths without selecting a parent.
+    relationships = tuple(
+        e
+        for e in atlas.relationships
+        if not (e.relation == "part_of" and e.source == "CMP-SCREEN-CAPTURE")
+    ) + (Relationship(source="CMP-MEMORY", relation="part_of", target="CMP-MANAGER"),)
+    altered = replace(atlas, relationships=relationships)
+    body, canvas = architecture_tree(altered, preferred_paths(altered))
+    trails, nodes = assert_architecture_parity(altered, body, canvas)
+    assert "### No System containment chain" in body
+    assert ("CMP-SCREEN-CAPTURE",) in trails
+    assert sum(i == "CMP-MEM-EPISODIC" for i in nodes.values()) == 2
+    assert ("SYS-AGA", "CMP-MANAGER", "CMP-MEMORY", "CMP-MEM-EPISODIC") in trails
+    assert ("SYS-AGA", "CMP-MEMORY", "CMP-MEM-EPISODIC") in trails
+    reordered = replace(
+        altered,
+        entities=dict(reversed(list(altered.entities.items()))),
+        relationships=tuple(reversed(relationships)),
+    )
+    assert architecture_tree(reordered, preferred_paths(reordered)) == (body, canvas)
+
+
+def test_architecture_tree_context_never_adds_ancestry_and_cycle_rejects(atlas):
+    expected = architecture_tree(atlas, preferred_paths(atlas))
+    context = Relationship(source="CMP-MEMORY", relation="controls", target="CMP-MANAGER")
+    altered = replace(atlas, relationships=atlas.relationships + (context,))
+    assert architecture_tree(altered, preferred_paths(altered)) == expected
+    cyclic = replace(
+        atlas,
+        relationships=atlas.relationships
+        + (Relationship(source="CMP-MEMORY", relation="part_of", target="CMP-MEM-EPISODIC"),),
+    )
+    with pytest.raises(ProjectionError, match="containment cycle"):
+        architecture_tree(cyclic, preferred_paths(atlas))
 
 
 @pytest.mark.parametrize("family", ["canvas", "excalidraw", "base-and-strict"])
@@ -667,7 +773,7 @@ def test_apply_idempotence_authored_preservation_restore_and_private_export(work
     assert all(snapshot(vault)[p] == data for p, data in authored.items())
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert len(receipt["before"]) == 696
-    assert len(receipt["after"]) == 520
+    assert len(receipt["after"]) == 522
     page = preferred_paths(load_registry(repo / "docs/research-atlas"))["CMP-BODY"]
     export_reader(repo, vault, page, PurePosixPath("reader-exports/Body.md"))
     derivative = (vault / "reader-exports/Body.md").read_text()
@@ -820,9 +926,9 @@ def test_closed_manifest_classes_and_every_managed_format(baseline):
             counts[semantics.Ownership(row["ownership"])] += 1
             assert row == {"path": str(path), **semantics.record(tree.files[path], path, owner)}
     assert counts == {
-        semantics.Ownership.STRICT: 506,
+        semantics.Ownership.STRICT: 507,
         semantics.Ownership.BASE: 3,
-        semantics.Ownership.CANVAS: 7,
+        semantics.Ownership.CANVAS: 8,
         semantics.Ownership.EXCALIDRAW: 2,
     }
     for path in managed_paths(tree):
@@ -953,14 +1059,14 @@ def test_observed_drift_family_check_apply_and_exact_restore_bytes(workspace_set
                 (vault / path).read_bytes(), path, compressed=path.name.endswith(".excalidraw.md")
             )
             (vault / path).write_bytes(rewritten[path])
-    assert len(rewritten) == 12  # 2 Excalidraw + ALL 7 retained Canvas + 3 Bases.
+    assert len(rewritten) == 13  # 2 Excalidraw + all 8 Canvas (including the tree) + 3 Bases.
     before = filesystem_state(vault.parent)
     workspace.check(repo, vault)
 
     assert filesystem_state(vault.parent) == before
     result = workspace.apply(repo, vault)
     assert snapshot(vault) == canonical
-    assert len(migration._actual(vault)) == 520
+    assert len(migration._actual(vault)) == 522
     receipt = json.loads((result.restore_point / "migration-plan.json").read_text())
     assert receipt["receipt_schema_version"] == "2.0"
     for path, data in rewritten.items():
