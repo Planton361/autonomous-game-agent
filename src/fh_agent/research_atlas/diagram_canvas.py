@@ -543,22 +543,31 @@ FLOW_REGIONS = (
                 "overlay:restart-and-terminal-semantics",
             ),
             (
-                "continuity",
-                "Application/process restart integrity",
-                "Preserve manifest, frozen identities and provenance. "
-                "Recreate transient handles only. If continuity cannot be "
-                "established, stop/quarantine; never relabel as clean new "
-                "run.",
-                (),
-                "overlay:restart-and-terminal-semantics",
-            ),
-            (
                 "terminal",
                 "Declared Mission Run terminal condition",
                 "Independently verified mission success; frozen "
                 "time/action/cost/life budget exhaustion; explicit authorized"
                 " manual stop; unrecoverable safety/integrity or "
                 "environment/harness failure. Ordinary death is insufficient.",
+                (),
+                "overlay:restart-and-terminal-semantics",
+            ),
+            (
+                "process_restart",
+                "Optional application/process restart event",
+                "Out-of-band during an active Mission Run; independent of contract completion "
+                "or Life Episode death. Operational restart only: no new Mission Run, "
+                "experimental memory reset or controller replacement.",
+                (),
+                "overlay:restart-and-terminal-semantics",
+            ),
+            (
+                "continuity",
+                "Application/process restart integrity",
+                "Preserve manifest, frozen identities and provenance. "
+                "Recreate transient handles only. If continuity cannot be "
+                "established, stop/quarantine; never relabel as clean new "
+                "run.",
                 (),
                 "overlay:restart-and-terminal-semantics",
             ),
@@ -743,6 +752,7 @@ def execution_canvas(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> bytes
         ("episode", "restart", "nonterminal; restart permitted"),
         ("episode", "terminal", "declared terminal condition reached"),
         ("restart", "capture", "new Life Episode; same Mission Run / frozen Body"),
+        ("process_restart", "continuity", "optional restart"),
         ("continuity", "capture", "identities / provenance preserved"),
         ("continuity", "reject", "continuity lost: stop / quarantine"),
         ("terminal", "next", "already eligible Body; no retraining"),

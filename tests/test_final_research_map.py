@@ -2085,7 +2085,7 @@ def test_execution_canvas_source_gates_boundaries_and_independence(atlas, baseli
     data = baseline[0].files[EXECUTION_CANVAS]
     canvas, nodes = assert_canvas_geometry(data)
     assert len([n for n in nodes.values() if n["type"] == "group"]) == 6
-    assert len([n for n in nodes.values() if n["type"] == "text" and n["id"] != "legend"]) == 39
+    assert len([n for n in nodes.values() if n["type"] == "text" and n["id"] != "legend"]) == 40
     pairs = {(e["fromNode"], e["toNode"]) for e in canvas["edges"]}
     assert ("cortex", "execute") not in pairs and ("cortex", "proposal") not in pairs
     for gate in ("validate", "capability", "ground", "safety", "focus", "capacity", "logging"):
@@ -2165,3 +2165,66 @@ def test_canvas_upgrade_independent_exact_main_delta(atlas, baseline, tmp_path, 
     ]
     assert len(new_stages) >= 2 * len(old_stages)
     print("Canvas-first exact-main delta:", *sorted(map(str, changed | added)), sep="\n")
+
+
+def test_execution_canvas_optional_restart_entry_and_repair_delta(
+    atlas, baseline, tmp_path, monkeypatch
+):
+    tree, technical, derived = baseline
+    canvas, nodes = assert_canvas_geometry(tree.files[EXECUTION_CANVAS])
+    incoming = [edge for edge in canvas["edges"] if edge["toNode"] == "continuity"]
+    assert len(incoming) == 1
+    entry = incoming[0]
+    assert entry["fromNode"] == "process_restart"
+    assert entry["label"] == "optional restart"
+    trigger = nodes[entry["fromNode"]]
+    assert "Optional application/process restart event" in trigger["text"]
+    assert "Out-of-band during an active Mission Run" in trigger["text"]
+    assert "independent of contract completion or Life Episode death" in trigger["text"]
+    assert "no new Mission Run" in trigger["text"]
+    assert "ALIGN-2026-09-19-v1.0/README.md#restart-and-terminal-semantics" in trigger["text"]
+    assert not any(edge["toNode"] == trigger["id"] for edge in canvas["edges"])
+    assert trigger["y"] == nodes["continuity"]["y"]
+    assert entry["fromSide"] == "right" and entry["toSide"] == "left"
+    assert {
+        (edge["toNode"], edge["label"])
+        for edge in canvas["edges"]
+        if edge["fromNode"] == "continuity"
+    } == {
+        ("capture", "identities / provenance preserved"),
+        ("reject", "continuity lost: stop / quarantine"),
+    }
+    assert "Preserve manifest, frozen identities and provenance" in nodes["continuity"]["text"]
+    assert "stop/quarantine; never relabel as clean new run" in nodes["continuity"]["text"]
+
+    # The reviewed generator imports its Canvas module: pin BOTH modules so the
+    # current repair cannot become its own same-input before-state oracle.
+    revision = "347e1b85ee64f9abcf8652ac72eff49ed47351fb"
+    with monkeypatch.context() as patch:
+        file = tmp_path / "reviewed_diagram_canvas.py"
+        file.write_text(
+            harness_fixtures.git(
+                ROOT, "show", f"{revision}:src/fh_agent/research_atlas/diagram_canvas.py"
+            )
+        )
+        name = "fh_agent.research_atlas.diagram_canvas"
+        spec = spec_from_file_location(name, file)
+        module = module_from_spec(spec)
+        patch.setitem(sys.modules, name, module)
+        spec.loader.exec_module(module)
+        before = immutable_interaction_base(
+            atlas, technical, derived, tmp_path, patch, revision=revision
+        )
+    assert before.files.keys() == tree.files.keys()
+    assert len(tree.files) == 526
+    assert before.routes == tree.routes and before.owners == tree.owners
+    assert {path for path in tree.files if tree.files[path] != before.files[path]} == {
+        EXECUTION_CANVAS,
+        MANIFESTS[views.OWNER],
+    }
+    assert not any(
+        edge["toNode"] == "continuity"
+        for edge in json.loads(before.files[EXECUTION_CANVAS])["edges"]
+    )
+    assert len(canvas["edges"]) == len(json.loads(before.files[EXECUTION_CANVAS])["edges"]) + 1
+    assert package(atlas, technical, derived).files == tree.files
