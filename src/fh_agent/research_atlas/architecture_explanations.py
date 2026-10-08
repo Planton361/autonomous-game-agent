@@ -31,6 +31,17 @@ AREAS = (
     "Between-Mission-Run Learning",
 )
 GUIDES = ("System Overview", "Experience to Knowledge", "Scientific Experiment")
+ESSAY = "Das Experiment verstehen"
+REFERENCE_TYPES = {
+    "CMP-CORTEX": "Component",
+    "CMP-MANAGER": "Component",
+    "CMP-MEMORY": "Component",
+    "DAT-OBSERVATION": "DataArtifact",
+    "CON-SKILL-CONTRACT": "Contract",
+    "CON-VERIFIER-RESULT": "Contract",
+    "IF-CORTEX-MANAGER": "Interface",
+    "FUNC-EXECUTIVE-CONTROL": "Function",
+}
 TOKEN = re.compile(r"\[\[(id|guide):([^\]]+)\]\]")
 
 
@@ -91,6 +102,15 @@ class Guide(Record):
     sources: tuple[Text, ...] = Field(min_length=1)
 
 
+class ReferenceExplanation(Record):
+    how_it_works: Text
+    normative: Text
+    implementation: Text
+    limitations: Text
+    example: Text
+    sources: tuple[Text, ...] = Field(min_length=1)
+
+
 class ExplanationCatalog(Record):
     explanation_version: Literal["1.0"]
     source_revision: COMMIT
@@ -102,6 +122,14 @@ class ExplanationCatalog(Record):
     sources: dict[str, SourceLocator]
     components: dict[str, Explanation]
     guides: dict[str, Guide]
+    reference_slice: dict[str, ReferenceExplanation] = Field(default_factory=dict)
+    optional_essay: Guide | None = None
+    reference_control_reference: (
+        Literal[
+            "https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6070709383"
+        ]
+        | None
+    ) = None
     dependencies: dict[Text, Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]]
 
     def links(self, keys: tuple[str, ...], kind: str | None = None) -> str:
@@ -139,7 +167,34 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
         raise ProjectionError("Explanation coverage must match every Component and three Guides")
     if tuple(s.title for s in catalog.guides[GUIDES[0]].sections) != AREAS:
         raise ProjectionError("System Overview must contain the seven functional sections")
-    for item in (*catalog.components.values(), *catalog.guides.values()):
+    if catalog.reference_slice and (
+        set(catalog.reference_slice) != set(REFERENCE_TYPES)
+        or catalog.reference_control_reference is None
+        or any(
+            i not in atlas.entities or atlas.entities[i].type != kind
+            for i, kind in REFERENCE_TYPES.items()
+        )
+    ):
+        raise ProjectionError("Reference slice must match the eight existing typed identities")
+    for item in catalog.reference_slice.values():
+        # A linked identity counts as its human-readable title, not its path/token.
+        plain = TOKEN.sub(
+            lambda m: atlas.entities[m[2]].name if m[2] in atlas.entities else m[0],
+            item.how_it_works,
+        )
+        if len(plain.split()) > 300:
+            raise ProjectionError("Reference How it works exceeds 300 words")
+    if catalog.optional_essay is not None:
+        linked = set(TOKEN.findall(str(catalog.optional_essay.model_dump())))
+        if not {("id", i) for i in components} <= linked:
+            raise ProjectionError("Optional essay must link all 28 Components")
+    items = (
+        *catalog.components.values(),
+        *catalog.guides.values(),
+        *catalog.reference_slice.values(),
+        *((catalog.optional_essay,) if catalog.optional_essay is not None else ()),
+    )
+    for item in items:
         if (
             len(set(item.sources)) != len(item.sources)
             or set(item.sources) - catalog.sources.keys()
@@ -148,7 +203,7 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
         kinds = {catalog.sources[key].kind for key in item.sources}
         required = (
             {"normative", "implementation", "test"}
-            if isinstance(item, Explanation)
+            if isinstance(item, Explanation | ReferenceExplanation)
             else {"normative"}
         )
         if not required <= kinds:
@@ -156,7 +211,7 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
         for value in item.model_dump().values():
             for kind, identity in TOKEN.findall(str(value)):
                 if (kind == "id" and identity not in atlas.entities) or (
-                    kind == "guide" and identity not in GUIDES
+                    kind == "guide" and identity not in (*GUIDES, ESSAY)
                 ):
                     raise ProjectionError("Dangling explanation navigation token")
     for path in catalog.dependencies:
@@ -235,8 +290,10 @@ def guide_pages(
         return TOKEN.sub(link, text)
 
     result = {}
-    for title in GUIDES:
-        guide = catalog.guides[title]
+    guides = {title: catalog.guides[title] for title in GUIDES}
+    if catalog.optional_essay is not None:
+        guides[ESSAY] = catalog.optional_essay
+    for title, guide in guides.items():
         keys = list(guide.sources)
         # Guide implementation summaries retain the same Component dependency freeze.
         for section in guide.sections:
@@ -267,6 +324,57 @@ def guide_pages(
         ]
         result[PurePosixPath("Research Map/Guides", title + ".md")] = "\n".join(lines)
     return result
+
+
+def reference_page(
+    body: str,
+    identity: str,
+    catalog: ExplanationCatalog,
+    atlas: Atlas,
+    preferred: dict[str, PurePosixPath],
+) -> str:
+    """Replace only the local mechanism section; retain identity/relation/audit bytes."""
+    item = catalog.reference_slice[identity]
+
+    def resolve(value: str) -> str:
+        return TOKEN.sub(
+            lambda m: f"[[{preferred[m[2]].with_suffix('')}|{atlas.entities[m[2]].name}]]",
+            value,
+        )
+
+    start = body.index("### How it works\n")
+    end = body.index("\n### ", start + len("### How it works\n"))
+    original = body[start + len("### How it works\n") : end].strip()
+    replacement = [
+        "### How it works",
+        "",
+        resolve(item.how_it_works),
+        "",
+        "### Soll / Ist / Grenzen",
+        "",
+        "**Soll:** " + resolve(item.normative),
+        "",
+        "**Ist:** " + resolve(item.implementation),
+        "",
+        "**Grenzen:** " + resolve(item.limitations),
+        "",
+        "**Beispiel:** " + resolve(item.example),
+        "",
+        "Normative Quellen: " + catalog.links(item.sources, "normative"),
+        "",
+        "Implementierung: " + catalog.links(item.sources, "implementation"),
+        "",
+        "Testquellen (Quellinspektion, kein neuer Lauf): " + catalog.links(item.sources, "test"),
+        "",
+        f"[Referenzausschnitt-Vertrag]({catalog.reference_control_reference}).",
+        "",
+        catalog.provenance(item.sources),
+        "",
+        "### Code-Details der bisherigen Darstellung",
+        "",
+        original,
+    ]
+    return body[:start] + "\n".join(replacement) + "\n" + body[end:]
 
 
 def component_technical(

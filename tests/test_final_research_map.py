@@ -73,7 +73,25 @@ def workspace_setup(tmp_path, monkeypatch):
     # enables content-keyed pure reuse without caching any filesystem validation.
     monkeypatch.setenv("GIT_AUTHOR_DATE", "2026-09-01T00:00:00+00:00")
     monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-09-01T00:00:00+00:00")
-    return harness_fixtures.setup.__wrapped__(tmp_path)
+    # Keep AP1–AP4 historical acceptance contracts on their exact presentation input.
+    # The current reference slice is exercised independently below, including migration.
+    original_copy = harness_fixtures._copy_source
+
+    def copy_source(repo, relative):
+        original_copy(repo, relative)
+        if PurePosixPath(relative) == SOURCE:
+            (repo / relative).write_bytes(
+                subprocess.run(
+                    ["git", "show", f"f7860e2540cfb226451720aff970028e6db76ddb:{SOURCE}"],
+                    cwd=ROOT,
+                    check=True,
+                    capture_output=True,
+                ).stdout
+            )
+
+    with monkeypatch.context() as patch:
+        patch.setattr(harness_fixtures, "_copy_source", copy_source)
+        return harness_fixtures.setup.__wrapped__(tmp_path)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -2251,7 +2269,7 @@ def test_execution_canvas_optional_restart_entry_and_repair_delta(
 def ap1_source():
     atlas = load_registry(ROOT / "docs/research-atlas")
     catalog = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
-    return atlas, catalog
+    return atlas, catalog.model_copy(update={"reference_slice": {}, "optional_essay": None})
 
 
 @pytest.fixture(scope="module")
@@ -3768,3 +3786,253 @@ def test_ap4_exact_reviewed_head_delta_preserves_all_other_products(
         )
     assert after == migration.build(repo, vault, sha)
     assert harness_fixtures._authored_snapshot(vault) == authored
+
+
+# #170 reference slice: current source and exact pre-slice product, not the AP1 oracle.
+@pytest.fixture(scope="module")
+def reference_slice_product(tmp_path_factory):
+    atlas = load_registry(ROOT / "docs/research-atlas")
+    current = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
+    revision = "f7860e2540cfb226451720aff970028e6db76ddb"
+    old = parse_explanations(
+        subprocess.run(
+            ["git", "show", f"{revision}:{SOURCE}"], cwd=ROOT, check=True, capture_output=True
+        ).stdout,
+        atlas,
+    )
+    technical, derived, _, _ = intermediate(atlas)
+    file = tmp_path_factory.mktemp("reference-base") / "projection.py"
+    file.write_bytes(
+        subprocess.run(
+            ["git", "show", f"{revision}:src/fh_agent/research_atlas/final_projection.py"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    spec = spec_from_file_location("fh_agent.research_atlas._reference_base", file)
+    module = module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+        before = module.consolidate_graph_audits(
+            module.package(atlas, technical, derived, explanations=old)
+        )
+    finally:
+        del sys.modules[spec.name]
+    after = final_projection.consolidate_graph_audits(
+        final_projection.package(atlas, technical, derived, explanations=current)
+    )
+    return atlas, current, before, after
+
+
+def test_reference_slice_eight_bindings_words_sources_and_exact_delta(reference_slice_product):
+    atlas, catalog, before, after = reference_slice_product
+    expected = {
+        "CMP-CORTEX": ("Component", "Research Map/Components/Cortex.md"),
+        "CMP-MANAGER": ("Component", "Research Map/Components/Manager.md"),
+        "CMP-MEMORY": ("Component", "Research Map/Components/Memory.md"),
+        "DAT-OBSERVATION": ("DataArtifact", "Research Map/Data Artifacts/Observation.md"),
+        "CON-SKILL-CONTRACT": (
+            "Contract",
+            "Research Map/Contracts/TaskSpec bounded Skill Contract.md",
+        ),
+        "CON-VERIFIER-RESULT": ("Contract", "Research Map/Contracts/VerifierResult.md"),
+        "IF-CORTEX-MANAGER": ("Interface", "Research Map/Interfaces/Cortex to Manager.md"),
+        "FUNC-EXECUTIVE-CONTROL": ("Function", "Research Map/Functions/Executive Control.md"),
+    }
+    assert set(catalog.reference_slice) == set(expected)
+    validate_dependencies(catalog, ROOT)
+    paths = preferred_paths(atlas)
+    for identity, (kind, path) in expected.items():
+        assert atlas.entities[identity].type == kind and str(paths[identity]) == path
+        body = after.files[paths[identity]].decode()
+        how = body.split("### How it works\n", 1)[1].split("\n### ", 1)[0]
+        # Count human titles after links resolve, rather than token/path lengths.
+        plain = re.sub(r"\[\[[^|]+\|([^\]]+)\]\]", r"\1", how)
+        assert 120 <= len(plain.split()) <= 300, (identity, len(plain.split()))
+        for marker in ("**Soll:**", "**Ist:**", "**Grenzen:**", "**Beispiel:**"):
+            assert marker in body
+        for key in catalog.reference_slice[identity].sources:
+            source = catalog.sources[key]
+            assert f"/{catalog.source_revision}/{source.path}#L{source.line}" in body
+        # All existing relation/ancestry/research inspection sections stay exactly intact.
+        old_body = before.files[paths[identity]].decode()
+        for marker in ("### Inputs and outputs", "### Inputs / outputs / important connections"):
+            if marker in old_body:
+                assert body.split(marker, 1)[1] == old_body.split(marker, 1)[1]
+    essay = PRODUCT / "Guides/Das Experiment verstehen.md"
+    assert after.files.keys() - before.files.keys() == {essay}
+    assert not before.files.keys() - after.files.keys()
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {paths[i] for i in expected} | {HOME, MANIFESTS[views.OWNER]}
+    assert (len(before.files), len(after.files), len(changed)) == (506, 507, 10)
+    assert after.routes == before.routes
+    assert all(after.owners[p] == before.owners[p] for p in before.files)
+    assert len(before.files.keys() - changed) == 496
+
+
+def test_reference_slice_essay_links_navigation_and_determinism(reference_slice_product):
+    atlas, catalog, _, tree = reference_slice_product
+    paths = preferred_paths(atlas)
+    essay = PRODUCT / "Guides/Das Experiment verstehen.md"
+    body = tree.files[essay].decode()
+    components = {i for i, n in atlas.entities.items() if n.type == "Component"}
+    assert len(components) == 28
+    assert all(
+        f"[[{paths[i].with_suffix('')}|{atlas.entities[i].name}]]" in body for i in components
+    )
+    assert "Optionaler Lesepfad" in tree.files[HOME].decode()
+    assert "keine hier bereits erzielten Ergebnisse" in body
+    assert "Innerhalb eines Mission Run bleiben Body-Gewichte eingefroren" in body
+    assert "Admission" in body and "offene Designfragen" in body
+    for path in {essay, HOME, *(paths[i] for i in catalog.reference_slice)}:
+        for value in re.findall(r"\[\[([^\]]+)\]\]", tree.files[path].decode()):
+            route, _, heading = value.split("|", 1)[0].rstrip("\\").partition("#")
+            resolved = (
+                path
+                if not route
+                else next((p for p in tree.files if str(p) in {route, route + ".md"}), None)
+            )
+            assert resolved is not None, (path, value)
+            if heading:
+                assert heading in re.findall(
+                    r"^\s*(?:>\s*)*#{1,6} (.+)$", tree.files[resolved].decode(), re.M
+                )
+    technical, derived, _, _ = intermediate(atlas)
+    reordered = Atlas(
+        dict(reversed(list(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        source_atlas_schema=atlas.source_atlas_schema,
+    )
+    again = final_projection.consolidate_graph_audits(
+        final_projection.package(reordered, technical, derived, explanations=catalog)
+    )
+    assert again == tree
+
+
+@pytest.mark.parametrize("change", ["words", "missing", "type", "essay", "token"])
+def test_reference_slice_rejects_invalid_scope_and_content(change):
+    atlas = load_registry(ROOT / "docs/research-atlas")
+    data = yaml.safe_load((ROOT / SOURCE).read_bytes())
+    if change == "words":
+        data["reference_slice"]["CMP-CORTEX"]["how_it_works"] = "Wort " * 301
+    elif change == "missing":
+        del data["reference_slice"]["DAT-OBSERVATION"]
+    elif change == "type":
+        entities = dict(atlas.entities)
+        entities["DAT-OBSERVATION"] = entities["DAT-OBSERVATION"].model_copy(
+            update={"type": "Contract"}
+        )
+        atlas = Atlas(entities, atlas.relationships, source_atlas_schema=atlas.source_atlas_schema)
+    elif change == "essay":
+        data["optional_essay"]["sections"][0]["text"] = "[[id:UNKNOWN]]"
+    else:
+        data["reference_slice"]["CMP-CORTEX"]["how_it_works"] += " [[id:UNKNOWN]]"
+    with pytest.raises(ProjectionError):
+        parse_explanations(yaml.safe_dump(data).encode(), atlas)
+
+
+def test_reference_slice_prototypes_semantics_native_format_and_fallback(reference_slice_product):
+    from xml.etree import ElementTree as ET
+
+    from fh_agent.research_atlas.reference_prototypes import (
+        BOXES,
+        DRAWIO,
+        EXCALIDRAW,
+        FLOWS,
+        PREVIEW,
+        REGISTRY_TRIPLES,
+        prototype_files,
+    )
+
+    atlas, _, _, tree = reference_slice_product
+    files = prototype_files(atlas)
+    assert files == prototype_files(atlas)
+    assert set(files) == {DRAWIO, EXCALIDRAW, PREVIEW}
+    assert not set(files) & tree.files.keys()  # Isolated candidates have no production owner.
+    scene = json.loads(re.search(r"```json\n(.*?)\n```", files[EXCALIDRAW].decode(), re.S)[1])
+    flows = {
+        tuple(e["customData"]["presentation_flow"][k] for k in ("from", "to"))
+        for e in scene["elements"]
+        if e["type"] == "arrow"
+    }
+    expected = {(a, b) for a, b, _, _ in FLOWS}
+    for key, _, x, y, _, _ in BOXES:
+        texts = {
+            e["customData"]["role"]: e
+            for e in scene["elements"]
+            if e["type"] == "text" and e.get("customData", {}).get("card") == key
+        }
+        title, detail = texts["title"], texts["detail"]
+        assert title["y"] + title["height"] <= detail["y"]
+        assert detail["y"] + detail["height"] <= y + 100
+        assert title["x"] >= x and title["x"] + title["width"] <= x + 320
+    assert flows == expected
+    assert {
+        ("input", "game"),
+        ("game", "new-observation"),
+        ("verifier", "result"),
+        ("result", "transition"),
+        ("transition", "contract"),
+        ("contract", "body"),
+        ("transition", "close"),
+        ("close", "cortex"),
+        ("retrieval", "cortex"),
+    } <= flows
+    assert ("transition", "body") not in flows
+    # Independent rectangle/routing checks: arrow segments don't cross unrelated cards.
+    for source, target, points, _ in FLOWS:
+        for (x1, y1), (x2, y2) in zip(points, points[1:], strict=False):
+            assert x1 == x2 or y1 == y2
+            for key, _, x, y, _, _ in BOXES:
+                if key in {source, target}:
+                    continue
+                assert not (
+                    x1 == x2
+                    and x < x1 < x + 320
+                    and max(min(y1, y2), y) < min(max(y1, y2), y + 100)
+                )
+                assert not (
+                    y1 == y2
+                    and y < y1 < y + 100
+                    and max(min(x1, x2), x) < min(max(x1, x2), x + 320)
+                )
+    xml = ET.fromstring(files[DRAWIO])
+    assert len(xml.findall("diagram")) == 4
+    declared = {(e.source, e.relation, e.target) for e in atlas.relationships}
+    actual = set()
+    for cell in xml.iter("mxCell"):
+        if cell.get("semantics", "").startswith("registry:"):
+            _, source, relation, target = cell.get("semantics").split(":")
+            assert cell.get("value") == relation
+            actual.add((source, relation, target))
+    assert actual == set(REGISTRY_TRIPLES) <= declared
+    text = files[DRAWIO].decode()
+    for boundary in (
+        "Weitere Eingaben sofort hemmen",
+        "Frühere Schritte bleiben erhalten",
+        "Bedingt neu planen",
+        "Derselbe aktive Contract",
+        "Kein neuer Auftrag",
+    ):
+        assert boundary in text
+    assert "System Overview.svg" in files[PREVIEW].decode()
+    assert "Execution Flow" in files[PREVIEW].decode()
+
+
+def test_reference_slice_current_source_synthetic_apply_check_recover(tmp_path, monkeypatch):
+    # Current production source, independently of historical AP1–AP4 fixtures.
+    repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
+    authored = harness_fixtures._authored_snapshot(vault)
+    tree = migration.build(repo, vault, sha)
+    assert len(tree.files) == 507
+    result = workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    before = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == before
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    workspace.recover(repo, vault, result.restore_point)
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    assert not (vault / PRODUCT / "Guides/Das Experiment verstehen.md").exists()

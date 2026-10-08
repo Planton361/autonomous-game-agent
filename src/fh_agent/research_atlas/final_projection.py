@@ -21,6 +21,7 @@ from .architecture_explanations import (
     ExplanationCatalog,
     component_technical,
     guide_pages,
+    reference_page,
 )
 from .diagram_canvas import (
     CANVAS_NAVIGATION,
@@ -1367,6 +1368,11 @@ def package(
                 "[[Research Map/Views/Literature Inspection|Literature Inspection]]\n\n" + research
             ).encode()
 
+        if explanations is not None and identity in explanations.reference_slice:
+            files[page] = reference_page(
+                utf8(files[page]), identity, explanations, atlas, preferred
+            ).encode()
+
         if node.type in {"System", "Component"}:
             text = utf8(files[page])
             files[page] = text.replace(
@@ -1546,6 +1552,13 @@ def package(
             "and linked ledger for exact structure and relations.",
             "",
         ]
+        if explanations.optional_essay is not None:
+            home += [
+                "Optionaler Lesepfad: "
+                "[[Research Map/Guides/Das Experiment verstehen|Das Experiment verstehen]] "
+                "— die zusammenhängende Geschichte hinter dem Aufbau.",
+                "",
+            ]
     system_paths = [p for i, p in preferred.items() if atlas.entities[i].type == "System"]
     home += ["## Start here", ""]
     home += [

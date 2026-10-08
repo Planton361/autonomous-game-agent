@@ -4,6 +4,30 @@ source_revision: a1aca251a1c5b868eb20b5f2e26f59a3b5d3d6df
 review_status: pending-control-review
 control_reference: https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6065272859
 sources:
+  task-spec:
+    kind: implementation
+    path: src/fh_agent/manager/task_spec.py
+    locator: TaskSpec
+    line: 19
+    sha256: a7afe75d84fd3c26c3297f7451fde66a0093d295f09e8b593ef4b89ef18908b4
+  verifier-result:
+    kind: implementation
+    path: src/fh_agent/verifier/schemas.py
+    locator: VerifierResult
+    line: 35
+    sha256: ffdd23843d4c49c98baac687ad4d93912cb993fac01f07e51de170d4d152c03b
+  scheduler:
+    kind: implementation
+    path: src/fh_agent/manager/scheduler.py
+    locator: TaskScheduler.complete_from_verifier
+    line: 214
+    sha256: 6f0961b9107e970f7775993f147d9b15ecefcf51340cf8de66a8af4fd8f54106
+  submitter:
+    kind: implementation
+    path: src/fh_agent/manager/cortex_submission.py
+    locator: CortexTaskSubmitter.plan_and_submit
+    line: 42
+    sha256: 1ab2764f1faeb50e02246db0d1b6ba87cb35cddfddf2538537f19c8197a5339f
   arch1:
     kind: normative
     path: docs/canonical/02_ARCHITECTURE_CANONICAL.md
@@ -1414,3 +1438,396 @@ dependencies:
   src/fh_agent/planner/prompts/post_mortem.md: 7fae0a783ae32e78cb693d1d8dae46c15306c35c3469592a133cb7bd9f536e20
   src/fh_agent/planner/prompts/system_no_spoiler.md: 20c78bd8f5de26e367cb7df6419c77febe3b14fc113b90d32b97397242e8ceeb
   src/fh_agent/skill_capabilities.py: 766e9fdae8c5170904e74d5e5952340f6ad44396aae8c2c24a29f05609898605
+
+# Bounded #170 reference slice; original AP1 content remains below Code-Details.
+reference_slice:
+  CMP-CORTEX:
+    how_it_works: 'Cortex überlegt, welches Ziel der Agent als Nächstes verfolgen sollte. Dafür erhält
+      er die aktuelle Observation, also eine Beschreibung dessen, was sichtbar ist, sowie eine begrenzte
+      Zusammenfassung früherer Erfahrungen. Die erlaubten Fähigkeiten geben vor, welche Vorschläge überhaupt
+      infrage kommen.
+
+
+      Aus diesen Informationen formuliert Cortex ein Ziel, eine passende wiederverwendbare Fähigkeit und
+      Bedingungen, an denen sich das Ergebnis prüfen lässt. Belege verbinden den Vorschlag mit den Beobachtungen.
+      Das Ergebnis heißt PlannerOutput: Es beschreibt eine Absicht, noch keine erlaubte Handlung. Über
+      [[id:IF-CORTEX-MANAGER]] gelangt es zu [[id:CMP-MANAGER]], der Fähigkeiten, sichtbares Ziel und
+      Ausführungsgrenzen prüfen muss.
+
+
+      Diese Trennung erlaubt längeres Nachdenken, ohne dem Sprachmodell die unmittelbare Steuerung zu
+      überlassen. Cortex darf weder Tasten noch Zeitabläufe vorgeben oder InputExecutor aufrufen. Eine
+      überzeugende Erklärung ist außerdem kein Erfolgsnachweis: Nach der Ausführung urteilt der unabhängige
+      Verifier. Vorschläge für Erinnerungen sind ebenfalls noch keine zugelassenen Fakten.'
+    normative: Beleggestützte Ziele und Fähigkeiten vorschlagen; Ausführung und Erfolg unabhängig prüfen
+      lassen.
+    implementation: Der Planungsaufruf baut CortexContext, prüft verfügbare Fähigkeiten und zitierte Belege
+      und liest eine typisierte Modellantwort. Die Memory-Zusammenfassung liefert der Aufrufer.
+    limitations: Automatisch ausgewählter, gewichteter Abruf ist damit nicht belegt. Eine gültige Antwort
+      beweist weder Nützlichkeit noch Wahrheit.
+    example: Ein sichtbarer Dialog kann den Vorschlag continue_dialogue begründen. Erst Manager-Annahme
+      erlaubt den Versuch.
+    sources:
+    - arch6
+    - cortex
+    - cortex-test
+    - context
+    - context-test
+    - arch2
+    - arch13
+  CMP-MANAGER:
+    how_it_works: 'Manager entscheidet, ob aus einem Vorschlag eine begrenzte Ausführung werden darf.
+      Von Cortex erhält er die gewünschte Fähigkeit, das Ziel und die angeführten Belege. Er prüft zunächst,
+      ob die Fähigkeit verfügbar ist und ob das Ziel aus sichtbaren Informationen eindeutig bestimmt werden
+      kann. Sein Teil [[id:CMP-MANAGER-GROUNDING]] übernimmt diese Zuordnung; ein mehrdeutiges Ziel wird
+      nicht geraten.
+
+
+      Wenn die Prüfungen tragen, stellt Manager einen [[id:CON-SKILL-CONTRACT]] aus. Dieser hält fest,
+      was Body tun darf, worauf er sich beziehen soll und wann der Versuch endet. Der zweite echte Teil,
+      [[id:CMP-MANAGER-SCHED-COMP]], verwaltet Beginn und Abschluss. Body führt die Fähigkeit innerhalb
+      dieses Rahmens aus.
+
+
+      Nach einer neuen Beobachtung erhält Manager das unabhängige [[id:CON-VERIFIER-RESULT]]. Er verarbeitet
+      es zu einer Entscheidung: im weiterhin gültigen Contract fortsetzen, abschließen oder stoppen. Vor
+      einer entsprechenden Neuplanung muss der bisherige Contract geschlossen oder suspendiert werden.
+      Frühere Handlungen und Belege bleiben erhalten. Manager darf keine fehlenden Belege durch Vermutungen
+      ersetzen und keine eingefrorenen Mission-Run-Grenzen still erweitern.'
+    normative: Manager allein erteilt und beendet Ausführungsberechtigung; vor Replanning den betroffenen
+      Contract schließen oder suspendieren.
+    implementation: Validierung, sichtbares Grounding, TaskSpec-Erstellung, Scheduling und Abschluss anhand
+      passender Verifier- oder Stop-Ergebnisse sind vorhanden.
+    limitations: TaskSpec allein garantiert nicht sämtliche Sicherheitsprüfungen. Eine vollständige offizielle
+      screen-only-Schleife ist hier nicht zertifiziert.
+    example: Zwei gleich gut belegte Ziele führen zur Grounding-Ablehnung; Body erhält keinen geratenen
+      Auftrag.
+    sources:
+    - arch7
+    - task-manager
+    - task-manager-test
+    - orchestrator
+    - orchestrator-test
+    - task-executor
+    - task-executor-test
+    - run
+  CMP-MEMORY:
+    how_it_works: 'Memory bewahrt Erfahrungen außerhalb von Cortex auf, damit spätere Entscheidungen auf
+      nachvollziehbare Ereignisse zurückgreifen können. Es erhält Observation, Aktionsergebnisse und Ergebnisse
+      abgeschlossener Versuche durch die aufrufenden Programmteile. Auch VerifierResult und vorgeschlagene
+      Erinnerungsänderungen gehören zum erklärten Zusammenhang. Jeder spielbezogene Eintrag benötigt Verweise
+      auf zulässige sichtbare Belege.
+
+
+      Seine sechs echten Teile haben verschiedene Aufgaben: [[id:CMP-MEM-EPISODIC]] hält Verläufe fest,
+      [[id:CMP-MEM-FACTS]] Aussagen, [[id:CMP-MEM-HYPOTHESES]] unsichere Deutungen, [[id:CMP-MEM-TOPOLOGY]]
+      beobachtete Verbindungen, [[id:CMP-MEM-STRATEGY]] Versuche und [[id:CMP-SKILL-COMPETENCE]] Fähigkeitserfahrungen.
+      So wird eine beobachtete Niederlage nicht mit einer Vermutung über ihre Ursache verwechselt.
+
+
+      Das Ergebnis sind gespeicherte, abfragbare Datensätze. [[id:CMP-MEM-RETRIEVAL]] soll daraus einen
+      begrenzten relevanten Kontext für Cortex bereitstellen; Retrieval ist ein eigener Systemteil, kein
+      Kind von Memory. Innerhalb desselben Mission Run dürfen belegte Erfahrungen über Life Episodes hinweg
+      erhalten bleiben. Ein neuer unabhängiger Mission Run erbt sie nicht automatisch. Speicherung macht
+      eine Aussage nicht wahr; wer abgeleitete Aussagen zusammenführt und zulässt, bleibt für Consolidation
+      und Admission offen.'
+    normative: Erfahrungen, Hypothesen und Wissen mit Herkunft und Unsicherheit getrennt führen; keine
+      automatische Wahrheit aus Speicherung ableiten.
+    implementation: SQLite-Speicherung und spezialisierte Ablagen existieren. Schreiboperationen erfolgen
+      durch Aufrufer; der gesamte Lebenszyklus ist teilweise umgesetzt.
+    limitations: Vollständiger gerankter Retrieval-Kontext, autonome Synthese und akzeptierte Admission-Zuständigkeit
+      fehlen.
+    example: Ein gescheiterter Versuch wird gespeichert. Eine mögliche Ursache bleibt eine belegte Hypothese,
+      keine neue Beobachtung.
+    sources:
+    - arch5
+    - memory
+    - memory-test
+    - run
+    - restart
+    - researchB
+  DAT-OBSERVATION:
+    how_it_works: 'Observation bündelt, was der Agent zu einem Zeitpunkt sichtbar wahrnehmen konnte. [[id:CMP-PERCEPTION]]
+      liefert dieses Datenpaket. Dazu gehören eine Referenz auf das Bildschirmbild, sichtbarer Text, erkannte
+      Oberflächenzustände und gegebenenfalls sichtbare Positionen. Eine Belegreferenz verbindet die Angaben
+      mit ihrem Ursprung, damit spätere Aussagen überprüfbar bleiben.
+
+
+      Der [[id:CMP-OBSERVATION-BUILDER]] verarbeitet Bildschirmdaten und freigegebene sichtbare Informationen
+      zu einem einheitlichen Paket. Bei optionalen Bridge-Daten lässt die No-Spoiler Firewall ausschließlich
+      erlaubte sichtbare Angaben passieren. Fehlende oder unsichere Angaben dürfen nicht durch versteckte
+      Spielinformationen ergänzt werden.
+
+
+      [[id:CMP-CORTEX]] nutzt Observation zum Planen, [[id:CMP-TEMPORAL-STATE]] ordnet Beobachtungen zeitlich
+      ein und [[id:CMP-MEMORY]] kann sie aufbewahren. Der [[id:CMP-INDEPENDENT-VERIFIER]] vergleicht relevante
+      sichtbare Zustände mit den Bedingungen des laufenden Versuchs. Nach einer Eingabe entsteht eine
+      neue Observation; so erhält die nächste Entscheidung frische Belege. Das Paket ist selbst weder
+      ein Auftrag noch ein Erfolgsurteil. Auch ein verändertes Bildschirmbild beweist allein nicht, dass
+      das vereinbarte Ziel erreicht wurde.'
+    normative: Nur zulässige sichtbare Wahrnehmung mit Herkunft weiterreichen, Unsicherheit erhalten.
+    implementation: ObservationBuilder verbindet ScreenFrame und EvidenceRecord mit OCR-Ergebnis, UI-Zustand
+      und bereinigten optionalen Bridge-Daten zu Observation.
+    limitations: Standardmäßig liefert NoOpOcrEngine keine echte Texterkennung. Vollständige Wahrnehmung
+      oder Erfolg folgt nicht aus einem formal gültigen Paket.
+    example: Ein neues Dialogbild erhält eine Belegreferenz. Ob der Dialogschritt erfolgreich war, entscheidet
+      erst der passende Verifier.
+    sources:
+    - arch3
+    - arch11
+    - builder
+    - builder-test
+  CON-SKILL-CONTRACT:
+    how_it_works: 'Der Grounded Skill Contract ist der begrenzte Auftrag, innerhalb dessen Body handeln
+      darf. [[id:CMP-MANAGER]] stellt ihn erst aus, nachdem der Cortex-Vorschlag auf eine verfügbare Fähigkeit
+      und ein ausreichend belegtes sichtbares Ziel geprüft wurde. „Grounded“ bedeutet hier: Das Ziel ist
+      mit sichtbaren Belegen verbunden und wird nicht aus verborgenem Spielwissen ergänzt.
+
+
+      Der Auftrag verbindet Ziel, Fähigkeit, Einschränkungen und Bedingungen für Erfolg, Fehler und Zeitende.
+      Im Code heißt die zugehörige Beschreibung TaskSpec. [[id:CMP-BODY]] erhält dadurch einen konkreten
+      Rahmen für seine nächste Ausführung. Der Contract begrenzt auch [[id:CMP-BOUNDED-REFLEX]], den schnellen
+      Reaktionspfad innerhalb von Body. SafetyFilter und InputExecutor müssen jede vorgeschlagene Eingabe
+      zusätzlich prüfen.
+
+
+      Das Ergebnis ist eine überprüfbare Ausführungsbeschreibung, kein Tastenprogramm. Nur ein aktuell
+      aktiver und weiterhin gültiger Contract berechtigt zur Fortsetzung. Nach einem Ergebnis entscheidet
+      Manager über den Zustand des Versuchs. Ein neuer Plan nach einem entsprechenden Abbruch setzt die
+      Schließung oder Suspendierung des bisherigen Contracts voraus. Der Auftrag darf weder zusätzliche
+      Fähigkeiten erfinden noch sein Budget selbst verlängern; ein gespeichertes TaskSpec-Objekt allein
+      garantiert noch keinen sicheren Lauf.'
+    normative: Sichtbares Ziel, erlaubte Aktionen, Budget, Risiko, Verifier und Stop-Bedingungen binden;
+      höchstens ein aktiver Contract.
+    implementation: TaskSpec enthält Fähigkeit, Zielreferenz, Bedingungen, Schritt-Timeout, RewardProfile
+      und Herkunftsreferenzen. Scheduler und Laufzeit verwalten Aktivität und Ausführung separat.
+    limitations: TaskSpec modelliert nicht allein alle normativen Gates; Fokus, Eingabemaske, Rate, Notstopp
+      und dauerhafte Protokollierung sind Laufzeitpflichten.
+    example: continue_dialogue kann ohne räumliches Ziel auskommen; eine Interaktion braucht dagegen ein
+      sichtbar zugeordnetes Objekt.
+    sources:
+    - arch7
+    - arch8
+    - run
+    - task-manager
+    - task-manager-test
+    - task-spec
+  CON-VERIFIER-RESULT:
+    how_it_works: 'VerifierResult hält fest, was die unabhängige Prüfung eines Versuchs ergeben hat. Der
+      [[id:CMP-INDEPENDENT-VERIFIER]] liefert dieses Ergebnis anhand zulässiger sichtbarer Beobachtungen
+      und der vereinbarten Prüfbedingungen. Cortex bewertet seinen eigenen Vorschlag dadurch nicht selbst.
+
+
+      Die Nachricht unterscheidet Erfolg, Fortschritt, Fehler und Enthaltung. Enthaltung heißt: Die vorhandenen
+      Informationen tragen kein hinreichendes Urteil. Ein Fehler erhält eine passende Fehlerart; Belegreferenzen
+      verbinden das Urteil mit sichtbaren Beobachtungen. Damit kann der Empfänger erkennen, welche Aussage
+      geprüft wurde und worauf sie beruht, statt bloß einer plausibel klingenden Erklärung zu folgen.
+
+
+      [[id:CMP-MANAGER]] verarbeitet das Ergebnis für die nächste Zustandsentscheidung des Contracts.
+      Fortschritt kann zur Fortsetzung innerhalb desselben weiterhin gültigen Auftrags führen; ein Abschluss
+      oder Stop benötigt die entsprechende Manager-Transition. [[id:CMP-MEMORY]] und [[id:CMP-REPLAY-BUFFER]]
+      sind weitere erklärte Empfänger für Erfahrung und spätere Auswertung. Das Ergebnis erteilt selbst
+      keine Ausführungsberechtigung und verändert keine Modellgewichte. Ein Screenshot-Wechsel oder eine
+      formal gültige Nachricht allein beweist weder Zielerreichung noch wissenschaftliche Wirksamkeit.'
+    normative: Erfolg, Fortschritt, Fehler oder fehlende Urteilssicherheit unabhängig von Cortex und sichtbar
+      belegt bestimmen.
+    implementation: VerifierResult hat status, optionale failure_kind und evidence_ids. Das Schema bindet
+      failure_kind ausschließlich an failure; Scheduler verarbeitet passende Ergebnisse.
+    limitations: Das Schema erzwingt keine nichtleere Belegliste. Evidenzanforderungen und korrekte Zuordnung
+      müssen der Verifier und seine Aufrufer sicherstellen.
+    example: Wenn die sichtbaren Angaben nicht ausreichen, lautet das Ergebnis abstain statt eines geratenen
+      success.
+    sources:
+    - arch11
+    - run
+    - verifier-result
+    - verifier
+    - verifier-test
+    - scheduler
+  IF-CORTEX-MANAGER:
+    how_it_works: 'Cortex to Manager beschreibt die Übergabe zwischen strategischem Nachdenken und erlaubter
+      Ausführung. [[id:CMP-CORTEX]] liefert einen Vorschlag für das nächste Ziel und eine wiederverwendbare
+      Fähigkeit. [[id:CMP-MANAGER]] empfängt diesen Vorschlag, um ihn vor jeder möglichen Ausführung zu
+      prüfen. Die Schnittstelle ist keine zusätzliche handelnde Komponente.
+
+
+      Der übergebene Inhalt heißt PlannerOutput. Er enthält unter anderem das Ziel, die gewählte Fähigkeit,
+      Erfolgsbedingungen und Belegverweise. Manager kontrolliert, ob die Fähigkeit tatsächlich verfügbar
+      ist und ob ein benötigtes Ziel anhand sichtbarer Angaben eindeutig zugeordnet werden kann. Erst
+      nach diesen Prüfungen kann ein begrenzter Skill Contract entstehen. Wird der Vorschlag abgelehnt,
+      erhält Body darüber keine neue Handlungsberechtigung.
+
+
+      Die Schnittstelle macht diesen Verantwortungswechsel ausdrücklich: Cortex begründet eine Absicht,
+      Manager trägt die Ausführungsentscheidung. Eine gemeinsame Nachrichtenform erleichtert die Prüfung
+      und Protokollierung dieser Übergabe. Das Ergebnis beim Empfänger ist daher ein prüfbarer Vorschlag,
+      nicht automatisch ein aktiver Auftrag. Weder die Nachricht noch die Schnittstelle darf primitive
+      Tasten, Zeitsteuerung oder einen direkten Zugriff auf InputExecutor erlauben; gut geformte Daten
+      ersetzen keine fachliche Prüfung.'
+    normative: Typisierte Absicht von Cortex zu Manager übertragen, mit klarer Trennung von Vorschlag
+      und Erlaubnis.
+    implementation: CortexTaskSubmitter ruft die Planung mit den Manager-Fähigkeiten auf und reicht denselben
+      PlannerOutput mit separatem GroundingResult an den Orchestrator weiter.
+    limitations: Die Übergabe selbst führt kein Grounding und keine primitive Eingabe aus. Ein passendes
+      Datenformat garantiert keine richtige Zielwahl.
+    example: Ein Dialogvorschlag kann angenommen werden; ein nicht verfügbares Skill wird an der Manager-Grenze
+      abgewiesen.
+    sources:
+    - arch6
+    - arch7
+    - cortex
+    - cortex-test
+    - task-manager
+    - task-manager-test
+    - submitter
+  FUNC-EXECUTIVE-CONTROL:
+    how_it_works: 'Executive Control bezeichnet die gemeinsame Aufgabe, aus einer Absicht einen begrenzten
+      und kontrollierbaren Versuch zu machen. Eine Function beschreibt hier eine Verantwortung im System,
+      keinen zusätzlichen technischen Elternteil. Sie erhält nicht selbst Nachrichten und handelt nicht
+      als eigener Agent; die beteiligten Komponenten erledigen die Arbeit.
+
+
+      Im Mittelpunkt steht [[id:CMP-MANAGER]]. Er empfängt den Cortex-Vorschlag und prüft Fähigkeit und
+      Ausführungsgrenzen. [[id:CMP-MANAGER-GROUNDING]] ordnet benötigte Ziele sichtbaren Belegen zu. [[id:CMP-MANAGER-SCHED-COMP]]
+      organisiert den Auftrag und dessen Abschluss. Der entstehende Skill Contract gibt Body einen konkreten
+      Rahmen statt einer frei auslegbaren Mission.
+
+
+      Nach der Ausführung verarbeitet Manager das unabhängige VerifierResult oder einen begründeten Stop.
+      Daraus entsteht die Entscheidung, im selben weiterhin gültigen Auftrag fortzusetzen, ihn zu beenden
+      oder nach Schließung beziehungsweise Suspendierung neu zu planen. Die Function hilft Lesern, diese
+      Zusammenarbeit als zusammenhängenden Ablauf zu verstehen. Sie verleiht keinem Teilnehmer zusätzliche
+      Rechte: Cortex steuert keine Tasten, Body erfindet keine Ziele und ein Replan löscht weder frühere
+      Handlungen noch deren Belege. Die echte technische Hierarchie bleibt durch die bestehenden part_of-Beziehungen
+      bestimmt.'
+    normative: Vorschlag, sichtbare Zuordnung, Erlaubnis und Abschluss koordiniert unter Manager-Autorität
+      halten.
+    implementation: TaskManager, Grounding-Service, Orchestrator, Scheduler und TaskExecutor setzen Teile
+      dieser Verantwortung um; Function ist eine Einordnung dieser Arbeit.
+    limitations: Function-Teilnahme schafft keine technische Elternschaft. Die vorhandene Zusammensetzung
+      ist keine Zertifizierung einer vollständigen Live-Schleife.
+    example: Ein verlorenes Ziel beendet den betroffenen Versuch; ein späterer Vorschlag muss die Manager-Prüfungen
+      erneut durchlaufen.
+    sources:
+    - arch7
+    - run
+    - task-manager
+    - task-manager-test
+    - grounding
+    - grounding-test
+    - orchestrator
+    - orchestrator-test
+
+optional_essay:
+  intro: Ein optionaler Lesepfad vom sichtbaren Ereignis zur nächsten belegten Entscheidung. Die Erzählung
+    beschreibt den Soll-Zusammenhang; Ist und offene Grenzen stehen ausdrücklich daneben. Direkte Component-Navigation
+    bleibt verfügbar.
+  sections:
+  - title: Warum dieses Experiment?
+    text: 'Das Vorhaben fragt, wie ein Agent Erfahrungen gewinnt und später daraus handlungsrelevantes
+      Wissen nutzt. Strang A untersucht konkrete Modelle und festgelegte Verhaltensinstruktionen sowie
+      mögliche Wirkungen unterschiedlich entstandener Erfahrungsgeschichten. Strang B fragt, unter welchen
+      Bedingungen getrennte Erfahrungen zu einer begründeten neuen Schlussfolgerung verbunden und später
+      verwendet werden. Beides sind Forschungsfragen, keine hier bereits erzielten Ergebnisse.
+
+
+      Die hierarchische Architektur hält Denken, Erlaubnis, Handeln und Prüfen auseinander. So kann später
+      untersucht werden, ob ein Vorschlag entstand, Manager ihn annahm, Body ihn ausführte und ein sichtbares
+      Ergebnis folgte. Diese Schritte dürfen nicht zu einem einzigen Erfolgswert zusammengezogen werden.
+      Der Agent darf nur Informationen nutzen, die auch einem Spieler sichtbar sind: keine Lösungen aus
+      Guides, keine versteckten Spielzustände und keine Umgehung der Belegpflicht.'
+  - title: Von einem Bild zu einer Absicht
+    text: 'Die Geschichte beginnt in GameInstance, der äußeren Spielumgebung. [[id:CMP-SCREEN-CAPTURE]]
+      liefert Bildschirmbilder. Der [[id:CMP-VISIBLE-STATE-BRIDGE]] ist optional und darf nur ausdrücklich
+      erlaubte, gleichzeitig sichtbare Informationen beisteuern; die [[id:CMP-NO-SPOILER-FIREWALL]] hält
+      verborgene Informationen draußen.
+
+
+      [[id:CMP-PERCEPTION]] soll aus diesem Material verständliche Wahrnehmung machen. Die [[id:CMP-PERCEPTION-UI-STATE]]
+      ordnet sichtbare Oberflächenzustände ein; der [[id:CMP-OBSERVATION-BUILDER]] bündelt die Angaben
+      mit Belegreferenzen zur Observation. [[id:CMP-TEMPORAL-STATE]] hält zeitliche Zusammenhänge fest,
+      statt aus einem einzelnen Bild eine unbemerkte Bewegung zu erfinden. Nun kann [[id:CMP-CORTEX]]
+      über ein nächstes Ziel und eine geeignete wiederverwendbare Fähigkeit nachdenken. Er gibt eine beleggestützte
+      Absicht an Manager weiter, keine Tastensequenz.'
+  - title: Von einer Absicht zu einem kontrollierten Versuch
+    text: '[[id:CMP-MANAGER]] prüft den Vorschlag. Sein Teil [[id:CMP-MANAGER-GROUNDING]] verbindet benötigte
+      Ziele mit sichtbaren Belegen; [[id:CMP-MANAGER-SCHED-COMP]] organisiert den begrenzten Auftrag und
+      dessen Ende. Sind Fähigkeit oder Ziel ungeeignet, entsteht keine neue Ausführungsberechtigung. Andernfalls
+      legt ein Grounded Skill Contract fest, was erlaubt ist und unter welchen Bedingungen der Versuch
+      endet.
+
+
+      [[id:CMP-BODY]] arbeitet nur innerhalb dieses aktiven Contracts. [[id:CMP-BOUNDED-REFLEX]] ist sein
+      schneller Pfad für ausdrücklich zugelassene unmittelbare Bedingungen; er bekommt keine eigene Zielautorität.
+      [[id:CMP-SAFETY-FILTER]] beurteilt Handlungsvorschläge, bevor [[id:CMP-INPUT-EXECUTOR]] unter den
+      gültigen Sicherheitsbedingungen Eingaben an GameInstance ausführt. Dazu gehören gültiger Contract,
+      richtiger Fensterfokus, erlaubte Aktion, Rate, Notstopp und dauerhafte Protokollierung.
+
+
+      Die Umgebung reagiert, und eine neue Observation entsteht. [[id:CMP-INDEPENDENT-VERIFIER]] prüft
+      sichtbar belegten Erfolg, Fortschritt oder Fehler und kann sich bei unzureichender Evidenz enthalten.
+      Sein VerifierResult geht an Manager zurück. Erst dessen Transition entscheidet über Fortsetzung
+      im selben weiterhin gültigen Contract oder über Abschluss und Stop. Für entsprechendes Replanning
+      wird der alte Contract zuvor geschlossen oder suspendiert. Das ist ein geschlossener Soll-Ablauf,
+      keine Behauptung einer vollständig zertifizierten Live-Schleife.'
+  - title: Was von einem Versuch bleibt
+    text: 'Die [[id:CMP-EVIDENCE-LEDGER]] verbindet Bilder, Ereignisse und Urteile mit ihren Ursprüngen.
+      [[id:CMP-MEMORY]] bewahrt die Erfahrung außerhalb des Planers auf. Seine sechs echten Kinder trennen
+      die Aufgaben: [[id:CMP-MEM-EPISODIC]] speichert Verläufe; [[id:CMP-MEM-FACTS]] führt Aussagen mit
+      Status; [[id:CMP-MEM-HYPOTHESES]] hält unsichere Deutungen fest. [[id:CMP-MEM-TOPOLOGY]] erfasst
+      beobachtete Verbindungen, [[id:CMP-MEM-STRATEGY]] Versuche und Ergebnisse, und [[id:CMP-SKILL-COMPETENCE]]
+      fasst Fähigkeitserfahrungen zusammen.
+
+
+      Der getrennte Systemteil [[id:CMP-MEM-RETRIEVAL]] soll für eine spätere Cortex-Entscheidung einen
+      begrenzten relevanten Ausschnitt bereitstellen. Dieser Informationspfad erlaubt keine Eingaben.
+      Gespeichert, gefunden, gemeinsam betrachtet, abgeleitet und tatsächlich genutzt sind verschiedene
+      Schritte. Eine gespeicherte Vermutung wird nicht zur beobachteten Tatsache. Synthese, Consolidation
+      und Admission — also Zusammenführung und Zulassung neuer abgeleiteter Aussagen — bleiben offene
+      Designfragen; diese Erzählung setzt keinen neuen Wissensschreiber ein.'
+  - title: Fehler, Tod und ein neuer Versuch
+    text: 'Ein verlorenes Ziel oder fehlender Fortschritt kann einen Contract beenden und eine neue Planung
+      nötig machen. Ein aktiver Stop verhindert weitere Eingaben; bereits ausgeführte Schritte und ihre
+      Belege werden nicht rückwirkend gelöscht. Ein abgelehnter Vorschlag vor dem Contract hat dagegen
+      noch keinen neuen Versuch autorisiert.
+
+
+      Ein Mission Run ist die äußere begrenzte Einheit mit eingefrorenen Identitäten und Budgets. Darin
+      liegt eine Life Episode: eine Lebensphase bis zum sichtbaren Tod, Episodenstop oder Missionsende.
+      Ein gewöhnlicher Tod beendet diese Episode, nicht automatisch den Mission Run. Wenn die erklärten
+      Grenzen Fortsetzung erlauben, kann eine neue Life Episode mit denselben Modell- und Body-Versionen
+      beginnen. Zulässige belegte Erfahrungen dürfen erhalten bleiben. Auch ein erlaubter Prozessneustart
+      muss Identität, Herkunft und Integrität bewahren; sonst wird gestoppt oder zur Prüfung quarantänisiert.
+
+
+      Ein neuer unabhängiger Mission Run startet mit dem protokollierten frischen Zustand. Erinnerungsübernahme
+      geschieht nicht automatisch. Erfolg, erschöpftes eingefrorenes Budget, manueller Stop oder nicht
+      behebbarer Sicherheits-, Integritäts- oder Umgebungsfehler sind erklärte Missionsenden. Tod allein
+      beweist zudem keine Ursache.'
+  - title: Was später gelernt werden könnte und was heute vorhanden ist
+    text: 'Der [[id:CMP-REPLAY-BUFFER]] kann zulässige Übergänge für spätere Auswertung sammeln. [[id:CMP-SKILL-TRAINER]]
+      steht für das künftig ausdrücklich autorisierte Training einer Kandidatenversion zwischen Mission
+      Runs. [[id:CMP-BODY-CERTIFICATION]] steht für Prüfung auf zurückgehaltenen Szenarien und Zertifizierung
+      oder Ablehnung vor Aktivierung. Derzeit sind Trainer und Certification Zielarchitektur, keine fertig
+      arbeitende automatische Lernkette. Innerhalb eines Mission Run bleiben Body-Gewichte eingefroren,
+      auch über Life-Episode-Neustarts hinweg. Beleggestützte Wissensänderungen sind davon verschieden.
+
+
+      Heute existieren unter anderem typisierte Planung, Manager-Prüfungen, begrenzte Skills, Speicherung
+      und deterministische Verifier für bestimmte sichtbare Bedingungen. Relevante Einzelprüfungen belegen
+      technische Teile, keine wissenschaftliche Wirksamkeit. Vollständiges ranked Retrieval, autonome
+      Konsolidierung und eine zertifizierte offizielle screen-only-Gesamtschleife werden hier nicht behauptet.
+      Für die genaue Ist-Lage führen die Component-Seiten zu versionierten Code- und Testquellen; die
+      drei bisherigen Guides und die Relationstabelle bleiben die direkten weiteren Lesepfade. Diese optionale
+      Geschichte ersetzt weder den normativen Vertrag noch eine eigene empirische Untersuchung.'
+  sources:
+  - researchA
+  - researchB
+  - arch1
+  - arch14
+  - run
+  - restart
+  - units
+
+reference_control_reference: https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6070709383
