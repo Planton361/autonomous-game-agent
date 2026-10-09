@@ -696,3 +696,70 @@ embedded figures in both modes, light/dark comparison, and measured approximate
 1280×800 / 1024×769 windows remain open unless individually recorded later.
 No novice-reader study or independent native acceptance is claimed. These gates
 must not become PASS from static geometry or successful file loading alone.
+
+## Package A: all preferred typed explanations (#170)
+
+[Program Owner Package-A contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6071785139)
+authorizes this content/template checkpoint on the existing branch and Draft PR
+#171, starting at `9fb0c035b6fb532d9eea67caf19a3aac97af128f`. It does not
+release the later Agent Anatomy hub design, any retirement, merge or Vault rollout.
+
+The same `architecture_explanations.yaml` now binds all **61** preferred identities
+by exact Registry type and existing path. `typed_explanations` adds **53** German
+narratives (25 Components, 28 other typed identities); `reference_slice` retains
+all eight accepted narratives and their Soll/Ist/example/source content. The
+original AP1 detail remains inspectable, and the optional `Das Experiment
+verstehen` Guide and its three companion Guides retain their bytes.
+
+Each primary Technical section has identity/type/position/Registry status, short
+purpose, **How it works** for responsibilities or **What this record means** for
+typed records, inputs and resulting use, source-backed direct relationship reasons,
+true children for System/Component, Soll/Ist/open limits, one illustrative example
+and exact source links. The Research Thread also exposes its twelve unchanged
+ordered preferred references. Existing Research, source audits and scientific
+attachments remain byte-identical. Prior technical presentation remains in a
+collapsed inspection block; the five accepted non-Component examples no longer
+claim that no limitation statement exists.
+
+There are **115** explained existing preferred-to-preferred Registry rows: 47
+selected directed technical relations, 28 real `part_of` edges, 26 Function
+memberships, three `measured_at` anchors, four question mappings and seven pilot
+Decision support rows. These reasons are presentation content, not new Registry
+triples. Domains and evidence retain their existing audit routes and no new
+preferred pages. A MeasurementPoint is an observation anchor, not a result;
+Function membership is not ancestry; a question, thread or Decision does not
+execute a mechanism. No scientific or implementation status is promoted.
+
+Same-input empty synthetic generation at fixed provenance revision
+`9fb0c035b6fb532d9eea67caf19a3aac97af128f` retains **507 → 507** paths:
+**62 changed** (61 preferred pages and the existing derived-owner manifest),
+**445 byte-identical**, zero added/removed. Total output bytes are
+**2,883,867 → 3,486,767** (+602,900); the 75,299-byte derived manifest changes
+hashes, not size or owners. Routes and all ownership classes remain unchanged.
+All 61 primary narratives are **124–167 words** after resolving links to titles;
+the accepted eight are 140–167 and the 53 additions 124–153. Generation rejects
+incomplete/wrong bindings, missing/invented/reversed/duplicate relation rows,
+missing source boundaries and prose exceeding 300 words.
+
+All 99 locators retain exact file hashes and symbol/heading lines. Runtime and
+normative references point to inspected merged
+`main@a1aca251a1c5b868eb20b5f2e26f59a3b5d3d6df`. Two new Atlas test references
+explicitly pin `9fb0c035b6fb532d9eea67caf19a3aac97af128f`: accepted AP1/AP2
+import-list changes make those whole-file bytes different from main. This per-source
+revision is presentation provenance, not a change to research authoring schemas.
+Historical AP1–AP4 and reference-slice tests use their immutable accepted
+presentation inputs; Package-A tests exercise current production input separately.
+CI selection, parallelism, coverage and 120,000ms gates are unchanged.
+
+**Binding protection:** Agent Anatomy is `KEEP_PRIMARY / FUTURE_PRIMARY_VISUAL_NAV_HUB`.
+Its Excalidraw file, Hero SVG, source illustration, metadata, embedded-file bindings,
+links and generated dependencies remain unchanged. All other diagrams, Canvas
+views, Graph proxies and migration/recovery behavior remain unchanged. The new
+safe-deletion allowlist remains `[]`; the historical AP3 retirement is not undone.
+
+Source/CI checks are technical evidence. Package A performs no native Obsidian
+visual/comprehension acceptance, novice-reader study, plugin integration or actual
+private-Vault operation. Previous unresolved native gates remain unresolved. Exact
+coverage, generated per-path byte/hash/owner delta, representative prose and actual
+check/CI results are recorded in the existing Draft PR. Stop at the CONTROL
+source/content checkpoint before any further package.

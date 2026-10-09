@@ -514,6 +514,93 @@ sources:
     locator: test_action_mapping_is_deterministic_and_invertible
     line: 48
     sha256: f1964d0421f1cd43ad5cddb933017fae0545841a6cd2ec60073adf42fd69c71b
+  planner-output:
+    kind: implementation
+    path: src/fh_agent/planner/planner_output.py
+    locator: PlannerOutput
+    line: 100
+    sha256: 9d16f35cc6146433202d709250436a274bd2d3a23d42c404a7347780dcdb4925
+  planner-output-test:
+    kind: test
+    path: tests/test_planner_output.py
+    locator: test_planner_output_accepts_universal_skill_and_evidence_backed_fact
+    line: 43
+    sha256: 4da160f6dc15e922efcca2682e3afd9d90e23a5dc14fa2cb991348c7cc746977
+  memory-request:
+    kind: implementation
+    path: src/fh_agent/planner/planner_output.py
+    locator: MemoryUpdateRequest
+    line: 64
+    sha256: 9d16f35cc6146433202d709250436a274bd2d3a23d42c404a7347780dcdb4925
+  post-mortem-output:
+    kind: implementation
+    path: src/fh_agent/planner/planner_output.py
+    locator: PostMortemOutput
+    line: 124
+    sha256: 9d16f35cc6146433202d709250436a274bd2d3a23d42c404a7347780dcdb4925
+  post-mortem-test:
+    kind: test
+    path: tests/test_planner_output.py
+    locator: test_post_mortem_output_accepts_evidence_backed_notes
+    line: 151
+    sha256: 4da160f6dc15e922efcca2682e3afd9d90e23a5dc14fa2cb991348c7cc746977
+  primitive:
+    kind: implementation
+    path: src/fh_agent/body/primitive_actions.py
+    locator: PrimitiveAction
+    line: 4
+    sha256: 2bf71f5b1fa82406bf01f46884523eaee5929f76347e7ccc5d0678588d168f7a
+  frame:
+    kind: implementation
+    path: src/fh_agent/perception/screen_capture.py
+    locator: ScreenFrame
+    line: 8
+    sha256: 9f37ba0a2b2088b8755bbb98d8886d1abaf2ec0be543eb385639bde45e96b722
+  frame-test:
+    kind: test
+    path: tests/test_screen_capture.py
+    locator: test_dummy_screen_capture_returns_deterministic_frames
+    line: 16
+    sha256: 469eb02bd3dc962c29887cd2aeb9ed5dc8f6a2c29cfbd0abea5e82b5f50b83ae
+  action-result:
+    kind: implementation
+    path: src/fh_agent/observation/schemas.py
+    locator: ActionResult
+    line: 34
+    sha256: 8aae6d004160b97f1f6c75ba3f0d25f9c225c1f7bcc4fa98c42a307ab3ab7a45
+  transition:
+    kind: implementation
+    path: src/fh_agent/rl/replay_buffer.py
+    locator: ReplayTransition
+    line: 22
+    sha256: 68412e8b183ee133b0453f5f8f2cc7ea799c62ad9db7449c723408baffe7ab67
+  registry-reader:
+    kind: implementation
+    path: src/fh_agent/research_atlas/validator.py
+    locator: load_registry
+    line: 251
+    sha256: e2a8ded3e33a703dccf76f8696756286f79e20ab06467d89e0a2741ab082421b
+  registry-test:
+    kind: test
+    path: tests/test_research_atlas.py
+    locator: test_valid_pilot_registry_loads
+    line: 132
+    sha256: aa1efa743ade1150a5f6f9ee8821a87dbef7ffd2c086703be2a86c6a7eaceb76
+    revision: 9fb0c035b6fb532d9eea67caf19a3aac97af128f
+  thread-test:
+    kind: test
+    path: tests/test_research_atlas.py
+    locator: test_thread_order_and_references_preserved_without_architecture_mutation
+    line: 904
+    sha256: aa1efa743ade1150a5f6f9ee8821a87dbef7ffd2c086703be2a86c6a7eaceb76
+    revision: 9fb0c035b6fb532d9eea67caf19a3aac97af128f
+  function-semantics:
+    kind: normative
+    path: docs/research-atlas/G3 Reader Presentation Contract.md
+    locator: Preferred technical reader
+    line: 9
+    sha256: 426b1d88d975f6c90ee0a2874a5969f62ae2719304f9635616f587f99945d8b2
+
 components:
   CMP-CORTEX:
     area: Strategic Reasoning
@@ -1831,3 +1918,3197 @@ optional_essay:
   - units
 
 reference_control_reference: https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6070709383
+
+package_a_control_reference: https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6071785139
+page_bindings:
+  CMP-SCREEN-CAPTURE:
+    type: Component
+    path: Research Map/Components/Screen Capture.md
+    purpose: Erfasst ein sichtbares Bildschirmbild als Rohdaten. Ohne diesen Ausgangspunkt wären spätere
+      Wahrnehmung und Belege nicht überprüfbar.
+    inputs: Ausdrücklich konfigurierter Aufnahmebefehl, Zeitquelle und sichtbare Oberfläche der Umgebung.
+    outputs: '[[id:DAT-SCREEN-FRAME]] für [[id:CMP-PERCEPTION]] zur Interpretation und [[id:CMP-EVIDENCE-LEDGER]]
+      zur Speicherung.'
+  CMP-VISIBLE-STATE-BRIDGE:
+    type: Component
+    path: Research Map/Components/Optional Visible-State Bridge.md
+    purpose: Optionaler Zugang zu ausdrücklich erlaubten, gleichzeitig sichtbaren Angaben. Er unterstützt
+      einen getrennt ausgewiesenen Versuchsmodus.
+    inputs: Sichtbare Angaben der Umgebung, erwarteter Laufmodus, Laufkennung und Zugriff auf den neuesten
+      Screenshot-Beleg.
+    outputs: Bereinigte Observation nach Modus- und Belegabgleich; bei Abweichung ein Fehler statt nutzbarer
+      Daten.
+  CMP-NO-SPOILER-FIREWALL:
+    type: Component
+    path: Research Map/Components/No-Spoiler Firewall.md
+    purpose: Begrenzt eingehende Zusatzdaten auf erlaubte sichtbare Felder. Sie schützt die Trennung von
+      Spielerwissen und verborgenem Spielzustand.
+    inputs: Bridge-artige Daten sowie ausdrücklich erlaubte und verbotene Feldnamen.
+    outputs: Bereinigte sichtbare Angaben für den aufrufenden Builder/Adapter oder eine Firewall-Verletzung
+      zur Integritätsbehandlung.
+  CMP-PERCEPTION:
+    type: Component
+    path: Research Map/Components/Perception.md
+    purpose: Macht aus sichtbaren Bildsignalen eine verständliche, beleggebundene Beobachtung. Planung
+      und Prüfung brauchen mehr als rohe Pixel.
+    inputs: ScreenFrame, Screenshot-Beleg, optional erlaubte sichtbare Zusatzfelder und Ergebnis der letzten
+      Eingabe.
+    outputs: Observation für Planung, zeitliche Einordnung, Speicherung und unabhängige Prüfung; keine
+      eigene Ausführungsentscheidung.
+  CMP-OBSERVATION-BUILDER:
+    type: Component
+    path: Research Map/Components/Perception/Observation Builder.md
+    purpose: Bündelt Bild, sichtbare Angaben und Belege zu einer Observation. Gemeinsame Daten verhindern
+      widersprüchliche Eingänge für Planung und Prüfung.
+    inputs: ScreenFrame, EvidenceRecord, optionale sichtbare Zusatzdaten und ActionResult vom Aufrufer.
+    outputs: Eine gemeinsame Observation im Perception-Pfad für nachfolgende Kontextbildung und Kontrolle.
+  CMP-PERCEPTION-UI-STATE:
+    type: Component
+    path: Research Map/Components/Perception/UI State Classification.md
+    purpose: Ordnet sichtbare Signale als Dialog, Menü, Kampf, Tod, Feld oder unbekannt ein. Das hilft,
+      nur passende Skills auszuwählen.
+    inputs: Bereinigte sichtbare UI-Felder, erkannte Textstellen und optionale Belegreferenz vom Builder.
+    outputs: Zustand, Regel-Vertrauenswert und Belegreferenz für Observation Builder.
+  CMP-TEMPORAL-STATE:
+    type: Component
+    path: Research Map/Components/Temporal State.md
+    purpose: Soll kurze Beobachtungsfolgen einordnen. Lokale Kontrolle muss Bewegung und Stillstand unterscheiden
+      können, statt aus einem Bild zu raten.
+    inputs: Aktuelle und vorherige Observations, deren Zeit- und Belegangaben sowie Handlungsgeschichte.
+    outputs: Geplante Stabilitäts-, Bewegungs- und Fortschrittssignale für begrenzte Kontrolle; heute
+      keine gemeinsame zentrale Zusammenfassung.
+  CMP-EVIDENCE-LEDGER:
+    type: Component
+    path: Research Map/Components/Evidence Ledger.md
+    purpose: Verankert Bildschirmbilder und Ereignisse in überprüfbarer Herkunft. Gespeicherte Aussagen
+      brauchen einen nachvollziehbaren Ursprung.
+    inputs: Bildpakete der Aufnahme, Laufkennung und zu protokollierende Ereignisse von den Aufrufern.
+    outputs: Bilddatei plus EvidenceRecord und angehängte Ereignisse für nachprüfbare Herkunft späterer
+      Aussagen.
+  CMP-MEM-EPISODIC:
+    type: Component
+    path: Research Map/Components/Memory/Episodic Memory.md
+    purpose: Bewahrt beobachtete Verläufe. Spätere Überlegungen sollen erkennen können, was tatsächlich
+      geschah und in welcher Reihenfolge.
+    inputs: Observations, ActionResults und SkillResults mit Lauf- und Belegangaben von den speichernden
+      Aufrufern.
+    outputs: Abfragbares Verlaufsmaterial innerhalb von Memory; künftige Retrieval-Nutzung braucht eigene
+      Auswahl und Herkunftssicherung.
+  CMP-MEM-FACTS:
+    type: Component
+    path: Research Map/Components/Memory/Semantic Facts.md
+    purpose: Speichert Aussagen mit Belegen und Status. Dadurch bleiben beobachtete Angaben, vorläufige
+      Vermutungen und Widersprüche unterscheidbar.
+    inputs: Aussage, mindestens eine Beleg-ID, Status und optionaler Vertrauenswert vom Aufrufer.
+    outputs: Gespeicherte Aussage und veränderbarer Herkunfts-/Statusverlauf für Memory-Abfragen; keine
+      automatische Wahrheitsentscheidung.
+  CMP-MEM-HYPOTHESES:
+    type: Component
+    path: Research Map/Components/Memory/Hypotheses.md
+    purpose: Hält unsichere Deutungen ausdrücklich als Vermutungen fest. Fehlende Sicherheit darf nicht
+      als beobachtete Tatsache erscheinen.
+    inputs: Unsichere Aussagen, Belegverweise und Status-/Vertrauensangaben vom aufrufenden Speicher-
+      oder Reflexionspfad.
+    outputs: Als unsicher erkennbare Einträge und Notizen für spätere Prüfung oder ausgewählten Planerkontext.
+  CMP-MEM-RETRIEVAL:
+    type: Component
+    path: Research Map/Components/Memory Retrieval.md
+    purpose: Soll für Cortex einen begrenzten relevanten Ausschnitt aus Memory bereitstellen. Planung
+      braucht ausgewählte Belege statt der gesamten Datenbank.
+    inputs: Heute eine vom Aufrufer ausgewählte Memory-Zusammenfassung und aktuelle Observation; im Soll
+      relevante zulässige Speicherinhalte.
+    outputs: CortexContext über Memory-to-Cortex für die Planung; Bounded retrieval snapshot bleibt Zielarchitektur.
+  CMP-MEM-TOPOLOGY:
+    type: Component
+    path: Research Map/Components/Memory/Topological Memory.md
+    purpose: Speichert beobachtete Verbindungen zwischen sichtbar beschriebenen Zuständen. Wiederverwendung
+      eigener Wege darf nicht auf einer verborgenen Spielkarte beruhen.
+    inputs: Sichtbare Zustandsbeschreibung, Übergangsendpunkte, Belege und zulässige Zusatzangaben vom
+      Aufrufer.
+    outputs: Gespeicherte Zustände und beobachtete Nachbarschaften für spätere Memory-Abfragen.
+  CMP-MEM-STRATEGY:
+    type: Component
+    path: Research Map/Components/Memory/Strategy Experiment Memory.md
+    purpose: Bewahrt versuchte Vorgehensweisen und ihre Ergebnisse. Spätere Planung soll einen Fehlversuch
+      von einer noch ungeprüften Alternative unterscheiden können.
+    inputs: Versuchsbeschreibung, Begründung, Belege, Status und Ergebnisangaben vom Aufrufer.
+    outputs: Strategieeintrag und Ergebnisgeschichte für Memory-Abfragen; kein wissenschaftliches Wirksamkeitsurteil.
+  CMP-SKILL-COMPETENCE:
+    type: Component
+    path: Research Map/Components/Memory/Skill Competence Registry.md
+    purpose: Fasst die gespeicherte Verwendung wiederverwendbarer Skills zusammen. Ihre Geschichte soll
+      Grenzen sichtbar machen, ohne neue Rechte zu erteilen.
+    inputs: In MemoryDB gespeicherte SkillResults und der Name des abgefragten Skills.
+    outputs: Historische Kennzahlen und jüngste Ergebnisse für Inspektion bzw. vom Aufrufer ausgewählten
+      Kontext.
+  CMP-MANAGER-GROUNDING:
+    type: Component
+    path: Research Map/Components/Manager/Grounding.md
+    purpose: Ordnet einen Vorschlag einem belegten sichtbaren Ziel zu. Body soll ein geprüftes Ziel erhalten,
+      statt raten zu müssen.
+    inputs: Ziel-/Skill-Anfrage, sichtbare Kandidaten und Belegreferenzen aus der aktuellen Beobachtung.
+    outputs: GroundingResult mit geprüftem Ziel oder grounding_failed zur Manager-Prüfung des Skill Contracts.
+  CMP-MANAGER-SCHED-COMP:
+    type: Component
+    path: Research Map/Components/Manager/Scheduling and Completion.md
+    purpose: Organisiert Start und Abschluss begrenzter Aufträge. Ein Ergebnis darf nur den zugehörigen
+      laufenden Versuch beenden.
+    inputs: TaskSpec, Skill-Laufergebnis sowie Aufgaben-, Lauf- und Ereigniskennungen.
+    outputs: Aktueller Aufgabenstatus und TaskCompletionEvent für Manager und konfigurierte Ereignisprotokollierung.
+  CMP-BODY:
+    type: Component
+    path: Research Map/Components/Body.md
+    purpose: Führt wiederverwendbare Skills innerhalb eines aktiven Manager-Auftrags aus. Langsame Planung
+      und schnelle lokale Kontrolle bleiben getrennt.
+    inputs: Aktiver TaskSpec, sichtbare Observation, geprüftes Ziel und erlaubte Aktionsmenge aus der
+      Manager-Komposition.
+    outputs: Ein begrenzter primitiver Vorschlag pro Schritt und Skill-Laufmaterial für Eingabeprüfung
+      und Verifikation.
+  CMP-BOUNDED-REFLEX:
+    type: Component
+    path: Research Map/Components/Body/Bounded Reflex.md
+    purpose: Geplanter schneller Body-Pfad für erklärte unmittelbare sichtbare Bedingungen. Dringlichkeit
+      darf die Auftragsgrenzen nicht aushebeln.
+    inputs: Im Soll aktiver Contract, erklärte Auslöser/Wartezeiten und unmittelbare sichtbare Signale.
+    outputs: Im Soll ein bereits erlaubter primitiver Vorschlag oder Warten/Stop innerhalb von Body.
+  CMP-SAFETY-FILTER:
+    type: Component
+    path: Research Map/Components/SafetyFilter.md
+    purpose: Prüft vorgeschlagene Bewegung gegen bereitgestellte Gefahren. Eine grundsätzlich erlaubte
+      Aktion kann in der aktuellen Situation dennoch riskant sein.
+    inputs: Primitiver Bewegungsvorschlag, aktuelle Bildschirmposition und vom Aufrufer bereitgestellte
+      Gefahrensignale.
+    outputs: Blockierentscheidung, Risikowert und Gründe für die aufrufende Kontrolle vor möglicher Eingabe.
+  CMP-INPUT-EXECUTOR:
+    type: Component
+    path: Research Map/Components/InputExecutor.md
+    purpose: Ist die bewachte Grenze zur tatsächlichen primitiven Eingabe. Planung und Handlungsvorschlag
+      allein dürfen keine Taste senden.
+    inputs: Primitiver Vorschlag, Zielfenster, Fokusprüfung, Rate und Notstopp aus der eingerichteten Laufzeit.
+    outputs: ActionResult mit ausgeführt/blockiert für Folgebeobachtung und Protokollierung; gegebenenfalls
+      eine bewachte Eingabe an die Umgebung.
+  CMP-INDEPENDENT-VERIFIER:
+    type: Component
+    path: Research Map/Components/Independent Verifier.md
+    purpose: Prüft sichtbare Ergebnisse unabhängig von Cortex. Ein ausgeführter Vorschlag soll nicht automatisch
+      als Erfolg gelten.
+    inputs: Auftrag/Ziel sowie sichtbare Vorher-/Nachher-Observations mit Belegen.
+    outputs: Unabhängiges VerifierResult für Manager-Zustandsentscheidungen und erklärte Speicher-/Replay-Nutzung.
+  CMP-REPLAY-BUFFER:
+    type: Component
+    path: Research Map/Components/Replay Buffer.md
+    purpose: Bewahrt begrenztes Übergangsmaterial für spätere Auswertung oder ausdrücklich erlaubtes Lernen.
+      Speicherung verändert den laufenden Controller nicht.
+    inputs: Vom Aufrufer erzeugte ReplayTransitions; normativ unabhängige Ergebnis- und Herkunftsinformationen.
+    outputs: Begrenzte Übergangssammlung und reproduzierbare Stichproben für getrennte spätere Auswertung/Trainingsvorbereitung.
+  CMP-SKILL-TRAINER:
+    type: Component
+    path: Research Map/Components/SkillTrainer.md
+    purpose: Geplante Verantwortung für das Training einer Kandidatenversion zwischen Mission Runs. Ein
+      Trainingswunsch darf keinen laufenden Body verändern.
+    inputs: Im Soll zulässige Replay-/Demonstrationsdaten und eingefrorene genehmigte Trainingskonfiguration.
+    outputs: Im Soll eine versionierte Candidate Body Version zur getrennten Zertifizierung; heute nur
+      vorbereitete Datensätze.
+  CMP-BODY-CERTIFICATION:
+    type: Component
+    path: Research Map/Components/Body Validation Certification.md
+    purpose: Geplantes Prüftor zwischen trainiertem Kandidaten und späterer Aktivierung. Eine neue Modelldatei
+      ist noch keine erlaubte Body-Version.
+    inputs: Im Soll Kandidatenversion, zurückgehaltene Szenarien, Prüfbelege und autorisierte Kriterien.
+    outputs: Im Soll Zertifizierung/Ablehnung und spätere Aktivierungszulässigkeit für eine konkrete Version.
+  CON-CORTEX-CONTEXT:
+    type: Contract
+    path: Research Map/Contracts/CortexContext.md
+    purpose: Beschreibt den geprüften Eingang für Cortex. Sichtbare Beobachtung, Erinnerung und verfügbare
+      Fähigkeiten werden in einer gemeinsamen Form begrenzt.
+    inputs: Observation und ausgewählte Memory-Notizen vom Aufrufer; erlaubte Fähigkeiten und Risikogrenzen.
+    outputs: Geprüfter strukturierter Planereingang für Cortex; keine eigene Speicherung oder Auftragserteilung.
+  CON-PLANNER-OUTPUT:
+    type: Contract
+    path: Research Map/Contracts/PlannerOutput.md
+    purpose: Definiert die Form eines Cortex-Vorschlags. Eine strategische Absicht bleibt dadurch von
+      einer Erlaubnis zur Ausführung unterscheidbar.
+    inputs: Von Cortex erzeugte Ziel-/Skill-Absicht, Risikogrenzen, Aussagen und Belegreferenzen.
+    outputs: Prüfbarer Vorschlag für Manager; nach dessen gesonderten Prüfungen gegebenenfalls ein Skill
+      Contract.
+  CON-MEMORY-UPDATE-REQUEST:
+    type: Contract
+    path: Research Map/Contracts/MemoryUpdateRequest.md
+    purpose: Beschreibt den Wunsch, eine belegte Aussage zu speichern. Vorschlagen und als Wissen zulassen
+      bleiben getrennte Schritte.
+    inputs: Aussage, mindestens eine Belegreferenz und optionale Begründung aus Cortex-Ausgängen.
+    outputs: Nachvollziehbarer Speicherwunsch im Planungs-/Reflexionsdatensatz für nachgelagerte Memory-Verarbeitung.
+  CON-POST-MORTEM-OUTPUT:
+    type: Contract
+    path: Research Map/Contracts/PostMortemOutput.md
+    purpose: Beschreibt Cortex-Reflexion nach einem Versuch. Sichtbares Ergebnis und vermutete Ursache
+      müssen getrennt lesbar bleiben.
+    inputs: Belegte Beobachtungs-/Ergebnisangaben und ausdrücklich unsichere Deutungen aus Cortex-Reflexion.
+    outputs: Typisierte Reflexion und Speicherwünsche für spätere Memory-Verarbeitung; kein Verifier-Urteil
+      oder automatischer Schreibzugriff.
+  CON-PRIMITIVE-ACTION:
+    type: Contract
+    path: Research Map/Contracts/Primitive Action Vocabulary.md
+    purpose: Legt die gemeinsame Sprache kurzer Aktionen fest. Derselbe Name soll für Body-Vorschlag und
+      Eingabeprüfung dieselbe Bedeutung tragen.
+    inputs: Ein einzelner begrenzter Handlungsvorschlag aus Body oder dem geplanten Reflex-Pfad.
+    outputs: Einheitliche Aktionsbezeichnung für Risiko- und Eingabeprüfung; keine eigene Ausführungsberechtigung.
+  DAT-SCREEN-FRAME:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/ScreenFrame.md
+    purpose: Repräsentiert ein aufgenommenes sichtbares RGB-Bild. Bilddaten bleiben so von Interpretation
+      und Ergebnisurteil getrennt.
+    inputs: Abmessungen, RGB-Bytes und Aufnahmezeit von Screen Capture.
+    outputs: Validiertes Rohbild für Perception und Evidence Ledger; gegebenenfalls PPM-Bytes zur Speicherung.
+  DAT-ACTION-RESULT:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/ActionResult.md
+    purpose: Hält fest, ob ein primitiver Eingabeversuch ausgeführt oder blockiert wurde. Das spätere
+      sichtbare Ergebnis ist eine andere Aussage.
+    inputs: Aktionsname und lokales Ausführungs-/Blockierergebnis von InputExecutor; optional Belegangaben.
+    outputs: Nachprüfbarer Eingabeversuch für Folgeobservation und Speicherung, ohne eigenständigen
+      Erfolgsstatus.
+  DAT-REPLAY-TRANSITION:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/ReplayTransition.md
+    purpose: Bündelt einen Übergang von Beobachtung über Aktion zur nächsten Beobachtung. Spätere Datenauswertung
+      benötigt zusammenhängende Beispiele.
+    inputs: Vom Aufrufer zusammengestelltes Beobachtungs-/Aktionspaar, nächste Beobachtung, Belohnung
+      und Aufgaben-/Zusatzdaten.
+    outputs: Gespeichertes bzw. ausgewähltes Übergangsbeispiel für getrennte spätere Trainingsvorbereitung.
+  DAT-RETRIEVAL-SNAPSHOT:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/Bounded retrieval snapshot (target only).md
+    purpose: Geplanter begrenzter Ausschnitt tatsächlich an Cortex gelieferter Erinnerung. Er soll Auswahl
+      und Herkunft eines Planereingangs nachvollziehbar machen.
+    inputs: Im Soll eine relevante zulässige Memory-Auswahl von Memory Retrieval mit Herkunft und Aufrufbezug.
+    outputs: Im Soll ein versionierter begrenzter Planereingang für Cortex und die Liefermessung.
+  DAT-VISIBLE-OUTCOME:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/Visible Outcome.md
+    purpose: Bezeichnet den sichtbaren Nachzustand vor seinem Erfolgsurteil. Wirkung und Bewertung müssen
+      getrennt bleiben.
+    inputs: Sichtbare Nachbeobachtung aus der Umgebung nach einem Versuch; keine schon feststehende Erfolgsbewertung.
+    outputs: Zu prüfende sichtbare Wirkung für Independent Verifier; sein Urteil liegt getrennt im VerifierResult.
+  DAT-CANDIDATE-BODY-VERSION:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/Candidate Body Version.md
+    purpose: Geplantes Artefakt einer neuen trainierten Body-Version. Kandidat und erlaubte aktive Version
+      dürfen nicht verwechselt werden.
+    inputs: Im Soll trainierter Controller und Trainingsherkunft von SkillTrainer zwischen Mission Runs.
+    outputs: Im Soll eindeutiger Kandidat zur getrennten Certification; keine automatische aktive Body-Version.
+  IF-MEM-CORTEX:
+    type: Interface
+    path: Research Map/Interfaces/Memory to Cortex.md
+    purpose: Beschreibt die Übergabe ausgewählter Erinnerung an Cortex. Eine Schnittstelle schafft Verständigung,
+      keine zusätzliche handelnde Komponente.
+    inputs: Heute eine Aufruferauswahl von Memory-Notizen; im Soll eine begrenzte zulässige Auswahl von
+      Memory Retrieval.
+    outputs: CortexContext als geprüfter Übergabeinhalt für Cortex-Planung oder Reflexion.
+  FUNC-ACQUIRE:
+    type: Function
+    path: Research Map/Functions/Acquire.md
+    purpose: Ordnet die Gewinnung sichtbarer Ausgangsdaten als gemeinsame Verantwortung ein. Die externe
+      Umgebung wird dadurch kein Teil des Agenten.
+    inputs: 'Lesekontext: sichtbare Umweltoberfläche und eingerichtete Aufnahme-/Bridge-Zugänge; die Function
+      hat keinen eigenen Eingang.'
+    outputs: Beiträge der Teilnehmer zur sichtbaren Datengrundlage für Perception und Belegspeicherung.
+  FUNC-OBSERVE:
+    type: Function
+    path: Research Map/Functions/Observe.md
+    purpose: Bündelt Integrität, Interpretation und geplante zeitliche Einordnung sichtbarer Angaben.
+      Diese Verantwortung ist keine neue Perception-Elternkomponente.
+    inputs: 'Lesekontext: sichtbare Bilder, zulässige Angaben und Beobachtungsfolgen; konkrete Eingänge
+      gehören den Teilnehmern.'
+    outputs: Beleggebundene Observation und im Soll zeitliche Signale für weitere Kontrolle.
+  FUNC-RETAIN-RETRIEVE:
+    type: Function
+    path: Research Map/Functions/Retain Retrieve.md
+    purpose: Ordnet Belege, Speicherung und spätere Auswahl gemeinsam ein. Etwas aufzubewahren bedeutet
+      noch nicht, es dem Planer zu liefern.
+    inputs: 'Lesekontext: Belege und gespeicherte Erfahrungen; die konkreten Speicher-/Auswahleingänge
+      gehören den Teilnehmern.'
+    outputs: Nachprüfbare Erfahrung und begrenzter Cortex-Kontext, soweit die jeweiligen Teile vorhanden
+      sind.
+  FUNC-REASON:
+    type: Function
+    path: Research Map/Functions/Reason.md
+    purpose: Ordnet langsames beleggestütztes Planen als Verantwortung ein. Sie schafft neben Cortex keinen
+      zweiten Planer.
+    inputs: 'Lesekontext: CortexContext und Reflexionsmaterial beim Teilnehmer Cortex.'
+    outputs: PlannerOutput oder PostMortemOutput von Cortex zur getrennten weiteren Prüfung.
+  FUNC-ACT:
+    type: Function
+    path: Research Map/Functions/Act.md
+    purpose: Bündelt begrenzte lokale Handlung und bewachte Eingabe. Die beteiligten Komponenten behalten
+      unterschiedliche Verantwortungen.
+    inputs: 'Lesekontext: aktiver Contract, sichtbare lokale Lage, Vorschläge und Sicherheitsbedingungen
+      bei den Teilnehmern.'
+    outputs: Begrenzter Eingabeversuch, ActionResult und neue Wahrnehmung; Erfolg wird getrennt geprüft.
+  FUNC-VERIFY:
+    type: Function
+    path: Research Map/Functions/Verify.md
+    purpose: Ordnet unabhängige Ergebnisprüfung und deren Datenformen gemeinsam ein. Sichtbare Wirkung,
+      Urteil und Manager-Entscheid bleiben verschiedene Dinge.
+    inputs: 'Lesekontext: Auftrag und sichtbare Vorher-/Nachher-Belege beim unabhängigen Verifier.'
+    outputs: VerifierResult für Manager und erklärte Speicher-/Replay-Verbraucher.
+  FUNC-BETWEEN-RUNS:
+    type: Function
+    path: Research Map/Functions/Between Mission Runs.md
+    purpose: Ordnet den optionalen Lernlebenszyklus außerhalb aktiver Mission Runs ein. Wissensrevision
+      im laufenden Run und Gewichtsänderung bleiben getrennt.
+    inputs: 'Lesekontext: zulässige Übergänge und später eigenständig genehmigte Trainings-/Prüfkriterien.'
+    outputs: Im Soll zertifizierte oder abgelehnte Kandidatenversion für eine getrennte spätere Aktivierungsentscheidung.
+  MEAS-RETRIEVAL-DELIVERY-001:
+    type: MeasurementPoint
+    path: Research Map/Measurements/Actual memory evidence delivered to Cortex.md
+    purpose: Geplanter Beobachtungsanker für tatsächlich an Cortex gelieferte Memory-Evidenz. Speicherbestand
+      und Planereingang müssen unterscheidbar messbar werden.
+    inputs: Im Soll exakter Cortex-Aufrufbezug und tatsächlich gelieferte belegte Inhalte aus dem Retrieval-Pfad.
+    outputs: Im Soll eingefrorener Liefertrace für getrennte wissenschaftliche Analyse; aktuell nur ein
+      deklarierter Beobachtungsanker.
+  MEAS-CORTEX-PROPOSAL-001:
+    type: MeasurementPoint
+    path: Research Map/Measurements/Produced PlannerOutput.md
+    purpose: Beobachtungsanker für einen tatsächlich erzeugten Cortex-Vorschlag. Planung soll getrennt
+      von Annahme und Ausführung erfasst werden.
+    inputs: Tatsächlicher PlannerOutput von Cortex samt erforderlichem Aufruf-/Kontext-/Identitätsbezug.
+    outputs: Im Soll dauerhafte Vorschlagsspur für getrennte Analyse; kein Ausführungs- oder Erfolgsurteil.
+  MEAS-MANAGER-DISPOSITION-001:
+    type: MeasurementPoint
+    path: Research Map/Measurements/Manager disposition and TaskSpec.md
+    purpose: Beobachtungsanker für Manager-Annahme, Ablehnung und resultierenden TaskSpec. Der Vorschlag
+      muss von der erteilten Berechtigung unterscheidbar bleiben.
+    inputs: Konkreter Vorschlag, GroundingResult und Manager-Annahme/Ablehnung samt TaskSpec, wenn einer
+      entsteht.
+    outputs: Im Soll zugeordnete dauerhafte Dispositionsspur für getrennte Auswertung von Vorschlag und
+      Autorisierung.
+  MEAS-VERIFIED-OUTCOME-001:
+    type: MeasurementPoint
+    path: Research Map/Measurements/Independent verified outcome.md
+    purpose: Geplanter Anker für unabhängig geprüftes sichtbares Ergebnis. Nachgelagerte Outcome-Evidenz
+      darf nicht aus Cortex-Begründungen ersetzt werden.
+    inputs: Im Soll unabhängig geprüftes Ergebnis, sichtbare Belege und zugeordnete Lauf-/Contract-Identität.
+    outputs: Im Soll validierte Outcome-Spur für spätere wissenschaftliche Analyse; heute nur deklarierter
+      Anker.
+  SYS-AGA:
+    type: System
+    path: Research Map/System/Autonomous Game Agent Experiment System.md
+    purpose: Die Systemwurzel des hierarchischen Agentenversuchs. Sie verbindet Beobachten, Planen, erlaubtes
+      Handeln und unabhängiges Prüfen mit nachvollziehbaren Belegen.
+    inputs: Sichtbare Umgebung und zulässige Erfahrungen; konkrete Eingänge werden von den echten Komponenten
+      verarbeitet.
+    outputs: Im Soll begrenzte Versuche, unabhängig geprüfte Ergebnisse und nachvollziehbare Erfahrung;
+      technische Teilimplementierungen sind separat belegt.
+  ENV-GAME-INSTANCE:
+    type: Environment
+    path: Research Map/Environments/Game Environment.md
+    purpose: Die äußere Spielumgebung des Versuchs. Sie ist Ursprung sichtbarer Beobachtung und Empfänger
+      bewachter Eingaben, kein Agententeil.
+    inputs: Bewachte zulässige Eingaben aus InputExecutor; die interne Umweltmechanik ist kein offizieller
+      Datenzugang.
+    outputs: Sichtbare Oberfläche für Screen Capture und optional sichtbare Bridge-Angaben; Nachzustände
+      werden unabhängig geprüft.
+  RQ-PROGRAM-AB-001:
+    type: ResearchQuestion
+    path: Research Map/Program/Research Questions/Program A–B working question.md
+    purpose: Öffentliche Arbeitsfrage zu Erfahrungsgewinn und späterer Wissensnutzung. Sie verbindet Forschungsinteressen,
+      ohne eine Antwort vorwegzunehmen.
+    inputs: Akzeptierte Programmfrage und später explizit zugeordnete Quellen-/Studienbelege; kein Laufzeit-Datenstrom.
+    outputs: Gemeinsame Orientierung für die drei Pilotkomponenten, Research Thread und bestehende wissenschaftliche
+      Navigation.
+  THREAD-EXPERIENCE-TO-ACTION-001:
+    type: ResearchThread
+    path: Research Map/Program/Research Threads/Experience to Action.md
+    purpose: Querverlaufender Forschungs-Lesepfad von Erfahrungskontext über Vorschlag und Berechtigung
+      zu unabhängigem Ergebnis. Seine Ordnung ist keine technische Hierarchie.
+    inputs: Akzeptierte Forschungsrichtung und exakt erklärte ordered_refs; keine automatische Nachrichtenverarbeitung.
+    outputs: Geordneter bevorzugter Lesepfad für die Programmfrage und spätere getrennte Untersuchung
+      der Stufen.
+  DEC-ATLAS-PILOT-001:
+    type: Decision
+    path: Research Map/Project/Decisions/Approved Atlas pilot scope.md
+    purpose: Hält den genehmigten Atlas-Tooling-Pilot fest. Seine Zustimmung betrifft Metadaten und Darstellung,
+      keine neue Architektur oder Studie.
+    inputs: 'Ausdrückliche Pilotfreigabe aus Issue #46 und ihre dokumentierte Geltungsgrenze.'
+    outputs: Nachvollziehbare Tooling-Unterstützung für drei Pilotkomponenten und vier Messanker; kein
+      Laufzeitentscheid.
+  CMP-CORTEX:
+    type: Component
+    path: Research Map/Components/Cortex.md
+    purpose: Langsamer beleggestützter Planer für Ziele und universelle Fähigkeiten. Seine Absicht braucht
+      anschließend Manager-Prüfung.
+    inputs: Observation, bereitgestellte Memory-Zusammenfassung und verfügbare Skills vom Aufrufer.
+    outputs: PlannerOutput für Manager; PostMortemOutput und Schreibwünsche sind getrennte Vorschläge
+      für spätere Memory-Verarbeitung.
+  CMP-MANAGER:
+    type: Component
+    path: Research Map/Components/Manager.md
+    purpose: Prüft Cortex-Absichten und verwaltet begrenzte Aufträge. Nur hier entsteht die Berechtigung
+      für Body-Ausführung.
+    inputs: PlannerOutput von Cortex, sichtbares Grounding und VerifierResult sowie Manager-Stop-Bedingungen.
+    outputs: TaskSpec und Auftragsstatus für Body; Abschlussereignisse für nachvollziehbare Laufzeitprotokollierung.
+  CMP-MEMORY:
+    type: Component
+    path: Research Map/Components/Memory.md
+    purpose: Bewahrt belegte Erfahrung und revidierbare Aussagen außerhalb des Planers. Herkunft und Unsicherheit
+      müssen erhalten bleiben.
+    inputs: Observation sowie vom Aufrufer gelieferte Aktionen/Ergebnisse; erklärte Verifier-, Reflexions-
+      und Schreibwunschdaten.
+    outputs: Abfragbare Erfahrungen und Aussagen für spätere Auswahl/Inspektion; ein Schreibwunsch ist
+      noch kein zugelassenes Wissen.
+  DAT-OBSERVATION:
+    type: DataArtifact
+    path: Research Map/Data Artifacts/Observation.md
+    purpose: Repräsentiert zulässige sichtbare Wahrnehmung mit Herkunft. Planung und Prüfung benötigen
+      dieselbe überprüfbare Datenbasis.
+    inputs: ScreenFrame und Screenshot-Beleg im Perception-/Builder-Pfad, optional erlaubte Zusatzangaben.
+    outputs: Observation für Cortex, Temporal State, Memory und Independent Verifier mit ihren unterschiedlichen
+      Aufgaben.
+  CON-SKILL-CONTRACT:
+    type: Contract
+    path: Research Map/Contracts/TaskSpec bounded Skill Contract.md
+    purpose: Beschreibt einen begrenzten Manager-Auftrag. Body und Reflex dürfen nur in seinem aktiven
+      gültigen Rahmen handeln.
+    inputs: Geprüfte Cortex-Absicht, Skill-Anforderungen und sichtbares Grounding beim Manager.
+    outputs: TaskSpec als Auftragsbeschreibung für Body und Grenze des geplanten Reflex-Pfads; Aktivität
+      wird separat verwaltet.
+  CON-VERIFIER-RESULT:
+    type: Contract
+    path: Research Map/Contracts/VerifierResult.md
+    purpose: Beschreibt das unabhängige Urteil über einen Versuch. Planung, Erfolgsevidenz und Auftragsentscheidung
+      bleiben getrennt.
+    inputs: Sichtbare Beobachtungen und vereinbarte Prüfbedingungen beim Independent Verifier.
+    outputs: Erfolg/Fortschritt/Fehler/Enthaltung für Manager sowie erklärte Memory-/Replay-Nutzung; keine
+      eigene Ausführungsberechtigung.
+  IF-CORTEX-MANAGER:
+    type: Interface
+    path: Research Map/Interfaces/Cortex to Manager.md
+    purpose: Beschreibt die Grenze von strategischem Vorschlag zu Manager-Prüfung. Sie ist kein zusätzlicher
+      handelnder Akteur.
+    inputs: PlannerOutput von Cortex und separat sichtbare Zielzuordnung im Übergabepfad.
+    outputs: Prüfbarer Vorschlag beim Manager; erst nach dessen Prüfungen gegebenenfalls ein begrenzter
+      Auftrag.
+  FUNC-EXECUTIVE-CONTROL:
+    type: Function
+    path: Research Map/Functions/Executive Control.md
+    purpose: Ordnet Validierung, sichtbare Zuordnung und begrenzte Autorisierung gemeinsam ein. Die Function
+      schafft keinen neuen technischen Elternteil.
+    inputs: 'Lesekontext: Cortex-Vorschlag, Grounding und Ergebnisse bei den beteiligten Manager-Komponenten.'
+    outputs: Geprüfter Auftrag und Manager-Lebenszyklusentscheid durch die Teilnehmer; die Function handelt
+      nicht selbst.
+typed_explanations:
+  CMP-SCREEN-CAPTURE:
+    how_it_works: 'Screen Capture beschafft ein einzelnes Bild der sichtbaren Oberfläche von [[id:ENV-GAME-INSTANCE]].
+      Sie liest keine Spielvariablen und deutet keine Bildinhalte. Ein ausdrücklich eingerichteter Aufnahmebefehl
+      liefert die Bilddaten; die Komponente begrenzt dessen Laufzeit und prüft, ob er erfolgreich beendet
+      wurde.
+
+
+      Der vorhandene Adapter erwartet ein einfaches PPM-Bildformat. Er liest Breite und Höhe und prüft,
+      ob genau die benötigte Menge an RGB-Farbdaten vorliegt. Daraus entsteht [[id:DAT-SCREEN-FRAME]]
+      mit Aufnahmezeit. [[id:CMP-PERCEPTION]] benötigt dieses Bild für die Interpretation. [[id:CMP-EVIDENCE-LEDGER]]
+      benötigt dieselben Rohdaten, um ein später nachprüfbares Bildschirmzeugnis zu speichern.
+
+
+      Diese Trennung hält Bildaufnahme, Bedeutung und Beweis auseinander. Ein korrekt aufgebautes Bild
+      besagt noch nicht, dass das richtige Fenster aufgenommen wurde. Die Laufzeit muss die gewünschte
+      sichtbare Oberfläche sicher zuordnen. Weder Bildänderung noch erfolgreiche Aufnahme beweist, dass
+      ein Skill sein Ziel erreicht hat.'
+    normative: Nur eine zulässige sichtbare Oberfläche aufnehmen; Herkunft und Zeitpunkt erhalten.
+    implementation: Der Subprozessadapter prüft Zeitgrenze, Rückgabestatus, PPM-Kopf und Datenlänge.
+    limitations: Der Adapter bestätigt nicht selbst die Identität des Fensters oder die Qualität der Wahrnehmung.
+    example: Ein aufgenommenes Dialogfenster wird als Bild weitergereicht. Welche Worte darin stehen,
+      ist die nächste Aufgabe.
+    sources:
+    - arch3
+    - capture
+    - capture-test
+  CMP-VISIBLE-STATE-BRIDGE:
+    how_it_works: 'Die optionale Visible-State Bridge stellt sichtbare Angaben von [[id:ENV-GAME-INSTANCE]]
+      in einer leichter verarbeitbaren Form bereit. Sie darf nur Informationen liefern, die auch ein Spieler
+      gleichzeitig sehen könnte. Dieser Zugang gehört zu einem eigenen bridge-assisted-Modus; seine Daten
+      und Ergebnisse dürfen nicht unbemerkt mit reinen Bildschirmversuchen vermischt werden.
+
+
+      BridgeObservationSource fordert jeweils ein Datenpaket an und lässt es durch den sichtbaren Adapter
+      bereinigen. Sie prüft den erklärten Modus. Im unterstützten Bridge-Modus muss die mitgelieferte
+      Screenshot-Referenz außerdem zum neuesten dauerhaft gespeicherten Bildschirmbeleg desselben Laufs
+      passen. Ein falscher Modus oder eine unpassende Referenz führt zur Ablehnung.
+
+
+      Das Ergebnis ist eine bereinigte [[id:DAT-OBSERVATION]] für die weitere Verarbeitung. Die [[id:CMP-NO-SPOILER-FIREWALL]]
+      begrenzt erlaubte Felder; sie ersetzt keine Prüfung tatsächlicher Sichtbarkeit. Eine passende Screenshot-ID
+      beweist für sich allein nicht, dass jeder Wert gleichzeitig sichtbar war. Deshalb bleiben Sichtbarkeitsnachweis,
+      Netztrennung und Integrität zusätzliche Pflichten der Laufzeit.'
+    normative: Zugang standardmäßig verweigern; nur erlaubte und gleichzeitig sichtbare Angaben im getrennten
+      Modus verwenden.
+    implementation: Einzelabruf, Adapterbereinigung sowie Modus- und Screenshot-Abgleich sind vorhanden.
+    limitations: Belegbindung bestätigt keine vollständige Sichtbarkeit. Eine zertifizierte offizielle
+      Bridge-Kohorte folgt daraus nicht.
+    example: Ein Datenpaket mit einer älteren Screenshot-Referenz wird abgelehnt, statt es als aktuelle
+      Beobachtung auszugeben.
+    sources:
+    - arch3
+    - bridge
+    - bridge-test
+    - modes
+  CMP-NO-SPOILER-FIREWALL:
+    how_it_works: 'Die No-Spoiler Firewall ist eine Eingangsprüfung für Bridge-artige Daten. Der [[id:CMP-OBSERVATION-BUILDER]]
+      und die Bridge-Bereinigung nutzen sie, bevor Zusatzangaben zur Wahrnehmung werden. Dieser Codezusammenhang
+      bedeutet keine neue direkte Registry-Verbindung zwischen diesen Komponenten.
+
+
+      Die Firewall erhält eine Zuordnung von Feldnamen und Werten. Sie vergleicht die äußeren Feldnamen
+      mit einer ausdrücklichen Verbotsliste. Findet sie ein verbotenes Feld, meldet sie eine Verletzung.
+      Andernfalls gibt sie nur die ausdrücklich erlaubten Felder zurück; sonstige Angaben fallen weg.
+      Damit erhalten nachfolgende Verarbeitungsschritte einen begrenzten Eingang statt beliebiger Spielinformationen.
+
+
+      Diese Prüfung macht eine bekannte verbotene Datenquelle sichtbar, entscheidet aber nicht selbst
+      über jeden denkbaren verschachtelten Inhalt oder dessen tatsächliche Sichtbarkeit. Sie speichert
+      auch keinen vollständigen Integritätsvorfall. Die umgebende Laufzeit muss eine Verletzung dauerhaft
+      protokollieren und den betroffenen Lauf stoppen oder zur Prüfung absondern. Ein bereinigtes Paket
+      bleibt auf sichtbare Belege angewiesen.'
+    normative: Verborgene Daten nicht als offizielle Beobachtung zulassen; Versuch einer verbotenen Einsicht
+      als Vorfall behandeln.
+    implementation: Die Klasse prüft äußere Feldnamen und filtert auf die Erlaubnisliste.
+    limitations: Keine allgemeine rekursive Sichtbarkeitsprüfung oder vollständige Quarantäneverwaltung;
+      diese bleibt Aufgabe der Laufzeit.
+    example: Ein Paket mit einer verbotenen internen Zustandskennung wird zurückgewiesen; es entsteht
+      daraus keine zulässige Beobachtung.
+    sources:
+    - arch3
+    - firewall
+    - firewall-test
+    - provenance
+  CMP-PERCEPTION:
+    how_it_works: 'Perception verbindet das Bild [[id:DAT-SCREEN-FRAME]] mit zulässigen sichtbaren Angaben
+      und einer Screenshot-Belegreferenz. Sie soll beschreiben, was gerade erkennbar ist, ohne aus Spielinternas
+      fehlende Informationen zu ergänzen. [[id:CMP-SCREEN-CAPTURE]] liefert die Bildgrundlage.
+
+
+      Die echten Kinder teilen diese Aufgabe auf: [[id:CMP-OBSERVATION-BUILDER]] baut das gemeinsame Datenpaket,
+      [[id:CMP-PERCEPTION-UI-STATE]] ordnet erkennbare Oberflächenzustände ein. Der Builder fragt die
+      eingerichtete Texterkennung ab, bereinigt optionale Bridge-Felder und vereinheitlicht sichtbare
+      Positionen. Er hält die Herkunft im Ergebnis fest.
+
+
+      Das Ergebnis heißt [[id:DAT-OBSERVATION]]. [[id:CMP-CORTEX]] benötigt es für beleggestützte Vorschläge,
+      [[id:CMP-INDEPENDENT-VERIFIER]] für die unabhängige Ergebnisprüfung. Memory kann Beobachtungen aufbewahren
+      und Temporal State soll sie zeitlich einordnen. Die Standard-Texterkennung liefert derzeit keinen
+      Text. Vorhandene Adapter und Regeln sind deshalb kein Nachweis einer vollständigen Erkennung allein
+      aus Pixeln. Unsicherheit muss erkennbar bleiben; ein neuer Bildabdruck ersetzt weder Objektverständnis
+      noch Erfolgsprüfung.'
+    normative: Nur sichtbare Informationen mit Herkunft und Unsicherheit zu einem gemeinsamen Wahrnehmungsformat
+      verbinden.
+    implementation: Builder, Oberflächenregeln und strukturierte Normalisierung sichtbarer Positionen
+      sind vorhanden.
+    limitations: Die Standard-Texterkennung ist leer. Ein lernender Pixeldetektor und validierte screen-only-Erkennungsqualität
+      sind nicht belegt.
+    example: Ein sichtbares Menü kann aus erlaubten Signalen eingeordnet werden. Ohne tragende Signale
+      bleibt der Zustand unbekannt.
+    sources:
+    - arch3
+    - builder
+    - builder-test
+    - ocr
+    - ocr-test
+  CMP-OBSERVATION-BUILDER:
+    how_it_works: 'Der Observation Builder ist ein Teil von [[id:CMP-PERCEPTION]]. Er erhält ein Bildschirmbild
+      und einen zugehörigen Beleg. Optional kommen erlaubte sichtbare Bridge-Angaben und das Ergebnis
+      der letzten Eingabe hinzu. Er verbindet diese Eingänge zu einem gemeinsamen Wahrnehmungspaket.
+
+
+      Zuerst begrenzt die No-Spoiler Firewall die Zusatzfelder. Dann berechnet der Builder einen Bildabdruck,
+      fragt die konfigurierte Texterkennung ab und lässt den Oberflächenzustand durch [[id:CMP-PERCEPTION-UI-STATE]]
+      einordnen. Sichtbare Objektpositionen und Bildmerkmale werden in ein gemeinsames Format gebracht.
+      Der Screenshot-Beleg wird mit den Angaben verknüpft, damit ihr Ursprung später überprüft werden
+      kann.
+
+
+      Die entstehende [[id:DAT-OBSERVATION]] trägt Text, Oberflächenzustand, sichtbare Positionen und
+      Belegreferenzen. Sie bildet einen gemeinsamen Eingang für spätere Verbraucher wie Cortex und Verifier.
+      Der Builder bestimmt dabei keinen Erfolg und erteilt keine Handlungsberechtigung. Die Standard-Texterkennung
+      ist leer; Datenbündelung erschafft weder fehlende Pixelwahrnehmung noch die zeitliche Stabilisierung
+      einer Beobachtungsfolge.'
+    normative: Zulässige Wahrnehmung einheitlich und mit Screenshot-Herkunft weitergeben.
+    implementation: Bereinigung, Bildabdruck, Texterkennungsaufruf, UI-Einordnung und Datenbündelung sind
+      implementiert.
+    limitations: Keine eigenständige Objekterkennung, zeitliche Stabilisierung oder Erfolgsprüfung. Standardmäßig
+      keine echte Texterkennung.
+    example: Ein neues Dialogbild und sein Beleg werden zu einer Observation; Verifier prüft später, ob
+      der Dialogschritt gelang.
+    sources:
+    - arch3
+    - builder
+    - builder-test
+    - firewall
+    - ocr
+  CMP-PERCEPTION-UI-STATE:
+    how_it_works: 'UI State Classification ist das zweite echte Kind von [[id:CMP-PERCEPTION]]. Der [[id:CMP-OBSERVATION-BUILDER]]
+      nutzt ihre Einordnung, um den aktuellen Oberflächenzustand in die Observation aufzunehmen. „UI“
+      bedeutet hier die sichtbare Benutzeroberfläche, keine verborgene Spielphase.
+
+
+      Die vorhandene Funktion prüft ausdrücklich bereitgestellte sichtbare Hinweise in einer festen Reihenfolge.
+      Ein sichtbarer Tod hat Vorrang vor Kampf, Menü und Dialog. Text aus der Texterkennung kann einen
+      Dialoghinweis liefern; sichtbare Positionen können auf einen Feldzustand hindeuten. Reichen die
+      Angaben nicht, lautet das Ergebnis unbekannt.
+
+
+      Zur Zustandsbezeichnung kommt ein festgelegter Vertrauenswert und gegebenenfalls eine Belegreferenz.
+      Die Einordnung unterstützt die Auswahl und Prüfung eines geeigneten Ablaufs, ohne selbst einen Auftrag
+      zu öffnen. Die Zahlen sind Regelwerte, keine empirisch kalibrierte Sicherheit. Eine Testsituation
+      mit bereitgestellten Bridge-Signalen belegt nicht, dass derselbe Zustand zuverlässig allein aus
+      Bildschirmbildern erkannt wird.'
+    normative: Sichtbare Oberflächen unterscheiden und fehlende Erkenntnis ausdrücklich als unbekannt
+      ausweisen.
+    implementation: Deterministische Regeln mit Vorrang für sichtbaren Tod sind implementiert.
+    limitations: Kein trainierter oder empirisch kalibrierter Pixelklassifikator; feste Vertrauenszahlen
+      sind keine gemessene Erkennungsrate.
+    example: Sind Tod und Menü gleichzeitig signalisiert, wird Tod eingeordnet, damit ein Menüschritt
+      nicht weiterläuft.
+    sources:
+    - arch3
+    - ui
+    - ui-test
+  CMP-TEMPORAL-STATE:
+    how_it_works: 'Temporal State steht für die geplante zeitliche Sicht auf mehrere [[id:DAT-OBSERVATION]]-Pakete.
+      Perception liefert einzelne Beobachtungen. Die zeitliche Verarbeitung soll daraus erkennen, ob ein
+      sichtbares Ziel noch nachvollziehbar ist, ob Bewegung stattfand und ob Fortschritt ausbleibt.
+
+
+      Im Soll werden wenige aktuelle Beobachtungen mit Zeitangaben und Handlungsgeschichte verglichen.
+      Das Ergebnis wären stabilisierte Zustände und Warnungen, etwa bei verlorener Sichtbarkeit. Body
+      könnte damit seine lokale Ausführung anpassen; Manager könnte bei einem erklärten Stop-Anlass den
+      Auftrag beenden. Diese beschriebenen Verwendungszusammenhänge fügen keine direkten Registry-Pfeile
+      hinzu.
+
+
+      Eine zentrale ausführbare Temporal-State-Komponente ist derzeit nicht vorhanden. Der SkillRunner
+      hält lokale Schritt- und Verlaufsmaterialien; das erfüllt nicht automatisch die gesamte geplante
+      Verantwortung. Auch ein Vergleich von Bildabdrücken kann nur eine Änderung anzeigen, nicht deren
+      Bedeutung. Weder eine zuverlässige Bewegungsschätzung noch eine gemeinsame zeitliche Zusammenfassung
+      aller Kontrollpfade wird hier als implementiert dargestellt.'
+    normative: Kurzfristige sichtbare Zusammenhänge stabilisieren und Unsicherheit bzw. ausbleibenden
+      Fortschritt melden.
+    implementation: Lokale Verlaufshandhabung existiert im SkillRunner; die zentrale Komponente ist Zielarchitektur.
+    limitations: Keine vollständige Stabilisierung oder Bewegungsschätzung. Bildänderung allein ist kein
+      Fortschrittsnachweis.
+    example: Ein Ziel erscheint in mehreren Bildern an ähnlicher Stelle; erst eine belegte zeitliche Zuordnung
+      könnte kontinuierliches Verfolgen tragen.
+    sources:
+    - arch4
+    - runner
+    - runner-test
+  CMP-EVIDENCE-LEDGER:
+    how_it_works: 'Die Evidence Ledger ist die Verantwortung für Belege und deren Verknüpfung mit Ereignissen.
+      [[id:CMP-SCREEN-CAPTURE]] liefert [[id:DAT-SCREEN-FRAME]], dessen Pixel als Bildschirmzeugnis erhalten
+      werden sollen. Die Registry erklärt die Ledger als Verbraucher dieses Bildpakets.
+
+
+      Der vorhandene EvidenceStore schreibt Bilddaten und liefert einen EvidenceRecord mit Kennung, Lauf,
+      Pfad, Aufnahmezeit, Größe und SHA-256-Prüfsumme. Diese Prüfsumme hilft beim Abgleich der gespeicherten
+      Bytes. Ein eingerichteter EventLogger hängt strukturierte Ereignisse an ein Protokoll an. Beobachtungen,
+      Aktionen und Urteile können so auf ihre Belege verweisen; die Aufrufer müssen diese Verbindung herstellen.
+
+
+      Das Material dient der späteren Kontrolle und Auswertung, auch im Memory-Kontext. Es ist noch kein
+      vollständiger Integritätslebenszyklus. Ein unveränderliches Metadatenobjekt verhindert nicht selbst
+      das Überschreiben einer Bilddatei; der Store kann an einem bestehenden Kennungspfad schreiben. Optionale
+      Protokollierung und vorhandene Speicherteile garantieren deshalb weder lückenlose Herkunft noch
+      automatische Absonderung kontaminierter Läufe.'
+    normative: Belege dauerhaft erhalten und Beobachtung, Handlung, Vertrag und Urteil nachvollziehbar
+      verbinden.
+    implementation: Bildspeicherung mit Prüfsummen und ein anhängendes Ereignisprotokoll sind vorhanden.
+    limitations: Keine vollständige Unveränderlichkeit oder durchgehende Quarantäne-/Laufverwaltung; korrekte
+      Protokollzusammensetzung bleibt nötig.
+    example: Ein Verifier-Urteil verweist auf einen Screenshot-Beleg. Die Prüfsumme erlaubt den Abgleich
+      mit dem gespeicherten Bild.
+    sources:
+    - arch5
+    - evidence
+    - evidence-test
+    - events
+    - events-test
+    - provenance
+  CMP-MEM-EPISODIC:
+    how_it_works: 'Episodic Memory ist eines der sechs echten Kinder von [[id:CMP-MEMORY]]. Sie steht
+      für die Speicherung von Beobachtungen, gewählten Fähigkeiten, Aktionen und Ergebnissen eines Verlaufs.
+      Dadurch kann später auf eigene Erfahrung zurückgegriffen werden, statt eine Vergangenheit zu erfinden.
+
+
+      Heute schreibt MemoryDB typisierte Observations, ActionResults und SkillResults in eine SQLite-Datenbank.
+      SQLite ist hier ein lokaler strukturierter Speicher. Die Aufrufer stellen Laufkennungen und Belegverbindungen
+      bereit und können gespeicherte Einträge wieder lesen. Ereignisprotokolle liefern weiteres Verlaufsmaterial.
+      Eine eigenständige zusammengeführte Episodenbeschreibung entsteht dabei noch nicht automatisch.
+
+
+      Im Soll kann Retrieval relevante Ausschnitte für eine spätere Cortex-Entscheidung auswählen. Speicherung
+      ist aber noch keine solche Auswahl. Die aktive Overlay-Regel erlaubt zulässige Erfahrungen über
+      Life Episodes desselben Mission Run hinweg; ein unabhängiger Mission Run übernimmt sie nicht automatisch.
+      Die vorhandenen Tabellen beweisen weder vollständige Episodenrekonstruktion noch diese durchgehend
+      abgesicherte Kontinuität.'
+    normative: Trajektorien mit Herkunft erhalten und zulässige Life-Episode-Kontinuität vom frischen
+      unabhängigen Mission Run trennen.
+    implementation: Einträge für Beobachtungen, Aktionen und Skill-Ergebnisse sind speicher- und lesbar.
+    limitations: Keine dedizierte konsolidierte Episode oder vollständige Episoden-Retrieval-/Kontinuitätsverwaltung.
+    example: Nach einem sichtbaren Tod bleiben zulässige frühere Beobachtungen im selben Mission Run erhalten;
+      der Tod beweist keine Ursache.
+    sources:
+    - arch5
+    - memory
+    - memory-test
+    - run
+    - restart
+  CMP-MEM-FACTS:
+    how_it_works: 'Semantic Facts ist ein echtes Kind von [[id:CMP-MEMORY]]. Der FactStore nimmt eine
+      Aussage nur mit mindestens einer Belegreferenz an. Zu ihr gehören Status und gegebenenfalls ein
+      Vertrauenswert. Diese Angaben machen die spätere Prüfung möglich, statt eine Aussage als unbegründetes
+      Wissen zu speichern.
+
+
+      Auf ausdrückliche Aufrufe hin kann der Store Einträge anlegen, lesen, auflisten, ihren Status ändern
+      und weitere Belege ergänzen. Doppelte Belegzuordnungen werden vermieden. Ein widersprochener Eintrag
+      erhält den entsprechenden Status, damit er nicht stillschweigend als weiterhin gesicherte Aussage
+      erscheint.
+
+
+      Spätere Memory-Abfragen und eine ausgewählte Cortex-Zusammenfassung können diese Einträge nutzen.
+      Der Store wählt sie nicht selbst aus und beurteilt ihre Wahrheit nicht unabhängig. Der Aufrufer
+      setzt den Status; auch „validated_rule“ ist zunächst gespeicherte Metadaten. Das vorhandene Speichern
+      ersetzt daher weder ein Verfahren zur Bewertung von Belegen und Widersprüchen noch eine akzeptierte
+      Zulassung neuer abgeleiteter Aussagen. Ein Cortex-Schreibwunsch wird nicht allein durch dieses API
+      zu Wissen.'
+    normative: Beobachtetes Wissen mit Herkunft führen und Widersprüche sichtbar erhalten.
+    implementation: FactStore implementiert Anlegen, Lesen, Status-/Vertrauensänderung und zusätzliche
+      Belege.
+    limitations: Status wird vom Aufrufer vergeben. Unabhängige Wahrheitsprüfung und automatische Admission
+      sind offen.
+    example: Eine spätere Beobachtung widerspricht einer gespeicherten Aussage; der Eintrag kann als widersprochen
+      markiert werden, ohne den alten Beleg zu verlieren.
+    sources:
+    - arch5
+    - facts
+    - facts-test
+  CMP-MEM-HYPOTHESES:
+    how_it_works: 'Hypotheses ist ein echtes Kind von [[id:CMP-MEMORY]] und beschreibt die Verantwortung
+      für unsichere Aussagen. Eine Vermutung kann erklären, warum ein Versuch scheiterte, muss aber von
+      dem sichtbar beobachteten Scheitern getrennt bleiben.
+
+
+      Der vorhandene FactStore kann Einträge mit dem Status hypothesis und einem Vertrauenswert speichern
+      und später ändern. Zusätzlich tragen CortexContext und PostMortemOutput ausdrücklich gekennzeichnete
+      Hypothesennotizen. Diese vorhandenen Formen halten Unsicherheit darstellbar; sie ergeben noch keinen
+      gemeinsamen Lebenszyklus für Unterstützung, Gegenbelege und mögliche Prüfhandlungen.
+
+
+      Die Aufrufer liefern Aussagen, Status und Belege. Memory bewahrt sie auf; ein später ausgewählter
+      Kontext kann Cortex auf offene Fragen hinweisen. Cortex darf daraus nur neue Vorschläge ableiten.
+      Eine Vermutung öffnet keinen Auftrag und wird durch Wiederholung nicht zur Tatsache. Das kanonische
+      Ziel verlangt nachvollziehbare Prüfung und Revision. Wer eine neue abgeleitete Aussage zur akzeptierten
+      Wissensbasis zulässt, bleibt eine offene Designfrage; der Speicher übernimmt diese Entscheidung
+      nicht.'
+    normative: Hypothesen mit Unterstützung, Widerspruch und möglicher Prüfung führen; niemals stillschweigend
+      zu Fakten machen.
+    implementation: FactStore-Hypothesenstatus und typisierte Reflexions-/Kontextnotizen sind vorhanden.
+    limitations: Keine vollständige Hypothesenverwaltung, automatische Prüfung oder akzeptierte Admission-Zuständigkeit.
+    example: „Die Interaktion könnte zu spät erfolgt sein“ bleibt eine Hypothese neben dem belegten erfolglosen
+      Versuch.
+    sources:
+    - arch5
+    - facts
+    - facts-test
+  CMP-MEM-RETRIEVAL:
+    how_it_works: 'Memory Retrieval ist ein eigener Systemteil neben [[id:CMP-MEMORY]], kein Kind von
+      Memory oder Cortex. Die erklärte Schnittstelle [[id:IF-MEM-CORTEX]] führt seine Informationen zu
+      [[id:CMP-CORTEX]]. Der [[id:CON-CORTEX-CONTEXT]] begrenzt dabei die Form des Planereingangs.
+
+
+      Im Zielzustand wählt Retrieval aus zulässiger gespeicherter Erfahrung die für die aktuelle Frage
+      passenden Aussagen und Verläufe aus. Herkunft, Widersprüche und frühere Fehler sollen dabei berücksichtigt
+      werden. Das Ergebnis wäre ein begrenzter, nachvollziehbarer [[id:DAT-RETRIEVAL-SNAPSHOT]], den Cortex
+      tatsächlich erhält.
+
+
+      Heute erhält build_plan_context dagegen eine bereits vom Aufrufer zusammengestellte Memory-Zusammenfassung.
+      Die Funktion überführt Fakten, Hypothesen und frühere Ergebnisse in geprüfte Kontextnotizen und
+      ordnet sie mit der aktuellen Observation zusammen. Sie durchsucht nicht eigenständig die Datenbank
+      und bewertet keine Rangfolge. Die vorhandene Kontextbildung ist deshalb nur ein Teil des vorgesehenen
+      Übergangs. Weder ein eigener versionierter Snapshot noch eine vollständige Retrieval-Evaluation
+      ist implementiert; gespeicherte Information ist nicht automatisch an Cortex gelieferte Information.'
+    normative: Begrenzte relevante Erfahrung mit nachvollziehbarer Auswahl an Cortex liefern.
+    implementation: Kontextaufbereitung prüft und serialisiert die bereitgestellte Zusammenfassung deterministisch.
+    limitations: Keine Datenbankauswahl, Rangordnung, versionierte Snapshot-Erzeugung oder vollständige
+      Retrieval-Messung.
+    example: Ein Aufrufer reicht einen früheren Fehlversuch ein. Cortex kann ihn berücksichtigen; das
+      beweist keinen automatischen Retrieval-Treffer.
+    sources:
+    - arch5
+    - context
+    - context-test
+  CMP-MEM-TOPOLOGY:
+    how_it_works: 'Topological Memory ist ein echtes Kind von [[id:CMP-MEMORY]]. Sie hält fest, zwischen
+      welchen sichtbar charakterisierten Orten oder Zuständen ein Übergang beobachtet wurde. Die resultierende
+      Struktur beschreibt die Erfahrung des Agenten, nicht die vollständige Karte des Spiels.
+
+
+      Der RoomGraphStore erhält vom Aufrufer sichtbare Signaturen, Belege und die beiden Endpunkte eines
+      Übergangs. Er legt Zustandsbeschreibungen an oder aktualisiert sie, speichert Übergänge und kann
+      bekannte Nachbarn auflisten. Zusatzangaben werden auf bestimmte verbotene Feldnamen geprüft. Die
+      Belegbindung ermöglicht später nachzusehen, worauf eine angenommene Verbindung beruht.
+
+
+      Solche gespeicherten Nachbarschaften könnten spätere Entscheidungen oder Retrieval unterstützen.
+      Der Store entdeckt aber keine Wege selbst und entscheidet nicht, ob zwei ähnliche Bilder denselben
+      Ort zeigen. Zuverlässige Wiedererkennung und autonome Routenplanung sind weitere Aufgaben, die hier
+      nicht nachgewiesen werden. Auch das Fehlen einer gespeicherten Verbindung bedeutet nur, dass sie
+      noch nicht im Speicher steht, nicht dass es im Spiel keinen Weg gibt.'
+    normative: Nur selbst beobachtete sichtbare Verbindungen mit Unsicherheit und Herkunft erfassen.
+    implementation: RoomGraphStore speichert Zustände und beleggebundene Übergänge und listet Nachbarn.
+    limitations: Endpunkte und Signaturen kommen vom Aufrufer; keine sichere Wiedererkennung, vollständige
+      Karte oder autonome Wegsuche.
+    example: Ein belegter Wechsel zwischen zwei sichtbaren Zuständen erzeugt eine Verbindung, ohne alle
+      weiteren Ausgänge als bekannt auszugeben.
+    sources:
+    - arch5
+    - topology
+    - topology-test
+  CMP-MEM-STRATEGY:
+    how_it_works: 'Strategy / Experiment Memory ist ein echtes Kind von [[id:CMP-MEMORY]]. Sie beschreibt
+      gespeicherte Vorgehensweisen des Agenten: Was wurde versucht, mit welcher Begründung und welchem
+      beobachteten Ergebnis? „Experiment“ in diesem Namen macht den Eintrag nicht zu einer wissenschaftlichen
+      Studie.
+
+
+      Der vorhandene StrategyGraphStore legt auf ausdrücklichen Aufruf eine Strategie mit Belegen an.
+      Er kann weitere Belege ergänzen, Statusangaben ändern und Ergebnisdatensätze anhängen. Abfragen
+      liefern die Strategie und ihre Ergebnisgeschichte zurück. Der Aufrufer liefert die Beschreibung
+      und Interpretation; der Speicher überprüft nicht selbst, ob die Vorgehensweise wirksam war.
+
+
+      Spätere Memory-Nutzung kann diese Geschichte berücksichtigen, etwa um einen bekannten Fehlversuch
+      nicht als ungetesteten Vorschlag darzustellen. Eine andere Strategie bleibt trotzdem ein neuer Vorschlag
+      unter Manager-Prüfung. Kausale Wirksamkeit, autonome Synthese und die Empfehlung „wiederholen, ändern
+      oder vermeiden“ werden nicht allein durch eine gespeicherte Statusangabe begründet. Wissenschaftliche
+      Experimente und akzeptierte Findings bleiben bei ihren bestehenden Forschungsdatensätzen.'
+    normative: Versuchte Ansätze und sichtbare Ergebnisse mit Herkunft und getrennten Interpretationen
+      erhalten.
+    implementation: Strategie- und Ergebnisspeicherung samt Abfragen sind implementiert.
+    limitations: Keine autonome Synthese oder kausale Wirksamkeitsprüfung; gespeicherte Strategie ist
+      kein akzeptiertes Finding.
+    example: Eine erfolglose sichtbare Interaktion bleibt samt Screenshot erhalten. Eine alternative sichtbare
+      Option ist zunächst nur ein neuer Vorschlag.
+    sources:
+    - arch5
+    - strategy
+    - strategy-test
+  CMP-SKILL-COMPETENCE:
+    how_it_works: 'Skill Competence Registry ist ein echtes Kind von [[id:CMP-MEMORY]]. Im Soll beschreibt
+      sie, welche Version einer Fähigkeit unter welchen Bedingungen geprüft wurde und aktiviert werden
+      darf. Kompetenz bedeutet dabei mehr als eine hohe Zahl früherer Erfolge.
+
+
+      Die vorhandene SkillRegistry liest gespeicherte SkillResult-Einträge aus MemoryDB. Für einen Skill
+      berechnet sie Anzahl, Erfolgsanteil, mittlere Belohnung und Schrittzahl, soweit diese Angaben vorliegen.
+      Sie zählt Fehlergründe und liefert auf Wunsch jüngste Ergebnisse. Sie schreibt diese Geschichte
+      nicht um und trainiert keinen Controller.
+
+
+      Die Zusammenfassung kann spätere Planung oder technische Inspektion informieren: Wiederholter Zielverlust
+      ist ein Hinweis auf begrenzte Erfahrung mit diesem Skill. Er ist aber kein unabhängiger Kompetenznachweis.
+      Die aktuelle API führt weder versionierte Controller-Identität noch zurückgehaltene Prüfungsszenarien
+      oder Aktivierungsstatus vollständig mit. Deshalb schaltet ein schlechter historischer Wert keinen
+      Skill automatisch ab, und ein guter Wert ersetzt nicht die vorgesehene Body-Zertifizierung.'
+    normative: Versionierte Fähigkeit, Prüfbedingungen, Fehlergrenzen und Aktivierung nachvollziehbar
+      beschreiben.
+    implementation: Eine lesende historische Auswertung der Skill-Ergebnisse ist vorhanden.
+    limitations: Keine vollständige versionierte Kompetenz-/Aktivierungsverwaltung. Historische Erfolgsanteile
+      sind keine Zertifizierung.
+    example: Drei gespeicherte Zielverluste erscheinen in der Fehlergeschichte; der Controller wird dadurch
+      nicht automatisch ersetzt.
+    sources:
+    - arch5
+    - competence
+    - competence-test
+  CMP-MANAGER-GROUNDING:
+    how_it_works: 'Grounding ist ein echtes Kind von [[id:CMP-MANAGER]]. „Grounding“ bedeutet die Verbindung
+      einer Absicht mit einem konkret sichtbaren, beleggebundenen Ziel. Ein Cortex-Vorschlag benennt eine
+      gewünschte Fähigkeit; bei zielabhängigen Skills braucht der Auftrag zusätzlich ein passendes sichtbares
+      Objekt oder einen Punkt.
+
+
+      Der vorhandene begrenzte Grounding-Service erhält sichtbare Kandidaten mit Positionen, Bildmerkmalen
+      und Belegen. Unter erklärten Vertrauensregeln sucht er eine eindeutige passende Zuordnung. Bei Unklarheit
+      oder fehlender Unterstützung liefert er grounding_failed. Der GroundedCortexTaskSubmitter reicht
+      dieses Ergebnis mit dem Vorschlag an die Manager-Verarbeitung weiter. TaskManager prüft, ob das
+      Ziel zu den Anforderungen des Skills passt.
+
+
+      Die Registry-Beziehung zu [[id:CON-SKILL-CONTRACT]] beschreibt genau diese Verankerung des späteren
+      Auftrags. Das Ergebnis ist ein typisiertes Ziel oder eine begründete Ablehnung, keine Eingabe. Der
+      Service erkennt nicht selbst Pixelobjekte und erschafft keine dauerhafte Spielidentität. Auch ein
+      erfolgreiches Grounding öffnet allein keinen aktiven Contract; die Manager-Lebenszyklus- und Sicherheitsprüfungen
+      bleiben erforderlich.'
+    normative: Vor Auftragserteilung ein eindeutiges kompatibles sichtbares Ziel zuordnen; Unklarheit
+      zurückweisen.
+    implementation: Begrenzte Kandidatenauswahl, belegte Übergabe und Skill-Zielprüfung sind vorhanden.
+    limitations: Kein Pixeldetektor oder dauerhaftes Objektverständnis; Grounding allein öffnet keinen
+      Auftrag und sendet keine Eingabe.
+    example: Zwei gleich plausible Kandidaten führen zur Ablehnung statt zu einer zufälligen Zielwahl.
+    sources:
+    - arch7
+    - grounding
+    - grounding-test
+    - submission
+    - submission-test
+  CMP-MANAGER-SCHED-COMP:
+    how_it_works: 'Scheduling and Completion ist ein echtes Kind von [[id:CMP-MANAGER]]. Die Verantwortung
+      verbindet die Warteschlange geprüfter Aufträge mit deren Laufzeitstatus. So erhält nicht jeder neue
+      Vorschlag sofort gleichzeitig eine Handlungsberechtigung.
+
+
+      ManagerOrchestrator reicht TaskSpec an den TaskScheduler weiter, startet den nächsten Auftrag und
+      prüft Zeitgrenzen. Beim Abschluss aus einem Skill-Lauf müssen Aufgabenkennung und Skill-Name zum
+      aktuellen Auftrag passen. Ein Manager-Stop hat seinen eigenen Abschlussweg. Andernfalls wird das
+      unabhängige VerifierResult verarbeitet; fehlende oder nicht abschließende Ergebnisse lassen den
+      Auftrag offen.
+
+
+      Das Ergebnis ist ein Zustandswechsel samt Abschlussereignis für die konfigurierte Protokollierung.
+      Manager bleibt die entscheidende Autorität: Fortsetzung braucht denselben weiterhin gültigen Auftrag;
+      ein entsprechender Replan setzt Schließung oder Suspendierung voraus. Die vorhandenen Warteschlangen-
+      und Abschlussfunktionen beweisen jedoch keine vollständige Mission-Run-Verwaltung. Öffentliche niedrigere
+      Markierungsfunktionen und optionale Ereignissenken müssen von ihren Aufrufern korrekt zusammengesetzt
+      werden. Ein fremdes Ergebnis darf niemals als Erfolg des aktuellen Versuchs erscheinen.'
+    normative: Höchstens einen aktiven Auftrag verwalten und nur passende unabhängige Ergebnisse oder
+      Manager-Stop-Bedingungen abschließen.
+    implementation: Warteschlange, Start, Zeitprüfung und zugeordnetes Abschlussverfahren sind implementiert.
+    limitations: Optionale Ereignissenken und niedrigere Markierungs-APIs benötigen korrekte Aufrufer;
+      keine vollständige Laufkontinuitätszertifizierung.
+    example: Ein Ergebnis mit fremder Aufgabenkennung löst einen Fehler aus und schließt den aktuellen
+      Auftrag nicht.
+    sources:
+    - arch7
+    - orchestrator
+    - orchestrator-test
+  CMP-BODY:
+    how_it_works: 'Body erhält den aktiven [[id:CON-SKILL-CONTRACT]], eine aktuelle sichtbare Beobachtung
+      und gegebenenfalls das geprüfte Ziel. Der Auftrag begrenzt Fähigkeit, Aktionen und Laufzeit. Body
+      darf daraus keinen neuen Auftrag oder zusätzliche Rechte ableiten.
+
+
+      Heute ordnet ManagerTaskExecutor den aktuellen Auftrag einer Skill- und Verifier-Bindung zu. SkillRunner
+      begrenzt die Schritte und verwirft Handlungsvorschläge außerhalb der erlaubten Aktionsmenge. Heuristische
+      Skills wählen einen kurzen lokalen Schritt, etwa eine Bewegung in Richtung eines sichtbar belegten
+      Punkts. Bei fehlender Information kann der Skill warten. [[id:CON-PRIMITIVE-ACTION]] stellt die
+      gemeinsame Sprache dieser Vorschläge bereit.
+
+
+      Vor tatsächlicher Eingabe bleiben SafetyFilter und InputExecutor eigene Prüfgrenzen. Neue Observations
+      ermöglichen danach die unabhängige Verifikation. Das echte Kind [[id:CMP-BOUNDED-REFLEX]] bezeichnet
+      einen geplanten schnellen Reaktionspfad; normale heuristische Aktionen werden nicht nachträglich
+      als implementierter Reflex umbenannt. Ein gelernter gemeinsamer Body ist noch nicht nachgewiesen.
+      Seine Gewichte und Controller-Version müssen während des gesamten Mission Run eingefroren bleiben,
+      auch bei einem Neustart der Life Episode.'
+    normative: Nur innerhalb des aktiven Contracts wiederverwendbar handeln; Gewichte während des Mission
+      Run einfrieren.
+    implementation: Begrenzte heuristische Skills, Laufsteuerung und getrennte Verifier-Bindungen sind
+      implementiert.
+    limitations: Kein nachgewiesener gelernter universeller Body; vollständige Skill-Breite und korrekte
+      dauerhafte Protokollkomposition bleiben Grenzen.
+    example: Ein Skill nähert sich einem sichtbaren Punkt in kurzen Schritten und endet bei geprüftem
+      Erreichen oder Manager-Stop.
+    sources:
+    - arch9
+    - body
+    - body-test
+    - runner
+    - task-executor
+    - run
+    - arch8
+  CMP-BOUNDED-REFLEX:
+    how_it_works: 'Bounded Reflex ist das echte Kind von [[id:CMP-BODY]], bleibt aber Zielarchitektur.
+      Er soll auf erklärte unmittelbare sichtbare Bedingungen reagieren können, ohne für jeden lokalen
+      Schritt auf Cortex zu warten. Die Autorität stammt weiterhin ausschließlich aus dem aktiven [[id:CON-SKILL-CONTRACT]].
+
+
+      Manager muss Auslöser, Zulässigkeit, Wartezeit bis zur nächsten Reaktion, Aktionsmenge und Ende
+      vorgeben. Im Soll prüft der Reflex diese Bedingungen, wählt höchstens einen bereits erlaubten [[id:CON-PRIMITIVE-ACTION]]-Vorschlag
+      und führt ihn durch dieselben Safety-, Eingabe- und Protokollgrenzen wie gewöhnliche Body-Schritte.
+      Stop oder Replan hat Vorrang.
+
+
+      Eine eigenständige ausführbare Reaktionsverwaltung mit diesen Regeln wurde im aktuellen Code nicht
+      gefunden. Vorhandene heuristische Skills sind normale Body-Auswahl, kein Beleg für diesen zusätzlichen
+      Pfad. Deshalb werden weder Auslösesicherheit noch schnelle Reaktionsfähigkeit als gemessen behauptet.
+      Auch später darf Reflex kein Ziel erfinden, kein Budget erhöhen und keine Stop-Meldung unterdrücken;
+      bei unzureichender sichtbarer Evidenz bleibt Warten oder Stop die zulässige Alternative.'
+    normative: Schnelle Reaktion nur unter Manager-erklärten Bedingungen; keine Erweiterung von Zielen,
+      Budget oder Rechten.
+    implementation: Ein eigener Reflex-Pfad ist nicht implementiert; heuristische Body-Skills existieren
+      getrennt.
+    limitations: Auslöser-, Wartezeit- und Zulässigkeitsverwaltung sowie gemessene Begrenzung fehlen.
+    example: 'Soll-Beispiel: Ein erklärter Gefahrenhinweis erlaubt Rückzug nur dann, wenn Rückzug bereits
+      im aktiven Auftrag erlaubt ist.'
+    sources:
+    - arch10
+    - body
+    - body-test
+    - run
+  CMP-SAFETY-FILTER:
+    how_it_works: 'SafetyFilter erhält einen Handlungsvorschlag in der gemeinsamen [[id:CON-PRIMITIVE-ACTION]]-Sprache,
+      eine sichtbare aktuelle Position und bereitgestellte Gefahrensignale. Der Body-Pfad liefert Vorschläge;
+      der Filter soll deren lokales Risiko vor einer möglichen Eingabe bewerten.
+
+
+      Die vorhandene reine Berechnung schätzt für eine Bewegung die nächste Position, bewertet die übergebenen
+      Gefahren und vergleicht das Risiko mit einer Schwelle. Sie liefert eine Zulässig-/Blockiert-Angabe,
+      einen Risikowert und Gründe zurück. Mehrere Kandidaten können getrennt beurteilt werden. Dabei werden
+      keine Tasten gesendet und keine Gefahren aus Pixeln erkannt.
+
+
+      Der Aufrufer kann eine blockierte Bewegung verwerfen, bevor InputExecutor eingesetzt wird. Dieser
+      erklärte Zusammenhang ist keine neu angelegte direkte Registry-Kante. Der Filter übernimmt auch
+      nicht Fensterfokus, Notstopp, aktiven Contract oder dauerhafte Protokollierung. Diese bleiben zusätzliche
+      Laufzeitpflichten. Synthetische Gefahrenregionen zeigen das Verhalten der Risikoberechnung; sie
+      belegen weder einen vorhandenen realen Gefahrendetektor noch gemessene Sicherheit im Spiel.'
+    normative: Risiko vor Ausführung begrenzen und die zusätzlichen Contract-/Input-Gates erhalten.
+    implementation: Synthetische Bewegungs-/Gefahrenbewertung und Schwellwertprüfung sind vorhanden.
+    limitations: Keine eigene Gefahrenerkennung oder universelle Sicherheitsgrenze; Fokus, Notstopp und
+      Logging werden hier nicht erzwungen.
+    example: Eine Bewegung in eine bereitgestellte Gefahrenregion wird blockiert. Der Test beweist keinen
+      realen Bilddetektor.
+    sources:
+    - arch14
+    - safety
+    - safety-test
+  CMP-INPUT-EXECUTOR:
+    how_it_works: 'InputExecutor erhält einen [[id:CON-PRIMITIVE-ACTION]]-Vorschlag und die eingerichteten
+      Dienste für Zielfenster, Fokus, Mindestabstand zwischen Eingaben und Notstopp. Die Registry erklärt
+      ihn als steuernden Zugang zu [[id:ENV-GAME-INSTANCE]]. Cortex hat keinen direkten Zugang zu dieser
+      Grenze.
+
+
+      Beim Aufruf prüft die Klasse zunächst Notstopp, passenden Fensterfokus und verfügbare Rate. Ist
+      eine Prüfung negativ, sendet sie nichts und liefert ein blockiertes [[id:DAT-ACTION-RESULT]]. Sind
+      diese lokalen Prüfungen positiv, reicht sie eine Aktion an das eingerichtete Eingabebackend und
+      meldet die Ausführung.
+
+
+      Für die vollständige normative Sicherheit reicht diese Klasse allein nicht: Aktiver Manager-Auftrag
+      und erlaubte Aktionsmenge werden durch ManagerTaskExecutor und SkillRunner zusammengesetzt; dauerhafte
+      Vorher-/Nachher-Belegbindung muss eingerichtet sein. Der Aufrufer darf diese Pflichten nicht auslassen.
+      Das Ergebnis beschreibt den Eingabeversuch, nicht dessen sichtbaren Erfolg. Erst neue Wahrnehmung
+      und unabhängige Verifikation können eine Zielerreichung beurteilen. Vorhandene technische Tests
+      sind zudem keine Erlaubnis für Live-Eingaben.'
+    normative: Nur bei gültigem aktiven Contract, erlaubter Aktion, richtigem Fokus, Rate, Notstopp und
+      dauerhafter Belegprotokollierung handeln.
+    implementation: Die Klasse prüft Notstopp, Fokus und Rate vor backend.send.
+    limitations: Contract, Aktionsmaske und vollständige Belegbindung hängen von korrekter umgebender
+      Komposition ab. Ausgeführt bedeutet nicht erfolgreich.
+    example: Bei Fokusverlust bleibt backend.send unaufgerufen und ActionResult meldet blockiert.
+    sources:
+    - arch14
+    - input
+    - input-test
+    - runner
+    - task-executor
+  CMP-INDEPENDENT-VERIFIER:
+    how_it_works: 'Independent Verifier erhält den begrenzten Auftrag, das geprüfte Ziel und relevante
+      sichtbare [[id:DAT-OBSERVATION]]-Pakete vor und nach dem Versuch. Die Registry erklärt außerdem
+      [[id:DAT-VISIBLE-OUTCOME]] als beobachteten Nachzustand; ein eigener solcher Datentyp bleibt Zielarchitektur.
+
+
+      Heute prüfen getrennte deterministische Verifier bestimmte Skills. ReachTargetVerifier beurteilt
+      sichtbar belegten Tod oder das Erreichen eines zugeordneten Punkts und enthält sich sonst. Dialog-
+      und Interaktionsprüfer nutzen ihre jeweils begrenzten sichtbaren Bedingungen. Ein bloßer Bildabdruckwechsel
+      ersetzt diese Bedingungen nicht.
+
+
+      Das Ergebnis ist [[id:CON-VERIFIER-RESULT]] mit Erfolg, Fortschritt, Fehler oder Enthaltung und
+      Belegangaben. [[id:CMP-MANAGER]] braucht es für die Auftragsentscheidung, Memory und Replay Buffer
+      sind weitere erklärte Verbraucher. Cortex bewertet seinen Vorschlag dadurch nicht selbst; seine
+      spätere Reflexion bleibt getrennt. Die vorhandenen Prüfer decken nicht jeden Spielausgang ab. Ihre
+      Verfügbarkeit beweist weder eine kalibrierte Fehlerrate noch eine wissenschaftlich validierte Ergebnismessung.'
+    normative: Sichtbaren Erfolg, Fortschritt oder Fehler unabhängig bestimmen; bei unzureichenden Angaben
+      Enthaltung.
+    implementation: Skill-spezifische deterministische Verifier und ein Katalog sind implementiert.
+    limitations: Begrenzte Detektoren ohne allgemeine Abdeckung oder kalibrierte Falscherfolgsrate; Visible
+      Outcome als eigener Datentyp fehlt.
+    example: Neue Pixel ohne belegtes Erreichen des Zielpunkts führen zur Enthaltung statt zu einem geratenen
+      Erfolg.
+    sources:
+    - arch11
+    - verifier
+    - verifier-test
+    - dialogue
+    - dialogue-test
+    - interaction
+    - interaction-test
+  CMP-REPLAY-BUFFER:
+    how_it_works: 'Replay Buffer sammelt [[id:DAT-REPLAY-TRANSITION]]-Datensätze. Ein Übergang beschreibt
+      Beobachtung, Aktion, mitgelieferte Belohnung, nächste Beobachtung und Aufgabenangaben. Die Aufrufer
+      erzeugen dieses Material; der Buffer entscheidet nicht selbst, ob eine Belohnung wissenschaftlich
+      gültig ist.
+
+
+      Heute arbeitet er als Speicher mit fester Kapazität: Neue Einträge werden hinten angehängt, bei
+      Überlauf fällt der älteste weg. Stichproben können mit einer festen Zufallsstartzahl reproduzierbar
+      gezogen werden. Der Übergangsdatentyp weist bestimmte verbotene Metadatenschlüssel auch in verschachtelten
+      Angaben zurück.
+
+
+      Die Registry erklärt [[id:CON-VERIFIER-RESULT]] als empfangenes Ergebnismaterial und ReplayTransition
+      als bereitgestelltes Artefakt für späteres Training. Eine vollständige automatische Verbindung beider
+      Datenformen ist damit nicht nachgewiesen. Im Soll dürfen nur zulässige, belegte und unabhängig bewertete
+      Verläufe unter einem genehmigten Lernprotokoll verwendet werden. Der jetzige Buffer erzwingt weder
+      vollständige Mission-Run-/Life-Episode-Herkunft noch Kohortentrennung oder Trainingszulassung. Speichern
+      und Stichprobenziehen sind keine Gewichtsänderung und kein Lernresultat.'
+    normative: Nur zulässige belegte Übergänge sammeln und Lernen auf autorisierte Zeiträume zwischen
+      Mission Runs begrenzen.
+    implementation: Kapazitätsbegrenzte Speicherung und Stichproben mit fester Startzahl sind implementiert.
+    limitations: Keine vollständige offizielle Herkunfts-/Kohorten-/Trainingszulassung. Mitgelieferte
+      Belohnung ist nicht automatisch validiert.
+    example: Bei Kapazität drei verdrängt der vierte synthetische Übergang den ältesten. Das zeigt Speicherung,
+      kein Training.
+    sources:
+    - arch12
+    - replay
+    - replay-test
+    - run
+    - modes
+  CMP-SKILL-TRAINER:
+    how_it_works: 'SkillTrainer steht für einen zukünftigen, ausdrücklich autorisierten Lernschritt. [[id:DAT-REPLAY-TRANSITION]]
+      ist das erklärte Eingangsartefakt aus Replay Buffer. Erst nach Ende eines Mission Run und unter
+      einem genehmigten Lernprotokoll sollen geeignete Verläufe oder Demonstrationen ausgewählt werden.
+
+
+      Im Soll wird daraus eine versionierte [[id:DAT-CANDIDATE-BODY-VERSION]] mit nachvollziehbarer Trainingsherkunft
+      erzeugt. [[id:CMP-BODY-CERTIFICATION]] muss diese Kandidatin unabhängig auf zurückgehaltenen Szenarien
+      prüfen, bevor spätere Aktivierung überhaupt infrage kommt. Trainer darf nicht selbst eine ungeprüfte
+      Version einsetzen.
+
+
+      Heute gibt es lediglich einen Helfer zur Umwandlung synthetischer Übergänge in überwachte Trainingsbeispiele.
+      Optional werden Beispiele nach positiver mitgelieferter Belohnung gefiltert. Dieser Helfer passt
+      keine Gewichte an und erzeugt keinen aktivierbaren Controller. Eine positive Belohnung ersetzt auch
+      keinen Zulässigkeitsnachweis. Training, vollständige Herkunft und Kandidatenbereitstellung fehlen
+      daher. Während eines Mission Run bleibt Body unverändert, auch wenn eine Life Episode endet und
+      neu beginnt.'
+    normative: Zwischen Mission Runs einen nachvollziehbaren Kandidaten trainieren, niemals innerhalb
+      des laufenden Mission Run.
+    implementation: Datensatzumwandlung ist vorhanden; die Trainer-Komponente bleibt target-only.
+    limitations: Kein Anpassen von Modellgewichten, keine vollständige Trainingsherkunft oder Bereitstellung/Deployment
+      einer Kandidatenversion.
+    example: 'Soll-Beispiel: Fehlerverläufe motivieren ein späteres Training, während die laufende Body-Version
+      bis Missionsende eingefroren bleibt.'
+    sources:
+    - arch12
+    - cloning
+    - cloning-test
+    - run
+  CMP-BODY-CERTIFICATION:
+    how_it_works: 'Body Validation / Certification steht für die unabhängige Zulassungsprüfung einer [[id:DAT-CANDIDATE-BODY-VERSION]].
+      SkillTrainer soll diese Version mit Herkunft bereitstellen. Die Registry erklärt Certification als
+      Prüfer des Kandidaten, nicht als dessen Trainer oder automatische Aktivierung.
+
+
+      Im Soll wird die Kandidatin auf zurückgehaltenen Szenarien anhand vorher erklärter Kriterien untersucht.
+      Sicherheit, echte sichtbare Erfolge und fälschlich behauptete Erfolge gehören zur Prüfung. Das Ergebnis
+      wäre eine nachvollziehbare Zertifizierung oder Ablehnung mit Belegen und Versionsbindung. Erst eine
+      zertifizierte Version könnte unter gesonderter Autorisierung für einen späteren Mission Run aktiviert
+      werden.
+
+
+      Der aktuelle Code besitzt keinen vollständigen Zertifizierungs-, Ablehnungs- oder Aktivierungspfad.
+      Helfer zur Datensatzumwandlung und deren Tests validieren keinen Controller auf zurückgehaltenen
+      Szenarien. Diese Identität macht deshalb eine offene Architekturgrenze sichtbar. Sie liefert kein
+      vorweggenommenes Sicherheits- oder Wirksamkeitsurteil und darf keine Gewichtsänderung während eines
+      laufenden Mission Run erlauben.'
+    normative: Nur beleggeprüfte zertifizierte Kandidaten unter eigener Autorisierung später aktivieren.
+    implementation: Die Komponente bleibt target-only; Datensatzhelfer sind keine Zertifizierung.
+    limitations: Zertifizierungsregister, vollständige Prüfkette und Aktivierungsmechanismus fehlen.
+    example: 'Soll-Beispiel: Ein Kandidat mit unsicheren Eingaben wird abgelehnt, auch wenn seine mittlere
+      Belohnung höher ist.'
+    sources:
+    - arch12
+    - cloning
+    - cloning-test
+    - run
+  CON-CORTEX-CONTEXT:
+    how_it_works: 'CortexContext ist ein Contract für Planungs- und Reflexionseingänge, kein selbst handelnder
+      Speicher. [[id:CMP-CORTEX]] empfängt ihn, damit seine Vorschläge auf einem nachvollziehbaren Kontext
+      beruhen. Die Registry erklärt den Contract zugleich als Grenze für Cortex und [[id:CMP-MEM-RETRIEVAL]].
+
+
+      Heute baut build_plan_context ihn aus aktueller Observation und einer vom Aufrufer ausgewählten
+      Memory-Zusammenfassung. Er hält belegte Notizen, Hypothesen, jüngste Ergebnisse, erlaubte Skills,
+      Risikogrenzen und offene Fragen getrennt. Prüfungen weisen direkte primitive Steuerung und verborgene
+      Zustandsbegriffe zurück. Als beobachtete Fakten markierte Notizen benötigen Belege; Hypothesen bleiben
+      entsprechend gekennzeichnet.
+
+
+      Das Ergebnis lässt sich in stabiler Reihenfolge für den Planer ausgeben. Damit wird erkennbar, welche
+      Angaben eine konkrete Planung nutzen konnte. Das Datenformat wählt aber nicht selbst relevante Erinnerungen
+      aus und beweist keine Rangordnung oder Nützlichkeit. Ein formal gültiger Kontext ist weder vollständiger
+      RetrievalSnapshot noch Zusicherung, dass die folgende Entscheidung richtig ist.'
+    normative: Begrenzte zulässige Evidenz und ausführbare Fähigkeiten für Cortex ausdrücklich beschreiben.
+    implementation: CortexContext-Prüfung, build_plan_context und deterministische Serialisierung existieren.
+    limitations: Keine automatische Memory-Auswahl oder Garantie für inhaltliche Wahrheit und nützliche
+      Planung.
+    example: Eine belegte Beobachtungsnotiz und eine unsichere Vermutung erscheinen getrennt im selben
+      Planereingang.
+    sources:
+    - arch6
+    - arch5
+    - context
+    - context-test
+  CON-PLANNER-OUTPUT:
+    how_it_works: 'PlannerOutput ist der Contract für einen Vorschlag von [[id:CMP-CORTEX]] an [[id:CMP-MANAGER]].
+      Cortex liefert die Absicht; Manager ist der erklärte Verbraucher, weil er die Fähigkeit und das
+      sichtbare Ziel vor einer möglichen Ausführung prüfen muss.
+
+
+      Der Datensatz enthält das nächste Ziel, einen wiederverwendbaren Skill, vorgeschlagene Erfolgsbedingungen
+      und Risikogrenzen. Hinzu kommen Aussagen mit Status, offene Fragen und mögliche Memory-Schreibwünsche.
+      Das Schema verlangt Belege für als Fakten gekennzeichnete Aussagen und weist direkte primitive Steuerungsfelder
+      oder entsprechende Aktionsfolgen zurück. Cortex prüft zusätzlich, ob zitierte Belege zum bereitgestellten
+      Kontext gehören und die ausgewählte Fähigkeit verfügbar ist.
+
+
+      Das Ergebnis ist ein prüfbarer Vorschlag. Manager kann ihn zurückweisen oder daraus nach Grounding
+      einen begrenzten TaskSpec erzeugen. PlannerOutput allein startet keinen Skill, sendet keine Taste
+      und schreibt keine Erinnerung. Seine verständliche Begründung ist auch kein unabhängiger Erfolgsnachweis.
+      Parsing und Strukturprüfung schützen die Übergabe, entscheiden aber nicht, ob ein Ziel sinnvoll
+      oder wissenschaftlich wirksam ist.'
+    normative: Beleggestützte universelle Absichten ohne primitive Eingabesteuerung übertragen.
+    implementation: PlannerOutput-Schema, Parsing und Cortex-Prüfungen sind implementiert.
+    limitations: Formal gültige Absicht ist weder aktive Berechtigung noch Garantie richtiger Planung.
+    example: Cortex schlägt continue_dialogue vor. Erst Manager entscheidet, ob daraus ein zulässiger
+      begrenzter Auftrag wird.
+    sources:
+    - arch6
+    - arch7
+    - planner-output
+    - planner-output-test
+    - cortex
+    - cortex-test
+  CON-MEMORY-UPDATE-REQUEST:
+    how_it_works: 'MemoryUpdateRequest ist ein Contract für einen Schreibwunsch, kein Schreibbefehl an
+      eine Datenbank. [[id:CMP-CORTEX]] kann ihn bei Planung oder Reflexion liefern. [[id:CMP-MEMORY]]
+      ist der erklärte nachgelagerte Verbraucher, weil dort zulässige Aussagen und ihre Herkunft bewahrt
+      werden sollen.
+
+
+      Der Datensatz enthält eine Aussage, mindestens eine Beleg-ID und optional eine Begründung. Damit
+      ist sichtbar, was vorgeschlagen wurde und worauf es sich stützt. Im Planungs- oder Reflexionsausgang
+      bleibt dieser Wunsch neben anderen Notizen erhalten. Das Erzeugen oder Prüfen der Nachricht führt
+      keine Datenbankoperation aus.
+
+
+      Eine spätere Zulassung müsste beurteilen, ob die Belege die Aussage tragen, ob sie Beobachtung oder
+      Ableitung ist und ob Widersprüche vorliegen. Eine vollständig akzeptierte automatische Admission-Zuständigkeit
+      ist noch nicht festgelegt. Die Registry-Verbrauchsbeziehung beschreibt deshalb den beabsichtigten
+      Zusammenhang, nicht eine bewiesene automatische Schreibkette. Auch viele Wiederholungen desselben
+      Wunsches schaffen keine neue unabhängige Evidenz und keine Ausführungsrechte.'
+    normative: Nur belegverknüpfte Wünsche zulassen und ihren Vorschlagsstatus erhalten.
+    implementation: Das typisierte Schema fordert eine nichtleere Belegliste; Cortex schreibt damit nicht
+      selbst in Memory.
+    limitations: Automatische Zulassung und Wahrheitsprüfung sind offen. Beleg-ID allein beweist keine
+      richtige Aussage.
+    example: „Im Bild war ein Dialog sichtbar“ kann als belegter Schreibwunsch erscheinen; gespeichert
+      wird es dadurch noch nicht.
+    sources:
+    - arch5
+    - arch6
+    - memory-request
+    - planner-output-test
+    - cortex
+    - cortex-test
+  CON-POST-MORTEM-OUTPUT:
+    how_it_works: 'PostMortemOutput ist ein Contract für die Reflexion von [[id:CMP-CORTEX]]. Er kann
+      nach sichtbaren Ergebnissen übergeben werden; [[id:CMP-MEMORY]] ist der erklärte Verbraucher für
+      die spätere Bewahrung zulässiger Erfahrung. Der Datensatz übernimmt nicht die unabhängige Verifier-Autorität.
+
+
+      Seine Felder trennen beobachtetes Ergebnis, mögliche Ursachen, belegte Notizen, Hypothesen, Vorschläge
+      für nächste sichere Untersuchungen und Memory-Schreibwünsche. Als beobachtete oder validierte Notizen
+      gekennzeichnete Aussagen benötigen Belegreferenzen. Strukturprüfungen weisen direkte primitive Steuerung
+      und verborgene Zustandsbegriffe zurück. Cortex prüft die Belegverweise gegen seinen Reflexionskontext.
+
+
+      Das Ergebnis ist eine nachprüfbare Interpretation. Ein sichtbarer Tod kann beispielsweise belegt
+      sein, während seine Ursache unsicher bleibt. Die Nachricht schreibt keinen Speicher, startet kein
+      Experiment und eröffnet keinen Contract. Das aktive Overlay erlaubt zulässige Wissensrevision im
+      selben Mission Run, aber keine neue Controller-Version zwischen Life Episodes. Reflexionsprosa und
+      technisch gültige Statusfelder beweisen weder eine Ursache noch einen akzeptierten wissenschaftlichen
+      Befund.'
+    normative: Beobachtung von Ursache trennen und Herkunft bei Post-Mortem-/Wissensrevision erhalten.
+    implementation: PostMortemOutput, Reflexionskontext und Cortex-Parsing sind implementiert.
+    limitations: Keine automatische Admission, Ursachenvalidierung oder Experimentautorität; ein Textfeld
+      allein sichert die Wahrheit nicht.
+    example: Ein belegter Tod steht neben „möglicherweise falsche Zielwahl“ als Hypothese, nicht als gesicherte
+      Erklärung.
+    sources:
+    - arch5
+    - arch6
+    - restart
+    - post-mortem-output
+    - post-mortem-test
+    - context
+    - cortex
+  CON-PRIMITIVE-ACTION:
+    how_it_works: 'Primitive Action Vocabulary ist ein Contract für die geschlossene Auswahl kurzer Aktionen.
+      Er umfasst kurze Richtungsbewegungen, Bestätigen, Abbrechen, Menüöffnen und Warten. Eine solche
+      Aktionsbezeichnung beschreibt einen einzelnen Vorschlag, kein ganzes Tastenprogramm.
+
+
+      [[id:CMP-BODY]] und im Soll [[id:CMP-BOUNDED-REFLEX]] liefern Vorschläge in dieser Sprache. [[id:CMP-SAFETY-FILTER]]
+      braucht sie, um beispielsweise eine Bewegungswirkung zu beurteilen. [[id:CMP-INPUT-EXECUTOR]] braucht
+      dieselbe Darstellung für den bewachten Übergang zur tatsächlichen Eingabe. Die Registry-Beziehungen
+      erklären diese Rollen, nicht die Ausführung jeder denkbaren Aktion.
+
+
+      Im Code legt PrimitiveAction die festen Namen fest. Das Format sorgt dafür, dass die beteiligten
+      Grenzen nicht beliebige neue Handlungsnamen erfinden. Es gibt aber selbst keine Berechtigung: Ein
+      gültiger Manager-Contract, erlaubte Aktionsmenge, Fokus, Rate, Notstopp und dauerhafte Belegprotokollierung
+      bleiben zusätzliche Voraussetzungen. Cortex darf dieses Vokabular nicht zur direkten Steuerung ausgeben.
+      Die Zugehörigkeit einer Aktion zum Vokabular ist daher keine Zusicherung, dass sie jetzt erlaubt
+      oder sinnvoll ist.'
+    normative: Eine geschlossene universelle primitive Sprache unter aktiver Manager-Autorität verwenden.
+    implementation: Der PrimitiveAction-Enum definiert die feste Auswahl; Input-/Runner-Grenzen nutzen
+      sie.
+    limitations: Vokabularzugehörigkeit erzwingt weder aktiven Contract noch die übrigen Sicherheitsbedingungen.
+    example: confirm ist ein bekannter Aktionsname; ohne aktiven erlaubenden Auftrag darf er trotzdem
+      nicht ausgeführt werden.
+    sources:
+    - arch9
+    - arch14
+    - primitive
+    - input
+    - input-test
+    - runner
+  DAT-SCREEN-FRAME:
+    how_it_works: 'ScreenFrame ist ein DataArtifact, also ein Informationspaket ohne eigene Handlung.
+      [[id:CMP-SCREEN-CAPTURE]] liefert Breite, Höhe, RGB-Farbdaten und Aufnahmezeit. [[id:CMP-PERCEPTION]]
+      empfängt die Daten, um sichtbare Inhalte aufzubereiten; [[id:CMP-EVIDENCE-LEDGER]] benötigt sie
+      zum Speichern eines überprüfbaren Bildschirmbelegs.
+
+
+      Beim Aufbau prüft der Datentyp positive Abmessungen und genau drei Farbbytes je Pixel. Er kann das
+      Bild im einfachen PPM-Format ausgeben. Dadurch sind defekte Größenangaben oder unvollständige Farbdaten
+      früh erkennbar. Das Objekt ist als unveränderlicher Datensatz angelegt.
+
+
+      Die Prüfung sagt nur, dass die Bildform stimmt. ScreenFrame enthält selbst weder Objektverständnis
+      noch einen Nachweis des richtigen Fensterfokus oder ein Erfolgsurteil. Die Belegverwaltung ergänzt
+      Lauf- und Herkunftsinformationen separat. Für späteres Nachvollziehen ist wichtig, welches Bild
+      aufgenommen und welcher sichtbare Inhalt daraus abgeleitet wurde. Aus einer geänderten Bytefolge
+      entsteht keine automatische Behauptung über Fortschritt.'
+    normative: Sichtbare Bildgrundlage unverändert und nachvollziehbar bereitstellen.
+    implementation: Dimensionen-/Datenlängenprüfung und PPM-Ausgabe sind implementiert.
+    limitations: Keine Fensteridentitäts-, Bedeutungs- oder Erfolgsprüfung; Herkunft wird nicht durch
+      die Rasterprüfung allein garantiert.
+    example: Ein Bild mit zu wenigen Farbbytes wird zurückgewiesen, bevor es als gültige Wahrnehmungsgrundlage
+      weitergereicht wird.
+    sources:
+    - arch3
+    - frame
+    - frame-test
+    - capture
+    - capture-test
+  DAT-ACTION-RESULT:
+    how_it_works: 'ActionResult ist ein DataArtifact über einen Eingabeversuch. [[id:CMP-INPUT-EXECUTOR]]
+      liefert es nach seinen lokalen Sicherheitsprüfungen. Der Datensatz nennt die Aktion, den Zeitpunkt
+      und ob sie ausgeführt wurde; bei Blockierung kann ein Grund erscheinen.
+
+
+      Optional sind Belegreferenzen enthalten. Observation kann das Ergebnis der letzten Aktion tragen,
+      und MemoryDB kann es speichern. Das sind vorhandene Code-Verwendungen, keine zusätzlich erklärten
+      direkten Registry-Beziehungen. So kann die nächste Wahrnehmung neben dem sichtbaren Zustand auch
+      den vorherigen Eingabeversuch nachvollziehbar machen.
+
+
+      Ein ausgeführter Versuch bedeutet nur, dass das eingerichtete Backend die Aktion erhalten hat. Er
+      beweist weder die sichtbare Wirkung noch das Erreichen des Skill-Ziels. Dafür sind neue Beobachtungen
+      und unabhängige Verifikation erforderlich. Umgekehrt erklärt ein Blockiergrund, warum kein lokaler
+      Eingabeaufruf erfolgte. Da Beleglisten optional sind und der Executor sie nicht vollständig ergänzt,
+      garantiert das Schema keine lückenlose dauerhafte Vorher-/Nachher-Herkunft.'
+    normative: Versuch und sichtbaren Outcome getrennt samt Herkunft protokollieren.
+    implementation: ActionResult-Schema und Executor-Ausgabe existieren; Observation/Memory können das
+      Paket verwenden.
+    limitations: Optionale Belege sichern keine vollständige Herkunft. executed ist keine Zielerreichung.
+    example: not_focused erklärt eine blockierte Eingabe. Ein ausgeführtes confirm braucht erst danach
+      einen sichtbar belegten Effekt.
+    sources:
+    - arch14
+    - action-result
+    - input
+    - input-test
+    - builder
+    - memory
+  DAT-REPLAY-TRANSITION:
+    how_it_works: 'ReplayTransition ist ein DataArtifact für ein Übergangsbeispiel. Es enthält vorherige
+      Beobachtung, Aktion, mitgelieferte Belohnung, nächste Beobachtung, Ende-Markierung, Aufgabenbeschreibung
+      und optionale Zusatzangaben. Die Aufrufer stellen diese Werte zusammen.
+
+
+      [[id:CMP-REPLAY-BUFFER]] bewahrt die Datensätze auf und stellt sie bereit. [[id:CMP-SKILL-TRAINER]]
+      ist ihr erklärter späterer Verbraucher, weil Trainingsvorbereitung passende Eingangs-/Handlungspaare
+      braucht. Das Schema weist bestimmte verbotene Metadatenschlüssel auch in verschachtelten Daten zurück.
+      Vorhandene Helfer können synthetische Übergänge in überwachte Beispiele umwandeln.
+
+
+      Damit sind Speicher- und Umwandlungsversuche reproduzierbar darstellbar. Die einzelnen Wörter reward
+      und done bezeichnen mitgelieferte Werte, keine unabhängig geprüften Urteile. Der Datentyp bindet
+      nicht alle Mission-Run-, Life-Episode-, Contract- und Verifier-Referenzen verpflichtend ein. Deshalb
+      ist ein formal gültiger Übergang noch kein zulässiges offizielles Trainingsbeispiel. Eine wissenschaftlich
+      belastbare Belohnung und die Genehmigung des späteren Lernens bleiben gesonderte Nachweise.'
+    normative: Nur zulässige belegte Übergänge mit unabhängig validierten Ergebnislabels verwenden.
+    implementation: Typisierte synthetische Übergänge, rekursive verbotene-Schlüssel-Prüfung und Datensatzhelfer
+      sind vorhanden.
+    limitations: Keine vollständige offizielle Provenienz oder Belohnungs-/Trainingszulassung im Schema.
+    example: Ein synthetischer Übergang mit Belohnung 1 kann gespeichert werden; daraus folgt kein gemessener
+      Lernerfolg.
+    sources:
+    - arch12
+    - run
+    - transition
+    - replay
+    - replay-test
+    - cloning
+  DAT-RETRIEVAL-SNAPSHOT:
+    how_it_works: 'Bounded retrieval snapshot bezeichnet ein geplantes DataArtifact. [[id:CMP-MEM-RETRIEVAL]]
+      soll es aus zulässiger gespeicherter Erfahrung bereitstellen. [[id:CMP-CORTEX]] ist der erklärte
+      Verbraucher, weil spätere Entscheidungen nur auf den tatsächlich gelieferten Angaben beruhen können.
+
+
+      Im Soll wird eine begrenzte relevante Auswahl mit Herkunft und Versionsbezug festgehalten. Sie soll
+      zeigen, welche Aussagen, Hypothesen oder Verläufe bei einem konkreten Aufruf vorlagen. Das wäre
+      eine andere Information als „diese Aussage steht irgendwo in Memory“. Der Messpunkt für tatsächliche
+      Retrieval-Lieferung braucht genau diese Unterscheidung.
+
+
+      Heute erstellt build_plan_context einen CortexContext aus einer vom Aufrufer ausgewählten Zusammenfassung.
+      Das ist eine vorhandene Kontextaufbereitung, aber kein eigener versionierter Snapshot-Builder und
+      keine Datenbank-Rangordnung. Diese Identität bleibt deshalb target-only. Sie wählt nicht selbst
+      Daten aus, sendet keine Aktionen und belegt keine Retrieval-Wirksamkeit. Auswahlqualität und reproduzierbare
+      Lieferprovenienz müssen später eigenständig geprüft werden.'
+    normative: Tatsächlich gelieferte Auswahl nachvollziehbar von insgesamt gespeicherten Daten unterscheiden.
+    implementation: Nur CortexContext-Aufbereitung aus Aufruferzusammenfassungen ist vorhanden; der Snapshot
+      bleibt target-only.
+    limitations: Kein eigenständiger Snapshot-Builder, Ranker oder vollständiges Lieferprotokoll.
+    example: 'Soll-Beispiel: Zwei belegte frühere Fehlversuche werden als genau die beim nächsten Cortex-Aufruf
+      gelieferte Auswahl festgehalten.'
+    sources:
+    - arch5
+    - arch6
+    - context
+    - context-test
+  DAT-VISIBLE-OUTCOME:
+    how_it_works: 'Visible Outcome ist ein geplantes DataArtifact für das, was nach einem Eingabeversuch
+      sichtbar ist. Die Umgebung kann ihr Bild oder ihren sichtbaren Zustand verändern; daraus entsteht
+      zunächst nur neue Wahrnehmung. Die Registry erklärt [[id:CMP-INDEPENDENT-VERIFIER]] als Beobachter
+      dieses Artefakts, ohne eine zusätzliche direkte Lieferbeziehung von GameInstance einzutragen.
+
+
+      Der Verifier soll den relevanten Vorher-/Nachher-Zustand mit den vereinbarten Bedingungen des Auftrags
+      vergleichen. Erst daraus entsteht ein [[id:CON-VERIFIER-RESULT]]. Die Trennung verhindert, dass
+      eine Bewegung oder ein Screenshot-Wechsel automatisch als Erfolg gilt.
+
+
+      Im aktuellen Laufzeitcode gibt es keinen eigenen erstklassigen VisibleOutcome-Datentyp. Der Nachzustand
+      wird über eine neue [[id:DAT-OBSERVATION]] und das getrennte VerifierResult verarbeitet. Die Identität
+      bleibt target-only und beschreibt eine Architekturunterscheidung, keine bereits fertige zusätzliche
+      Nachrichtenstrecke. Sie enthält auch kein Forschungsergebnis: Für wissenschaftliche Outcome-Messung
+      werden eingefrorene Ereignisse, Herkunft und validierte Kriterien weiterhin separat benötigt.'
+    normative: Sichtbare Wirkung vor unabhängiger Bewertung als eigenes Informationsobjekt unterscheiden.
+    implementation: Laufzeit verwendet Nach-Observation und VerifierResult; ein separater VisibleOutcome-Typ
+      fehlt.
+    limitations: Target-only; Bildänderung und formale Nachricht sind keine Zielerreichung oder wissenschaftliche
+      Messung.
+    example: 'Nach einer Bewegung verändert sich das Bild, aber der Zielpunkt ist noch nicht erreicht:
+      Wirkung ja, Erfolg noch nicht.'
+    sources:
+    - arch11
+    - builder
+    - verifier
+    - verifier-test
+    - verifier-result
+  DAT-CANDIDATE-BODY-VERSION:
+    how_it_works: 'Candidate Body Version ist ein geplantes DataArtifact für einen trainierten Controller
+      mit eindeutiger Version und Herkunft. [[id:CMP-SKILL-TRAINER]] soll ihn nach einem ausdrücklich
+      genehmigten Lernschritt zwischen Mission Runs bereitstellen. [[id:CMP-BODY-CERTIFICATION]] ist der
+      erklärte Prüfer, weil Training allein keine Einsatzberechtigung schafft.
+
+
+      Im Soll enthält oder referenziert das Artefakt die konkrete Controller-Identität, Trainingskonfiguration
+      und verwendete zulässige Daten. Zurückgehaltene Prüfungen sollen eine Zertifizierung oder Ablehnung
+      genau dieser Version ermöglichen. Erst nach eigener Freigabe könnte eine zertifizierte Version für
+      einen folgenden Mission Run aktiv werden.
+
+
+      Heute gibt es Helfer zur Vorbereitung synthetischer Datensätze, aber keinen vollständigen Kandidatenversions-
+      oder Aktivierungspfad. Das Artefakt bleibt target-only. Seine Darstellung ist keine Behauptung,
+      dass bereits Gewichte trainiert oder ein Kandidat geprüft wurden. Während eines Mission Run bleiben
+      Body-Version und Gewichte eingefroren; ein neuer Life-Episode-Start darf diese Grenze nicht umgehen.'
+    normative: Trainingskandidat, Prüfentscheid und spätere Aktivierung mit derselben Versionsidentität
+      verbinden.
+    implementation: Kein erstklassiger Kandidaten-/Aktivierungspfad; nur Datensatzvorbereitung ist vorhanden.
+    limitations: Target-only; kein bereits trainiertes Modell oder empirischer Vergleich wird behauptet.
+    example: 'Soll-Beispiel: Kandidat vN+1 bleibt inaktiv, bis seine eigene zurückgehaltene Prüfung und
+      Freigabe vorliegen.'
+    sources:
+    - arch12
+    - run
+    - cloning
+    - cloning-test
+  IF-MEM-CORTEX:
+    how_it_works: 'Memory to Cortex ist eine Interface-Identität für den Übergang von ausgewählter Erfahrung
+      zur Planung. [[id:CMP-MEM-RETRIEVAL]] ist der erklärte Anbieter und [[id:CMP-CORTEX]] der Verbraucher.
+      Der Zusammenhang ist wichtig, weil Cortex nicht beliebig die ganze Datenbank oder verborgenes Spielwissen
+      erhalten soll.
+
+
+      Die aktuelle Nachrichtenform ist [[id:CON-CORTEX-CONTEXT]]. build_plan_context verbindet darin eine
+      vom Aufrufer zusammengestellte Memory-Zusammenfassung mit sichtbarer Observation. Geprüfte Notizen,
+      Hypothesen, jüngste Ergebnisse und verfügbare Fähigkeiten werden klar getrennt. Das Ergebnis kann
+      Cortex für seinen nächsten Vorschlag nutzen.
+
+
+      Die Schnittstelle selbst wählt keine Erinnerung aus, öffnet keinen Auftrag und verändert keine Gewichte.
+      Die vorhandene Kontextaufbereitung belegt deshalb nur einen Teil des vorgesehenen Übergangs. Ein
+      eigener gerankter Retriever, versionierter begrenzter Snapshot und vollständige Liefermessung fehlen.
+      Diese Begrenzung macht nachvollziehbar, warum gespeicherte Information, gelieferter Kontext und
+      tatsächliche Nutzung durch eine Entscheidung getrennte Untersuchungsstufen bleiben.'
+    normative: Ausgewählte belegte Erfahrung ohne zusätzliche Handlungsautorität an Cortex übertragen.
+    implementation: Der Kontextübergang ist teilweise implementiert; Auswahl bleibt beim Aufrufer.
+    limitations: Keine vollständige Rangordnung, versionierte Snapshot-Lieferung oder Retrieval-Evaluation.
+    example: Eine frühere belegte Fehlermeldung erscheint im Kontext, während irrelevante gespeicherte
+      Einträge dort fehlen können.
+    sources:
+    - arch5
+    - arch6
+    - context
+    - context-test
+    - cortex
+  FUNC-ACQUIRE:
+    how_it_works: 'Acquire ist eine Function: Sie bündelt eine Aufgabe, führt aber nicht selbst Code aus
+      und erhält keine eigenen Nachrichten. Ihre erklärten Teilnehmer sind [[id:ENV-GAME-INSTANCE]], [[id:CMP-SCREEN-CAPTURE]]
+      und [[id:CMP-VISIBLE-STATE-BRIDGE]]. Diese Mitgliedschaft ist funktionaler Kontext, keine technische
+      Elternschaft.
+
+
+      Die Umgebung liefert die sichtbare Oberfläche. Screen Capture nimmt ein Rohbild auf, damit nachfolgende
+      Wahrnehmung und Belege dieselbe sichtbare Grundlage haben. Die optionale Bridge kann in einem getrennten
+      Modus erlaubte gleichzeitig sichtbare Angaben bereitstellen. Die beteiligten Komponenten erfüllen
+      also unterschiedliche Rollen am Eingang desselben Beobachtungswegs.
+
+
+      Das Ergebnis dieses Zusammenhangs sind sichtbare Rohdaten beziehungsweise zulässige Zusatzangaben
+      für weitere Verarbeitung. Die Function erzeugt selbst kein ScreenFrame und erlaubt keine zusätzliche
+      Datenquelle. Implementiert sind Aufnahme- und Adapterteile; eine vollständig zertifizierte offizielle
+      Beobachtungskette wird damit nicht behauptet. Verborgene Zustände bleiben ausgeschlossen, und die
+      Umgebung bleibt auch bei ihrer Function-Mitgliedschaft außerhalb der Agentengrenze.'
+    normative: Akquisition als Zusammenarbeit ohne neue technische Hierarchie oder verborgene Datenquelle
+      erklären.
+    implementation: Function-Mitgliedschaften sowie Aufnahme-/Bridge-Adapter existieren; die Function
+      ist Einordnung.
+    limitations: Mitgliedschaft zertifiziert weder Sichtbarkeit noch vollständige screen-only-Funktion.
+    example: Ein Bildschirmbild geht in die Wahrnehmung. Die optionalen Bridge-Daten werden nur im erklärten
+      getrennten Modus ergänzt.
+    sources:
+    - function-semantics
+    - arch3
+    - capture
+    - capture-test
+    - bridge
+  FUNC-OBSERVE:
+    how_it_works: 'Observe ist eine Function für die Zusammenarbeit von [[id:CMP-NO-SPOILER-FIREWALL]],
+      [[id:CMP-PERCEPTION]] und [[id:CMP-TEMPORAL-STATE]] sowie dem Datenartefakt [[id:DAT-OBSERVATION]].
+      Die Mitgliedschaften benennen Beiträge zu einer gemeinsamen Aufgabe, keine neuen technischen Kinder.
+
+
+      Firewall begrenzt optionale Eingangsangaben, Perception verarbeitet sichtbare Signale und bündelt
+      sie zur Observation. Temporal State soll mehrere Beobachtungen kurzfristig einordnen, damit Bewegung
+      oder ausbleibender Fortschritt nicht aus einem einzigen Bild geraten werden. Observation repräsentiert
+      das Informationspaket, das diese Arbeit für Planung, Speicherung und Prüfung verfügbar macht.
+
+
+      Die Function handelt dabei nicht selbst und empfängt keinen eigenen Datenstrom. Vorhandene Bereinigung,
+      Builder und Oberflächenregeln setzen Teile des Zusammenhangs um; eine zentrale zeitliche Stabilisierung
+      fehlt. Auch echte Texterkennung ist standardmäßig nicht aktiv. Observe ist deshalb eine verständliche
+      Landkarte der Verantwortung, kein Nachweis vollständiger Pixelwahrnehmung. Unsicherheit und Belegpflicht
+      bleiben bei allen Teilnehmern bestehen.'
+    normative: Sichtbare Informationen zulässig interpretieren und zeitliche Unsicherheit erhalten.
+    implementation: Firewall, Builder und UI-Regeln existieren; zentrale Temporal-State-Verarbeitung bleibt
+      target-only.
+    limitations: Die Function erzeugt keine Fähigkeiten und keine Elternschaft; vollständige screen-only-Qualität
+      ist nicht belegt.
+    example: Ein Menühinweis wird zulässig eingeordnet, während eine vermutete Bewegung mangels zeitlicher
+      Belege offen bleibt.
+    sources:
+    - function-semantics
+    - arch3
+    - arch4
+    - builder
+    - builder-test
+    - runner
+  FUNC-RETAIN-RETRIEVE:
+    how_it_works: 'Retain / Retrieve ist eine Function mit den erklärten Teilnehmern [[id:CMP-EVIDENCE-LEDGER]],
+      [[id:CMP-MEMORY]] und [[id:CMP-MEM-RETRIEVAL]]. Sie beschreibt deren gemeinsame Aufgabe, keinen
+      zusätzlichen Speicher und keine technische Unterordnung von Retrieval unter Memory.
+
+
+      Evidence Ledger hält Bildschirmbelege und Ereignisherkunft bereit. Memory speichert Verläufe und
+      Aussagen mit Status. Retrieval soll daraus einen begrenzten relevanten Ausschnitt für Cortex auswählen.
+      Diese Rollen sind getrennt, weil eine gespeicherte Aussage nur dann eine bestimmte Planung beeinflussen
+      kann, wenn sie tatsächlich im gelieferten Kontext vorliegt.
+
+
+      Heute existieren Beleg- und Speicherteile sowie Kontextaufbereitung aus vom Aufrufer gewählten Notizen.
+      Eigene Datenbank-Rangordnung, versionierter Liefer-Snapshot und akzeptierte autonome Admission fehlen.
+      Die Function liefert selbst weder Daten noch einen Wissensentscheid. Sie hilft, Aufbewahrung, Auswahl
+      und Verwendung nicht gleichzusetzen. Zulässige Wissensänderungen während eines Mission Run bleiben
+      zudem von künftig autorisiertem Gewichtstraining zwischen Mission Runs verschieden.'
+    normative: Herkunft erhalten und Speichern, Auswählen und Nutzen epistemisch getrennt halten.
+    implementation: Speicher-/Beleg-APIs und Kontextaufbereitung existieren; vollständiger Retrieval-/Admission-Pfad
+      fehlt.
+    limitations: Keine eigene Function-Ausführung, automatische Synthese oder neue Retrieval-Elternschaft.
+    example: Ein Fehlversuch bleibt gespeichert, ist aber erst bei tatsächlicher Auswahl Teil des nächsten
+      Planerkontexts.
+    sources:
+    - function-semantics
+    - arch5
+    - run
+    - memory
+    - memory-test
+    - context
+  FUNC-REASON:
+    how_it_works: 'Reason ist eine Function mit [[id:CMP-CORTEX]] als erklärtem Teilnehmer. Sie bezeichnet
+      das Nachdenken über nächste Ziele, offene Fragen und mögliche Deutungen. Die Function ist selbst
+      kein Agent, empfängt keine Nachricht und führt keinen zusätzlichen Modellaufruf aus.
+
+
+      Cortex erhält aktuelle sichtbare Angaben und begrenzten Memory-Kontext. Er bildet daraus einen strukturierten
+      Vorschlag für eine universelle Fähigkeit und nachvollziehbare Erfolgsbedingungen. Bei Reflexion
+      werden belegte Beobachtungen und unsichere Ursachen getrennt. Diese Aufgaben gehören zur Verantwortung
+      Reason, bleiben aber technisch im Cortex-Pfad verankert.
+
+
+      Das Ergebnis der Planung ist PlannerOutput für Manager, nicht eine primitive Eingabe. Das Ergebnis
+      der Reflexion ist PostMortemOutput, nicht ein unabhängiges Erfolgsurteil oder automatischer Speicherzugriff.
+      Typisierte Aufrufe und Kontextprüfungen sind vorhanden. Die Function-Mitgliedschaft belegt aber
+      weder Nutzen einer Entscheidung noch selbstständige Retrieval-Auswahl oder wissenschaftliche Wirksamkeit.
+      Manager, Body und Verifier behalten ihre getrennten Autoritäten; Reason erweitert keine davon.'
+    normative: Langsame evidenzgebundene Absichten und Reflexion ohne primitive Steuerung beschreiben.
+    implementation: Cortex-Planungs-/Reflexionsaufrufe und Prüfungen existieren; Reason ist ihre Einordnung.
+    limitations: Kein zweiter Planer oder Wirksamkeitsnachweis; Kontextauswahl und fachliche Zielqualität
+      bleiben Grenzen.
+    example: Ein Vorschlag, einen sichtbaren Dialog fortzusetzen, gehört zu Reason; die Berechtigung entsteht
+      erst beim Manager.
+    sources:
+    - function-semantics
+    - arch6
+    - cortex
+    - cortex-test
+    - context
+  FUNC-ACT:
+    how_it_works: 'Act ist eine Function mit [[id:CMP-BODY]], [[id:CMP-BOUNDED-REFLEX]], [[id:CMP-SAFETY-FILTER]]
+      und [[id:CMP-INPUT-EXECUTOR]] als erklärten Teilnehmern. Die gemeinsame Verantwortung macht den
+      Handlungsweg verständlich, erzeugt aber keinen neuen technischen Elternteil oder eigenständig ausführenden
+      Akteur.
+
+
+      Body wählt innerhalb des aktiven Manager-Auftrags kurze primitive Vorschläge. Reflex soll später
+      nur für erklärte unmittelbare Bedingungen denselben begrenzten Rahmen nutzen. SafetyFilter beurteilt
+      bereitgestellte lokale Gefahren. InputExecutor prüft Notstopp, Fokus und Rate vor dem eingerichteten
+      Eingabebackend. Contract, erlaubte Aktionsmenge und dauerhafte Belegprotokollierung müssen in der
+      Laufzeit gemeinsam abgesichert bleiben.
+
+
+      Ergebnis dieser Teilnehmerarbeit ist ein ausgeführter oder blockierter Eingabeversuch mit ActionResult
+      und nachfolgender sichtbarer Wirkung. Act bestimmt deren Erfolg nicht; das bleibt Independent Verifier
+      vorbehalten. Heuristische Body-Ausführung und lokale Sicherheitsprüfungen sind vorhanden, der separate
+      Reflex-Pfad ist target-only. Die Function ist somit ein Verantwortungsbild, keine Zusicherung einer
+      vollständig zertifizierten Live-Schleife.'
+    normative: Lokale Aktionen ausschließlich unter Manager- und Sicherheitsgrenzen zusammenführen.
+    implementation: Heuristische Ausführung und lokale Input-/Risikoprüfungen existieren; Reflex bleibt
+      target-only.
+    limitations: Keine zusätzliche Autorität oder Live-Zertifizierung durch Function-Mitgliedschaft.
+    example: Body schlägt eine Bewegung vor; Fokusverlust blockiert den Eingabeversuch im InputExecutor.
+    sources:
+    - function-semantics
+    - arch9
+    - arch10
+    - arch14
+    - body
+    - body-test
+    - input
+    - safety
+  FUNC-VERIFY:
+    how_it_works: 'Verify ist eine Function mit [[id:DAT-VISIBLE-OUTCOME]], [[id:CMP-INDEPENDENT-VERIFIER]]
+      und [[id:CON-VERIFIER-RESULT]] als erklärten Teilnehmern. Der sichtbare Nachzustand ist Information,
+      Verifier ist die prüfende Komponente und VerifierResult beschreibt die Urteilsform. Mitgliedschaft
+      macht diese Typen nicht zu denselben Mechanismen.
+
+
+      Der Verifier vergleicht zulässige Vorher-/Nachher-Beobachtungen mit den vereinbarten Bedingungen.
+      Bei hinreichender Evidenz kann Erfolg, Fortschritt oder Fehler vorliegen; sonst enthält er sich.
+      Das Ergebnis geht an Manager für eine gesonderte Auftragsentscheidung. Cortex beurteilt seine eigene
+      Absicht nicht als unabhängiger Prüfer.
+
+
+      Heute existieren begrenzte deterministische Skill-Verifier und das Ergebnisschema. Ein eigener VisibleOutcome-Datentyp
+      fehlt; die Laufzeit nutzt eine neue Observation. Die Function prüft selbst nichts und liefert kein
+      Experimentresultat. Ihre Einordnung hält deshalb die Grenze sichtbar: Eine Bildänderung ist nur
+      Wahrnehmung, eine Verifier-Nachricht nur ein begründungsbedürftiges Urteil und ein grüner technischer
+      Test kein wissenschaftlicher Wirksamkeitsbefund.'
+    normative: Unabhängige sichtbare Ergebnisprüfung einschließlich Enthaltung von Planung und Auftragsentscheidung
+      trennen.
+    implementation: Skill-spezifische Prüfer und Resultatschema sind vorhanden; Visible Outcome bleibt
+      target-only.
+    limitations: Keine allgemeine Outcome-Messvalidität, empirische Fehlerrate oder eigene Function-Prüfung.
+    example: Eine neue Observation zeigt Veränderung; mangels belegter Zielerreichung bleibt das unabhängige
+      Urteil abstain.
+    sources:
+    - function-semantics
+    - arch11
+    - verifier
+    - verifier-test
+    - verifier-result
+  FUNC-BETWEEN-RUNS:
+    how_it_works: 'Between Mission Runs ist eine Function für den geplanten Übergang von gesammeltem Material
+      zu einer eventuell später nutzbaren Body-Version. Teilnehmer sind [[id:CMP-REPLAY-BUFFER]], [[id:CMP-SKILL-TRAINER]],
+      [[id:DAT-CANDIDATE-BODY-VERSION]] und [[id:CMP-BODY-CERTIFICATION]]. Diese Einordnung ist keine
+      Trainingsgenehmigung.
+
+
+      Replay Buffer hält zulässige Übergänge bereit. Ein künftig autorisierter Trainer soll daraus einen
+      versionierten Kandidaten erzeugen. Certification soll ihn auf zurückgehaltenen Szenarien prüfen
+      und zertifizieren oder ablehnen. Erst danach käme eine separat erlaubte Aktivierung für einen folgenden
+      Mission Run infrage.
+
+
+      Heute sind Speicherung, Stichproben und synthetische Datensatzvorbereitung vorhanden. Kandidatentraining,
+      vollständige Zertifizierung und Aktivierung fehlen. Die Function führt keinen dieser Schritte selbst
+      aus und schafft keine neuen Komponenten-Eltern. Innerhalb eines Mission Run bleiben Version und
+      Gewichte eingefroren, auch wenn Life Episodes neu beginnen. Zulässige beleggebundene Erinnerung
+      kann wachsen, ohne dass deshalb Parametertraining stattfindet. Ein vorhandener Buffer oder ein Datensatztest
+      ist kein gemessener Lernfortschritt.'
+    normative: Sammeln, Trainieren, zurückgehalten Prüfen und Aktivieren getrennt zwischen Mission Runs
+      autorisieren.
+    implementation: Replay und Datensatzhelfer existieren; Trainer, Kandidatenartefakt und Certification
+      bleiben target-only.
+    limitations: Kein automatisch laufender Lernzyklus oder empirischer Lernerfolg; Function-Mitgliedschaft
+      ersetzt keine Genehmigung.
+    example: 'Soll-Beispiel: Eine Kandidatin wird nach Missionsende geprüft und abgelehnt; der frühere
+      Mission Run wird nicht rückwirkend verändert.'
+    sources:
+    - function-semantics
+    - arch12
+    - run
+    - replay
+    - replay-test
+    - cloning
+  MEAS-RETRIEVAL-DELIVERY-001:
+    how_it_works: 'Actual memory/evidence delivered to Cortex ist ein MeasurementPoint, kein Retriever
+      und kein Messresultat. Seine erklärte measured_at-Beziehung verankert die geplante Beobachtung bei
+      [[id:CMP-MEM-RETRIEVAL]]. [[id:DEC-ATLAS-PILOT-001]] hält fest, dass dieses Mapping zum genehmigten
+      Tooling-Pilot gehört.
+
+
+      Im Soll müsste ein eingefrorener Trace festhalten, welche belegten Inhalte ein bestimmter Cortex-Aufruf
+      wirklich erhalten hat. Die insgesamt gespeicherten Inhalte reichen dafür nicht: Ein Eintrag kann
+      vorhanden sein, ohne ausgewählt oder geliefert zu werden. Diese Unterscheidung ist für spätere Untersuchung
+      von Wissensnutzung wesentlich.
+
+
+      Heute wird eine vom Aufrufer zusammengestellte Memory-Zusammenfassung im CortexContext verarbeitet.
+      Ein eigener versionierter Liefersnapshot und dessen durchgehendes Studienprotokoll fehlen. Der Anker
+      bleibt deshalb target-only. Er beschreibt, wo künftige Beobachtung ansetzen soll; er liefert keine
+      Datenreihe, validierte Kennzahl oder neue Experimentautorisierung. Aus seinem Namen darf weder erfolgreiche
+      Auswahl noch Nutzung durch eine Entscheidung gefolgert werden.'
+    normative: Tatsächlich gelieferte Evidenz mit Aufruf- und Herkunftsbezug erfassen.
+    implementation: Kontextaufbereitung existiert, ein eigener Delivery-Snapshot nicht; Registry-Status
+      target-only.
+    limitations: Kein Ergebnis oder Messvaliditätsnachweis; Speicherung und Delivery sind nicht gleich.
+    example: 'Soll-Beispiel: Ein gespeicherter Fakt fehlt im gelieferten Kontext. Der Anker müsste genau
+      dieses Fehlen nachvollziehbar machen.'
+    sources:
+    - researchB
+    - provenance
+    - context
+    - context-test
+    - registry-reader
+    - registry-test
+  MEAS-CORTEX-PROPOSAL-001:
+    how_it_works: 'Produced PlannerOutput ist ein MeasurementPoint am [[id:CMP-CORTEX]]-Pfad. Er bezeichnet
+      die Stelle, an der ein erzeugter Vorschlag untersucht werden soll. Er erzeugt den Vorschlag nicht
+      selbst und enthält noch kein experimentelles Ergebnis.
+
+
+      Cortex liefert heute einen typisierten PlannerOutput. Für eine spätere Studie müsste genau dieser
+      Ausgang mit Aufruf, Modell-/Konfigurationsidentität, bereitgestelltem Kontext und Belegreferenzen
+      eingefroren werden. So ließe sich unterscheiden, was Cortex vorschlug, was Manager annahm und was
+      Body anschließend tatsächlich tat. Ein abgelehnter Vorschlag bleibt ein Planerausgang, auch wenn
+      er zu keiner Handlung führt.
+
+
+      Die Registry stuft diesen Anker als teilweise implementiert ein: Das Laufzeitobjekt existiert, die
+      durchgehende dauerhafte Studien-Spur ist nur teilweise vorhanden. [[id:DEC-ATLAS-PILOT-001]] genehmigte
+      das Mapping als Tooling. Weder das Mapping noch ein Parsing-Test belegt eine gültige Kennzahl, eine
+      nützliche Absicht oder eine Wirkung verschiedener Modelle. Ein entsprechendes Experiment braucht
+      weiterhin ein eigenes eingefrorenes Protokoll.'
+    normative: Vorschlag, Manager-Disposition und ausgeführte Aktion getrennt erfassen.
+    implementation: PlannerOutput existiert; dauerhafte vollständige Studien-Spur ist partiell.
+    limitations: Keine validierte Messmethode, Datenreihe oder Modellwirkung allein durch den Beobachtungsanker.
+    example: Ein Cortex-Vorschlag für einen nicht verfügbaren Skill wäre getrennt von dessen Manager-Ablehnung
+      zu protokollieren.
+    sources:
+    - researchA
+    - provenance
+    - cortex
+    - cortex-test
+    - planner-output
+    - registry-test
+  MEAS-MANAGER-DISPOSITION-001:
+    how_it_works: 'Manager disposition and TaskSpec ist ein MeasurementPoint bei [[id:CMP-MANAGER]]. Die
+      measured_at-Beziehung erklärt, an welcher Autoritätsgrenze die spätere Beobachtung ansetzt. Der
+      Anker validiert keine Aufgaben selbst und ist kein zusätzlicher Scheduler.
+
+
+      Der vorhandene Manager-Pfad kann einen Cortex-Vorschlag prüfen, benötigte Ziele zuordnen und daraus
+      einen TaskSpec erstellen oder die Übergabe ablehnen. Ein späterer Studientrace müsste die konkrete
+      Entscheidung, Begründung, Ziel-/Belegbindung und zugehörigen Vorschlag dauerhaft miteinander verbinden.
+      Das ist nötig, weil ein Planerausgang nicht automatisch eine ausgeführte Handlung ist.
+
+
+      Die Registry bezeichnet den Laufzeitpfad als teilweise für diese Messaufgabe umgesetzt. Vollständige
+      dauerhafte Studienprovenienz folgt nicht aus einem gültigen TaskSpec oder einem optionalen Ereignissink.
+      [[id:DEC-ATLAS-PILOT-001]] genehmigte das Mapping, keine neue Untersuchung oder wissenschaftliche
+      Aussage. Der Anker liefert weder eine bereits erhobene Annahmerate noch ein Verifier-Ergebnis; technische
+      Verfügbarkeit und Messvalidierung bleiben getrennte Nachweise.'
+    normative: Manager-Disposition mit Herkunft und resultierender begrenzter Berechtigung erfassen.
+    implementation: Validierungs-/Grounding-/TaskSpec-Pfad existiert; vollständiger dauerhafter Studientrace
+      ist partiell.
+    limitations: Kein Ergebnis, validiertes Messinstrument oder Auftrag zu einem Experiment.
+    example: Ein uneindeutiges sichtbares Ziel führt zur Ablehnung; diese darf nicht als ausgeführter
+      Fehlversuch gezählt werden.
+    sources:
+    - researchA
+    - arch7
+    - provenance
+    - task-manager
+    - task-manager-test
+    - grounding
+    - registry-test
+  MEAS-VERIFIED-OUTCOME-001:
+    how_it_works: 'Independent verified outcome ist ein MeasurementPoint für spätere Ergebnisbeobachtung
+      außerhalb der drei Pilotkomponenten. [[id:DEC-ATLAS-PILOT-001]] unterstützt diesen vorhandenen Anker.
+      Die aktuelle Registry erklärt hier keine measured_at-Kante; eine solche wird nicht aus dem Namen
+      nachgetragen.
+
+
+      Inhaltlich soll eine Studien-Spur das unabhängig geprüfte Ergebnis mit sichtbaren Belegen, Auftrag
+      und Laufidentität verbinden. Skill-spezifische Verifier und VerifierResult existieren bereits als
+      technische Teile. Damit eine wissenschaftliche Auswertung darauf aufbauen kann, müssen die Kriterien,
+      Herkunft und Fehlergrenzen der Messung gesondert validiert werden.
+
+
+      Der Anker selbst bleibt target-only. Er enthält keine eingefrorene Messreihe und führt keine Verifikation
+      aus. Erfolgreiche technische Tests beweisen weder die allgemeine Outcome-Gültigkeit noch eine niedrige
+      Falscherfolgsrate. Auch die Unterstützung durch eine Tooling-Entscheidung genehmigt kein Experiment.
+      Die Trennung macht sichtbar, welche nachgelagerte Evidenz eine künftige Untersuchung noch braucht,
+      ohne einen fehlenden Studiennachweis als bereits erzieltes Ergebnis darzustellen.'
+    normative: Unabhängige sichtbare Outcome-Evidenz samt Messkriterien erfassen.
+    implementation: Verifier-Teile existieren; der Studienanker bleibt target-only.
+    limitations: Keine erklärte measured_at-Kante, vollständige Studien-Spur oder Messvalidierung; keine
+      Kante oder Ergebnisse ergänzt.
+    example: 'Soll-Beispiel: Ein belegter Skill-Erfolg wird mit seinem Auftrag verknüpft und getrennt
+      von Cortex-Reflexion ausgewertet.'
+    sources:
+    - arch11
+    - provenance
+    - verifier
+    - verifier-test
+    - verifier-result
+    - registry-test
+  SYS-AGA:
+    how_it_works: 'Das Autonomous Game Agent Experiment System ist die technische Systemwurzel. Unter
+      seinen echten part_of-Pfaden liegen alle 28 Components. [[id:ENV-GAME-INSTANCE]] bleibt die externe
+      Umgebung; didaktische Functions und Domains sind keine zusätzlichen technischen Eltern.
+
+
+      Im Soll erzeugt sichtbare Wahrnehmung eine Observation. [[id:CMP-CORTEX]] schlägt ein beleggestütztes
+      Ziel vor. [[id:CMP-MANAGER]] prüft Fähigkeit und sichtbare Zuordnung und eröffnet einen begrenzten
+      Auftrag. [[id:CMP-BODY]] handelt darin über separate Sicherheits- und Eingabegrenzen. Neue Beobachtung
+      geht an [[id:CMP-INDEPENDENT-VERIFIER]]; dessen Ergebnis trägt die nächste Manager-Entscheidung.
+      Memory bewahrt zulässige Erfahrung, Retrieval soll relevante Ausschnitte bereitstellen.
+
+
+      Fortsetzung benötigt denselben weiterhin gültigen Contract; entsprechendes Replanning setzt Schließung
+      oder Suspendierung voraus. Ein Mission Run kann mehrere Life Episodes umfassen, ohne Modell- oder
+      Body-Wechsel. Heute existieren zahlreiche typisierte technische Teile, aber das Gesamtsystem bleibt
+      im Registry target-only und unverified. Das ist keine Behauptung, alle Kinder fehlten. Es markiert
+      die fehlende Zertifizierung einer vollständigen offiziellen Schleife und keine wissenschaftliche
+      Wirksamkeit.'
+    normative: Autoritäten, Herkunft, Mission-Run-Integrität und universelle Fähigkeiten in einem kontrollierten
+      System verbinden.
+    implementation: Planungs-, Manager-, Body-, Verifier- und Speicherteile existieren; Gesamtsystem im
+      Registry target-only/unverified.
+    limitations: Keine vollständig zertifizierte offizielle screen-only-Schleife, autonome Admission oder
+      wissenschaftliche Wirksamkeit.
+    example: Ein Dialogversuch durchläuft Vorschlag, Manager-Auftrag, bewachte Eingabe und sichtbare Prüfung;
+      kein einzelner Schritt ersetzt die gesamte Kette.
+    sources:
+    - arch1
+    - arch6
+    - arch7
+    - arch11
+    - run
+    - cortex
+    - cortex-test
+    - task-executor
+    - task-executor-test
+    - registry-reader
+    - registry-test
+  ENV-GAME-INSTANCE:
+    how_it_works: 'Game / Environment ist eine Environment-Identität außerhalb der Agentengrenze. [[id:CMP-SCREEN-CAPTURE]]
+      beobachtet ihre sichtbare Oberfläche. Die optionale [[id:CMP-VISIBLE-STATE-BRIDGE]] darf nur freigegebene
+      gleichzeitig sichtbare Angaben in einem getrennten Modus bereitstellen. [[id:CMP-INPUT-EXECUTOR]]
+      ist der erklärte bewachte Zugang für Eingaben.
+
+
+      Die Umgebung reagiert nach ihren eigenen Regeln. Der Agent sieht daraus nur zulässige sichtbare
+      Zustände und Änderungen. Perception kann sie als neue Observation beschreiben; Independent Verifier
+      beurteilt einen relevanten Effekt anhand des begrenzten Auftrags. Diese Prozessbeschreibung ergänzt
+      keine direkten Registry-Verbindungen.
+
+
+      Der Registry-Status target-only bedeutet hier nicht, dass ein Spiel nicht existiert. Er stellt keine
+      Repository-Implementierung einer externen Umgebung fest. Ein offizieller Versuch benötigt die passende
+      eingerichtete Oberfläche, Modus-/Netztrennung, Herkunft und eigene Live-Autorisierung. Verborgene
+      Spielzustände, interne Karten oder Lösungswissen dürfen keine Beobachtungsautorität werden. Function-Mitgliedschaft
+      bei Acquire ändert ebenfalls nichts daran, dass die Umgebung extern bleibt.'
+    normative: Nur für Spieler sichtbare Informationen nutzen und Eingaben durch die bewachte Grenze schicken.
+    implementation: Aufnahme-/Input-Adapter existieren; die externe Umgebung ist keine im Repository implementierte
+      Komponente.
+    limitations: Target-only ist hier kein Existenzurteil. Keine offizielle Gesamtschleifen- oder Live-Freigabe
+      durch diese Identität.
+    example: Nach einem erlaubten confirm zeigt die Umgebung anderen Text; ob das Ziel erreicht ist, prüft
+      erst der zuständige Verifier.
+    sources:
+    - arch1
+    - arch3
+    - arch14
+    - modes
+    - capture
+    - capture-test
+    - input
+    - input-test
+  RQ-PROGRAM-AB-001:
+    how_it_works: 'Program A–B working question ist eine ResearchQuestion, kein ausführbarer Mechanismus.
+      Sie fragt, wie Modellkonfiguration und Verhaltensinstruktion eigene Erfahrung prägen und wie diese
+      Erfahrung später zu handlungsrelevantem Wissen wird. Das kanonische Forschungsprogramm ist die Quelle
+      dieser Richtung.
+
+
+      Die Registry verknüpft [[id:CMP-CORTEX]], [[id:CMP-MANAGER]] und [[id:CMP-MEM-RETRIEVAL]] ausdrücklich
+      mit der Frage. Cortex steht für Vorschläge, Manager für die getrennte Autorisierung und Retrieval
+      für tatsächlich verfügbaren Erinnerungskontext. [[id:THREAD-EXPERIENCE-TO-ACTION-001]] verbindet
+      diese Perspektiven als Arbeits-Lesepfad. Keine dieser Verknüpfungen beweist eine Wirkung.
+
+
+      Als Eingang dienen akzeptierte Forschungsabsicht und später eindeutig zugeordnete Literatur-/Studienbelege.
+      Das Ergebnis dieses Datensatzes ist Orientierung für Untersuchung und Navigation, kein Experiment
+      oder Finding. Private Forschungsoriginale werden weiterhin einmal unter ihren bestehenden Verträgen
+      verfasst. Fehlende Mappings beweisen weder Forschungslücke noch Neuheit. Endpunkte, Vergleichsbedingungen
+      und Admission bleiben dort offen, wo das Programm sie nicht eingefroren hat; diese Seite genehmigt
+      keine Untersuchung.'
+    normative: Erfahrungsgewinn, Verarbeitung und Nutzung als getrennte Forschungsobjekte untersuchen.
+    implementation: Öffentliche Registry-Frage und erklärte Verknüpfungen sind darstellbar; kein empirisches
+      Ergebnis folgt.
+    limitations: Keine Antwort, Neuheitsfeststellung oder Experimentautorisierung; fehlendes Mapping ist
+      keine Forschungslücke.
+    example: Eine Untersuchung könnte prüfen, ob ein gespeicherter Hinweis später geliefert und genutzt
+      wurde; die Frage selbst liefert diesen Nachweis nicht.
+    sources:
+    - researchA
+    - researchB
+    - registry-reader
+    - registry-test
+  THREAD-EXPERIENCE-TO-ACTION-001:
+    how_it_works: 'Experience to Action ist ein ResearchThread. Er ordnet zwölf bestehende Identitäten
+      als Lesepfad, um die [[id:RQ-PROGRAM-AB-001]] aus mehreren Perspektiven zu betrachten. Er empfängt
+      keine Beobachtungen und führt keinen automatischen Ablauf aus.
+
+
+      Der Pfad beginnt bei [[id:CMP-MEM-RETRIEVAL]] und dessen geplanter Liefermessung. Schnittstelle
+      und CortexContext zeigen, welche Erinnerung die Planung erreichen soll. Cortex und Vorschlagsmessung
+      trennen Absicht vom nächsten Übergang. PlannerOutput und Cortex-to-Manager führen zu Manager, Disposition
+      und Skill Contract. Der unabhängige Outcome-Anker markiert die nachgelagerte Ergebnisevidenz.
+
+
+      Die genaue Registry-Reihenfolge steht unten mit bevorzugten Seitenlinks. Sie verbindet technische
+      Datenformen und Forschungs-Beobachtungspunkte, ohne daraus part_of oder neue technische Pfeile zu
+      machen. Eingang des Datensatzes ist die akzeptierte Forschungsrichtung; sein Ergebnis ist strukturierte
+      Navigation. Einige referenzierte Teile sind implementiert, andere target-only. Diese Mischung ist
+      ausdrücklich sichtbar und beweist keine kausale Kette, erfolgreiche Wissensnutzung oder genehmigte
+      Studie. Wissenschaftliche Originalsätze und Herkunft bleiben in den bestehenden Forschungsdatensätzen.'
+    normative: Gespeichert, geliefert, vorgeschlagen, erlaubt und unabhängig geprüft auseinanderhalten.
+    implementation: Zwölf geordnete Registry-Referenzen und die Frageverknüpfung sind vorhanden und werden
+      verlinkt.
+    limitations: Keine Ausführung, technische Elternschaft, kausaler Nachweis oder Experimentfreigabe
+      durch die Reihenfolge.
+    example: Ein Leser kann vom Lieferanker zum Planerausgang wechseln, ohne anzunehmen, dass erfolgreiche
+      Lieferung bereits bewiesen sei.
+    sources:
+    - researchB
+    - provenance
+    - registry-reader
+    - thread-test
+  DEC-ATLAS-PILOT-001:
+    how_it_works: 'Approved Atlas pilot scope ist eine Decision mit dem Geltungsbereich tooling. Die ursprüngliche
+      [Issue #46](https://github.com/Planton361/autonomous-game-agent/issues/46) genehmigte einen kleinen
+      Metadaten-/Darstellungspilot. Der Entscheidungsdatensatz bewahrt diese Herkunft; er handelt nicht
+      selbst und ist kein Implementierungsnachweis.
+
+
+      Die Registry erklärt Unterstützung für [[id:CMP-MEM-RETRIEVAL]], [[id:CMP-CORTEX]] und [[id:CMP-MANAGER]]
+      sowie vier bestehende Messanker. Die drei Komponenten waren die Pilotleseflächen, die Messanker
+      halten Vorschlag, Manager-Disposition, tatsächliche Memory-Lieferung und unabhängigen Outcome auseinander.
+      „supports“ bedeutet hier Unterstützung des Tooling-Geltungsbereichs, keine Bestätigung der wissenschaftlichen
+      Aussagekraft.
+
+
+      Eingang ist die ausdrückliche Nutzer-/Projektentscheidung; Ergebnis ist ein begrenzter nachvollziehbarer
+      Auftrag für Atlas-Metadaten und Navigation. Die heutige Registry enthält diese Identität und ihre
+      Verbindungen. Ob ein technischer Teil funktioniert, muss weiterhin aus main und Tests/CI folgen.
+      Die Entscheidung erlaubt weder neue Architekturzerlegung noch Forschungsergebnisse, Experimentausführung
+      oder Live-Eingaben. Spätere Änderungen brauchen ihre jeweils eigene Autorität.'
+    normative: Projektentscheidung mit Herkunft und begrenztem Geltungsbereich darstellen.
+    implementation: 'Registry-Decision und sieben supports-Verbindungen sind vorhanden; die Primärentscheidung
+      liegt in Issue #46.'
+    limitations: Keine Architekturzerlegung, wissenschaftliche Claim-Annahme, Experiment- oder Live-Autorisierung.
+    example: Die Unterstützung des Retrieval-Lieferankers erlaubt seine Metadatendarstellung, behauptet
+      aber keinen fertigen RetrievalSnapshot.
+    sources:
+    - control
+    - provenance
+    - registry-reader
+    - registry-test
+relationship_explanations:
+- source: CON-CORTEX-CONTEXT
+  relation: constrains
+  target: CMP-CORTEX
+  why: Die Kontextform begrenzt zulässige Angaben und unterscheidet Hypothesen von belegten Notizen, ohne
+    deren Wahrheit allein zu garantieren.
+  sources:
+  - arch6
+  - context
+  - cortex
+- source: CON-CORTEX-CONTEXT
+  relation: constrains
+  target: CMP-MEM-RETRIEVAL
+  why: Auch ausgewählte Erinnerung muss an der Kontextgrenze zulässig und typisiert bleiben; ein ganzer
+    unbeschränkter Datenbankinhalt ist nicht das Ziel.
+  sources:
+  - arch6
+  - context
+  - arch5
+- source: CON-SKILL-CONTRACT
+  relation: constrains
+  target: CMP-BODY
+  why: Der aktive Auftrag begrenzt Fähigkeit, Ziel und Ausführung; Body darf diese Grenzen nicht selbst
+    erweitern.
+  sources:
+  - arch7
+  - task-manager
+  - arch9
+  - body
+- source: CON-SKILL-CONTRACT
+  relation: constrains
+  target: CMP-BOUNDED-REFLEX
+  why: Auch eine dringende geplante Reaktion muss schon erlaubt sein; Reflex darf keinen neuen Auftrag
+    oder zusätzliches Budget erfinden.
+  sources:
+  - arch7
+  - task-manager
+  - arch10
+  - body
+- source: CMP-CORTEX
+  relation: consumes
+  target: CON-CORTEX-CONTEXT
+  why: Ein gemeinsamer geprüfter Kontext trennt Beobachtung, Hypothesen und verfügbare Fähigkeiten, bevor
+    Cortex einen Vorschlag bildet.
+  sources:
+  - arch6
+  - cortex
+  - context
+- source: CMP-CORTEX
+  relation: consumes
+  target: DAT-OBSERVATION
+  why: Die aktuelle sichtbare Lage verankert Vorschläge in zulässiger Wahrnehmung statt verborgenem Spielwissen.
+  sources:
+  - arch6
+  - cortex
+  - arch3
+  - builder
+- source: CMP-CORTEX
+  relation: consumes
+  target: DAT-RETRIEVAL-SNAPSHOT
+  why: Der geplante begrenzte Ausschnitt soll zeigen, welche gespeicherte Erfahrung eine bestimmte Planung
+    tatsächlich erreichen konnte; der eigene Snapshot fehlt heute.
+  sources:
+  - arch6
+  - cortex
+  - arch5
+  - context
+- source: CMP-CORTEX
+  relation: consumes
+  target: IF-MEM-CORTEX
+  why: Die erklärte Übergabe erlaubt ausgewählte Erinnerung als Kontext, ohne Cortex selbst zum unbeschränkten
+    Datenbankleser oder Speicherautor zu machen.
+  sources:
+  - arch6
+  - cortex
+  - arch5
+  - context
+- source: CMP-EVIDENCE-LEDGER
+  relation: consumes
+  target: DAT-SCREEN-FRAME
+  why: Die Rohbilddaten werden für ein überprüfbares Bildschirmzeugnis benötigt, auf das spätere Aussagen
+    zurückverweisen können.
+  sources:
+  - arch5
+  - evidence
+  - arch3
+  - frame
+- source: CMP-INDEPENDENT-VERIFIER
+  relation: consumes
+  target: DAT-OBSERVATION
+  why: Sichtbare belegte Vorher-/Nachher-Angaben erlauben eine von Cortex getrennte Prüfung vereinbarter
+    Bedingungen.
+  sources:
+  - arch11
+  - verifier
+  - arch3
+  - builder
+- source: CMP-INPUT-EXECUTOR
+  relation: consumes
+  target: CON-PRIMITIVE-ACTION
+  why: Der bewachte Eingang braucht einen einzelnen bekannten Aktionsnamen; dessen Vokabularzugehörigkeit
+    allein ist keine Ausführungsfreigabe.
+  sources:
+  - arch14
+  - input
+  - arch9
+  - primitive
+- source: CMP-MANAGER
+  relation: consumes
+  target: CON-PLANNER-OUTPUT
+  why: Manager braucht die konkrete Absicht, um verfügbare Fähigkeit, Zielanforderungen und Grenzen vor
+    einem Auftrag zu prüfen.
+  sources:
+  - arch7
+  - task-manager
+  - arch6
+  - planner-output
+- source: CMP-MANAGER
+  relation: consumes
+  target: CON-VERIFIER-RESULT
+  why: Das unabhängige Ergebnis trägt die Zustandsentscheidung; Fortschritt allein eröffnet keinen neuen
+    Auftrag und Abschluss braucht die Manager-Transition.
+  sources:
+  - arch7
+  - task-manager
+  - arch11
+  - verifier-result
+- source: CMP-MANAGER
+  relation: consumes
+  target: IF-CORTEX-MANAGER
+  why: Die Schnittstelle markiert, wo Vorschläge empfangen und von tatsächlicher Ausführungsautorität
+    getrennt werden.
+  sources:
+  - arch7
+  - task-manager
+  - arch6
+  - cortex
+- source: CMP-MEMORY
+  relation: consumes
+  target: CON-MEMORY-UPDATE-REQUEST
+  why: Ein Speicherwunsch gehört zur nachgelagerten Wissensverarbeitung; die erklärte Beziehung bedeutet
+    keine automatische Zulassung oder Datenbankoperation.
+  sources:
+  - arch5
+  - memory
+  - memory-request
+- source: CMP-MEMORY
+  relation: consumes
+  target: CON-POST-MORTEM-OUTPUT
+  why: Reflexionsmaterial kann Erfahrung ergänzen, sofern Beobachtung und vermutete Ursache getrennt bleiben;
+    ein automatischer Schreiber ist damit nicht etabliert.
+  sources:
+  - arch5
+  - memory
+  - post-mortem-output
+- source: CMP-MEMORY
+  relation: consumes
+  target: CON-VERIFIER-RESULT
+  why: Unabhängige Urteile sollen spätere Erfahrung mitprüfbar machen; Speicherung verwandelt ein Urteil
+    nicht in allgemeine Wahrheit.
+  sources:
+  - arch5
+  - memory
+  - arch11
+  - verifier-result
+- source: CMP-MEMORY
+  relation: consumes
+  target: DAT-OBSERVATION
+  why: Beobachtungen sind die belegte Grundlage gespeicherter Verläufe und müssen von späteren Ableitungen
+    unterscheidbar bleiben.
+  sources:
+  - arch5
+  - memory
+  - arch3
+  - builder
+- source: CMP-PERCEPTION
+  relation: consumes
+  target: DAT-SCREEN-FRAME
+  why: Interpretation benötigt das sichtbare Rohbild, statt Bedeutungen aus verborgenen Spielzuständen
+    zu beziehen.
+  sources:
+  - arch3
+  - builder
+  - frame
+- source: CMP-REPLAY-BUFFER
+  relation: consumes
+  target: CON-VERIFIER-RESULT
+  why: Unabhängige Ergebnisinformation soll die spätere Übergangsbewertung tragen; der aktuelle synthetische
+    Buffer erzwingt diese vollständige Verbindung noch nicht.
+  sources:
+  - arch12
+  - replay
+  - arch11
+  - verifier-result
+- source: CMP-SAFETY-FILTER
+  relation: consumes
+  target: CON-PRIMITIVE-ACTION
+  why: Eine bekannte primitive Bewegung lässt sich gegen bereitgestellte Gefahren beurteilen, bevor irgendeine
+    Eingabe erfolgt.
+  sources:
+  - arch14
+  - safety
+  - arch9
+  - primitive
+- source: CMP-SKILL-TRAINER
+  relation: consumes
+  target: DAT-REPLAY-TRANSITION
+  why: Künftiges autorisiertes Training braucht zulässige zusammenhängende Beispiele; heutige Datensatzhelfer
+    sind noch kein Anpassen von Modellgewichten.
+  sources:
+  - arch12
+  - cloning
+  - transition
+- source: CMP-TEMPORAL-STATE
+  relation: consumes
+  target: DAT-OBSERVATION
+  why: Zeitliche Stabilisierung braucht mehrere belegte Zustände, um Bewegung oder Stillstand nicht aus
+    einem einzigen Bild zu erfinden; die zentrale Verarbeitung fehlt.
+  sources:
+  - arch4
+  - runner
+  - arch3
+  - builder
+- source: CMP-BODY
+  relation: contributes_to_function
+  target: FUNC-ACT
+  why: 'Body trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Führt wiederverwendbare Skills
+    innerhalb eines aktiven Manager-Auftrags aus. Langsame Planung und schnelle lokale Kontrolle bleiben
+    getrennt. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-BODY-CERTIFICATION
+  relation: contributes_to_function
+  target: FUNC-BETWEEN-RUNS
+  why: 'Body Validation / Certification trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Geplantes
+    Prüftor zwischen trainiertem Kandidaten und späterer Aktivierung. Eine neue Modelldatei ist noch keine
+    erlaubte Body-Version. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-BOUNDED-REFLEX
+  relation: contributes_to_function
+  target: FUNC-ACT
+  why: 'Bounded Reflex trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Geplanter schneller Body-Pfad
+    für erklärte unmittelbare sichtbare Bedingungen. Dringlichkeit darf die Auftragsgrenzen nicht aushebeln.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-CORTEX
+  relation: contributes_to_function
+  target: FUNC-REASON
+  why: 'Cortex trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Langsamer beleggestützter Planer
+    für Ziele und universelle Fähigkeiten. Seine Absicht braucht anschließend Manager-Prüfung. Die Mitgliedschaft
+    erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-EVIDENCE-LEDGER
+  relation: contributes_to_function
+  target: FUNC-RETAIN-RETRIEVE
+  why: 'Evidence Ledger trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Verankert Bildschirmbilder
+    und Ereignisse in überprüfbarer Herkunft. Gespeicherte Aussagen brauchen einen nachvollziehbaren Ursprung.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INDEPENDENT-VERIFIER
+  relation: contributes_to_function
+  target: FUNC-VERIFY
+  why: 'Independent Verifier trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Prüft sichtbare
+    Ergebnisse unabhängig von Cortex. Ein ausgeführter Vorschlag soll nicht automatisch als Erfolg gelten.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INPUT-EXECUTOR
+  relation: contributes_to_function
+  target: FUNC-ACT
+  why: 'InputExecutor trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Ist die bewachte Grenze
+    zur tatsächlichen primitiven Eingabe. Planung und Handlungsvorschlag allein dürfen keine Taste senden.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER
+  relation: contributes_to_function
+  target: FUNC-EXECUTIVE-CONTROL
+  why: 'Manager trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Prüft Cortex-Absichten und verwaltet
+    begrenzte Aufträge. Nur hier entsteht die Berechtigung für Body-Ausführung. Die Mitgliedschaft erzeugt
+    keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER-GROUNDING
+  relation: contributes_to_function
+  target: FUNC-EXECUTIVE-CONTROL
+  why: 'Grounding trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Ordnet einen Vorschlag einem
+    belegten sichtbaren Ziel zu. Body soll ein geprüftes Ziel erhalten, statt raten zu müssen. Die Mitgliedschaft
+    erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER-SCHED-COMP
+  relation: contributes_to_function
+  target: FUNC-EXECUTIVE-CONTROL
+  why: 'Scheduling and Completion trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Organisiert
+    Start und Abschluss begrenzter Aufträge. Ein Ergebnis darf nur den zugehörigen laufenden Versuch beenden.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-RETRIEVAL
+  relation: contributes_to_function
+  target: FUNC-RETAIN-RETRIEVE
+  why: 'Memory Retrieval trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Soll für Cortex einen
+    begrenzten relevanten Ausschnitt aus Memory bereitstellen. Planung braucht ausgewählte Belege statt
+    der gesamten Datenbank. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEMORY
+  relation: contributes_to_function
+  target: FUNC-RETAIN-RETRIEVE
+  why: 'Memory trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Bewahrt belegte Erfahrung und
+    revidierbare Aussagen außerhalb des Planers. Herkunft und Unsicherheit müssen erhalten bleiben. Die
+    Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-NO-SPOILER-FIREWALL
+  relation: contributes_to_function
+  target: FUNC-OBSERVE
+  why: 'No-Spoiler Firewall trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Begrenzt eingehende
+    Zusatzdaten auf erlaubte sichtbare Felder. Sie schützt die Trennung von Spielerwissen und verborgenem
+    Spielzustand. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-PERCEPTION
+  relation: contributes_to_function
+  target: FUNC-OBSERVE
+  why: 'Perception trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Macht aus sichtbaren Bildsignalen
+    eine verständliche, beleggebundene Beobachtung. Planung und Prüfung brauchen mehr als rohe Pixel.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-REPLAY-BUFFER
+  relation: contributes_to_function
+  target: FUNC-BETWEEN-RUNS
+  why: 'Replay Buffer trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Bewahrt begrenztes Übergangsmaterial
+    für spätere Auswertung oder ausdrücklich erlaubtes Lernen. Speicherung verändert den laufenden Controller
+    nicht. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SAFETY-FILTER
+  relation: contributes_to_function
+  target: FUNC-ACT
+  why: 'SafetyFilter trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Prüft vorgeschlagene Bewegung
+    gegen bereitgestellte Gefahren. Eine grundsätzlich erlaubte Aktion kann in der aktuellen Situation
+    dennoch riskant sein. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SCREEN-CAPTURE
+  relation: contributes_to_function
+  target: FUNC-ACQUIRE
+  why: 'Screen Capture trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Erfasst ein sichtbares
+    Bildschirmbild als Rohdaten. Ohne diesen Ausgangspunkt wären spätere Wahrnehmung und Belege nicht
+    überprüfbar. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SKILL-TRAINER
+  relation: contributes_to_function
+  target: FUNC-BETWEEN-RUNS
+  why: 'SkillTrainer trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Geplante Verantwortung
+    für das Training einer Kandidatenversion zwischen Mission Runs. Ein Trainingswunsch darf keinen laufenden
+    Body verändern. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-TEMPORAL-STATE
+  relation: contributes_to_function
+  target: FUNC-OBSERVE
+  why: 'Temporal State trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Soll kurze Beobachtungsfolgen
+    einordnen. Lokale Kontrolle muss Bewegung und Stillstand unterscheiden können, statt aus einem Bild
+    zu raten. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-VISIBLE-STATE-BRIDGE
+  relation: contributes_to_function
+  target: FUNC-ACQUIRE
+  why: 'Optional Visible-State Bridge trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Optionaler
+    Zugang zu ausdrücklich erlaubten, gleichzeitig sichtbaren Angaben. Er unterstützt einen getrennt ausgewiesenen
+    Versuchsmodus. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CON-SKILL-CONTRACT
+  relation: contributes_to_function
+  target: FUNC-EXECUTIVE-CONTROL
+  why: 'TaskSpec / bounded Skill Contract trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Beschreibt
+    einen begrenzten Manager-Auftrag. Body und Reflex dürfen nur in seinem aktiven gültigen Rahmen handeln.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CON-VERIFIER-RESULT
+  relation: contributes_to_function
+  target: FUNC-VERIFY
+  why: 'VerifierResult trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Beschreibt das unabhängige
+    Urteil über einen Versuch. Planung, Erfolgsevidenz und Auftragsentscheidung bleiben getrennt. Die
+    Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: DAT-CANDIDATE-BODY-VERSION
+  relation: contributes_to_function
+  target: FUNC-BETWEEN-RUNS
+  why: 'Candidate Body Version trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Geplantes Artefakt
+    einer neuen trainierten Body-Version. Kandidat und erlaubte aktive Version dürfen nicht verwechselt
+    werden. Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: DAT-OBSERVATION
+  relation: contributes_to_function
+  target: FUNC-OBSERVE
+  why: 'Observation trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Repräsentiert zulässige
+    sichtbare Wahrnehmung mit Herkunft. Planung und Prüfung benötigen dieselbe überprüfbare Datenbasis.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: DAT-VISIBLE-OUTCOME
+  relation: contributes_to_function
+  target: FUNC-VERIFY
+  why: 'Visible Outcome trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Bezeichnet den sichtbaren
+    Nachzustand vor seinem Erfolgsurteil. Wirkung und Bewertung müssen getrennt bleiben. Die Mitgliedschaft
+    erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: ENV-GAME-INSTANCE
+  relation: contributes_to_function
+  target: FUNC-ACQUIRE
+  why: 'Game / Environment trägt mit dieser Rolle zur gemeinsamen Verantwortung bei: Die äußere Spielumgebung
+    des Versuchs. Sie ist Ursprung sichtbarer Beobachtung und Empfänger bewachter Eingaben, kein Agententeil.
+    Die Mitgliedschaft erzeugt keine technische Elternschaft.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INPUT-EXECUTOR
+  relation: controls
+  target: ENV-GAME-INSTANCE
+  why: Nur dieser bewachte Eingabepfad darf eine erlaubte primitive Aktion an die eingerichtete Umgebung
+    weiterreichen; Fokus und Sicherheitsbedingungen bleiben Pflicht.
+  sources:
+  - arch14
+  - input
+  - arch1
+  - capture
+- source: CMP-MANAGER
+  relation: controls
+  target: CMP-BODY
+  why: Manager begrenzt und verwaltet den aktiven Auftrag, sodass Body weder neue Ziele noch überlappende
+    Berechtigungen selbst erzeugt.
+  sources:
+  - arch7
+  - task-manager
+  - arch9
+  - body
+- source: CMP-BODY
+  relation: executes
+  target: CON-SKILL-CONTRACT
+  why: Body benötigt den aktiven begrenzten Auftrag, damit lokale Skill-Schritte keine eigene Zielautorität
+    erhalten.
+  sources:
+  - arch9
+  - body
+  - arch7
+  - task-manager
+- source: CMP-MANAGER-GROUNDING
+  relation: grounds
+  target: CON-SKILL-CONTRACT
+  why: Der Auftrag braucht bei zielabhängigen Skills ein eindeutiges sichtbares Ziel; Unklarheit darf
+    nicht als erratene Position an Body gelangen.
+  sources:
+  - arch7
+  - grounding
+  - task-manager
+- source: MEAS-CORTEX-PROPOSAL-001
+  relation: measured_at
+  target: CMP-CORTEX
+  why: 'Der Beobachtungsanker setzt an dieser Verantwortung an: Beobachtungsanker für einen tatsächlich
+    erzeugten Cortex-Vorschlag. Planung soll getrennt von Annahme und Ausführung erfasst werden. Er erzeugt
+    weder die Handlung noch ein Messresultat.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: MEAS-MANAGER-DISPOSITION-001
+  relation: measured_at
+  target: CMP-MANAGER
+  why: 'Der Beobachtungsanker setzt an dieser Verantwortung an: Beobachtungsanker für Manager-Annahme,
+    Ablehnung und resultierenden TaskSpec. Der Vorschlag muss von der erteilten Berechtigung unterscheidbar
+    bleiben. Er erzeugt weder die Handlung noch ein Messresultat.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: MEAS-RETRIEVAL-DELIVERY-001
+  relation: measured_at
+  target: CMP-MEM-RETRIEVAL
+  why: 'Der Beobachtungsanker setzt an dieser Verantwortung an: Geplanter Beobachtungsanker für tatsächlich
+    an Cortex gelieferte Memory-Evidenz. Speicherbestand und Planereingang müssen unterscheidbar messbar
+    werden. Er erzeugt weder die Handlung noch ein Messresultat.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INDEPENDENT-VERIFIER
+  relation: observes
+  target: DAT-VISIBLE-OUTCOME
+  why: Die geplante sichtbare Wirkung ist das zu prüfende Material, noch kein Urteil; heute wird sie über
+    Nach-Observation verarbeitet.
+  sources:
+  - arch11
+  - verifier
+  - builder
+- source: CMP-SCREEN-CAPTURE
+  relation: observes
+  target: ENV-GAME-INSTANCE
+  why: Die sichtbare Oberfläche ist die zulässige Aufnahmequelle; die Beziehung gestattet keine Einsicht
+    in Spielinternas.
+  sources:
+  - arch3
+  - capture
+  - arch1
+- source: CMP-VISIBLE-STATE-BRIDGE
+  relation: observes
+  target: ENV-GAME-INSTANCE
+  why: Der optionale Adapter darf nur gleichzeitig sichtbare Angaben dieser Umgebung im getrennt deklarierten
+    Modus bereitstellen.
+  sources:
+  - arch3
+  - bridge
+  - arch1
+  - capture
+- source: CMP-BODY
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Führt wiederverwendbare Skills innerhalb eines aktiven Manager-Auftrags aus. Langsame Planung
+    und schnelle lokale Kontrolle bleiben getrennt.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-BODY-CERTIFICATION
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Geplantes Prüftor zwischen trainiertem Kandidaten und späterer Aktivierung. Eine neue Modelldatei
+    ist noch keine erlaubte Body-Version.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-BOUNDED-REFLEX
+  relation: part_of
+  target: CMP-BODY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Body: Geplanter schneller Body-Pfad
+    für erklärte unmittelbare sichtbare Bedingungen. Dringlichkeit darf die Auftragsgrenzen nicht aushebeln.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-CORTEX
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Langsamer beleggestützter Planer für Ziele und universelle Fähigkeiten. Seine Absicht braucht
+    anschließend Manager-Prüfung.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-EVIDENCE-LEDGER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Verankert Bildschirmbilder und Ereignisse in überprüfbarer Herkunft. Gespeicherte Aussagen
+    brauchen einen nachvollziehbaren Ursprung.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INDEPENDENT-VERIFIER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Prüft sichtbare Ergebnisse unabhängig von Cortex. Ein ausgeführter Vorschlag soll nicht automatisch
+    als Erfolg gelten.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-INPUT-EXECUTOR
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Ist die bewachte Grenze zur tatsächlichen primitiven Eingabe. Planung und Handlungsvorschlag
+    allein dürfen keine Taste senden.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Prüft Cortex-Absichten und verwaltet begrenzte Aufträge. Nur hier entsteht die Berechtigung
+    für Body-Ausführung.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER-GROUNDING
+  relation: part_of
+  target: CMP-MANAGER
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Manager: Ordnet einen Vorschlag einem
+    belegten sichtbaren Ziel zu. Body soll ein geprüftes Ziel erhalten, statt raten zu müssen.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MANAGER-SCHED-COMP
+  relation: part_of
+  target: CMP-MANAGER
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Manager: Organisiert Start und Abschluss
+    begrenzter Aufträge. Ein Ergebnis darf nur den zugehörigen laufenden Versuch beenden.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-EPISODIC
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Bewahrt beobachtete Verläufe.
+    Spätere Überlegungen sollen erkennen können, was tatsächlich geschah und in welcher Reihenfolge.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-FACTS
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Speichert Aussagen mit Belegen
+    und Status. Dadurch bleiben beobachtete Angaben, vorläufige Vermutungen und Widersprüche unterscheidbar.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-HYPOTHESES
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Hält unsichere Deutungen
+    ausdrücklich als Vermutungen fest. Fehlende Sicherheit darf nicht als beobachtete Tatsache erscheinen.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-RETRIEVAL
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Soll für Cortex einen begrenzten relevanten Ausschnitt aus Memory bereitstellen. Planung braucht
+    ausgewählte Belege statt der gesamten Datenbank.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-STRATEGY
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Bewahrt versuchte Vorgehensweisen
+    und ihre Ergebnisse. Spätere Planung soll einen Fehlversuch von einer noch ungeprüften Alternative
+    unterscheiden können.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEM-TOPOLOGY
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Speichert beobachtete Verbindungen
+    zwischen sichtbar beschriebenen Zuständen. Wiederverwendung eigener Wege darf nicht auf einer verborgenen
+    Spielkarte beruhen.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-MEMORY
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Bewahrt belegte Erfahrung und revidierbare Aussagen außerhalb des Planers. Herkunft und Unsicherheit
+    müssen erhalten bleiben.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-NO-SPOILER-FIREWALL
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Begrenzt eingehende Zusatzdaten auf erlaubte sichtbare Felder. Sie schützt die Trennung von
+    Spielerwissen und verborgenem Spielzustand.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-OBSERVATION-BUILDER
+  relation: part_of
+  target: CMP-PERCEPTION
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Perception: Bündelt Bild, sichtbare
+    Angaben und Belege zu einer Observation. Gemeinsame Daten verhindern widersprüchliche Eingänge für
+    Planung und Prüfung.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-PERCEPTION
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Macht aus sichtbaren Bildsignalen eine verständliche, beleggebundene Beobachtung. Planung
+    und Prüfung brauchen mehr als rohe Pixel.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-PERCEPTION-UI-STATE
+  relation: part_of
+  target: CMP-PERCEPTION
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Perception: Ordnet sichtbare Signale
+    als Dialog, Menü, Kampf, Tod, Feld oder unbekannt ein. Das hilft, nur passende Skills auszuwählen.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-REPLAY-BUFFER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Bewahrt begrenztes Übergangsmaterial für spätere Auswertung oder ausdrücklich erlaubtes Lernen.
+    Speicherung verändert den laufenden Controller nicht.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SAFETY-FILTER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Prüft vorgeschlagene Bewegung gegen bereitgestellte Gefahren. Eine grundsätzlich erlaubte
+    Aktion kann in der aktuellen Situation dennoch riskant sein.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SCREEN-CAPTURE
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Erfasst ein sichtbares Bildschirmbild als Rohdaten. Ohne diesen Ausgangspunkt wären spätere
+    Wahrnehmung und Belege nicht überprüfbar.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SKILL-COMPETENCE
+  relation: part_of
+  target: CMP-MEMORY
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Memory: Fasst die gespeicherte Verwendung
+    wiederverwendbarer Skills zusammen. Ihre Geschichte soll Grenzen sichtbar machen, ohne neue Rechte
+    zu erteilen.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-SKILL-TRAINER
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Geplante Verantwortung für das Training einer Kandidatenversion zwischen Mission Runs. Ein
+    Trainingswunsch darf keinen laufenden Body verändern.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-TEMPORAL-STATE
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Soll kurze Beobachtungsfolgen einordnen. Lokale Kontrolle muss Bewegung und Stillstand unterscheiden
+    können, statt aus einem Bild zu raten.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-VISIBLE-STATE-BRIDGE
+  relation: part_of
+  target: SYS-AGA
+  why: 'Diese echte Teilverantwortung gehört zur Zusammensetzung von Autonomous Game Agent Experiment
+    System: Optionaler Zugang zu ausdrücklich erlaubten, gleichzeitig sichtbaren Angaben. Er unterstützt
+    einen getrennt ausgewiesenen Versuchsmodus.'
+  sources:
+  - function-semantics
+  - registry-reader
+  - registry-test
+- source: CMP-CORTEX
+  relation: proposes_to
+  target: CMP-MANAGER
+  why: Strategische Absicht muss vor Ausführung an der getrennten Manager-Autoritätsgrenze geprüft werden;
+    der Vorschlag ist noch keine Berechtigung.
+  sources:
+  - arch6
+  - cortex
+  - arch7
+  - task-manager
+- source: CMP-CORTEX
+  relation: related_to_research_question
+  target: RQ-PROGRAM-AB-001
+  why: 'Die Programmfrage betrifft diesen ausdrücklich verknüpften Beitrag: Langsamer beleggestützter
+    Planer für Ziele und universelle Fähigkeiten. Seine Absicht braucht anschließend Manager-Prüfung.
+    Die Zuordnung beweist keine Wirkung oder Forschungsantwort.'
+  sources:
+  - researchA
+  - researchB
+  - registry-reader
+- source: CMP-MANAGER
+  relation: related_to_research_question
+  target: RQ-PROGRAM-AB-001
+  why: 'Die Programmfrage betrifft diesen ausdrücklich verknüpften Beitrag: Prüft Cortex-Absichten und
+    verwaltet begrenzte Aufträge. Nur hier entsteht die Berechtigung für Body-Ausführung. Die Zuordnung
+    beweist keine Wirkung oder Forschungsantwort.'
+  sources:
+  - researchA
+  - researchB
+  - registry-reader
+- source: CMP-MEM-RETRIEVAL
+  relation: related_to_research_question
+  target: RQ-PROGRAM-AB-001
+  why: 'Die Programmfrage betrifft diesen ausdrücklich verknüpften Beitrag: Soll für Cortex einen begrenzten
+    relevanten Ausschnitt aus Memory bereitstellen. Planung braucht ausgewählte Belege statt der gesamten
+    Datenbank. Die Zuordnung beweist keine Wirkung oder Forschungsantwort.'
+  sources:
+  - researchA
+  - researchB
+  - registry-reader
+- source: THREAD-EXPERIENCE-TO-ACTION-001
+  relation: related_to_research_question
+  target: RQ-PROGRAM-AB-001
+  why: 'Die Programmfrage betrifft diesen ausdrücklich verknüpften Beitrag: Querverlaufender Forschungs-Lesepfad
+    von Erfahrungskontext über Vorschlag und Berechtigung zu unabhängigem Ergebnis. Seine Ordnung ist
+    keine technische Hierarchie. Die Zuordnung beweist keine Wirkung oder Forschungsantwort.'
+  sources:
+  - researchA
+  - researchB
+  - registry-reader
+- source: CMP-BODY
+  relation: supplies
+  target: CON-PRIMITIVE-ACTION
+  why: Body gibt einzelne universelle Handlungsvorschläge aus, die Risiko- und Eingabegrenzen gemeinsam
+    verstehen können.
+  sources:
+  - arch9
+  - body
+  - primitive
+- source: CMP-BOUNDED-REFLEX
+  relation: supplies
+  target: CON-PRIMITIVE-ACTION
+  why: Der geplante schnelle Pfad soll dieselbe begrenzte Aktionssprache nutzen und dadurch keine zusätzlichen
+    Handlungsrechte erfinden.
+  sources:
+  - arch10
+  - body
+  - arch9
+  - primitive
+- source: CMP-CORTEX
+  relation: supplies
+  target: CON-MEMORY-UPDATE-REQUEST
+  why: Cortex kann belegte Speicherwünsche ausdrücken, während Zulassung und tatsächliches Schreiben davon
+    getrennt bleiben.
+  sources:
+  - arch6
+  - cortex
+  - arch5
+  - memory-request
+- source: CMP-CORTEX
+  relation: supplies
+  target: CON-PLANNER-OUTPUT
+  why: Eine typisierte Ziel-/Skill-Absicht macht nachvollziehbar, was Manager prüfen soll, ohne primitive
+    Tastensteuerung zu erlauben.
+  sources:
+  - arch6
+  - cortex
+  - planner-output
+- source: CMP-CORTEX
+  relation: supplies
+  target: CON-POST-MORTEM-OUTPUT
+  why: Reflexion hält sichtbare Ergebnisse neben unsicheren Ursachen fest; sie ersetzt kein unabhängiges
+    Verifier-Urteil.
+  sources:
+  - arch6
+  - cortex
+  - arch5
+  - post-mortem-output
+- source: CMP-CORTEX
+  relation: supplies
+  target: IF-CORTEX-MANAGER
+  why: Die Schnittstelle beschreibt den Verantwortungswechsel vom Begründen einer Absicht zum Prüfen ihrer
+    Ausführbarkeit.
+  sources:
+  - arch6
+  - cortex
+- source: CMP-INDEPENDENT-VERIFIER
+  relation: supplies
+  target: CON-VERIFIER-RESULT
+  why: Eine getrennte Urteilsnachricht macht Erfolg, Fortschritt, Fehler oder Enthaltung für Manager nachprüfbar.
+  sources:
+  - arch11
+  - verifier
+  - verifier-result
+- source: CMP-INPUT-EXECUTOR
+  relation: supplies
+  target: DAT-ACTION-RESULT
+  why: Ausgeführt oder blockiert wird getrennt festgehalten, damit ein Eingabeversuch nicht als sichtbarer
+    Skill-Erfolg ausgegeben wird.
+  sources:
+  - arch14
+  - input
+  - action-result
+- source: CMP-MANAGER
+  relation: supplies
+  target: CON-SKILL-CONTRACT
+  why: Nach Prüfung und nötigem Grounding beschreibt der Auftrag genau den zulässigen Versuch statt einer
+    frei auslegbaren Mission.
+  sources:
+  - arch7
+  - task-manager
+- source: CMP-MEM-RETRIEVAL
+  relation: supplies
+  target: DAT-RETRIEVAL-SNAPSHOT
+  why: Die geplante Lieferauswahl soll Relevanz, Begrenzung und Herkunft nachvollziehbar machen; Kontextaufbereitung
+    allein erzeugt heute keinen solchen Snapshot.
+  sources:
+  - arch5
+  - context
+- source: CMP-MEM-RETRIEVAL
+  relation: supplies
+  target: IF-MEM-CORTEX
+  why: Der Auswahlpfad soll Erinnerung an die Planungsgrenze liefern; heute übernimmt der Aufrufer die
+    Auswahl vor der Kontextaufbereitung.
+  sources:
+  - arch5
+  - context
+- source: CMP-PERCEPTION
+  relation: supplies
+  target: DAT-OBSERVATION
+  why: Das gemeinsame Wahrnehmungspaket stellt Text, Oberfläche und Belege für mehrere getrennte Verbraucher
+    bereit.
+  sources:
+  - arch3
+  - builder
+- source: CMP-REPLAY-BUFFER
+  relation: supplies
+  target: DAT-REPLAY-TRANSITION
+  why: Gespeicherte und ausgewählte Übergänge geben späterer Datensatzvorbereitung zusammenhängendes Material
+    statt isolierter Aktionsnamen.
+  sources:
+  - arch12
+  - replay
+  - transition
+- source: CMP-SCREEN-CAPTURE
+  relation: supplies
+  target: DAT-SCREEN-FRAME
+  why: Ein zeitlich zugeordnetes Rohbild trennt Aufnahme von Interpretation und stellt zugleich Material
+    für Bildschirmbelege bereit.
+  sources:
+  - arch3
+  - capture
+  - frame
+- source: CMP-SKILL-TRAINER
+  relation: supplies
+  target: DAT-CANDIDATE-BODY-VERSION
+  why: Der geplante Lernschritt soll einen identifizierbaren Kandidaten liefern, der vor jedem späteren
+    Einsatz separat geprüft werden muss.
+  sources:
+  - arch12
+  - cloning
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: CMP-CORTEX
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Langsamer beleggestützter
+    Planer für Ziele und universelle Fähigkeiten. Seine Absicht braucht anschließend Manager-Prüfung.
+    Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: CMP-MANAGER
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Prüft Cortex-Absichten
+    und verwaltet begrenzte Aufträge. Nur hier entsteht die Berechtigung für Body-Ausführung. Das ist
+    Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: CMP-MEM-RETRIEVAL
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Soll für Cortex einen
+    begrenzten relevanten Ausschnitt aus Memory bereitstellen. Planung braucht ausgewählte Belege statt
+    der gesamten Datenbank. Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: MEAS-CORTEX-PROPOSAL-001
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Beobachtungsanker für
+    einen tatsächlich erzeugten Cortex-Vorschlag. Planung soll getrennt von Annahme und Ausführung erfasst
+    werden. Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: MEAS-MANAGER-DISPOSITION-001
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Beobachtungsanker für
+    Manager-Annahme, Ablehnung und resultierenden TaskSpec. Der Vorschlag muss von der erteilten Berechtigung
+    unterscheidbar bleiben. Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: MEAS-RETRIEVAL-DELIVERY-001
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Geplanter Beobachtungsanker
+    für tatsächlich an Cortex gelieferte Memory-Evidenz. Speicherbestand und Planereingang müssen unterscheidbar
+    messbar werden. Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: DEC-ATLAS-PILOT-001
+  relation: supports
+  target: MEAS-VERIFIED-OUTCOME-001
+  why: 'Issue #46 unterstützt die Metadatendarstellung dieses Pilotgegenstands: Geplanter Anker für unabhängig
+    geprüftes sichtbares Ergebnis. Nachgelagerte Outcome-Evidenz darf nicht aus Cortex-Begründungen ersetzt
+    werden. Das ist Tooling-Geltung, keine wissenschaftliche Bestätigung.'
+  sources:
+  - control
+  - registry-reader
+  - registry-test
+- source: CMP-BODY-CERTIFICATION
+  relation: verifies
+  target: DAT-CANDIDATE-BODY-VERSION
+  why: Die geplante Prüfung bindet Zertifizierung oder Ablehnung an genau die trainierte Version; eine
+    Modelldatei allein erlaubt keinen Einsatz.
+  sources:
+  - arch12
+  - cloning

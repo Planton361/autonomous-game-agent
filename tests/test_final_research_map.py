@@ -13,7 +13,7 @@ from copy import deepcopy
 from dataclasses import replace
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path, PurePosixPath
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 import pytest
 import test_workspace_harness as harness_fixtures
@@ -2268,7 +2268,15 @@ def test_execution_canvas_optional_restart_entry_and_repair_delta(
 @pytest.fixture(scope="module")
 def ap1_source():
     atlas = load_registry(ROOT / "docs/research-atlas")
-    catalog = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
+    catalog = parse_explanations(
+        subprocess.run(
+            ["git", "show", f"f7860e2540cfb226451720aff970028e6db76ddb:{SOURCE}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout,
+        atlas,
+    )
     return atlas, catalog.model_copy(update={"reference_slice": {}, "optional_essay": None})
 
 
@@ -3788,11 +3796,19 @@ def test_ap4_exact_reviewed_head_delta_preserves_all_other_products(
     assert harness_fixtures._authored_snapshot(vault) == authored
 
 
-# #170 reference slice: current source and exact pre-slice product, not the AP1 oracle.
+# #170 accepted reference slice: exact historical source and pre-slice product.
 @pytest.fixture(scope="module")
 def reference_slice_product(tmp_path_factory):
     atlas = load_registry(ROOT / "docs/research-atlas")
-    current = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
+    current = parse_explanations(
+        subprocess.run(
+            ["git", "show", f"9fb0c035b6fb532d9eea67caf19a3aac97af128f:{SOURCE}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout,
+        atlas,
+    )
     revision = "f7860e2540cfb226451720aff970028e6db76ddb"
     old = parse_explanations(
         subprocess.run(
@@ -4036,3 +4052,297 @@ def test_reference_slice_current_source_synthetic_apply_check_recover(tmp_path, 
     workspace.recover(repo, vault, result.restore_point)
     assert harness_fixtures._authored_snapshot(vault) == authored
     assert not (vault / PRODUCT / "Guides/Das Experiment verstehen.md").exists()
+
+
+# Package A: current production input against the immutable accepted eight-page slice.
+@pytest.fixture(scope="module")
+def package_a_product(reference_slice_product):
+    atlas, accepted, _, before = reference_slice_product
+    catalog = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
+    technical, derived, _, _ = intermediate(atlas)
+    after = final_projection.consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=catalog)
+    )
+    return atlas, catalog, accepted, before, after
+
+
+def test_package_a_61_typed_bindings_53_texts_and_accepted_content(package_a_product):
+    atlas, catalog, accepted, _, tree = package_a_product
+    from fh_agent.research_atlas.architecture_explanations import REFERENCE_TYPES, TOKEN
+
+    paths = preferred_paths(atlas)
+    assert len(paths) == len(catalog.page_bindings) == 61
+    assert len(catalog.typed_explanations) == 53
+    assert sum(atlas.entities[i].type == "Component" for i in catalog.typed_explanations) == 25
+    assert sum(atlas.entities[i].type != "Component" for i in catalog.typed_explanations) == 28
+    assert catalog.reference_slice == accepted.reference_slice
+    assert catalog.components == accepted.components
+    assert catalog.guides == accepted.guides and catalog.optional_essay == accepted.optional_essay
+    assert set(catalog.reference_slice) == set(REFERENCE_TYPES)
+    validate_dependencies(catalog, ROOT)
+    # URL revisions and whole-file fingerprints must refer to the same inspected bytes.
+    # Two Atlas test locators pin the accepted branch because its import-list edits
+    # differ from main; runtime implementation locators remain on merged main.
+    frozen_files = {
+        (source.revision or catalog.source_revision, source.path, source.sha256)
+        for source in catalog.sources.values()
+    }
+    for revision, path, fingerprint in frozen_files:
+        blob = subprocess.run(
+            ["git", "show", f"{revision}:{path}"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert hashlib.sha256(blob).hexdigest() == fingerprint, (revision, path)
+    for identity, binding in catalog.page_bindings.items():
+        node = atlas.entities[identity]
+        assert binding.type == node.type and binding.path == str(paths[identity])
+        item = (catalog.reference_slice | catalog.typed_explanations)[identity]
+        plain = TOKEN.sub(lambda m: atlas.entities[m[2]].name, item.how_it_works)
+        assert 120 <= len(plain.split()) <= 300
+        body = tree.files[paths[identity]].decode()
+        technical = body.split("## Technical\n", 1)[1].split("## Research\n", 1)[0]
+        primary = technical.split(
+            "> [!info]- Previous technical presentation / inspection data", 1
+        )[0]
+        meaning = (
+            "How it works"
+            if node.type in {"Component", "System", "Environment"}
+            else "What this record means"
+        )
+        assert f"### {meaning}\n" in primary
+        assert [h for h in re.findall(r"^### (.+)$", primary, re.M)] == [
+            "Kurz erklärt",
+            meaning,
+            "Inputs and outputs",
+            "Direct relationships and why",
+            *(["True subcomponents"] if node.type in {"System", "Component"} else []),
+            *(["Ordered reading path"] if node.type == "ResearchThread" else []),
+            "Soll / Ist / Grenzen",
+            "Konkretes Beispiel",
+            "Exact explanation sources",
+        ]
+        assert f"`{identity}` · **{node.type}**" in primary
+        for key in item.sources:
+            source = catalog.sources[key]
+            assert (
+                f"/{source.revision or catalog.source_revision}/{quote(source.path)}#L{source.line}"
+                in primary
+            )
+            assert source.sha256 in primary
+        assert (
+            "**Soll:**" in primary and "**Ist:**" in primary and "**Grenzen / offen:**" in primary
+        )
+        assert "[[id:" not in primary and "No separate" not in primary
+
+
+def test_package_a_exact_delta_protected_assets_and_scientific_bytes(package_a_product):
+    atlas, _, _, before, after = package_a_product
+    paths = preferred_paths(atlas)
+    assert len(before.files) == len(after.files) == 507
+    assert before.files.keys() == after.files.keys()
+    assert before.routes == after.routes and before.owners == after.owners
+    changed = {p for p in after.files if before.files[p] != after.files[p]}
+    assert changed == set(paths.values()) | {MANIFESTS[views.OWNER]}
+    assert len(changed) == 62 and len(after.files.keys() - changed) == 445
+    for identity, path in paths.items():
+        # Research, all attached authored records and existing source/audit bytes are retained.
+        assert (
+            before.files[path].split(b"\n## Research\n", 1)[1]
+            == after.files[path].split(b"\n## Research\n", 1)[1]
+        ), identity
+    for path in before.files:
+        if path.is_relative_to(PRODUCT / "Diagrams") or path.is_relative_to(INTERNAL / "Assets"):
+            assert before.files[path] == after.files[path]
+    assert (
+        before.files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"]
+        == after.files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"]
+    )
+    assert (
+        before.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
+        == after.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
+    )
+    assert sum(e.relation == "part_of" for e in atlas.relationships) == 28
+    assert sum(e.relation in INTERACTION_RELATIONS for e in atlas.relationships) == 47
+
+
+def test_package_a_all_declared_reasons_types_and_true_children(package_a_product):
+    atlas, catalog, _, _, tree = package_a_product
+    paths = preferred_paths(atlas)
+    reasons = {(e.source, e.relation, e.target): e for e in catalog.relationship_explanations}
+    expected = {
+        (e.source, e.relation, e.target)
+        for e in atlas.relationships
+        if e.source in paths and e.target in paths
+    }
+    assert set(reasons) == expected and len(reasons) == 115
+    assert sum(e.relation in INTERACTION_RELATIONS for e in reasons.values()) == 47
+    for identity, path in paths.items():
+        primary = (
+            tree.files[path]
+            .decode()
+            .split("> [!info]- Previous technical presentation / inspection data", 1)[0]
+        )
+        for key, reason in reasons.items():
+            if identity not in {reason.source, reason.target}:
+                continue
+            assert f"| `{reason.relation}` |" in primary
+            assert (
+                reason.why in primary
+            )  # Includes case-specific rationale, not just relation verbs.
+            assert reason.sources, key
+        children = {
+            e.source
+            for e in atlas.relationships
+            if e.target == identity and e.relation == "part_of"
+        }
+        if atlas.entities[identity].type in {"System", "Component"}:
+            child_section = primary.split("### True subcomponents\n", 1)[1].split("\n### ", 1)[0]
+            linked = set(re.findall(r"^- \[\[([^|]+)\|", child_section, re.M))
+            assert linked == {str(paths[i].with_suffix("")) for i in children}
+        else:
+            assert "### True subcomponents" not in primary
+    thread = tree.files[paths["THREAD-EXPERIENCE-TO-ACTION-001"]].decode()
+    ordered = re.findall(r"^\d+\. \[\[([^|]+)\|", thread, re.M)
+    assert ordered == [
+        str(paths[i].with_suffix(""))
+        for i in atlas.entities["THREAD-EXPERIENCE-TO-ACTION-001"].ordered_refs
+    ]
+    outcome = tree.files[paths["MEAS-VERIFIED-OUTCOME-001"]].decode()
+    assert "keine measured_at-Kante" in outcome
+    assert not any(
+        e.source == "MEAS-VERIFIED-OUTCOME-001" and e.relation == "measured_at"
+        for e in catalog.relationship_explanations
+    )
+
+
+def test_package_a_five_placeholder_repairs_preserve_accepted_prose(package_a_product):
+    atlas, catalog, accepted, before, after = package_a_product
+    paths = preferred_paths(atlas)
+    examples = {i for i in catalog.reference_slice if atlas.entities[i].type != "Component"}
+    assert len(examples) == 5
+    stale = (
+        "No separate limitation statement is authored here; this does not establish completeness."
+    )
+    for identity in examples:
+        assert stale in before.files[paths[identity]].decode()
+        body = after.files[paths[identity]].decode()
+        assert stale not in body
+        assert "Die konkreten Grenzen stehen unter Soll / Ist / Grenzen oben." in body
+        assert catalog.reference_slice[identity] == accepted.reference_slice[identity]
+        assert catalog.reference_slice[identity].limitations in body
+
+
+def test_package_a_links_anchors_backlinks_and_deterministic_output(package_a_product):
+    atlas, catalog, _, _, tree = package_a_product
+    paths = preferred_paths(atlas)
+    for path in paths.values():
+        body = tree.files[path].decode()
+        assert "[[Research Map Home|Return Home]]" in body
+        for value in re.findall(r"\[\[([^\]]+)\]\]", body):
+            route, _, heading = value.split("|", 1)[0].rstrip("\\").partition("#")
+            target = (
+                path
+                if not route
+                else next((p for p in tree.files if str(p) in {route, route + ".md"}), None)
+            )
+            assert target is not None, (path, value)
+            if heading:
+                assert heading in re.findall(
+                    r"^\s*(?:>\s*)*#{1,6} (.+)$", tree.files[target].decode(), re.M
+                ), (path, value)
+    technical, derived, _, _ = intermediate(atlas)
+    reordered = Atlas(
+        dict(reversed(list(atlas.entities.items()))),
+        tuple(reversed(atlas.relationships)),
+        source_atlas_schema=atlas.source_atlas_schema,
+    )
+    other = catalog.model_copy(
+        update={
+            "page_bindings": dict(reversed(list(catalog.page_bindings.items()))),
+            "typed_explanations": dict(reversed(list(catalog.typed_explanations.items()))),
+            "relationship_explanations": tuple(reversed(catalog.relationship_explanations)),
+        }
+    )
+    assert (
+        final_projection.consolidate_graph_audits(
+            package(reordered, technical, derived, explanations=other)
+        )
+        == tree
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "extra",
+        "type",
+        "path",
+        "words",
+        "edge",
+        "direction",
+        "duplicate",
+        "why",
+        "source",
+        "token",
+        "contract",
+    ],
+)
+def test_package_a_rejects_incomplete_or_invented_content(mutation):
+    atlas = load_registry(ROOT / "docs/research-atlas")
+    data = yaml.safe_load((ROOT / SOURCE).read_bytes())
+    if mutation == "missing":
+        del data["typed_explanations"]["CMP-BODY"]
+    elif mutation == "extra":
+        data["page_bindings"]["DOM-COGNITION"] = data["page_bindings"]["CMP-BODY"]
+    elif mutation in {"type", "path"}:
+        data["page_bindings"]["DAT-SCREEN-FRAME"][mutation] = (
+            "Component" if mutation == "type" else "Research Map/Components/ScreenFrame.md"
+        )
+    elif mutation == "words":
+        data["typed_explanations"]["CMP-BODY"]["how_it_works"] = "Wort " * 301
+    elif mutation == "edge":
+        data["relationship_explanations"].pop()
+    elif mutation == "direction":
+        row = next(e for e in data["relationship_explanations"] if e["relation"] == "consumes")
+        row["source"], row["target"] = row["target"], row["source"]
+    elif mutation == "duplicate":
+        data["relationship_explanations"].append(data["relationship_explanations"][0])
+    elif mutation == "why":
+        data["relationship_explanations"][0]["why"] = " "
+    elif mutation == "source":
+        data["typed_explanations"]["CMP-BODY"]["sources"] = ["arch9"]
+    elif mutation == "token":
+        data["page_bindings"]["CMP-BODY"]["inputs"] = "[[id:UNKNOWN]]"
+    else:
+        del data["package_a_control_reference"]
+    with pytest.raises(ProjectionError):
+        parse_explanations(yaml.safe_dump(data).encode(), atlas)
+
+
+def test_package_a_current_scientific_authoring_preserved(tmp_path, monkeypatch):
+    repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
+    atlas = load_registry(repo / "docs/research-atlas")
+    records, authored, subjects = ap3_authoring_fixture(vault, atlas)
+    original = harness_fixtures._authored_snapshot(vault)
+    tree = migration.build(repo, vault, sha)
+    paths = preferred_paths(atlas)
+    for subject in subjects:
+        research = (
+            tree.files[paths[subject]]
+            .decode()
+            .split("\n## Research\n", 1)[1]
+            .split("\n## Sources", 1)[0]
+        )
+        assert all(authored[r.wiki_id].name in research for r in records[:3])
+    assert not any(p.stem in {"READ-AP3", "WPAPER-AP3", "WFIND-AP3"} for p in tree.files)
+    assert next(r for r in records if r.wiki_id == "WFIND-AP3").review_state == "draft"
+    result = workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    before = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == before
+    workspace.recover(repo, vault, result.restore_point)
+    assert harness_fixtures._authored_snapshot(vault) == original

@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 from pydantic import Field, ValidationError, model_validator
 
+from .preferred_paths import preferred_paths
 from .private_projection import (
     COMMIT,
     REPOSITORY,
@@ -17,7 +18,7 @@ from .private_projection import (
     read_yaml,
     utf8,
 )
-from .schema import Record, Text
+from .schema import Record, RelationName, Text
 from .validator import Atlas
 
 SOURCE = PurePosixPath("docs/research-atlas/architecture_explanations.yaml")
@@ -51,6 +52,7 @@ class SourceLocator(Record):
     locator: Text
     line: int = Field(gt=0, strict=True)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    revision: COMMIT | None = None
 
     @model_validator(mode="after")
     def public_path(self) -> "SourceLocator":
@@ -111,6 +113,34 @@ class ReferenceExplanation(Record):
     sources: tuple[Text, ...] = Field(min_length=1)
 
 
+class PageBinding(Record):
+    type: Literal[
+        "System",
+        "Component",
+        "Interface",
+        "Contract",
+        "DataArtifact",
+        "Function",
+        "MeasurementPoint",
+        "Environment",
+        "ResearchQuestion",
+        "ResearchThread",
+        "Decision",
+    ]
+    path: Text
+    purpose: Text
+    inputs: Text
+    outputs: Text
+
+
+class RelationshipExplanation(Record):
+    source: Text
+    relation: RelationName
+    target: Text
+    why: Text
+    sources: tuple[Text, ...] = Field(min_length=1)
+
+
 class ExplanationCatalog(Record):
     explanation_version: Literal["1.0"]
     source_revision: COMMIT
@@ -123,6 +153,16 @@ class ExplanationCatalog(Record):
     components: dict[str, Explanation]
     guides: dict[str, Guide]
     reference_slice: dict[str, ReferenceExplanation] = Field(default_factory=dict)
+    # Package A augments the accepted slice; it never overwrites its narratives.
+    typed_explanations: dict[str, ReferenceExplanation] = Field(default_factory=dict)
+    page_bindings: dict[str, PageBinding] = Field(default_factory=dict)
+    relationship_explanations: tuple[RelationshipExplanation, ...] = ()
+    package_a_control_reference: (
+        Literal[
+            "https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6071785139"
+        ]
+        | None
+    ) = None
     optional_essay: Guide | None = None
     reference_control_reference: (
         Literal[
@@ -134,7 +174,8 @@ class ExplanationCatalog(Record):
 
     def links(self, keys: tuple[str, ...], kind: str | None = None) -> str:
         return " · ".join(
-            f"[{s.locator}](https://github.com/{REPOSITORY}/blob/{self.source_revision}/"
+            f"[{s.locator}](https://github.com/{REPOSITORY}/blob/"
+            f"{s.revision or self.source_revision}/"
             f"{quote(s.path)}#L{s.line})"
             for key in dict.fromkeys(keys)
             if (s := self.sources[key]) and (kind is None or s.kind == kind)
@@ -153,7 +194,8 @@ class ExplanationCatalog(Record):
         ]
         for key in dict.fromkeys(keys):
             s = self.sources[key]
-            rows.append(f"> - {s.kind}: {self.links((key,))}; file SHA-256 `{s.sha256}`.")
+            revision = f"; inspected revision `{s.revision}`" if s.revision else ""
+            rows.append(f"> - {s.kind}: {self.links((key,))}; file SHA-256 `{s.sha256}`{revision}.")
         return "\n".join(rows)
 
 
@@ -176,7 +218,31 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
         )
     ):
         raise ProjectionError("Reference slice must match the eight existing typed identities")
-    for item in catalog.reference_slice.values():
+    if catalog.package_a_control_reference is not None:
+        paths = preferred_paths(atlas)
+        if (
+            set(catalog.page_bindings) != set(paths)
+            or set(catalog.typed_explanations) != set(paths) - set(REFERENCE_TYPES)
+            or set(catalog.reference_slice) != set(REFERENCE_TYPES)
+            or any(
+                binding.type != atlas.entities[i].type or binding.path != str(paths[i])
+                for i, binding in catalog.page_bindings.items()
+            )
+        ):
+            raise ProjectionError(
+                "Package A must bind every preferred identity with exact type/path"
+            )
+        expected = {
+            (e.source, e.relation, e.target)
+            for e in atlas.relationships
+            if e.source in paths and e.target in paths
+        }
+        actual = [(e.source, e.relation, e.target) for e in catalog.relationship_explanations]
+        if len(actual) != len(set(actual)) or set(actual) != expected:
+            raise ProjectionError("Package A reasons must match exact declared preferred relations")
+    elif catalog.typed_explanations or catalog.page_bindings or catalog.relationship_explanations:
+        raise ProjectionError("Package A content requires its bounded CONTROL contract")
+    for item in (*catalog.reference_slice.values(), *catalog.typed_explanations.values()):
         # A linked identity counts as its human-readable title, not its path/token.
         plain = TOKEN.sub(
             lambda m: atlas.entities[m[2]].name if m[2] in atlas.entities else m[0],
@@ -192,6 +258,8 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
         *catalog.components.values(),
         *catalog.guides.values(),
         *catalog.reference_slice.values(),
+        *catalog.typed_explanations.values(),
+        *catalog.relationship_explanations,
         *((catalog.optional_essay,) if catalog.optional_essay is not None else ()),
     )
     for item in items:
@@ -214,6 +282,12 @@ def parse_explanations(data: bytes, atlas: Atlas) -> ExplanationCatalog:
                     kind == "guide" and identity not in (*GUIDES, ESSAY)
                 ):
                     raise ProjectionError("Dangling explanation navigation token")
+    for binding in catalog.page_bindings.values():
+        for value in (binding.purpose, binding.inputs, binding.outputs):
+            if any(
+                kind != "id" or i not in catalog.page_bindings for kind, i in TOKEN.findall(value)
+            ):
+                raise ProjectionError("Dangling Package A page binding token")
     for path in catalog.dependencies:
         value = PurePosixPath(path)
         if (
@@ -375,6 +449,172 @@ def reference_page(
         original,
     ]
     return body[:start] + "\n".join(replacement) + "\n" + body[end:]
+
+
+def typed_page(
+    body: str,
+    identity: str,
+    catalog: ExplanationCatalog,
+    atlas: Atlas,
+    preferred: dict[str, PurePosixPath],
+) -> str:
+    """Package A reader template; retain scientific sections and inspection data."""
+    binding = catalog.page_bindings[identity]
+    item = (catalog.reference_slice | catalog.typed_explanations)[identity]
+    node = atlas.entities[identity]
+
+    def link(target: str) -> str:
+        return f"[[{preferred[target].with_suffix('')}|{atlas.entities[target].name}]]"
+
+    def resolve(value: str) -> str:
+        return TOKEN.sub(lambda m: link(m[2]), value)
+
+    before, marker, rest = body.partition("## Technical\n")
+    previous, research_marker, research = rest.partition("## Research\n")
+    if not marker or not research_marker:
+        raise ProjectionError("Typed reader sections are missing")
+    # These obsolete placeholders are presentation copy, not inspection evidence.
+    previous = previous.replace(
+        "No separate mechanism explanation is authored in this snapshot. "
+        "Inspect Sources & verification for detail.",
+        "Die aktuelle Erklärung steht im Technical-Abschnitt oben.",
+    ).replace(
+        "No separate limitation statement is authored here; this does not establish completeness.",
+        "Die konkreten Grenzen stehen unter Soll / Ist / Grenzen oben.",
+    )
+    parents = sorted(
+        e.target for e in atlas.relationships if e.source == identity and e.relation == "part_of"
+    )
+    children = sorted(
+        e.source for e in atlas.relationships if e.target == identity and e.relation == "part_of"
+    )
+    status = (
+        f"Registry-Ist: **{node.technical.implementation_status}** · "
+        f"Prüfstatus: **{node.technical.verification_status}**"
+        if hasattr(node, "technical")
+        else "Einordnungs-/Programmdatensatz; kein ausführbarer Implementierungsstatus."
+    )
+    position = (
+        "Technischer Elternteil: " + ", ".join(link(p) for p in parents) + "."
+        if parents
+        else "Systemwurzel der technischen Hierarchie."
+        if node.type == "System"
+        else "Außerhalb des Agenten; kein technischer Elternteil."
+        if node.type == "Environment"
+        else "Eigenständige typisierte Identität; Beziehungen begründen "
+        "keine technische Elternschaft."
+    )
+    meaning = (
+        "How it works"
+        if node.type in {"Component", "System", "Environment"}
+        else "What this record means"
+    )
+    lines = [
+        "## Technical",
+        "",
+        f"`{identity}` · **{node.type}** · {status}",
+        "",
+        position,
+        "",
+        "### Kurz erklärt",
+        "",
+        resolve(binding.purpose),
+        "",
+        f"### {meaning}",
+        "",
+        resolve(item.how_it_works),
+        "",
+        "### Inputs and outputs",
+        "",
+        "**Eingang:** " + resolve(binding.inputs),
+        "",
+        "**Ergebnis und Nutzung:** " + resolve(binding.outputs),
+        "",
+        "### Direct relationships and why",
+        "",
+        "Nur erklärte Registry-Beziehungen: Quelle → Ziel bleibt erhalten. "
+        "Bei `consumes` zeigt der Pfeil vom Empfänger auf die Daten. "
+        "Die Begründungen erklären den Zusammenhang, nicht eine beobachtete Laufzeitspur.",
+        "",
+        "| Beziehung | Quelle | Ziel | Warum relevant? | Quellen |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    if node.type == "Component":
+        area = catalog.components[identity].area
+        lines[6:6] = [
+            f"Lesebereich: [[Research Map/Guides/System Overview#{area}|{area}]] "
+            "(funktionaler Kontext, kein technischer Elternteil).",
+            "",
+        ]
+    edges = sorted(
+        (e for e in catalog.relationship_explanations if identity in {e.source, e.target}),
+        key=lambda e: (e.relation, e.source, e.target),
+    )
+    for edge in edges:
+        cells = [
+            f"`{edge.relation}`",
+            link(edge.source),
+            link(edge.target),
+            resolve(edge.why),
+            catalog.links(edge.sources),
+        ]
+        lines.append("| " + " | ".join(c.replace("|", "\\|") for c in cells) + " |")
+    if not edges:
+        lines += [
+            "",
+            "Keine direkte Beziehung zu einer weiteren bevorzugten Identität erklärt. "
+            "Lesekontext im Text ergänzt keine Registry-Beziehung.",
+        ]
+    if node.type in {"System", "Component"}:
+        lines += ["", "### True subcomponents", ""]
+        lines += [
+            "- " + link(c) + " — " + resolve(catalog.page_bindings[c].purpose) for c in children
+        ] or ["Keine direkten Component-Kinder erklärt."]
+    if node.type == "ResearchThread":
+        lines += [
+            "",
+            "### Ordered reading path",
+            "",
+            "Registry-Lesereihenfolge; keine Ausführungs- oder Kausalkette.",
+            "",
+        ]
+        lines += [f"{index}. {link(i)}" for index, i in enumerate(node.ordered_refs, 1)]
+    lines += [
+        "",
+        "### Soll / Ist / Grenzen",
+        "",
+        "**Soll:** " + resolve(item.normative),
+        "",
+        "**Ist:** " + resolve(item.implementation),
+        "",
+        "**Grenzen / offen:** " + resolve(item.limitations),
+        "",
+        "### Konkretes Beispiel",
+        "",
+        resolve(item.example),
+        "",
+        "### Exact explanation sources",
+        "",
+        "Normative Quellen: " + catalog.links(item.sources, "normative"),
+        "",
+        "Code-/Darstellungsgrenze: " + catalog.links(item.sources, "implementation"),
+        "",
+        "Testquellen (Inspektion; Ausführung siehe PR/CI): " + catalog.links(item.sources, "test"),
+        "",
+        catalog.provenance(item.sources),
+        "",
+        f"[Package-A-Vertrag]({catalog.package_a_control_reference}).",
+        "",
+        "[[Research Map/Diagrams/Interaction Map#Complete linked relation ledger|"
+        "47 technische Beziehungen]]"
+        " · [[Research Map/Diagrams/Architecture Tree|Vollständige technische Hierarchie]]",
+        "",
+        "> [!info]- Previous technical presentation / inspection data",
+        ">",
+        *("> " + line for line in previous.splitlines()),
+        "",
+    ]
+    return before + "\n".join(lines) + "\n## Research\n" + research
 
 
 def component_technical(

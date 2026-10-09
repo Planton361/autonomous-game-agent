@@ -22,6 +22,7 @@ from .architecture_explanations import (
     component_technical,
     guide_pages,
     reference_page,
+    typed_page,
 )
 from .diagram_canvas import (
     CANVAS_NAVIGATION,
@@ -1370,6 +1371,11 @@ def package(
 
         if explanations is not None and identity in explanations.reference_slice:
             files[page] = reference_page(
+                utf8(files[page]), identity, explanations, atlas, preferred
+            ).encode()
+
+        if explanations is not None and identity in explanations.page_bindings:
+            files[page] = typed_page(
                 utf8(files[page]), identity, explanations, atlas, preferred
             ).encode()
 
