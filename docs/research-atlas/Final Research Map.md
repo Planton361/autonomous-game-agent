@@ -834,3 +834,178 @@ Focused validation, exact generated hash/link matrices and exact-head GitHub CI
 are recorded in Draft PR #171 with the original timing limits unchanged. B1 stops
 at CONTROL's source/navigation checkpoint; native acceptance, other diagrams,
 merge and private-Vault rollout require their separate dispositions.
+
+## B2: guarded optional-plugin drill-down (#170)
+
+The [B2 contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6072686800)
+starts from accepted B1 `82b78bcb7d1b33b53bccd231f44d76816686e1f7`.
+**Disposition: PARTIAL.** Excalidraw is adopted; Drawio remains isolated. Agent
+Anatomy remains the primary visual hub, with its scene, Hero image and all 34
+named identity links unchanged. No retirement, cleanup C, merge or actual-Vault
+operation is included. B1's duration-only CI failure is an accepted exception
+for continuation, not a green check or a merge waiver. Tests, selections,
+workers, workflows and 120,000 ms limits remain unchanged.
+
+### Managed Excalidraw and ordinary navigation
+
+The only added managed path is
+`Research Map/Diagrams/System Overview.excalidraw.md`, owned by the existing
+`public-research-atlas` owner. `diagram_svg.managed_system_overview`
+reuses the accepted candidate generator, with shared Excalidraw elements moved
+to the existing diagram renderer and re-exported for isolated prototypes.
+This preserves the frozen import-test source and its explanation fingerprint. The existing Excalidraw semantic rules
+now recognize the finite `system-overview` envelope; no field-ignore rule,
+manifest version, ownership promotion, writer or recovery behavior changes.
+The source revision/Registry provenance stays in the existing technical manifest.
+All content, links, styles, order, arrowheads, geometry, unknown fields and
+header text remain protected. Native cache/counter/editor-preference equivalences
+are exactly the existing rules.
+
+Observation → Cortex → Manager → active bounded Contract → Body → guarded
+input → GameInstance → new Observation → Independent Verifier → VerifierResult
+→ Manager explains the normative cycle. Manager's continuation returns through
+the **same valid Contract**, while close/suspend precedes conditional replan.
+Memory Retrieval is a separate dashed context path. This is not proof of a
+running screen-only loop. Body/Bounded Reflex and SafetyFilter/InputExecutor
+have separate linked labels and ordinary counterparts. The optional bridge,
+no-spoiler boundary and between-Mission-Run learning limits remain explicit.
+
+Home, the ordinary header of Anatomy and the existing System Overview Guide
+provide secondary drill-down links. Anatomy figure elements, caches and Hero
+bytes are unchanged. The Guide's new **Diagramm-Gegenstücke** section gives
+Vault-local ordinary identity links for all visible candidate names, including
+PlannerOutput, separate composite constituents and the seven selected exact
+Registry triples. It reuses the existing System Overview SVG, Execution Flow
+Markdown/Mermaid and the full 47-row technical ledger. No plugin is required to
+reach an identity or interpret the four Drawio page roles.
+
+Same public Registry, empty synthetic inputs and fixed provenance `a` × 40:
+**507 → 508 managed paths; one addition, zero removals; five existing files
+changed, 502 byte-identical.** Changed existing files are Home, Anatomy's
+ordinary header, the System Overview Guide and the two existing manifests.
+All existing owners and migration routes are equal. All **61 preferred identity
+pages** (including accepted prose, Research and source sections), 28 ancestry
+edges, 47 technical relations, 234 Graph proxies, legacy Canvas views, five SVGs,
+other diagrams and scientific views are preserved. The current-source tests
+cover the new output; the existing Package-A/B1 assertions remain frozen on the
+accepted B1 renderer, rather than dropping their exact historical delta checks.
+
+### Drawio stays isolated: exact adoption blocker
+
+`reference_prototypes.candidate_files(atlas)` exports exactly two final-path
+trials for a disposable public-only preview:
+
+- `Research Map/Diagrams/System Overview.excalidraw.md` (isolated trial envelope;
+  production uses `managed_system_overview` instead).
+- `Research Map/Diagrams/Grounded Contract.drawio` (always isolated and unowned).
+
+The old `Reference Slice Prototypes.md` helper is not added to production.
+Drawio retains four distinct pages: proposal/grounding/authorization;
+bounded execution/independent verification; rejection/stop/conditional replan;
+exact non-chronological Registry relations. Seven triples match the Registry;
+`consumes` points actor → payload. Composite and edge `counterpart_ids` point
+to the ordinary Guide link matrix; all ambiguous `obsidian://open?file=...`
+URIs are removed from this final candidate. **Native Drawio routing: BLOCKED**;
+there is no claim that metadata IDs are clickable links.
+
+Actual offline 0.7.1 save changed the root from
+`host="AGA isolated offline prototype" version="0.7.1" compressed="false"`
+to `host="127.0.0.1" compressed="false" pages="4"`. Visited pages acquired
+editor defaults and viewport dimensions; XML attribute order/encoding changed.
+The raw SHA changed from
+`f419ffe2843877ef495337d80ca94ae0502ca898356c6e8cb609bdad8a213aa0`
+to `3d88bc2a650f0f0e515070375256567de06b87b86874e28433d29423e98da1de`.
+A stable native-preserved owner envelope and a closed, finite semantic comparator
+for these saves have **not** been established. Strict XML hashes alone would
+reject normal native saves. No new Drawio ownership classification is installed;
+the semantic API rejects it as strict output. Production never emits or claims
+this path. An isolated/authored file at either candidate destination causes
+apply to reject **before backup or mutation**, rather than silently adopting it.
+Future adoption needs its own reviewed comparator/envelope/round-trip proof.
+
+For isolated export, call `candidate_files(atlas)` as in the earlier public-only
+prototype recipe, and place `candidate_navigation(atlas)` in the existing Guide
+of that disposable preview. Do not overwrite a managed production file with an
+isolated trial envelope. Do not export into the actual private Vault.
+
+### Actual native evidence and open visual gates
+
+Only `/tmp/aga170-slice-preview`, a disposable non-Sync Vault with the already
+installed Excalidraw **2.28.1** and Drawio **0.7.1 offline** pins, was used.
+No plugin install or real-Vault/config change occurred in B2. Obsidian **1.14.4**
+opened the final managed Excalidraw, changed zoom **54% → 59%**, reported
+**Save successful**, and closed/reopened the saved file. Readback of the native
+compressed Markdown is committed as the public-only regression fixture
+`tests/fixtures/obsidian-reserialization/system-overview-native.excalidraw.md`.
+Generated and native bytes differ, but their semantic digest is identical:
+`a7407bd61abd62e4822d19429ea55e03b7a85cabffe7e8ba875f98c16f71943f`.
+A native click on Cortex's link icon opened exactly
+`Research Map/Components/Cortex.md` in **aga170-slice-preview**, with
+`CMP-CORTEX · Component` visible. This proves that sampled click, not every
+hotspot or other Vault handling.
+
+The first native save revealed a blank after `## Text Elements` becoming part
+of the first label and truncated fractional text heights being restored. The
+candidate generator now follows the pinned native serializer's no-blank section
+header and exact `fontSize × lineHeight × line count` heights. Subsequent final
+native saves preserved content and geometry under existing comparison rules.
+These fixes do not change the historical prototypes or Anatomy generator.
+
+A screenshot of the final diagram was obtained at **984×768**, sidebar open,
+white scene against the dark application chrome. The closed loop, separated
+retrieval and composite labels are visible; a toolbar instructional hint overlaps
+the title and fit-view footnotes are small. This is **partial readability
+observation**, not visual acceptance. One earlier action returned ScreenCaptureKit
+`-3811` / computer-use `-10005` despite partially executing; accessibility readback
+allowed the bounded save test to finish. One native observation briefly switched to the other isolated AP4 preview;
+a bounded fresh state read returned to the candidate. Drawio opened from **127.0.0.1:3001**, exposed all four named page tabs and the execution page's
+same-contract/VerifierResult/Manager labels, and saved. A later screenshot of
+page 3 at 984×768 showed readable separate pre-contract rejection and active-stop
+columns, retained-history and terminal/non-terminal branches. The next page-4
+action failed with `noWindowsAvailable` / `-10005`; further UI actions stopped.
+B2 did not establish its
+save/reopen visual equivalence or any safe native identity click.
+
+**BLOCKED / unperformed:** requested approximate 1280×800 and 1024×769 matrix,
+light/dark comparison, Reading/Live embeds, pan, full hotspot matrix, Drawio zoom
+and reopened inspection, title-overlay resolution and independent comprehension
+review. No novice-reader study or G6 PASS is claimed. Native editor save proof,
+source correctness, full local checks, CI and visual acceptance remain separate.
+
+### Safety evidence and handoff
+
+Synthetic B1→B2 apply/check/idempotence/recover checks preserve authored bytes
+and restore the exact previous B1 state. Read-only check accepts the real native
+Excalidraw fixture. Existing apply deliberately writes deterministic generated
+bytes after saving exact native bytes in an immutable restore point; recovery
+restores that exact native serialization. Header, geometry, labels, links,
+arrowheads, styles and owner mutations change semantics or fail parsing;
+a tampered managed file blocks apply before any backup/write. Unknown/unowned
+candidate paths remain protected. Full local testing is required because this
+package extends the accepted ownership envelope. Actual commands and exact-head
+GitHub outcomes are recorded in Draft PR #171, including any unchanged duration
+failure. No performance optimization is part of B2.
+
+**Decision required:** CONTROL disposition of this partial B2 checkpoint and the
+Drawio/native visual blockers. Merge and actual-Vault rollout remain unauthorized.
+**Exactly one Next action:** CONTROL reviews the exact B2 candidate and evidence.
+
+Full-local validation additionally exposed two **PRE-EXISTING BASELINE ISSUE**
+failures, independently reproduced using an archive of untouched accepted B1:
+`test_committed_workspace_and_migration` finds stale committed
+`Assets/Excalidraw/Agent Anatomy.excalidraw.md`; and
+`test_current_03_public_projection_uses_truthful_source_version` expects raw
+projection digest `37d6a1c…`, while B1 already emits `cb106c66…`.
+These are functional snapshot failures, **not duration failures**, and the Program
+Owner timing exception does not waive them. B2 does not rewrite the protected
+historical diagrams, change their assertions, or mark the full local suite green.
+They remain a separate readiness blocker for CONTROL disposition. The temporary
+new-module import failure was repaired by moving the shared Excalidraw builder
+into the existing allowed diagram renderer, preserving the exact frozen test
+source and all explanation hashes; the unchanged import-boundary test passes.
+
+Final B2 local execution: `uv run pytest` completed **3,331 PASS / 2 FAIL in
+1267.49s**; the two failures are exactly the independently reproduced B1
+baseline cases above. The 14 focused B2/prototype cases and unchanged import
+boundary, Ruff, format (290 files) and diff checks pass. The full local suite is
+**FAILED**, and no timing waiver is applied to these functional failures.

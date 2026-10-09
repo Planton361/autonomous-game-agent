@@ -34,7 +34,14 @@ from .diagram_canvas import (
     identity_text,
     interaction_canvas,
 )
-from .diagram_svg import primary_pages, secondary_canvases, svg_assets
+from .diagram_svg import (
+    CANDIDATE_EXCALIDRAW,
+    candidate_navigation,
+    managed_system_overview,
+    primary_pages,
+    secondary_canvases,
+    svg_assets,
+)
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
 from .private_reference_index import ReferenceIndex
@@ -1940,6 +1947,27 @@ def package(
             # SVG is the existing strict public presentation asset class. Keep
             # the closed migration owner rule; no derived-owner SVG adoption.
             owners[path] = public.OWNER
+
+    if explanations is not None and len(explanations.page_bindings) == 61:
+        # B2 adopts only the format whose pinned native save was proven. Drawio
+        # and the old prototype companion never enter a production manifest.
+        files[CANDIDATE_EXCALIDRAW] = managed_system_overview(atlas)
+        owners[CANDIDATE_EXCALIDRAW] = public.OWNER
+        drilldown = (
+            "\n\nErklärende Vertiefung: "
+            f"[[{CANDIDATE_EXCALIDRAW.with_suffix('')}|System Overview Diagramm]] · "
+            "[[Research Map/Guides/System Overview#Diagramm-Gegenstücke|"
+            "Ablauf und getrennte Identitäten ohne Plugins]].\n"
+        )
+        files[HOME] += drilldown.encode()
+        # Ordinary header navigation leaves every figure element and cache intact.
+        files[ANATOMY] = (
+            utf8(files[ANATOMY])
+            .replace("\n%%\n# Excalidraw Data", drilldown + "\n%%\n# Excalidraw Data", 1)
+            .encode()
+        )
+        overview = PRODUCT / "Guides/System Overview.md"
+        files[overview] += (drilldown + "\n" + candidate_navigation(atlas)).encode()
 
     # Atlas index paths are vault-relative final routes, never old-root-relative paths.
     index = INTERNAL / "Indexes/atlas-id-index.yaml"

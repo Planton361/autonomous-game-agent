@@ -4045,7 +4045,7 @@ def test_reference_slice_current_source_synthetic_apply_check_recover(tmp_path, 
     repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
     authored = harness_fixtures._authored_snapshot(vault)
     tree = migration.build(repo, vault, sha)
-    assert len(tree.files) == 507
+    assert len(tree.files) == 508  # B2 adds one proven Excalidraw output, no Drawio owner.
     result = workspace.apply(repo, vault)
     workspace.check(repo, vault)
     before = snapshot(vault)
@@ -4059,12 +4059,36 @@ def test_reference_slice_current_source_synthetic_apply_check_recover(tmp_path, 
 
 # Package A: current production input against the immutable accepted eight-page slice.
 @pytest.fixture(scope="module")
-def package_a_product(reference_slice_product):
+def accepted_b1_projection(tmp_path_factory):
+    """Keep accepted A/B1 assertions on their exact renderer, without deleting tests."""
+    file = tmp_path_factory.mktemp("b2-accepted-b1") / "projection.py"
+    file.write_bytes(
+        subprocess.run(
+            [
+                "git",
+                "show",
+                "82b78bcb7d1b33b53bccd231f44d76816686e1f7:src/fh_agent/research_atlas/final_projection.py",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    spec = spec_from_file_location("fh_agent.research_atlas._b2_accepted_b1", file)
+    module = module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    del sys.modules[spec.name]
+
+
+@pytest.fixture(scope="module")
+def package_a_product(reference_slice_product, accepted_b1_projection):
     atlas, accepted, _, before = reference_slice_product
     catalog = parse_explanations((ROOT / SOURCE).read_bytes(), atlas)
     technical, derived, _, _ = intermediate(atlas)
-    after = final_projection.consolidate_graph_audits(
-        package(atlas, technical, derived, explanations=catalog)
+    after = accepted_b1_projection.consolidate_graph_audits(
+        accepted_b1_projection.package(atlas, technical, derived, explanations=catalog)
     )
     return atlas, catalog, accepted, before, after
 
@@ -4251,7 +4275,9 @@ def test_package_a_five_placeholder_repairs_preserve_accepted_prose(package_a_pr
         assert catalog.reference_slice[identity].limitations in body
 
 
-def test_package_a_links_anchors_backlinks_and_deterministic_output(package_a_product):
+def test_package_a_links_anchors_backlinks_and_deterministic_output(
+    package_a_product, accepted_b1_projection
+):
     atlas, catalog, _, _, tree = package_a_product
     paths = preferred_paths(atlas)
     for path in paths.values():
@@ -4283,8 +4309,8 @@ def test_package_a_links_anchors_backlinks_and_deterministic_output(package_a_pr
         }
     )
     assert (
-        final_projection.consolidate_graph_audits(
-            package(reordered, technical, derived, explanations=other)
+        accepted_b1_projection.consolidate_graph_audits(
+            accepted_b1_projection.package(reordered, technical, derived, explanations=other)
         )
         == tree
     )
@@ -4644,3 +4670,280 @@ def test_b1_synthetic_upgrade_exact_restore_and_semantic_tamper_fail_closed(
             workspace.apply(repo, vault)
         assert filesystem_state(vault.parent) == prior  # no restore point or write on failure
         diagram.write_bytes(baseline)
+
+
+# B2: accepted B1 remains frozen above; these checks exercise the new live output.
+@pytest.fixture(scope="module")
+def b2_product(package_a_product):
+    atlas, catalog, _, _, before = package_a_product
+    technical, derived, _, _ = intermediate(atlas)
+    after = final_projection.consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=catalog)
+    )
+    return atlas, catalog, before, after
+
+
+def test_b2_exact_inventory_owner_navigation_and_protected_b1_bytes(b2_product):
+    from fh_agent.research_atlas.reference_prototypes import (
+        CANDIDATE_DRAWIO,
+        CANDIDATE_EXCALIDRAW,
+        PREVIEW,
+    )
+
+    atlas, catalog, before, after = b2_product
+    assert len(before.files) == 507 and len(after.files) == 508
+    assert after.files.keys() - before.files.keys() == {CANDIDATE_EXCALIDRAW}
+    assert not before.files.keys() - after.files.keys()
+    assert after.routes == before.routes
+    assert all(after.owners[p] == before.owners[p] for p in before.files)
+    assert after.owners[CANDIDATE_EXCALIDRAW] == public.OWNER
+    assert CANDIDATE_DRAWIO not in after.files and PREVIEW not in after.files
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        final_projection.ANATOMY,
+        PRODUCT / "Guides/System Overview.md",
+        *MANIFESTS.values(),
+    }
+    assert len(before.files.keys() - changed) == 502
+    assert all(after.files[p] == before.files[p] for p in preferred_paths(atlas).values())
+    assert b1_scene(before.files[final_projection.ANATOMY]) == b1_scene(
+        after.files[final_projection.ANATOMY]
+    )
+    for owner, manifest in MANIFESTS.items():
+        rows = read_yaml(after.files[manifest].decode())["owned_files"]
+        assert {PurePosixPath(r["path"]) for r in rows} == {
+            p for p in after.files if after.owners[p] == owner and p != manifest
+        }
+        for row in rows:
+            p = PurePosixPath(row["path"])
+            assert row["sha256"] == public.digest(after.files[p])
+        if owner == public.OWNER:
+            row = next(r for r in rows if r["path"] == str(CANDIDATE_EXCALIDRAW))
+            assert row["ownership"] == semantics.Ownership.EXCALIDRAW.value
+            assert row["semantic_sha256"] == semantics.semantic_digest(
+                after.files[CANDIDATE_EXCALIDRAW], CANDIDATE_EXCALIDRAW, owner
+            )
+    assert len(preferred_paths(atlas)) == 61
+    assert sum(e.relation == "part_of" for e in atlas.relationships) == 28
+    assert sum(e.relation in INTERACTION_RELATIONS for e in atlas.relationships) == 47
+    technical, derived, _, _ = intermediate(atlas)
+    assert (
+        final_projection.consolidate_graph_audits(
+            package(atlas, technical, derived, explanations=catalog)
+        )
+        == after
+    )
+    for p in changed | {CANDIDATE_EXCALIDRAW}:
+        if p.suffix != ".md":
+            continue
+        for target in re.findall(r"\[\[([^\]]+)\]\]", after.files[p].decode()):
+            route, _, anchor = target.split("|", 1)[0].partition("#")
+            resolved = (
+                p
+                if not route
+                else next((f for f in after.files if str(f) in {route, route + ".md"}), None)
+            )
+            assert resolved is not None, (p, target)
+            if anchor:
+                assert anchor in re.findall(r"^#{1,6} (.+)$", after.files[resolved].decode(), re.M)
+    for p in (HOME, final_projection.ANATOMY, PRODUCT / "Guides/System Overview.md"):
+        assert f"[[{CANDIDATE_EXCALIDRAW.with_suffix('')}|" in after.files[p].decode()
+    assert after.files[HOME].decode().index("Primärer visueller Einstieg") < after.files[
+        HOME
+    ].decode().index("System Overview Diagramm")
+
+
+def test_b2_final_scene_composites_and_isolated_drawio_exact_relationships(b2_product):
+    from xml.etree import ElementTree as ET
+
+    from fh_agent.research_atlas.reference_prototypes import (
+        BOXES,
+        CANDIDATE_DRAWIO,
+        CANDIDATE_EXCALIDRAW,
+        FLOWS,
+        REGISTRY_TRIPLES,
+        candidate_files,
+        candidate_navigation,
+    )
+
+    atlas, _, _, tree = b2_product
+    files = candidate_files(atlas)
+    assert files == candidate_files(atlas)
+    assert set(files) == {CANDIDATE_EXCALIDRAW, CANDIDATE_DRAWIO}
+    paths = preferred_paths(atlas)
+    scene = b1_scene(tree.files[CANDIDATE_EXCALIDRAW])
+    flows = {
+        tuple(e["customData"]["presentation_flow"][k] for k in ("from", "to"))
+        for e in scene["elements"]
+        if e["type"] == "arrow"
+    }
+    assert flows == {(s, t) for s, t, _, _ in FLOWS}
+    assert ("transition", "contract") in flows and ("transition", "body") not in flows
+    for key, identity, *_ in BOXES:
+        if key in {"body", "input"}:
+            continue  # Both constituents are checked independently below.
+        cards = [e for e in scene["elements"] if e.get("customData", {}).get("card") == key]
+        assert len(cards) == 3
+        for item in cards:
+            if item["type"] == "rectangle" or item["customData"].get("role") == "title":
+                assert item["link"] == f"[[{paths[identity].with_suffix('')}]]"
+        assert (
+            next(e for e in cards if e["type"] == "rectangle")["customData"]["identity"] == identity
+        )
+    for identity in ("CMP-BODY", "CMP-BOUNDED-REFLEX", "CMP-SAFETY-FILTER", "CMP-INPUT-EXECUTOR"):
+        assert any(
+            e.get("customData", {}).get("identity") == identity
+            and e.get("link") == f"[[{paths[identity].with_suffix('')}]]"
+            for e in scene["elements"]
+            if e["type"] == "text"
+        )
+    xml = ET.fromstring(files[CANDIDATE_DRAWIO])
+    assert [d.get("name") for d in xml.findall("diagram")] == [
+        "1 · Vorschlag und Erlaubnis",
+        "2 · Ausführung und Rückkehr",
+        "3 · Ablehnung, Stop und Replan",
+        "4 · Registry: Source → Target",
+    ]
+    navigation = candidate_navigation(atlas)
+    assert navigation in tree.files[PRODUCT / "Guides/System Overview.md"].decode()
+    assert "obsidian://" not in files[CANDIDATE_DRAWIO].decode()
+    actual = set()
+    for page in xml.findall("diagram"):
+        identities = {o.get("id"): o.get("identity") for o in page.iter("UserObject")}
+        for obj in page.iter("UserObject"):
+            assert not obj.get("link")
+            for identity in obj.get("counterpart_ids").split():
+                assert f"[[{paths[identity].with_suffix('')}|" in navigation
+        for cell in page.iter("mxCell"):
+            if cell.get("counterpart_ids"):
+                for identity in cell.get("counterpart_ids").split():
+                    assert f"[[{paths[identity].with_suffix('')}|" in navigation
+            meaning = cell.get("semantics", "")
+            if meaning.startswith("registry:"):
+                _, source, relation, target = meaning.split(":")
+                assert identities[cell.get("source")] == source
+                assert identities[cell.get("target")] == target
+                assert cell.get("value") == relation
+                actual.add((source, relation, target))
+            elif cell.get("edge"):
+                assert meaning == "process"
+    assert (
+        actual
+        == set(REGISTRY_TRIPLES)
+        <= {(e.source, e.relation, e.target) for e in atlas.relationships}
+    )
+    assert semantics.classification(CANDIDATE_DRAWIO) == semantics.Ownership.STRICT
+    with pytest.raises(ProjectionError, match="Strict output"):
+        semantics.semantic_digest(files[CANDIDATE_DRAWIO], CANDIDATE_DRAWIO, public.OWNER)
+
+
+def b2_native_bytes():
+    return (
+        ROOT / "tests/fixtures/obsidian-reserialization/system-overview-native.excalidraw.md"
+    ).read_bytes()
+
+
+def test_b2_actual_pinned_native_save_semantics_and_immutable_fixture(b2_product):
+    from fh_agent.research_atlas.reference_prototypes import CANDIDATE_EXCALIDRAW as path
+
+    _, _, _, tree = b2_product
+    native = b2_native_bytes()
+    assert (
+        public.digest(native) == "8fb52a37d60aab05e4648fb3180b19bce9481f5bc6a19815ee3ecb892681df68"
+    )
+    assert native != tree.files[path]
+    assert semantics.semantic_digest(native, path, public.OWNER) == semantics.semantic_digest(
+        tree.files[path], path, public.OWNER
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation", ["label", "link", "flow", "geometry", "style", "owner", "header"]
+)
+def test_b2_semantic_edits_fail_closed(b2_product, mutation):
+    from fh_agent.research_atlas.reference_prototypes import CANDIDATE_EXCALIDRAW as path
+
+    _, _, _, tree = b2_product
+    data = tree.files[path]
+    scene = b1_scene(data)
+    if mutation == "label":
+        next(e for e in scene["elements"] if e["type"] == "text")["text"] += " invented"
+    elif mutation == "link":
+        next(e for e in scene["elements"] if e.get("link"))["link"] = "[[Research Map Home]]"
+    elif mutation == "flow":
+        next(e for e in scene["elements"] if e["type"] == "arrow")["endArrowhead"] = None
+    elif mutation == "geometry":
+        scene["elements"][0]["x"] += 1
+    elif mutation == "style":
+        scene["elements"][0]["strokeColor"] = "#000000"
+    changed = re.sub(
+        r"(?s)(```json\n).*?(\n```)", lambda m: m[1] + json.dumps(scene) + m[2], data.decode()
+    )
+    if mutation == "owner":
+        changed = changed.replace("public-research-atlas", "unowned")
+    elif mutation == "header":
+        changed = changed.replace("Agent Anatomy bleibt", "Another master replaces", 1)
+    try:
+        actual = semantics.semantic_digest(changed.encode(), path, public.OWNER)
+    except ProjectionError:
+        pass
+    else:
+        assert actual != semantics.semantic_digest(data, path, public.OWNER)
+
+
+def test_b2_synthetic_b1_upgrade_native_check_idempotence_and_exact_recover(
+    tmp_path, monkeypatch, accepted_b1_projection
+):
+    from fh_agent.research_atlas.reference_prototypes import CANDIDATE_EXCALIDRAW as path
+
+    repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
+    with monkeypatch.context() as patch:
+        patch.setattr(migration, "package", accepted_b1_projection.package)
+        old = migration.build(repo, vault, sha)
+    assert len(old.files) == 507
+    for p, data in old.files.items():
+        target = vault / p
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    original = snapshot(vault)
+    authored = harness_fixtures._authored_snapshot(vault)
+    result = workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    (vault / path).write_bytes(b2_native_bytes())
+    workspace.check(repo, vault)
+    native_state = snapshot(vault)
+    # Existing apply deliberately writes deterministic generated bytes. The
+    # immutable restore point must retain the exact native serialization.
+    native_replacement = workspace.apply(repo, vault)
+    generated_state = snapshot(vault)
+    assert generated_state != native_state
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == generated_state
+    workspace.recover(repo, vault, native_replacement.restore_point)
+    assert snapshot(vault) == native_state
+    workspace.check(repo, vault)
+    saved = (vault / path).read_bytes()
+    (vault / path).write_bytes(saved.replace(b"Agent Anatomy bleibt", b"Invented master", 1))
+    tampered = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == tampered
+    (vault / path).write_bytes(saved)
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    workspace.recover(repo, vault, result.restore_point)
+    assert snapshot(vault) == original
+    assert harness_fixtures._authored_snapshot(vault) == authored
+
+
+@pytest.mark.parametrize("name", ["System Overview.excalidraw.md", "Grounded Contract.drawio"])
+def test_b2_unknown_candidate_never_adopted_or_backed_up(tmp_path, name):
+    repo, vault, _ = harness_fixtures.setup.__wrapped__(tmp_path)
+    unknown = vault / PRODUCT / "Diagrams" / name
+    unknown.parent.mkdir(parents=True)
+    unknown.write_bytes(b"authored or isolated; no managed owner")
+    before = snapshot(vault)
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.apply(repo, vault)
+    assert snapshot(vault) == before
+    assert not (vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).exists()

@@ -232,7 +232,8 @@ def _excalidraw(data: bytes, owner: str) -> dict:
         or properties.get("source_repository") != public.REPOSITORY
         or properties.get("atlas_workspace_generated") is not True
         or properties.get("excalidraw-plugin") != "parsed"
-        or properties.get("atlas_visual_surface") not in ("agent-anatomy", "domain-slice")
+        or properties.get("atlas_visual_surface")
+        not in ("agent-anatomy", "domain-slice", "system-overview")
     ):
         raise ProjectionError("Excalidraw owner/schema envelope cannot be proven")
     header, separator, content = body.partition("# Excalidraw Data\n")

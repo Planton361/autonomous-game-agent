@@ -10,8 +10,9 @@ import textwrap
 from html import escape
 from pathlib import PurePosixPath
 
-from .preferred_paths import PRODUCT
-from .private_projection import ProjectionError
+from .anatomy import _arrow, _shape, _text_item
+from .preferred_paths import PRODUCT, preferred_paths
+from .private_projection import OWNER, REPOSITORY, ProjectionError, markdown_parts, yaml_text
 from .validator import Atlas
 
 SVG_NAMES = (
@@ -1093,3 +1094,399 @@ def secondary_canvases(files: dict[PurePosixPath, bytes]) -> dict[PurePosixPath,
             json.dumps(canvas, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
         ).encode()
     return result
+
+
+# Optional Excalidraw drill-down, migrated from the approved isolated generator.
+CANDIDATE_EXCALIDRAW = PRODUCT / "Diagrams/System Overview.excalidraw.md"
+CANDIDATE_DRAWIO = PRODUCT / "Diagrams/Grounded Contract.drawio"
+COUNTERPARTS = PRODUCT / "Guides/System Overview.md"
+# Process arrows are explanatory chronology, NEVER additional Registry triples.
+BOXES = (
+    ("observation", "DAT-OBSERVATION", 40, 180, "Observation", "Sichtbare Angaben + Belege"),
+    ("cortex", "CMP-CORTEX", 40, 330, "Cortex", "Ziel vorschlagen; keine Tasten"),
+    ("manager", "CMP-MANAGER", 40, 480, "Manager", "Prüfen · grounden · erlauben"),
+    (
+        "contract",
+        "CON-SKILL-CONTRACT",
+        470,
+        480,
+        "Grounded Contract",
+        "Ziel · Grenzen · Stop-Bedingung",
+    ),
+    ("body", "CMP-BODY", 900, 480, "Body / Bounded Reflex", "Nur im aktiven Contract handeln"),
+    (
+        "input",
+        "CMP-INPUT-EXECUTOR",
+        900,
+        640,
+        "Safety / Input",
+        "Fokus · Maske · Rate · Notstopp · Log",
+    ),
+    ("game", "ENV-GAME-INSTANCE", 900, 800, "GameInstance", "Umgebung reagiert sichtbar"),
+    (
+        "new-observation",
+        "DAT-OBSERVATION",
+        470,
+        800,
+        "Neue Observation",
+        "Frische sichtbare Belege",
+    ),
+    (
+        "verifier",
+        "CMP-INDEPENDENT-VERIFIER",
+        40,
+        800,
+        "Independent Verifier",
+        "Ergebnis unabhängig prüfen",
+    ),
+    (
+        "result",
+        "CON-VERIFIER-RESULT",
+        40,
+        640,
+        "VerifierResult",
+        "success · progress · failure · abstain",
+    ),
+    (
+        "transition",
+        "CMP-MANAGER",
+        470,
+        640,
+        "Manager-Transition",
+        "Fortsetzen · abschließen · stoppen",
+    ),
+    (
+        "close",
+        "CMP-MANAGER",
+        470,
+        330,
+        "Schließen / suspendieren",
+        "Erst danach bedingt neu planen",
+    ),
+    (
+        "retrieval",
+        "CMP-MEM-RETRIEVAL",
+        470,
+        180,
+        "Memory Retrieval",
+        "Begrenzter Kontext; keine Eingaben",
+    ),
+    ("memory", "CMP-MEMORY", 900, 180, "Memory", "Erfahrung + Herkunft bewahren"),
+)
+FLOWS = (
+    ("observation", "cortex", ((200, 280), (200, 330)), ""),
+    ("cortex", "manager", ((200, 430), (200, 480)), "Vorschlag"),
+    ("manager", "contract", ((360, 530), (470, 530)), "Erlaubnis"),
+    ("contract", "body", ((790, 530), (900, 530)), ""),
+    ("body", "input", ((1060, 580), (1060, 640)), ""),
+    ("input", "game", ((1060, 740), (1060, 800)), ""),
+    ("game", "new-observation", ((900, 850), (790, 850)), ""),
+    ("new-observation", "verifier", ((470, 850), (360, 850)), ""),
+    ("verifier", "result", ((200, 800), (200, 740)), ""),
+    ("result", "transition", ((360, 690), (470, 690)), "Ergebnis"),
+    ("transition", "contract", ((630, 640), (630, 580)), "gültig"),
+    ("transition", "close", ((790, 690), (840, 690), (840, 380), (790, 380)), "Stop / Replan"),
+    ("close", "cortex", ((470, 380), (360, 380)), "bedingt"),
+    ("memory", "retrieval", ((900, 230), (790, 230)), ""),
+    (
+        "retrieval",
+        "cortex",
+        ((470, 230), (410, 230), (410, 305), (200, 305), (200, 330)),
+        "Kontext",
+    ),
+)
+REGISTRY_TRIPLES = (
+    ("CMP-CORTEX", "supplies", "IF-CORTEX-MANAGER"),
+    ("CMP-MANAGER", "consumes", "IF-CORTEX-MANAGER"),
+    ("CMP-MANAGER", "supplies", "CON-SKILL-CONTRACT"),
+    ("CMP-BODY", "executes", "CON-SKILL-CONTRACT"),
+    ("CON-SKILL-CONTRACT", "constrains", "CMP-BODY"),
+    ("CMP-INDEPENDENT-VERIFIER", "supplies", "CON-VERIFIER-RESULT"),
+    ("CMP-MANAGER", "consumes", "CON-VERIFIER-RESULT"),
+)
+
+
+def _excalidraw(atlas: Atlas) -> bytes:
+    paths = preferred_paths(atlas)
+    elements = [
+        _text_item("slice-title", "VOM SEHEN ZUR NÄCHSTEN ENTSCHEIDUNG", 40, 30, 1200, size=32),
+        _text_item(
+            "slice-subtitle",
+            "Soll-Zyklus · jeder Versuch bleibt begrenzt · unabhängige Prüfung",
+            40,
+            85,
+            1200,
+            size=22,
+        ),
+    ]
+    for key, identity, x, y, title, detail in BOXES:
+        link = f"[[{paths[identity].with_suffix('')}]]"
+        color = "#EAF4F0" if key in {"memory", "retrieval"} else "#EDF3FA"
+        elements += [
+            _shape(
+                key,
+                (x, y, 320, 100),
+                background=color,
+                stroke="#426B86",
+                link=link,
+                custom_data={"card": key, "identity": identity, "prototype": True},
+            ),
+            _text_item(
+                key + "-title",
+                title,
+                x + 10,
+                y + 12,
+                300,
+                size=20,
+                link=link,
+                custom_data={"card": key, "role": "title"},
+            ),
+            _text_item(
+                key + "-detail",
+                detail,
+                x + 14,
+                y + 52,
+                292,
+                size=17,
+                custom_data={"card": key, "role": "detail"},
+            ),
+        ]
+    for source, target, points, label in FLOWS:
+        element = _arrow(
+            source + ":" + target, points[0], points[-1], presentation_flow=(source, target)
+        )
+        element["points"] = [[x - points[0][0], y - points[0][1]] for x, y in points]
+        element["width"] = max(x for x, _ in points) - min(x for x, _ in points)
+        element["height"] = max(y for _, y in points) - min(y for _, y in points)
+        element["strokeStyle"] = "dashed" if source in {"memory", "retrieval"} else "solid"
+        elements.append(element)
+        if label:
+            x, y = points[0]
+            # Place captions in open routing corridors, not over an arrow or node.
+            label_positions = {
+                ("cortex", "manager"): (235, 442),
+                ("manager", "contract"): (372, 496),
+                ("result", "transition"): (373, 655),
+                ("transition", "contract"): (644, 601),
+                ("transition", "close"): (854, 393),
+                ("close", "cortex"): (374, 343),
+                ("retrieval", "cortex"): (310, 285),
+            }
+            x, y = label_positions[source, target]
+            elements.append(_text_item(source + target + "-caption", label, x, y, 120, size=16))
+    for index, text in enumerate(
+        (
+            "Fortsetzung: nur durch denselben weiterhin aktiven Contract. "
+            "Kein neuer Auftrag pro Schritt.",
+            "Soll: Prozesspfeile sind keine Registry-Relationen. Ist: siehe verlinkte Seiten; "
+            "keine zertifizierte Live-Schleife.",
+            "Offen: gerankter Retrieval-Kontext, Consolidation und Admission. "
+            "Body-Gewichte bleiben im Mission Run eingefroren.",
+            "Stop blockiert weitere Eingaben; "
+            "frühere ausgeführte Schritte und Belege bleiben erhalten.",
+        )
+    ):
+        elements.append(_text_item(f"legend-{index}", text, 40, 960 + index * 37, 1200, size=18))
+    scene = {
+        "type": "excalidraw",
+        "version": 2,
+        "source": "AGA #170 isolated prototype",
+        "elements": elements,
+        "appState": {"viewBackgroundColor": "#FFFFFF", "gridSize": None},
+        "files": {},
+    }
+    text = "---\nexcalidraw-plugin: parsed\ntags: [aga-reference-prototype]\n---\n\n"
+    text += (
+        "PROTOTYP — keine Produktionsintegration oder neue Architekturautorität.\n\n"
+        "%%\n# Excalidraw Data\n\n## Text Elements\n\n"
+    )
+    text += "\n\n".join(f"{e['rawText']} ^{e['id']}" for e in elements if e["type"] == "text")
+    text += "\n\n## Element Links\n\n" + "\n\n".join(
+        f"{e['id']}: {e['link']}" for e in elements if e.get("link")
+    )
+    text += (
+        "\n\n## Drawing\n```json\n"
+        + json.dumps(scene, ensure_ascii=False, sort_keys=True, indent=2)
+        + "\n```\n%%\n"
+    )
+    return text.encode()
+
+
+def candidate_navigation(atlas: Atlas) -> str:
+    """Ordinary, Vault-local counterparts, also available without either plugin."""
+    paths = preferred_paths(atlas)
+
+    def link(identity: str) -> str:
+        return f"[[{paths[identity].with_suffix('')}|{atlas.entities[identity].name}]]"
+
+    groups = (
+        (
+            "Beobachtung und Kontext",
+            (
+                "DAT-OBSERVATION",
+                "CMP-MEMORY",
+                "CMP-MEM-RETRIEVAL",
+                "CMP-CORTEX",
+            ),
+        ),
+        (
+            "Vorschlag, Grounding und Erlaubnis",
+            (
+                "CMP-CORTEX",
+                "CON-PLANNER-OUTPUT",
+                "IF-CORTEX-MANAGER",
+                "CMP-MANAGER",
+                "CMP-MANAGER-GROUNDING",
+                "CON-SKILL-CONTRACT",
+            ),
+        ),
+        (
+            "Ausführung und unabhängige Prüfung",
+            (
+                "CON-SKILL-CONTRACT",
+                "CMP-BODY",
+                "CMP-BOUNDED-REFLEX",
+                "CMP-SAFETY-FILTER",
+                "CMP-INPUT-EXECUTOR",
+                "ENV-GAME-INSTANCE",
+                "DAT-OBSERVATION",
+                "CMP-INDEPENDENT-VERIFIER",
+                "CON-VERIFIER-RESULT",
+                "CMP-MANAGER",
+            ),
+        ),
+        (
+            "Ablehnung, Stop und bedingtes Replan",
+            (
+                "CMP-MANAGER",
+                "CMP-EVIDENCE-LEDGER",
+                "CMP-SAFETY-FILTER",
+                "CMP-CORTEX",
+            ),
+        ),
+    )
+    lines = [
+        "## Diagramm-Gegenstücke",
+        "",
+        "Agent Anatomy bleibt der primäre visuelle Einstieg. Die vertiefenden Ansichten "
+        "erklären den Soll-Zyklus; sie belegen keine vollständige Live-Implementierung. "
+        "Die folgenden gewöhnlichen Links öffnen die Identitäten in dieser Vault, "
+        "auch ohne Diagrammplugins. Body und Bounded Reflex sowie SafetyFilter und "
+        "InputExecutor haben jeweils getrennte Ziele.",
+        "",
+        "Observation → Cortex → Manager → aktiver begrenzter Contract → Body → "
+        "geschützte Eingabe → GameInstance → neue Observation → Independent Verifier → "
+        "VerifierResult → Manager. Fortsetzung führt ausschließlich über denselben "
+        "weiterhin gültigen Contract. Schließen/Suspendieren geht bedingtem Replan voraus. "
+        "Memory Retrieval liefert separat begrenzten Kontext; es autorisiert keine Eingaben.",
+        "",
+        "Die optionale Visible-State Bridge bleibt deny-by-default und unter dem "
+        "No-Spoiler-Schutz; siehe die ursprünglichen Beobachtungsabschnitte. Body-Gewichte "
+        "bleiben für den gesamten Mission Run einschließlich Life Episodes eingefroren. "
+        "Training und Aktivierung brauchen ein künftiges autorisiertes Protokoll zwischen "
+        "Mission Runs.",
+        "",
+    ]
+    for title, identities in groups:
+        lines += [f"### {title}", "", " · ".join(link(i) for i in identities), ""]
+    lines += [
+        "### Deklarierte technische Beziehungen",
+        "",
+        "Diese Beziehungen sind keine Zeitfolge: `consumes` zeigt vom Verbraucher "
+        "zum Datenpaket. Prozesspfeile erzeugen keine Registry-Kanten.",
+        "",
+        "| Source | Relation | Target |",
+        "| --- | --- | --- |",
+    ]
+    declared = {(e.source, e.relation, e.target) for e in atlas.relationships}
+    if not set(REGISTRY_TRIPLES) <= declared:
+        raise ProjectionError("Candidate relation differs from Registry")
+    lines += [f"| {link(s)} | `{r}` | {link(t)} |" for s, r, t in REGISTRY_TRIPLES]
+    lines += [
+        "",
+        "![[Research Map/Diagrams/System Overview.svg]]",
+        "",
+        "[[Research Map/Diagrams/Agent Anatomy.excalidraw|Agent Anatomy]] · "
+        "[[Research Map/Diagrams/Execution Flow|Vollständiger Ablauf und Markdown-Fallback]] · "
+        "[[Research Map/Diagrams/Interaction Map|Alle 47 technischen Beziehungen]]",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def candidate_system_overview(atlas: Atlas) -> bytes:
+    """Final-path isolated Excalidraw trial; production adds its proven envelope."""
+    paths = preferred_paths(atlas)
+    text = _excalidraw(atlas).decode()
+    scene = json.loads(text.split("```json\n", 1)[1].split("\n```", 1)[0])
+    for key, identities in (
+        ("body", ("CMP-BODY", "CMP-BOUNDED-REFLEX")),
+        ("input", ("CMP-SAFETY-FILTER", "CMP-INPUT-EXECUTOR")),
+    ):
+        title = next(
+            e for e in scene["elements"] if e.get("customData") == {"card": key, "role": "title"}
+        )
+        scene["elements"].remove(title)
+        x, y = title["x"], title["y"]
+        for index, identity in enumerate(identities):
+            scene["elements"].append(
+                _text_item(
+                    f"{key}-identity-{index}",
+                    atlas.entities[identity].name,
+                    x + index * 150,
+                    y,
+                    150,
+                    size=17,
+                    link=f"[[{paths[identity].with_suffix('')}]]",
+                    custom_data={"card": key, "role": "identity", "identity": identity},
+                )
+            )
+        shape = next(
+            e
+            for e in scene["elements"]
+            if e.get("customData", {}).get("card") == key and e["type"] == "rectangle"
+        )
+        shape["link"] = f"[[{COUNTERPARTS.with_suffix('')}#Ausführung und unabhängige Prüfung]]"
+        shape["customData"]["identities"] = list(identities)
+        shape["customData"].pop("identity")
+    text = "---\nexcalidraw-plugin: parsed\ntags: [aga-b2-isolated-candidate]\n---\n\n"
+    text += "ISOLIERTER B2-KANDIDAT — noch kein verwaltetes Produktionsdiagramm.\n\n"
+    text += candidate_navigation(atlas)
+    # Pinned native serializer uses no blank after Text Elements. An extra
+    # blank becomes part of the first label on save. Text heights are fractional
+    # lineHeight products, not truncated preview estimates.
+    for element in scene["elements"]:
+        if element["type"] == "text":
+            element["height"] = (
+                len(element["text"].splitlines()) * element["fontSize"] * element["lineHeight"]
+            )
+    text += "\n%%\n# Excalidraw Data\n\n## Text Elements\n"
+    text += "\n\n".join(
+        f"{e['rawText']} ^{e['id']}" for e in scene["elements"] if e["type"] == "text"
+    )
+    text += "\n\n## Element Links\n\n" + "\n\n".join(
+        f"{e['id']}: {e['link']}" for e in scene["elements"] if e.get("link")
+    )
+    text += "\n\n## Drawing\n```json\n" + json.dumps(
+        scene, ensure_ascii=False, sort_keys=True, indent=2
+    )
+    text += "\n```\n%%\n"
+    return text.encode()
+
+
+def managed_system_overview(atlas: Atlas) -> bytes:
+    """One proven Excalidraw surface; Drawio remains outside the owner inventory."""
+    _, body = markdown_parts(candidate_system_overview(atlas).decode())
+    body = body.replace(
+        "ISOLIERTER B2-KANDIDAT — noch kein verwaltetes Produktionsdiagramm.",
+        "Generierte erklärende Vertiefung — Agent Anatomy bleibt der primäre visuelle Hub.",
+        1,
+    ).replace('"source": "AGA #170 isolated prototype"', '"source": "research-atlas"', 1)
+    properties = {
+        "generated_by": OWNER,
+        "source_repository": REPOSITORY,
+        "atlas_workspace_generated": True,
+        "atlas_visual_surface": "system-overview",
+        "excalidraw-plugin": "parsed",
+    }
+    return ("---\n" + yaml_text(properties) + "---\n" + body).encode()

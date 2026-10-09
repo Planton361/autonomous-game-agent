@@ -4,12 +4,24 @@ Call prototype_files(atlas) with public Registry data only. No plugin installati
 network, vault discovery or production migration is performed by this module.
 """
 
-import json
 from pathlib import PurePosixPath
 from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
-from .anatomy import _arrow, _shape, _text_item
+from .diagram_svg import (
+    BOXES as BOXES,
+)
+from .diagram_svg import (
+    CANDIDATE_DRAWIO,
+    CANDIDATE_EXCALIDRAW,
+    REGISTRY_TRIPLES,
+    _excalidraw,
+    candidate_navigation,
+    candidate_system_overview,
+)
+from .diagram_svg import (
+    FLOWS as FLOWS,
+)
 from .preferred_paths import PRODUCT, preferred_paths
 from .private_projection import ProjectionError
 from .validator import Atlas
@@ -17,216 +29,6 @@ from .validator import Atlas
 EXCALIDRAW = PRODUCT / "Diagrams/System Overview Prototype.excalidraw.md"
 DRAWIO = PRODUCT / "Diagrams/Grounded Contract Prototype.drawio"
 PREVIEW = PRODUCT / "Diagrams/Reference Slice Prototypes.md"
-# Process arrows are explanatory chronology, NEVER additional Registry triples.
-BOXES = (
-    ("observation", "DAT-OBSERVATION", 40, 180, "Observation", "Sichtbare Angaben + Belege"),
-    ("cortex", "CMP-CORTEX", 40, 330, "Cortex", "Ziel vorschlagen; keine Tasten"),
-    ("manager", "CMP-MANAGER", 40, 480, "Manager", "Prüfen · grounden · erlauben"),
-    (
-        "contract",
-        "CON-SKILL-CONTRACT",
-        470,
-        480,
-        "Grounded Contract",
-        "Ziel · Grenzen · Stop-Bedingung",
-    ),
-    ("body", "CMP-BODY", 900, 480, "Body / Bounded Reflex", "Nur im aktiven Contract handeln"),
-    (
-        "input",
-        "CMP-INPUT-EXECUTOR",
-        900,
-        640,
-        "Safety / Input",
-        "Fokus · Maske · Rate · Notstopp · Log",
-    ),
-    ("game", "ENV-GAME-INSTANCE", 900, 800, "GameInstance", "Umgebung reagiert sichtbar"),
-    (
-        "new-observation",
-        "DAT-OBSERVATION",
-        470,
-        800,
-        "Neue Observation",
-        "Frische sichtbare Belege",
-    ),
-    (
-        "verifier",
-        "CMP-INDEPENDENT-VERIFIER",
-        40,
-        800,
-        "Independent Verifier",
-        "Ergebnis unabhängig prüfen",
-    ),
-    (
-        "result",
-        "CON-VERIFIER-RESULT",
-        40,
-        640,
-        "VerifierResult",
-        "success · progress · failure · abstain",
-    ),
-    (
-        "transition",
-        "CMP-MANAGER",
-        470,
-        640,
-        "Manager-Transition",
-        "Fortsetzen · abschließen · stoppen",
-    ),
-    (
-        "close",
-        "CMP-MANAGER",
-        470,
-        330,
-        "Schließen / suspendieren",
-        "Erst danach bedingt neu planen",
-    ),
-    (
-        "retrieval",
-        "CMP-MEM-RETRIEVAL",
-        470,
-        180,
-        "Memory Retrieval",
-        "Begrenzter Kontext; keine Eingaben",
-    ),
-    ("memory", "CMP-MEMORY", 900, 180, "Memory", "Erfahrung + Herkunft bewahren"),
-)
-FLOWS = (
-    ("observation", "cortex", ((200, 280), (200, 330)), ""),
-    ("cortex", "manager", ((200, 430), (200, 480)), "Vorschlag"),
-    ("manager", "contract", ((360, 530), (470, 530)), "Erlaubnis"),
-    ("contract", "body", ((790, 530), (900, 530)), ""),
-    ("body", "input", ((1060, 580), (1060, 640)), ""),
-    ("input", "game", ((1060, 740), (1060, 800)), ""),
-    ("game", "new-observation", ((900, 850), (790, 850)), ""),
-    ("new-observation", "verifier", ((470, 850), (360, 850)), ""),
-    ("verifier", "result", ((200, 800), (200, 740)), ""),
-    ("result", "transition", ((360, 690), (470, 690)), "Ergebnis"),
-    ("transition", "contract", ((630, 640), (630, 580)), "gültig"),
-    ("transition", "close", ((790, 690), (840, 690), (840, 380), (790, 380)), "Stop / Replan"),
-    ("close", "cortex", ((470, 380), (360, 380)), "bedingt"),
-    ("memory", "retrieval", ((900, 230), (790, 230)), ""),
-    (
-        "retrieval",
-        "cortex",
-        ((470, 230), (410, 230), (410, 305), (200, 305), (200, 330)),
-        "Kontext",
-    ),
-)
-REGISTRY_TRIPLES = (
-    ("CMP-CORTEX", "supplies", "IF-CORTEX-MANAGER"),
-    ("CMP-MANAGER", "consumes", "IF-CORTEX-MANAGER"),
-    ("CMP-MANAGER", "supplies", "CON-SKILL-CONTRACT"),
-    ("CMP-BODY", "executes", "CON-SKILL-CONTRACT"),
-    ("CON-SKILL-CONTRACT", "constrains", "CMP-BODY"),
-    ("CMP-INDEPENDENT-VERIFIER", "supplies", "CON-VERIFIER-RESULT"),
-    ("CMP-MANAGER", "consumes", "CON-VERIFIER-RESULT"),
-)
-
-
-def _excalidraw(atlas: Atlas) -> bytes:
-    paths = preferred_paths(atlas)
-    elements = [
-        _text_item("slice-title", "VOM SEHEN ZUR NÄCHSTEN ENTSCHEIDUNG", 40, 30, 1200, size=32),
-        _text_item(
-            "slice-subtitle",
-            "Soll-Zyklus · jeder Versuch bleibt begrenzt · unabhängige Prüfung",
-            40,
-            85,
-            1200,
-            size=22,
-        ),
-    ]
-    for key, identity, x, y, title, detail in BOXES:
-        link = f"[[{paths[identity].with_suffix('')}]]"
-        color = "#EAF4F0" if key in {"memory", "retrieval"} else "#EDF3FA"
-        elements += [
-            _shape(
-                key,
-                (x, y, 320, 100),
-                background=color,
-                stroke="#426B86",
-                link=link,
-                custom_data={"card": key, "identity": identity, "prototype": True},
-            ),
-            _text_item(
-                key + "-title",
-                title,
-                x + 10,
-                y + 12,
-                300,
-                size=20,
-                link=link,
-                custom_data={"card": key, "role": "title"},
-            ),
-            _text_item(
-                key + "-detail",
-                detail,
-                x + 14,
-                y + 52,
-                292,
-                size=17,
-                custom_data={"card": key, "role": "detail"},
-            ),
-        ]
-    for source, target, points, label in FLOWS:
-        element = _arrow(
-            source + ":" + target, points[0], points[-1], presentation_flow=(source, target)
-        )
-        element["points"] = [[x - points[0][0], y - points[0][1]] for x, y in points]
-        element["width"] = max(x for x, _ in points) - min(x for x, _ in points)
-        element["height"] = max(y for _, y in points) - min(y for _, y in points)
-        element["strokeStyle"] = "dashed" if source in {"memory", "retrieval"} else "solid"
-        elements.append(element)
-        if label:
-            x, y = points[0]
-            # Place captions in open routing corridors, not over an arrow or node.
-            label_positions = {
-                ("cortex", "manager"): (235, 442),
-                ("manager", "contract"): (372, 496),
-                ("result", "transition"): (373, 655),
-                ("transition", "contract"): (644, 601),
-                ("transition", "close"): (854, 393),
-                ("close", "cortex"): (374, 343),
-                ("retrieval", "cortex"): (310, 285),
-            }
-            x, y = label_positions[source, target]
-            elements.append(_text_item(source + target + "-caption", label, x, y, 120, size=16))
-    for index, text in enumerate(
-        (
-            "Fortsetzung: nur durch denselben weiterhin aktiven Contract. "
-            "Kein neuer Auftrag pro Schritt.",
-            "Soll: Prozesspfeile sind keine Registry-Relationen. Ist: siehe verlinkte Seiten; "
-            "keine zertifizierte Live-Schleife.",
-            "Offen: gerankter Retrieval-Kontext, Consolidation und Admission. "
-            "Body-Gewichte bleiben im Mission Run eingefroren.",
-            "Stop blockiert weitere Eingaben; "
-            "frühere ausgeführte Schritte und Belege bleiben erhalten.",
-        )
-    ):
-        elements.append(_text_item(f"legend-{index}", text, 40, 960 + index * 37, 1200, size=18))
-    scene = {
-        "type": "excalidraw",
-        "version": 2,
-        "source": "AGA #170 isolated prototype",
-        "elements": elements,
-        "appState": {"viewBackgroundColor": "#FFFFFF", "gridSize": None},
-        "files": {},
-    }
-    text = "---\nexcalidraw-plugin: parsed\ntags: [aga-reference-prototype]\n---\n\n"
-    text += (
-        "PROTOTYP — keine Produktionsintegration oder neue Architekturautorität.\n\n"
-        "%%\n# Excalidraw Data\n\n## Text Elements\n\n"
-    )
-    text += "\n\n".join(f"{e['rawText']} ^{e['id']}" for e in elements if e["type"] == "text")
-    text += "\n\n## Element Links\n\n" + "\n\n".join(
-        f"{e['id']}: {e['link']}" for e in elements if e.get("link")
-    )
-    text += (
-        "\n\n## Drawing\n```json\n"
-        + json.dumps(scene, ensure_ascii=False, sort_keys=True, indent=2)
-        + "\n```\n%%\n"
-    )
-    return text.encode()
 
 
 def _drawio(atlas: Atlas) -> bytes:
@@ -502,3 +304,35 @@ die separate vierte Seite ist technische Relationsinspektion, keine Zeitfolge.
 [[Research Map Home|Home]]
 """
     return {EXCALIDRAW: _excalidraw(atlas), DRAWIO: _drawio(atlas), PREVIEW: preview.encode()}
+
+
+def candidate_files(atlas: Atlas) -> dict[PurePosixPath, bytes]:
+    """B2 final-path trials, still isolated until ownership AND native gates pass.
+
+    Never called by production packaging. No owner marker or ambiguous external
+    Obsidian URI is emitted. The two files require the existing Guide counterpart;
+    the old prototype companion is deliberately not shipped with these trials.
+    """
+    source = prototype_files(atlas)
+    doc = ET.fromstring(source[DRAWIO])
+    for element in doc.iter("UserObject"):
+        # Native routing is not verified for multi-Vault use. Remove the unsafe
+        # protocol URI entirely; the adjacent ordinary Guide supplies every target.
+        element.attrib.pop("link")
+        identities = [element.attrib["identity"]]
+        label = element.attrib["label"]
+        if "Bounded Reflex" in label:
+            identities.append("CMP-BOUNDED-REFLEX")
+        if "Safety / Input" in label:
+            identities.insert(0, "CMP-SAFETY-FILTER")
+        element.set("counterpart_ids", " ".join(identities))
+    for element in doc.iter("mxCell"):
+        if element.get("value") == "PlannerOutput":
+            element.set("counterpart_ids", "CON-PLANNER-OUTPUT")
+    ET.indent(doc)
+    # Validate declarations even if prototype_files changes its own validation.
+    candidate_navigation(atlas)
+    return {
+        CANDIDATE_EXCALIDRAW: candidate_system_overview(atlas),
+        CANDIDATE_DRAWIO: ET.tostring(doc, encoding="utf-8", xml_declaration=True),
+    }

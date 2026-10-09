@@ -50,3 +50,22 @@ it does not blindly remove ordering information.
 - [Restore defaults](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/excalidraw/data/restore.ts)
 - [Ordering invariants and index healing](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/element/src/fractionalIndex.ts)
 - [Independent key generator / validation (CC0)](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/fractional-indexing/src/index.ts)
+
+## B2 actual native System Overview save
+
+`system-overview-native.excalidraw.md` is actual public-only file readback from
+Obsidian 1.14.4 / Excalidraw 2.28.1 in `/tmp/aga170-slice-preview`, after native
+open, zoom 54%→59%, Save successful and close/reopen on 2026-10-09. It was not
+constructed by a Python reserialization helper. SHA-256:
+`8fb52a37d60aab05e4648fb3180b19bce9481f5bc6a19815ee3ecb892681df68`.
+The deterministic generator's raw SHA is
+`0cd9462e4bf25c0b0a0ddc82ea876feb4719f058ccbfe1b9f2d31910f5f36cf7`;
+both semantic digests are
+`a7407bd61abd62e4822d19429ea55e03b7a85cabffe7e8ba875f98c16f71943f`.
+
+The regression checks the actual native bytes against live generated output,
+protects meaningful edits, and runs synthetic check/apply/exact-recover using
+this fixture. Updating it requires a new native save and provenance record;
+do not manufacture it from `rewrite_managed` or replace the immutable hash to
+hide a semantic mismatch. This is serialization evidence, not full native visual
+acceptance. Drawio stays isolated and has no accepted semantic fixture/comparator.
