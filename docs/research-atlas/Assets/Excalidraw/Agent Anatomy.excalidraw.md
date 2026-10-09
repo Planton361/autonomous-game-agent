@@ -31,6 +31,8 @@ MISSION RUN  /  frozen Body version through Life Episode restarts ^b4ed1071
 
 ←  HOME ^1969d99a
 
+ALLE BEREICHE  → ^456ebb57
+
 ACQUIRE ^fafc4851
 
 Environment + capture ^13ef446a
@@ -144,13 +146,25 @@ OPEN SKILLTRAINER  → ^17147fa7
 
 ## Element Links
 
+8044bba1: [[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]
+
 1969d99a: [[Home/Research Atlas|Home]]
+
+456ebb57: [[Home/Research Atlas|Alle Identitäten]]
+
+fafc4851: [[Functions/FUNC-ACQUIRE — Acquire|FUNC-ACQUIRE · Acquire]]
+
+335b1e6b: [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
+
+a5c3cde3: [[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]
 
 32e89df0: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
 8c619116: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
 
 ba9f1541: [[Components/CMP-SCREEN-CAPTURE — Screen Capture|CMP-SCREEN-CAPTURE · Screen Capture]]
+
+28de11b3: [[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]
 
 c95abd50: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
 
@@ -164,7 +178,13 @@ fcfe52bb: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perceptio
 
 7419b4c9: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perception]]
 
+1d7789fb: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+
+735133f0: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+
 2aff9526: [[Assembly Scopes/Observe|Observe · Functional Context]]
+
+8600ff43: [[Functions/FUNC-RETAIN-RETRIEVE — Retain - Retrieve|FUNC-RETAIN-RETRIEVE · Retain / Retrieve]]
 
 1f1f8fdd: [[Components/CMP-EVIDENCE-LEDGER — Evidence Ledger|CMP-EVIDENCE-LEDGER · Evidence Ledger]]
 
@@ -180,11 +200,19 @@ fcfe52bb: [[Components/CMP-PERCEPTION — Perception|CMP-PERCEPTION · Perceptio
 
 32a84c09: [[Assets/Excalidraw/Domain Evidence, Memory & Retrieval.excalidraw|Evidence, Memory & Retrieval]]
 
+ed53a0ea: [[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]
+
 f0176596: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
 
 b4f9187c: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
 
+c6edeb10: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+
+b2d1548f: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+
 4a4e791e: [[Components/CMP-CORTEX — Cortex|CMP-CORTEX · Cortex]]
+
+1023d996: [[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]
 
 a5880750: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
 
@@ -194,7 +222,13 @@ a5880750: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
 
 ec5b96ae: [[Components/CMP-MANAGER-GROUNDING — Grounding|CMP-MANAGER-GROUNDING · Grounding]]
 
+16cb486c: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
+be1abb52: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
 e4096656: [[Components/CMP-MANAGER — Manager|CMP-MANAGER · Manager]]
+
+ced3e6eb: [[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]
 
 219ab08e: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
 
@@ -214,15 +248,51 @@ c7917cb1: [[Components/CMP-INPUT-EXECUTOR — InputExecutor|CMP-INPUT-EXECUTOR �
 
 cab8032c: [[Components/CMP-BODY — Body|CMP-BODY · Body]]
 
+187f9343: [[Functions/FUNC-VERIFY — Verify|FUNC-VERIFY · Verify]]
+
 133b6d7b: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]
 
 ed760585: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|CMP-INDEPENDENT-VERIFIER · Independent Verifier]]
+
+3acb36ed: [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
+
+7f9551b2: [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
 
 39131992: [[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]
 
 41db04b4: [[Components/CMP-REPLAY-BUFFER — Replay Buffer|CMP-REPLAY-BUFFER · Replay Buffer]]
 
+b2726d6c: [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+
+067c562c: [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+
 cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Independent Verifier → Overview]]
+
+86e63b55: [[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]
+
+ac0b5822: [[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]
+
+19ba2b4a: [[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]
+
+d02d9658: [[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]
+
+7bfecdfd: [[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]
+
+1723e8e4: [[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]
+
+e308dde2: [[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between Mission Runs]]
+
+27e598b7: [[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]
+
+f20aec64: [[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]
+
+17f8ab22: [[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]
+
+a0697817: [[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]
+
+64859020: [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]
+
+7c542347: [[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]
 
 17147fa7: [[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]
 
@@ -283,6 +353,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "SYS-AGA",
+        "landmark_type": "System"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 45,
@@ -292,7 +366,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "8044bba1",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Home/SYS-AGA — Autonomous Game Agent Experiment System|SYS-AGA · Autonomous Game Agent Experiment System]]",
       "locked": false,
       "opacity": 100,
       "originalText": "AGENT ANATOMY",
@@ -460,6 +534,46 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "width": 430,
       "x": 1600,
       "y": 107
+    },
+    {
+      "angle": 0,
+      "autoResize": false,
+      "backgroundColor": "transparent",
+      "boundElements": null,
+      "containerId": null,
+      "customData": {
+        "navigation": "identity-directory"
+      },
+      "fillStyle": "solid",
+      "fontFamily": 2,
+      "fontSize": 16,
+      "frameId": null,
+      "groupIds": [],
+      "height": 20,
+      "id": "456ebb57",
+      "isDeleted": false,
+      "lineHeight": 1.25,
+      "link": "[[Home/Research Atlas|Alle Identitäten]]",
+      "locked": false,
+      "opacity": 100,
+      "originalText": "ALLE BEREICHE  →",
+      "rawText": "ALLE BEREICHE  →",
+      "roughness": 0,
+      "roundness": null,
+      "seed": 1164884823,
+      "strokeColor": "#426f7d",
+      "strokeStyle": "solid",
+      "strokeWidth": 1,
+      "text": "ALLE BEREICHE  →",
+      "textAlign": "left",
+      "type": "text",
+      "updated": 0,
+      "version": 1,
+      "versionNonce": 1,
+      "verticalAlign": "top",
+      "width": 430,
+      "x": 1600,
+      "y": 140
     },
     {
       "angle": 0,
@@ -1130,6 +1244,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-ACQUIRE",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -1139,7 +1257,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "fafc4851",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-ACQUIRE — Acquire|FUNC-ACQUIRE · Acquire]]",
       "locked": false,
       "opacity": 100,
       "originalText": "ACQUIRE",
@@ -1212,7 +1330,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "335b1e6b",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1248,7 +1366,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "a5c3cde3",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Architecture/Environments/ENV-GAME-INSTANCE — Game - Environment|ENV-GAME-INSTANCE · Game / Environment]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Game / Environment",
@@ -1479,6 +1597,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-OBSERVE",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -1488,7 +1610,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "28de11b3",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-OBSERVE — Observe|FUNC-OBSERVE · Observe]]",
       "locked": false,
       "opacity": 100,
       "originalText": "OBSERVE",
@@ -1783,7 +1905,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "1d7789fb",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -1819,7 +1941,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "735133f0",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Observation",
@@ -1974,6 +2096,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-RETAIN-RETRIEVE",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -1983,7 +2109,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "8600ff43",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-RETAIN-RETRIEVE — Retain - Retrieve|FUNC-RETAIN-RETRIEVE · Retain / Retrieve]]",
       "locked": false,
       "opacity": 100,
       "originalText": "RETAIN / RETRIEVE",
@@ -2393,6 +2519,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-REASON",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -2402,7 +2532,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "ed53a0ea",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-REASON — Reason|FUNC-REASON · Reason]]",
       "locked": false,
       "opacity": 100,
       "originalText": "REASON",
@@ -2549,7 +2679,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "c6edeb10",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -2585,7 +2715,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "b2d1548f",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Planner Output",
@@ -2739,6 +2869,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-EXECUTIVE-CONTROL",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -2748,7 +2882,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "1023d996",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-EXECUTIVE-CONTROL — Executive Control|FUNC-EXECUTIVE-CONTROL · Executive Control]]",
       "locked": false,
       "opacity": 100,
       "originalText": "EXECUTIVE CONTROL",
@@ -2969,7 +3103,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "16cb486c",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3005,7 +3139,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "be1abb52",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Skill Contract",
@@ -3162,6 +3296,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-ACT",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -3171,7 +3309,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "ced3e6eb",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-ACT — Act|FUNC-ACT · Act]]",
       "locked": false,
       "opacity": 100,
       "originalText": "ACT",
@@ -3663,6 +3801,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-VERIFY",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -3672,7 +3814,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "187f9343",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-VERIFY — Verify|FUNC-VERIFY · Verify]]",
       "locked": false,
       "opacity": 100,
       "originalText": "VERIFY",
@@ -3819,7 +3961,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "3acb36ed",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -3855,7 +3997,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "7f9551b2",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Visible Outcome",
@@ -3965,7 +4107,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 10,
       "id": "b2726d6c",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4001,7 +4143,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "067c562c",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Memory Update Request",
@@ -4081,7 +4223,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 21,
       "id": "86e63b55",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-VISIBLE-STATE-BRIDGE — Optional Visible-State Bridge|CMP-VISIBLE-STATE-BRIDGE · Optional Visible-State Bridge]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4117,7 +4259,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 51,
       "id": "ac0b5822",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-OBSERVATION — Observation|DAT-OBSERVATION · Observation]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4153,7 +4295,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 55,
       "id": "19ba2b4a",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-PLANNER-OUTPUT — PlannerOutput|CON-PLANNER-OUTPUT · PlannerOutput]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4189,7 +4331,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 59,
       "id": "d02d9658",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-SKILL-CONTRACT — TaskSpec - bounded Skill Contract|CON-SKILL-CONTRACT · TaskSpec / bounded Skill Contract]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4225,7 +4367,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 51,
       "id": "7bfecdfd",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-VISIBLE-OUTCOME — Visible Outcome|DAT-VISIBLE-OUTCOME · Visible Outcome]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4261,7 +4403,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 51,
       "id": "1723e8e4",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Interfaces & Contracts/CON-MEMORY-UPDATE-REQUEST — MemoryUpdateRequest|CON-MEMORY-UPDATE-REQUEST · MemoryUpdateRequest]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4360,6 +4502,10 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "backgroundColor": "transparent",
       "boundElements": null,
       "containerId": null,
+      "customData": {
+        "landmark_identity": "FUNC-BETWEEN-RUNS",
+        "landmark_type": "Function"
+      },
       "fillStyle": "solid",
       "fontFamily": 2,
       "fontSize": 25,
@@ -4369,7 +4515,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "e308dde2",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Functions/FUNC-BETWEEN-RUNS — Between Mission Runs|FUNC-BETWEEN-RUNS · Between Mission Runs]]",
       "locked": false,
       "opacity": 100,
       "originalText": "BETWEEN MISSION RUNS",
@@ -4513,7 +4659,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 59,
       "id": "27e598b7",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4551,7 +4697,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "f20aec64",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-SKILL-TRAINER — SkillTrainer|CMP-SKILL-TRAINER · SkillTrainer]]",
       "locked": false,
       "opacity": 100,
       "originalText": "SkillTrainer",
@@ -4588,7 +4734,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 53,
       "id": "17f8ab22",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4626,7 +4772,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "a0697817",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Data Artifacts/DAT-CANDIDATE-BODY-VERSION — Candidate Body Version|DAT-CANDIDATE-BODY-VERSION · Candidate Body Version]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Candidate Body Version",
@@ -4663,7 +4809,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "height": 68,
       "id": "64859020",
       "isDeleted": false,
-      "link": null,
+      "link": "[[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]",
       "locked": false,
       "opacity": 100,
       "roughness": 0,
@@ -4701,7 +4847,7 @@ cf84f398: [[Components/CMP-INDEPENDENT-VERIFIER — Independent Verifier|Indepen
       "id": "7c542347",
       "isDeleted": false,
       "lineHeight": 1.25,
-      "link": null,
+      "link": "[[Components/CMP-BODY-CERTIFICATION — Body Validation - Certification|CMP-BODY-CERTIFICATION · Body Validation / Certification]]",
       "locked": false,
       "opacity": 100,
       "originalText": "Body Validation / Certification",

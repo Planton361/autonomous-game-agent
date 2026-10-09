@@ -17,6 +17,14 @@ from . import knowledge_graph as graph
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
+from .architecture_explanations import (
+    AREAS,
+    ExplanationCatalog,
+    component_technical,
+    guide_pages,
+    reference_page,
+    typed_page,
+)
 from .diagram_canvas import (
     CANVAS_NAVIGATION,
     EXECUTION_CANVAS,
@@ -26,10 +34,23 @@ from .diagram_canvas import (
     identity_text,
     interaction_canvas,
 )
+from .diagram_svg import (
+    CANDIDATE_DRAWIO,
+    CANDIDATE_EXCALIDRAW,
+    candidate_navigation,
+    managed_drawio,
+    managed_system_overview,
+    primary_pages,
+    secondary_canvases,
+    svg_assets,
+)
 from .preferred_paths import FAMILIES, HOME, INTERNAL, PRODUCT, containment_paths, preferred_paths
 from .private_projection import ProjectionError, markdown_parts, read_yaml, utf8, yaml_text
+from .private_reference_index import ReferenceIndex
+from .research_presentation import ROLE_LABELS, literal, record_link
 from .schema import Relationship
 from .validator import Atlas
+from .wiki_schema import EpistemicRecord, Finding, ReadingNote
 
 MODES = {
     "architecture": "Architecture",
@@ -107,6 +128,236 @@ INTERACTION_GROUPS = (
         {"DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"},
     ),
 )
+
+ANATOMY = PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"
+ANATOMY_DIRECTORY = PRODUCT / "Guides/Using the Research Map.md"
+ANATOMY_AREAS = dict(
+    zip(
+        (
+            "environment",
+            "observation",
+            "evidence-memory",
+            "cognition",
+            "executive",
+            "action-safety",
+            "verification",
+            "between-runs",
+        ),
+        (AREAS[0], *AREAS),
+        strict=True,
+    )
+)
+# Reading routes only. Components use the accepted presentation source's areas;
+# these typed counterparts create neither Registry membership nor ancestry.
+ANATOMY_COUNTERPARTS = {
+    AREAS[0]: (
+        "ENV-GAME-INSTANCE",
+        "FUNC-ACQUIRE",
+        "FUNC-OBSERVE",
+        "DAT-SCREEN-FRAME",
+        "DAT-OBSERVATION",
+    ),
+    AREAS[1]: (
+        "FUNC-RETAIN-RETRIEVE",
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "CON-MEMORY-UPDATE-REQUEST",
+        "DAT-RETRIEVAL-SNAPSHOT",
+        "MEAS-RETRIEVAL-DELIVERY-001",
+    ),
+    AREAS[2]: (
+        "FUNC-REASON",
+        "CON-PLANNER-OUTPUT",
+        "CON-POST-MORTEM-OUTPUT",
+        "MEAS-CORTEX-PROPOSAL-001",
+    ),
+    AREAS[3]: (
+        "FUNC-EXECUTIVE-CONTROL",
+        "IF-CORTEX-MANAGER",
+        "CON-SKILL-CONTRACT",
+        "MEAS-MANAGER-DISPOSITION-001",
+    ),
+    AREAS[4]: ("FUNC-ACT", "CON-PRIMITIVE-ACTION", "DAT-ACTION-RESULT"),
+    AREAS[5]: (
+        "FUNC-VERIFY",
+        "CON-VERIFIER-RESULT",
+        "DAT-VISIBLE-OUTCOME",
+        "MEAS-VERIFIED-OUTCOME-001",
+    ),
+    AREAS[6]: ("FUNC-BETWEEN-RUNS", "DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"),
+    "System und Forschungsprogramm": (
+        "SYS-AGA",
+        "RQ-PROGRAM-AB-001",
+        "THREAD-EXPERIENCE-TO-ACTION-001",
+        "DEC-ATLAS-PILOT-001",
+    ),
+}
+ANATOMY_AREA_DESCRIPTIONS = {
+    AREAS[0]: (
+        "Vom sichtbaren Spielbild zur zulässigen Beobachtung: Aufnahme, Schutz vor "
+        "verborgenem Wissen und Zustandsaufbereitung."
+    ),
+    AREAS[1]: (
+        "Von belegter Erfahrung zum begrenzten Planerkontext: Speicherung und Auswahl sind "
+        "getrennte Aufgaben."
+    ),
+    AREAS[2]: (
+        "Von Beobachtung und ausgewählter Erfahrung zum Vorschlag: Cortex plant, ohne "
+        "primitive Eingaben zu steuern."
+    ),
+    AREAS[
+        3
+    ]: "Vom Vorschlag zum begrenzten Auftrag: Manager prüft, erdet und entscheidet über Contracts.",
+    AREAS[4]: (
+        "Vom aktiven Auftrag zur erlaubten Eingabe: Body und Reflex bleiben begrenzt; "
+        "Schutzprüfung und Ausführung sind getrennt."
+    ),
+    AREAS[5]: (
+        "Von Handlung und Beobachtung zur unabhängigen Prüfung: VerifierResult beschreibt "
+        "das Urteil, Independent Verifier trägt die Verantwortung."
+    ),
+    AREAS[6]: (
+        "Von gesammelter Erfahrung zu einem möglichen Kandidaten: Training und "
+        "Zertifizierung liegen außerhalb des Mission Run und brauchen ein autorisiertes "
+        "künftiges Protokoll."
+    ),
+    "System und Forschungsprogramm": (
+        "Systemgrenze, Arbeitsfrage, Lesefaden und "
+        "Pilotentscheidung erklären den Kontext; sie belegen "
+        "keine neuen Forschungsergebnisse."
+    ),
+}
+
+
+def anatomy_directory(
+    catalog: ExplanationCatalog, atlas: Atlas, preferred: dict[str, PurePosixPath]
+) -> str:
+    groups = {
+        area: tuple(sorted(i for i, item in catalog.components.items() if item.area == area))
+        + ANATOMY_COUNTERPARTS[area]
+        for area in AREAS
+    }
+    groups["System und Forschungsprogramm"] = ANATOMY_COUNTERPARTS["System und Forschungsprogramm"]
+    identities = [i for values in groups.values() for i in values]
+    if len(identities) != len(set(identities)) or set(identities) != set(preferred):
+        raise ProjectionError("Agent Anatomy directory must cover each preferred identity once")
+    lines = [
+        "## Agent Anatomy Navigation",
+        "",
+        (
+            "Wähle einen Bereich der Illustration oder einen Lesebereich unten. Jede Zeile "
+            "öffnet die eine bevorzugte Identitätsseite. Diese Lesebereiche sind keine "
+            "technischen Eltern, Domains oder neuen Function-Mitgliedschaften."
+        ),
+        "",
+        " · ".join(f"[[#{area}|{area}]]" for area in groups),
+        "",
+    ]
+    for area, values in groups.items():
+        lines += [f"## {area}", "", ANATOMY_AREA_DESCRIPTIONS[area], ""]
+        if area in AREAS:
+            lines += [
+                f"[[Research Map/Guides/System Overview#{area}|Zusammenhang im System Overview]]",
+                "",
+            ]
+        for identity in values:
+            node = atlas.entities[identity]
+            lines += [
+                f"- [[{preferred[identity].with_suffix('')}|{node.name}]] "
+                f"— {node.type} · `{identity}`"
+            ]
+        lines += ["", f"[[{ANATOMY.with_suffix('')}|Zurück zu Agent Anatomy]]", ""]
+    lines += [
+        "Forschung lesen: [[Research Map/Guides/Scientific Experiment|Scientific Experiment]] · "
+        "[[Research Map/Guides/Experience to Knowledge|Experience to Knowledge]]. "
+        + (
+            "Quellen und Prüfungen stehen auf jeder Identitätsseite; die vollständige "
+            "technische Hierarchie und das Relationsregister bleiben separate Inspektionswege."
+        ),
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def anatomy_hub(body: str, atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
+    """Project navigation only; preserve illustration, geometry and semantic edges."""
+    match = re.search(r"(?ms)^## Drawing\n```json\n(.*?)\n```", body)
+    if match is None:
+        raise ProjectionError("Agent Anatomy drawing is missing")
+    scene = json.loads(match[1])
+    for item in scene["elements"]:
+        custom = item.get("customData", {})
+        identity = custom.get("landmark_identity")
+        link = item.get("link")
+        if identity is not None and (
+            identity not in preferred
+            or custom.get("landmark_type") != atlas.entities[identity].type
+            or not isinstance(link, str)
+            or link.split("|", 1)[0] != f"[[{preferred[identity].with_suffix('')}"
+        ):
+            raise ProjectionError("Agent Anatomy preferred landmark/type cannot be proven")
+        key = custom.get("functional_region") or custom.get("navigation")
+        if key == "identity-directory":
+            item["link"] = (
+                f"[[{ANATOMY_DIRECTORY.with_suffix('')}#Agent Anatomy Navigation|Alle Bereiche]]"
+            )
+        if key in ANATOMY_AREAS:
+            target = f"[[{ANATOMY_DIRECTORY.with_suffix('')}#{ANATOMY_AREAS[key]}|Bereich öffnen]]"
+            item["link"] = target
+            custom["navigation_target"] = target
+            if item["type"] == "text":
+                item.update(
+                    text="BEREICH ÖFFNEN  →",
+                    rawText="BEREICH ÖFFNEN  →",
+                    originalText="BEREICH ÖFFNEN  →",
+                )
+    # Regenerate both native caches from the same scene. Embedded-file bindings
+    # and all existing envelope/source/owner fields retain their exact bytes.
+    prefix, _, cache = body.partition("## Text Elements\n")
+    embedded = cache.split("## Embedded Files\n", 1)[1].split("## Drawing\n", 1)[0]
+    text = "## Text Elements\n\n" + "\n".join(
+        f"{item['rawText']} ^{item['id']}\n" for item in scene["elements"] if item["type"] == "text"
+    )
+    links = "\n## Element Links\n\n" + "\n".join(
+        f"{item['id']}: {item['link']}\n" for item in scene["elements"] if item.get("link")
+    )
+    fallback = [
+        "## Ohne Diagrammplugin",
+        "",
+        (
+            "Beginne mit einem Bereich. Beschriftungen öffnen einzelne Identitäten; Bereich "
+            "öffnen führt zu den zugehörigen Components und typisierten Gegenstücken. "
+            "Function-Titel beschreiben Beiträge, keine Elternschaft."
+        ),
+        "",
+    ]
+    fallback += [
+        f"- [[{ANATOMY_DIRECTORY.with_suffix('')}#{area}|{area}]] "
+        f"— {ANATOMY_AREA_DESCRIPTIONS[area]}"
+        for area in ANATOMY_COUNTERPARTS
+    ]
+    fallback += [
+        "",
+        f"[[{HOME.with_suffix('')}|Home]] · "
+        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Vollständige Hierarchie]] · "
+        f"[[{INTERACTION_MAP.with_suffix('')}|47 technische Relationen]]",
+        "",
+    ]
+    prefix = (
+        prefix.removesuffix("%%\n# Excalidraw Data\n\n")
+        + "\n".join(fallback)
+        + "\n%%\n# Excalidraw Data\n\n"
+    )
+    return (
+        prefix
+        + text
+        + links
+        + "\n## Embedded Files\n"
+        + embedded
+        + "## Drawing\n```json\n"
+        + json.dumps(scene, ensure_ascii=False, sort_keys=True, indent=2)
+        + "\n```\n%%\n"
+    )
 
 
 def interaction_map(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
@@ -778,7 +1029,201 @@ class ProductTree:
     routes: dict[PurePosixPath, PurePosixPath]
 
 
-def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
+def retired_graph_audit_owners(tree: ProductTree) -> dict[PurePosixPath, str]:
+    """Finite previous-product paths with a currently emitted audit replacement."""
+    return {
+        path: views.OWNER
+        for path, replacement in tree.routes.items()
+        if path.name == "Edge Audit.md"
+        and path.parent.parent == INTERNAL / "Graphs"
+        and replacement == PRODUCT / "Graphs" / (path.parent.name + ".md")
+        and tree.owners.get(replacement) == views.OWNER
+        and path not in tree.files
+    }
+
+
+def component_research_links(
+    atlas: Atlas,
+    reference: ReferenceIndex,
+    records: tuple[EpistemicRecord, ...],
+    locators: dict[str, PurePosixPath],
+) -> dict[PurePosixPath, str]:
+    """Final-product navigation to actual direct records, never a Finding preview.
+
+    Older reader/Graph projections remain unchanged. This uses the accepted
+    attachment resolver and literal record status, not ancestry or inferred relevance.
+    """
+    by_id = {r.wiki_id: r for r in records}
+    attachments = views.attachment_index(reference)
+    preferred = preferred_paths(atlas)
+    sections = {}
+    for identity, page in preferred.items():
+        if atlas.entities[identity].type != "Component":
+            continue
+        model = views.identity_page_model(atlas, reference, identity, attachments=attachments)
+        owners: dict[str, set[str]] = {}
+        for row in model.direct_attachments:
+            owners.setdefault(row.source_wiki_id, set()).add(row.originating_role)
+        if not owners:
+            continue
+        lines = ["### Declared Research records", ""]
+        for owner, roles in sorted(owners.items()):
+            record = by_id.get(owner)
+            if record is None:
+                raise ProjectionError("Declared Component research record is unavailable")
+            status = record.doc_type + " · " + record.document_maturity
+            if isinstance(record, Finding):
+                status += " · review " + record.review_state
+            if isinstance(record, ReadingNote):
+                status += " · " + record.reading_depth.replace("_", " ")
+                if record.version_read is not None:
+                    status += " · version read " + literal(record.version_read)
+            lines += [
+                "- "
+                + record_link(record, locators, page)
+                + " — "
+                + status
+                + "; "
+                + ", ".join(ROLE_LABELS[r] for r in sorted(roles))
+                + ".",
+            ]
+        sections[page] = "\n".join(lines) + "\n\n"
+    return sections
+
+
+def consolidate_graph_audits(
+    tree: ProductTree, *, research_links: dict[PurePosixPath, str] | None = None
+) -> ProductTree:
+    """Fold only the finite generated Component audits into their Graph guides.
+
+    The AP2 package remains a reproducible intermediate product. Graph proxies,
+    filters and scientific originals are untouched by this final presentation pass.
+    Ownership validation and retirement belong to the existing workspace pipeline.
+    """
+    files, owners, routes = dict(tree.files), dict(tree.owners), dict(tree.routes)
+    for page, section in (research_links or {}).items():
+        if owners.get(page) != views.OWNER:
+            raise ProjectionError("Component research navigation has no owned identity page")
+        text = utf8(files[page])
+        marker = "\n## Sources & verification\n"
+        if text.count(marker) != 1:
+            raise ProjectionError("Component reader source section is missing or ambiguous")
+        files[page] = text.replace(marker, "\n" + section + marker, 1).encode()
+    audits = {
+        path: PRODUCT / "Graphs" / (path.parent.name + ".md")
+        for path in files
+        if path.name == "Edge Audit.md" and path.parent.parent == INTERNAL / "Graphs"
+    }
+
+    def target(path: PurePosixPath, anchor: str) -> tuple[PurePosixPath, str]:
+        return audits[path], (
+            anchor + " audit" if anchor in MODES.values() else anchor or "Edge audits"
+        )
+
+    def rewrite(
+        data: bytes, source: PurePosixPath, destination: PurePosixPath | None = None
+    ) -> bytes:
+        destination = destination or source
+        text = utf8(data)
+
+        def wiki(match: re.Match) -> str:
+            route, delimiter, label = match[1].partition("|")
+            escaped = route.endswith("\\")
+            path, _, anchor = route.rstrip("\\").partition("#")
+            old = PurePosixPath(path) if path else source
+            if old.suffix != ".md":
+                old = PurePosixPath(str(old) + ".md")
+            if old not in audits:
+                return match[0]
+            new, anchor = target(old, anchor)
+            if not path.endswith(".md"):
+                new = new.with_suffix("")
+            delimiter = "\\|" if escaped else delimiter
+            return "[[" + str(new) + "#" + anchor + (delimiter + label if delimiter else "") + "]]"
+
+        def markdown(match: re.Match) -> str:
+            url = urlsplit(match[2])
+            if url.scheme or url.netloc:
+                return match[0]
+            old = (
+                PurePosixPath(posixpath.normpath(str(source.parent / unquote(url.path))))
+                if url.path
+                else source
+            )
+            if old not in audits and source == destination:
+                return match[0]
+            new, anchor = (
+                target(old, unquote(url.fragment))
+                if old in audits
+                else (old, unquote(url.fragment))
+            )
+            relative = posixpath.relpath(str(new), str(destination.parent))
+            suffix = ("?" + url.query if url.query else "") + (
+                "#" + quote(anchor) if anchor else ""
+            )
+            return match[1] + quote(relative, safe="/.") + suffix + ")"
+
+        text = re.sub(r"\[\[([^\]]+)\]\]", wiki, text)
+        text = re.sub(r"(\[[^\]\n]*\]\()([^\)\n]+)\)", markdown, text)
+        return text.encode()
+
+    for audit, guide in sorted(audits.items()):
+        if guide not in files or owners[audit] != views.OWNER or owners[guide] != views.OWNER:
+            raise ProjectionError("Graph audit has no same-owner guide replacement")
+        body = markdown_parts(utf8(rewrite(files[audit], audit, guide)))[1]
+        intro, separator, rest = body.partition("\n## Architecture\n")
+        if not separator:
+            raise ProjectionError("Graph audit mode sections are missing")
+        _, _, intro = intro.partition("\n")  # Title only; identity and mode contract remain.
+        sections = ["\n## Edge audits\n", intro]
+        remainder = "\n## Architecture\n" + rest
+        for title in MODES.values():
+            _, separator, remainder = remainder.partition("\n## " + title + "\n")
+            if not separator:
+                raise ProjectionError("Graph audit mode sections are missing")
+            content = remainder.split("\n## ", 1)[0]
+            sections += [
+                "\n## " + title + " audit\n",
+                "> [!info]- Complete "
+                + title
+                + " edge audit\n>\n"
+                + "\n".join("> " + line for line in content.splitlines()),
+            ]
+        files[guide] += ("\n".join(sections) + "\n").encode()
+        del files[audit], owners[audit]
+    for path, data in list(files.items()):
+        if path.suffix in {".md", ".canvas", ".base"}:
+            files[path] = rewrite(data, path)
+    routes = {
+        source: audits.get(destination, destination) for source, destination in routes.items()
+    }
+    routes.update(audits)  # Exact accepted-AP2 retired routes, never a wildcard alias.
+    files[LEDGER] = yaml_text(
+        dict(
+            migration_schema_version="1.0",
+            generated_by=views.OWNER,
+            routes={str(s): str(t) for s, t in sorted(routes.items())},
+        )
+    ).encode()
+    for owner, manifest in MANIFESTS.items():
+        metadata = read_yaml(utf8(files[manifest]))
+        metadata["owned_files"] = [
+            dict(path=str(path), **semantics.record(data, path, owner))
+            for path, data in sorted(files.items())
+            if owners[path] == owner and path != manifest
+        ]
+        files[manifest] = yaml_text(metadata).encode()
+    public.validate_portable_paths(files)
+    return ProductTree(files, owners, routes)
+
+
+def package(
+    atlas: Atlas,
+    technical: dict,
+    derived: dict,
+    *,
+    explanations: ExplanationCatalog | None = None,
+) -> ProductTree:
     """Inventory every old path before rendering; preserve all mode audit sections."""
     preferred = preferred_paths(atlas)
     old_pages = views.identity_page_paths(atlas)
@@ -1127,6 +1572,63 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
                 + f"\n[[{HOME.with_suffix('')}|Return Home]]\n"
             ).encode()
 
+        if node.type == "Component" and explanations is not None:
+            text = utf8(files[page])
+            before, technical_marker, rest = text.partition("## Technical\n")
+            old_technical, research_marker, research = rest.partition("## Research\n")
+            old_technical = old_technical.replace(
+                "No separate mechanism explanation is authored in this snapshot. "
+                "Inspect Sources & verification for detail.",
+                "The current source-backed mechanism is in Technical above.",
+            ).replace(
+                "No separate limitation statement is authored here; this does not "
+                "establish completeness.",
+                "The current source-backed limitations are in Technical above.",
+            )
+            if not technical_marker or not research_marker:
+                raise ProjectionError("Component reader sections are missing")
+            item = explanations.components[identity]
+            source_marker = "## Sources & verification\n"
+            source_panel = explanations.provenance(item.sources)
+            preserved = (
+                "\n> [!info]- Previous technical presentation / complete detail\n>\n"
+                + "\n".join("> " + line for line in old_technical.splitlines())
+            )
+            research = research.replace(
+                source_marker, source_marker + "\n" + source_panel + preserved + "\n\n", 1
+            )
+            files[page] = (
+                before
+                + component_technical(
+                    explanations, identity, atlas, preferred, INTERACTION_RELATIONS
+                )
+                + "\n## Research\n\n"
+                + item.research_relevance
+                + "\n\n"
+                + "[[Research Map/Views/Research Steering|Research Steering]] · "
+                "[[Research Map/Views/Literature Inspection|Literature Inspection]]\n\n" + research
+            ).encode()
+
+        if explanations is not None and identity in explanations.reference_slice:
+            files[page] = reference_page(
+                utf8(files[page]), identity, explanations, atlas, preferred
+            ).encode()
+
+        if explanations is not None and identity in explanations.page_bindings:
+            files[page] = typed_page(
+                utf8(files[page]), identity, explanations, atlas, preferred
+            ).encode()
+            files[page] = (
+                utf8(files[page])
+                .replace(
+                    f"[[{HOME.with_suffix('')}|Home]]",
+                    f"[[{HOME.with_suffix('')}|Home]] · "
+                    f"[[{ANATOMY.with_suffix('')}|Agent Anatomy]]",
+                    1,
+                )
+                .encode()
+            )
+
         if node.type in {"System", "Component"}:
             text = utf8(files[page])
             files[page] = text.replace(
@@ -1267,9 +1769,39 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "scientific records retain their exact authored routes.\n\n"
         "Generated pages are disposable; Git Registry and authored Research remain their "
         "respective authorities.\n\n"
-        "Internal storage has no landing page. Agent Anatomy and Evidence, Memory & Retrieval "
-        "are secondary diagrams.",
+        + (
+            (
+                "Internal storage has no landing page. Evidence, Memory & Retrieval remains a "
+                "scoped diagram."
+            )
+            if explanations is not None and explanations.page_bindings
+            else (
+                "Internal storage has no landing page. Agent Anatomy and Evidence, Memory & "
+                "Retrieval are secondary diagrams."
+            )
+        ),
     )
+    if explanations is not None:
+        for path, body in guide_pages(explanations, atlas, preferred).items():
+            add(path, body)
+        if explanations.page_bindings:
+            for path in files:
+                if path.parent == PRODUCT / "Guides":
+                    files[path] = (
+                        utf8(files[path])
+                        .replace(
+                            "[[Research Map Home|Home]]",
+                            "[[Research Map Home|Home]] · "
+                            f"[[{ANATOMY.with_suffix('')}|Agent Anatomy]]",
+                            1,
+                        )
+                        .encode()
+                    )
+            files[ANATOMY_DIRECTORY] += (
+                "\n" + anatomy_directory(explanations, atlas, preferred)
+            ).encode()
+            files[ANATOMY] = anatomy_hub(utf8(files[ANATOMY]), atlas, preferred).encode()
+
     home = [
         "# Research Map Home",
         "",
@@ -1280,6 +1812,47 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "Missing Research mappings imply no novelty, gap or completeness judgment.",
         "",
     ]
+    if explanations is not None:
+        home += [
+            "## Understand the Agent",
+            "",
+            *(
+                [
+                    f"**Primärer visueller Einstieg: [[{ANATOMY.with_suffix('')}|Agent Anatomy]]**",
+                    "",
+                    "Wähle einen Bereich der illustrierten Figur und öffne seine Identitäten. "
+                    f"Ohne Diagrammplugin: [[{ANATOMY_DIRECTORY.with_suffix('')}"
+                    "#Agent Anatomy Navigation|dieselben Lesebereiche als Markdown]].",
+                    "",
+                ]
+                if explanations.page_bindings
+                else []
+            ),
+            "[[Research Map/Guides/System Overview|System Overview]] · "
+            "[[Research Map/Guides/Experience to Knowledge|Experience to Knowledge]]",
+            "",
+            "Component routes below remain direct entry points.",
+            "",
+            "## Understand and review Research",
+            "",
+            "[[Research Map/Guides/Scientific Experiment|Scientific Experiment]] · "
+            "[[Research Map/Views/Research Steering|Research Steering]] · "
+            "[[Research Map/Views/Literature Inspection|Literature Inspection]]",
+            "",
+            "## Inspect sources",
+            "",
+            "Open a preferred Component page for source-backed mechanism, implementation "
+            "limits and collapsed complete provenance; use the existing technical diagrams "
+            "and linked ledger for exact structure and relations.",
+            "",
+        ]
+        if explanations.optional_essay is not None:
+            home += [
+                "Optionaler Lesepfad: "
+                "[[Research Map/Guides/Das Experiment verstehen|Das Experiment verstehen]] "
+                "— die zusammenhängende Geschichte hinter dem Aufbau.",
+                "",
+            ]
     system_paths = [p for i, p in preferred.items() if atlas.entities[i].type == "System"]
     home += ["## Start here", ""]
     home += [
@@ -1306,7 +1879,7 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
     home += [
         f"- [[{path.with_suffix('')}|{path.stem.removesuffix('.excalidraw')}]]"
         for path in (
-            PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md",
+            *([] if explanations is not None and explanations.page_bindings else [ANATOMY]),
             PRODUCT / "Diagrams/Evidence, Memory & Retrieval.excalidraw.md",
         )
     ]
@@ -1344,7 +1917,20 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         "",
     ]
     for kind in FAMILIES:
-        home += [f"> [!info]- {labels[kind]}", ">", f"> ## {labels[kind]}", ">"]
+        if explanations is not None and kind in {"Component", "Function"}:
+            # Home hash routes must land outside closed Obsidian disclosures.
+            home += [f"## {labels[kind]}", ""]
+            if kind == "Component":
+                home += [
+                    " · ".join(
+                        f"[[{preferred[i].with_suffix('')}|{atlas.entities[i].name}]]"
+                        for i in ("CMP-CORTEX", "CMP-MANAGER", "CMP-MEMORY", "CMP-MEM-RETRIEVAL")
+                    ),
+                    "",
+                ]
+            home += [f"> [!info]- Expand all {labels[kind].lower()} identities", ">"]
+        else:
+            home += [f"> [!info]- {labels[kind]}", ">", f"> ## {labels[kind]}", ">"]
         home += [
             f"> - [[{path.with_suffix('')}|{atlas.entities[i].name}]]"
             for i, path in preferred.items()
@@ -1353,6 +1939,45 @@ def package(atlas: Atlas, technical: dict, derived: dict) -> ProductTree:
         home.append("")
     properties = markdown_parts(utf8(files[HOME]))[0]
     files[HOME] = ("---\n" + yaml_text(properties) + "---\n" + "\n".join(home) + "\n").encode()
+
+    if explanations is not None:
+        for path, body in primary_pages(files).items():
+            files[path] = body.encode()
+        files.update(secondary_canvases(files))
+        for path, data in svg_assets(atlas).items():
+            files[path] = data
+            # SVG is the existing strict public presentation asset class. Keep
+            # the closed migration owner rule; no derived-owner SVG adoption.
+            owners[path] = public.OWNER
+
+    if explanations is not None and len(explanations.page_bindings) == 61:
+        # B3 adds exactly the four-page envelope proven in the manual native replay.
+        files[CANDIDATE_EXCALIDRAW] = managed_system_overview(atlas)
+        owners[CANDIDATE_EXCALIDRAW] = public.OWNER
+        files[CANDIDATE_DRAWIO] = managed_drawio(atlas)
+        owners[CANDIDATE_DRAWIO] = public.OWNER
+        drilldown = (
+            "\n\nErklärende Vertiefung: "
+            f"[[{CANDIDATE_EXCALIDRAW.with_suffix('')}|System Overview Diagramm]] · "
+            f"[[{CANDIDATE_DRAWIO}|Grounded Contract · vier Seiten]] · "
+            "[[Research Map/Guides/System Overview#Diagramm-Gegenstücke|"
+            "Ablauf und getrennte Identitäten ohne Plugins]].\n"
+        )
+        files[HOME] += drilldown.encode()
+        # Ordinary header navigation leaves every figure element and cache intact.
+        files[ANATOMY] = (
+            utf8(files[ANATOMY])
+            .replace("\n%%\n# Excalidraw Data", drilldown + "\n%%\n# Excalidraw Data", 1)
+            .encode()
+        )
+        overview = PRODUCT / "Guides/System Overview.md"
+        files[overview] += (drilldown + "\n" + candidate_navigation(atlas)).encode()
+        files[EXECUTION_FLOW] += (
+            f"\n\n[[{CANDIDATE_DRAWIO}|Grounded Contract · editierbare Vertiefung]] · "
+            "[[Research Map/Guides/System Overview#Diagramm-Gegenstücke|Getrennte Identitäten]] · "
+            "[[Research Map/Diagrams/Agent Anatomy.excalidraw|Zurück zum primären Hub]] · "
+            "[[Research Map Home|Home]].\n"
+        ).encode()
 
     # Atlas index paths are vault-relative final routes, never old-root-relative paths.
     index = INTERNAL / "Indexes/atlas-id-index.yaml"

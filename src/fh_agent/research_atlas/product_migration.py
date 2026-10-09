@@ -10,7 +10,16 @@ from . import historical_reference
 from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
-from .final_projection import LEDGER, MANIFESTS, ProductTree, package
+from .architecture_explanations import SOURCE, parse_explanations, validate_dependencies
+from .final_projection import (
+    LEDGER,
+    MANIFESTS,
+    ProductTree,
+    component_research_links,
+    consolidate_graph_audits,
+    package,
+    retired_graph_audit_owners,
+)
 from .preferred_paths import HOME, INTERNAL, PRODUCT
 from .private_projection import (
     ProjectionError,
@@ -32,6 +41,9 @@ ROOTS = (public.OWNED_ROOT, views.OWNED_ROOT, PRODUCT, INTERNAL)
 
 
 def _owner(data: bytes, path: PurePosixPath, expected: str) -> bool:
+    if semantics.classification(path) == semantics.Ownership.DRAWIO:
+        semantics.semantic_digest(data, path, expected)
+        return True
     if path.suffix == ".svg":
         return expected == public.OWNER
     if path.suffix == ".base":
@@ -145,6 +157,8 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
                 raise ProjectionError("Invalid owned digest")
             kind = semantics.classification(full)
             if legacy:
+                if kind == semantics.Ownership.DRAWIO:
+                    raise ProjectionError("No Drawio ownership in historical 1.0 manifests")
                 kind = (
                     semantics.Ownership.BASE
                     if full.suffix == ".base"
@@ -240,6 +254,8 @@ def build(repo: Path, vault: Path, commit: str) -> ProductTree:
     for filename in public.REGISTRY_FILES:
         no_symlink_boundary(repo / public.SOURCE_PATHS[0] / filename)
     atlas = load_registry(repo / "docs/research-atlas")
+    explanations = parse_explanations(views.source_bytes(repo, SOURCE), atlas)
+    validate_dependencies(explanations, repo)
     snapshot, locators, records = views.authored_snapshot(vault, atlas)
     reference = views.build_index(atlas, snapshot, commit)
     technical = public.projection_tree(
@@ -265,7 +281,10 @@ def build(repo: Path, vault: Path, commit: str) -> ProductTree:
         ),
         source_catalog=views.load_catalog(vault),
     )
-    return package(atlas, technical, derived)
+    return consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=explanations),
+        research_links=component_research_links(atlas, reference, records, locators),
+    )
 
 
 def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[PurePosixPath]]:
@@ -279,9 +298,11 @@ def preflight(repo: Path, vault: Path, commit: str) -> tuple[ProductTree, set[Pu
         raise ProjectionError("Unknown/unowned product destination; no adoption")
     prove_ownership(repo, vault, vault, prior)
     tree = build(repo, vault, commit)
-    # Exact current inventory is the finite ownership allowlist, not a namespace wildcard.
+    # Exact current output plus the reviewed previous-product retirement family;
+    # ownership was proved above. No namespace wildcard or unowned adoption.
+    allowed = tree.owners | retired_graph_audit_owners(tree)
     for path, row in current.items():
-        if path not in tree.files or tree.owners[path] != row["owner"]:
+        if allowed.get(path) != row["owner"]:
             raise ProjectionError("Ambiguous or invalid final ownership path")
     validate_portable_paths(tree.files.keys() | actual)
     # Also reject case/Unicode aliases in existing directory entries, including

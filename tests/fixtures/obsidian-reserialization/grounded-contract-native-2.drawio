@@ -1,0 +1,287 @@
+<mxfile host="127.0.0.1" compressed="false" pages="4">
+  <diagram id="1 · Vorschlag und Erlaubnis" name="1 · Vorschlag und Erlaubnis">
+    <mxGraphModel dx="886" dy="777" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <UserObject label="Cortex schlägt Ziel und Skill vor&#xa;Keine Eingabeberechtigung" identity="CMP-CORTEX" counterpart_ids="CMP-CORTEX" generated_by="public-research-atlas" source_repository="Planton361/autonomous-game-agent" diagram_schema="grounded-contract-1" source_qualification="Normative presentation; process arrows are not Registry relations; not implementation or scientific evidence" identity_type="Component" counterpart_types="Component" id="proposal">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="70" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager prüft Fähigkeit&#xa;Nur verfügbare Skills" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="validate">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="250" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Sichtbares Ziel eindeutig zuordnen&#xa;Bei Mehrdeutigkeit ablehnen" identity="CMP-MANAGER-GROUNDING" counterpart_ids="CMP-MANAGER-GROUNDING" identity_type="Component" counterpart_types="Component" id="ground">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="430" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager autorisiert Contract&#xa;Ziel, Grenzen, Ende" identity="CON-SKILL-CONTRACT" counterpart_ids="CON-SKILL-CONTRACT" identity_type="Contract" counterpart_types="Contract" id="authorize">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="610" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Ablehnung vor Contract&#xa;Kein neuer Auftrag, keine Eingabe" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="reject">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="250" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Zu Phase 2: Body-Ausführung&#xa;Nur wenn Contract aktiv" identity="CMP-BODY" counterpart_ids="CMP-BODY" identity_type="Component" counterpart_types="Component" id="handoff">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="610" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <mxCell id="edge-0" counterpart_ids="CON-PLANNER-OUTPUT" edge="1" parent="1" semantics="process" source="proposal" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="validate" value="PlannerOutput">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" edge="1" parent="1" semantics="process" source="validate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="ground" value="verfügbar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" edge="1" parent="1" semantics="process" source="ground" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="authorize" value="ausreichend belegt">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" edge="1" parent="1" semantics="process" source="validate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="reject" value="nicht verfügbar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" edge="1" parent="1" semantics="process" source="ground" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="reject" value="Ziel unklar">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" edge="1" parent="1" semantics="process" source="authorize" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="handoff" value="aktive Berechtigung">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="2 · Ausführung und Rückkehr" name="2 · Ausführung und Rückkehr">
+    <mxGraphModel dx="886" dy="777" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <UserObject label="Derselbe aktive Contract&#xa;Grenzen bleiben gültig" identity="CON-SKILL-CONTRACT" counterpart_ids="CON-SKILL-CONTRACT" generated_by="public-research-atlas" source_repository="Planton361/autonomous-game-agent" diagram_schema="grounded-contract-1" source_qualification="Normative presentation; process arrows are not Registry relations; not implementation or scientific evidence" identity_type="Contract" counterpart_types="Contract" id="contract">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="60" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Body / Bounded Reflex&#xa;Erlaubten Vorschlag erzeugen" identity="CMP-BODY" counterpart_ids="CMP-BODY CMP-BOUNDED-REFLEX" identity_type="Component" counterpart_types="Component Component" id="body">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="240" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Safety / Input prüfen&#xa;Fokus, Maske, Rate, Stop, Log" identity="CMP-INPUT-EXECUTOR" counterpart_ids="CMP-SAFETY-FILTER CMP-INPUT-EXECUTOR" identity_type="Component" counterpart_types="Component Component" id="input">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="420" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="GameInstance&#xa;Sichtbare Umgebungsreaktion" identity="ENV-GAME-INSTANCE" counterpart_ids="ENV-GAME-INSTANCE" identity_type="Environment" counterpart_types="Environment" id="game">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="600" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Neue Observation&#xa;Belege zur Reaktion" identity="DAT-OBSERVATION" counterpart_ids="DAT-OBSERVATION" identity_type="DataArtifact" counterpart_types="DataArtifact" id="obs">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="600" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Independent Verifier&#xa;Erfolg, Fortschritt, Fehler, abstain" identity="CMP-INDEPENDENT-VERIFIER" counterpart_ids="CMP-INDEPENDENT-VERIFIER" identity_type="Component" counterpart_types="Component" id="verify">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="420" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="VerifierResult&#xa;Ergebnis mit Belegreferenzen" identity="CON-VERIFIER-RESULT" counterpart_ids="CON-VERIFIER-RESULT" identity_type="Contract" counterpart_types="Contract" id="result">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="240" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager-Transition&#xa;Fortsetzen, Ende oder Phase 3" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="transition">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="60" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <mxCell id="edge-0" edge="1" parent="1" semantics="process" source="contract" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="body" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" edge="1" parent="1" semantics="process" source="body" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="input" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" edge="1" parent="1" semantics="process" source="input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="game" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" edge="1" parent="1" semantics="process" source="game" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="obs" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" edge="1" parent="1" semantics="process" source="obs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="verify" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" edge="1" parent="1" semantics="process" source="verify" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="result" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" edge="1" parent="1" semantics="process" source="result" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="transition" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-7" edge="1" parent="1" semantics="process" source="transition" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="contract" value="nur weiterhin gültig">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="3 · Ablehnung, Stop und Replan" name="3 · Ablehnung, Stop und Replan">
+    <mxGraphModel dx="886" dy="777" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <UserObject label="Ablehnung vor Contract&#xa;Noch kein neuer Versuch erlaubt" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" generated_by="public-research-atlas" source_repository="Planton361/autonomous-game-agent" diagram_schema="grounded-contract-1" source_qualification="Normative presentation; process arrows are not Registry relations; not implementation or scientific evidence" identity_type="Component" counterpart_types="Component" id="reject">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="70" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Ablehnung mit Belegen protokollieren&#xa;Keine neue Eingabe" identity="CMP-EVIDENCE-LEDGER" counterpart_ids="CMP-EVIDENCE-LEDGER" identity_type="Component" counterpart_types="Component" id="reject-log">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="260" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Aktiver Stop / Sicherheitsblock&#xa;Weitere Eingaben sofort hemmen" identity="CMP-SAFETY-FILTER" counterpart_ids="CMP-SAFETY-FILTER" identity_type="Component" counterpart_types="Component" id="stop">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="70" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager schließt / suspendiert&#xa;Aktuellen Contract beenden" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="close">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="260" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Frühere Schritte bleiben erhalten&#xa;Ausgeführte Aktionen + Belege" identity="CMP-EVIDENCE-LEDGER" counterpart_ids="CMP-EVIDENCE-LEDGER" identity_type="Component" counterpart_types="Component" id="history">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="450" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Bedingt neu planen&#xa;Nur bei erlaubter Fortsetzung" identity="CMP-CORTEX" counterpart_ids="CMP-CORTEX" identity_type="Component" counterpart_types="Component" id="replan">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="560" y="640" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Mission terminal? Stop&#xa;Keine Fortsetzung erzwingen" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="end">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="60" y="640" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <mxCell id="edge-0" edge="1" parent="1" semantics="process" source="reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="reject-log" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" edge="1" parent="1" semantics="process" source="stop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="close" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" edge="1" parent="1" semantics="process" source="close" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="history" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" edge="1" parent="1" semantics="process" source="history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="replan" value="nicht terminal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" edge="1" parent="1" semantics="process" source="history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="end" value="terminal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="4 · Registry: Source → Target" name="4 · Registry: Source → Target">
+    <mxGraphModel dx="1127" dy="989" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <UserObject label="Cortex" identity="CMP-CORTEX" counterpart_ids="CMP-CORTEX" generated_by="public-research-atlas" source_repository="Planton361/autonomous-game-agent" diagram_schema="grounded-contract-1" source_qualification="Normative presentation; process arrows are not Registry relations; not implementation or scientific evidence" identity_type="Component" counterpart_types="Component" id="s0">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="40" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Cortex to Manager" identity="IF-CORTEX-MANAGER" counterpart_ids="IF-CORTEX-MANAGER" identity_type="Interface" counterpart_types="Interface" id="t0">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="40" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="s1">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="185" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Cortex to Manager" identity="IF-CORTEX-MANAGER" counterpart_ids="IF-CORTEX-MANAGER" identity_type="Interface" counterpart_types="Interface" id="t1">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="185" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="s2">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="330" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="TaskSpec / bounded Skill Contract" identity="CON-SKILL-CONTRACT" counterpart_ids="CON-SKILL-CONTRACT" identity_type="Contract" counterpart_types="Contract" id="t2">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="330" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Body" identity="CMP-BODY" counterpart_ids="CMP-BODY" identity_type="Component" counterpart_types="Component" id="s3">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="475" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="TaskSpec / bounded Skill Contract" identity="CON-SKILL-CONTRACT" counterpart_ids="CON-SKILL-CONTRACT" identity_type="Contract" counterpart_types="Contract" id="t3">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="475" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="TaskSpec / bounded Skill Contract" identity="CON-SKILL-CONTRACT" counterpart_ids="CON-SKILL-CONTRACT" identity_type="Contract" counterpart_types="Contract" id="s4">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="620" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Body" identity="CMP-BODY" counterpart_ids="CMP-BODY" identity_type="Component" counterpart_types="Component" id="t4">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="620" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Independent Verifier" identity="CMP-INDEPENDENT-VERIFIER" counterpart_ids="CMP-INDEPENDENT-VERIFIER" identity_type="Component" counterpart_types="Component" id="s5">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="765" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="VerifierResult" identity="CON-VERIFIER-RESULT" counterpart_ids="CON-VERIFIER-RESULT" identity_type="Contract" counterpart_types="Contract" id="t5">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="765" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="Manager" identity="CMP-MANAGER" counterpart_ids="CMP-MANAGER" identity_type="Component" counterpart_types="Component" id="s6">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="40" y="910" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject label="VerifierResult" identity="CON-VERIFIER-RESULT" counterpart_ids="CON-VERIFIER-RESULT" identity_type="Contract" counterpart_types="Contract" id="t6">
+          <mxCell parent="1" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#EDF3FA;strokeColor=#426B86;fontColor=#21384B;fontSize=20;spacing=12;" vertex="1">
+            <mxGeometry height="100" width="360" x="580" y="910" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <mxCell id="edge-0" edge="1" parent="1" semantics="registry:CMP-CORTEX:supplies:IF-CORTEX-MANAGER" source="s0" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t0" value="supplies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1" edge="1" parent="1" semantics="registry:CMP-MANAGER:consumes:IF-CORTEX-MANAGER" source="s1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t1" value="consumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2" edge="1" parent="1" semantics="registry:CMP-MANAGER:supplies:CON-SKILL-CONTRACT" source="s2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t2" value="supplies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3" edge="1" parent="1" semantics="registry:CMP-BODY:executes:CON-SKILL-CONTRACT" source="s3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t3" value="executes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-4" edge="1" parent="1" semantics="registry:CON-SKILL-CONTRACT:constrains:CMP-BODY" source="s4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t4" value="constrains">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5" edge="1" parent="1" semantics="registry:CMP-INDEPENDENT-VERIFIER:supplies:CON-VERIFIER-RESULT" source="s5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t5" value="supplies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-6" edge="1" parent="1" semantics="registry:CMP-MANAGER:consumes:CON-VERIFIER-RESULT" source="s6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=0;endArrow=block;fontSize=17;labelBackgroundColor=#FFFFFF;strokeColor=#426B86;" target="t6" value="consumes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

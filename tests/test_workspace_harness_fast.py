@@ -1851,7 +1851,7 @@ def page(atlas: Atlas, identity: str) -> str:
     return views.render_identity_page(SOURCE_COMMIT, atlas, model(atlas, identity)).decode()
 
 
-def test_anatomy_component_landmarks_reach_preferred_pages_and_nested_graph(atlas):
+def test_anatomy_typed_landmarks_reach_preferred_pages_and_nested_graph(atlas):
     from test_agent_anatomy import scene, technical_edges
 
     from fh_agent.research_atlas.anatomy import ANATOMY_REGIONS, BETWEEN_RUN_RELATION_KEYS
@@ -1880,14 +1880,10 @@ def test_anatomy_component_landmarks_reach_preferred_pages_and_nested_graph(atla
         )
         for item in (label, marker):
             projected = private_by_id[item["id"]]
-            if node.type == "Component":
-                assert item["link"] == note_link(node)
-                alias = note_link(node).partition("|")[2]
-                target = (views.OWNED_ROOT / preferred[identity]).with_suffix("")
-                assert projected["link"] == f"[[{target}|{alias}"
-            else:
-                assert item["link"] is None
-                assert projected["link"] is None
+            assert item["link"] == note_link(node)
+            alias = note_link(node).partition("|")[2]
+            target = (views.OWNED_ROOT / preferred[identity]).with_suffix("")
+            assert projected["link"] == f"[[{target}|{alias}"
             assert projected["customData"] == item["customData"]
         assert private_by_id[label["id"]]["text"] == label["text"]
 

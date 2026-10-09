@@ -28,19 +28,28 @@ Research Map/
     Research Steering.md
     Literature Inspection.md
     Graphs.md
-  Graphs/<CMP-ID>.md
+  Graphs/<CMP-ID>.md           # profiles and collapsed complete per-mode Edge Audits
   Diagrams/
     Architecture Tree.md
     Architecture Tree.canvas
-    Execution Flow.md           # Ablaufdiagramm: entry + Markdown fallback
-    Execution Flow.canvas       # primary control lifecycle
-    Interaction Map.md          # entry + complete linked relation ledger
-    Interaction Map.canvas      # primary typed technical interactions
+    Execution Flow.md           # primary Mermaid sequence + separate recovery paths
+    Execution Flow.canvas       # secondary historical control lifecycle
+    Interaction Map.md          # SVG mechanisms + complete linked relation ledger
+    Interaction Map.canvas      # secondary full typed technical projection
+    System Overview.svg
+    Architecture Tree.svg       # pinned single-root reference; Canvas for pan/zoom
+    Interaction Map.svg
+    Experience to Knowledge.svg
+    Scientific Experiment.svg
     Agent Anatomy.excalidraw.md
     Evidence, Memory & Retrieval.excalidraw.md
     Technical Relations/      # seven native Canvas endpoints
   Tables/                     # three Bases
-  Guides/Using the Research Map.md
+  Guides/
+    Using the Research Map.md
+    System Overview.md
+    Experience to Knowledge.md
+    Scientific Experiment.md
 _Research Map Internals/
   Registry/Records/
   Registry/Evidence/
@@ -52,7 +61,6 @@ _Research Map Internals/
     Declared References.md
     Source Details.md
   Graphs/<CMP-ID>/
-    Edge Audit.md
     Architecture/Nodes/
     Knowledge Detail/Nodes/
     Questions/Nodes/
@@ -78,7 +86,8 @@ Preferred technical pages share Home, Technical / Research / Sources navigation,
 state and limitations, typed content, compact verification, collapsed complete
 audits and return navigation. Retired Technical Detail Markdown and Hub auxiliary
 content is retained in collapsed preferred-page audits. Raw Registry pages are
-internal inspection surfaces. Agent Anatomy and the Domain diagram are secondary.
+internal inspection surfaces. Agent Anatomy is the primary visual navigation hub;
+the Domain diagram remains a scoped secondary view.
 Markdown readers and mode-specific audits remain usable without rich plugins.
 
 Home presents task-oriented entry points before collapsed complete identity
@@ -106,13 +115,165 @@ project Decisions have separate routes. Private RQ masters remain editable at
 their authored locations. Every other private scientific class retains its exact
 authored preferred page; no generic generated scientific-reader family exists.
 
-Each Component has one Graph guide and one Edge Audit. Architecture, Knowledge
+Each Component has one Graph guide with complete Edge Audit sections. Architecture, Knowledge
 Detail and Questions have distinct sections and proxy directories. Audit identity
 is `(Component, mode, directed pair)`. Every origin, node, detail-only endpoint,
 inspection route and sparse-state diagnostic survives consolidation. Filters
 select only the corresponding internal proxy folders, never guides or audits.
 
-## Canvas-first architecture diagrams
+## AP1 explanatory content checkpoint (#170)
+
+The supported Workspace build reads `architecture_explanations.yaml`, a typed,
+presentation-only source outside Registry. It supplies all 28 existing Component
+mechanisms and limitations, plus the three Guides above. System Overview has seven
+functional sections, not new identities or parents. Component pages retain the
+existing Research sections and complete audits through collapsed disclosure.
+Home adds Agent, Research and source routes; diagrams and Graphs remain unchanged.
+
+Source locators pin the inspected base revision and supporting file fingerprints.
+Changed supporting code, tests, canonical/overlay or Registry inputs stop generation
+for content review; unrelated commits do not force a source-revision rewrite.
+The explanation source is **pending CONTROL content review**, not automatically
+approved. Review the exact-head Draft PR before AP2. Test locators identify inspected
+source; they do not claim new runtime/scientific validation.
+
+Empty-private AP1 output is **529 files**: the previous 526 plus three Guides.
+Only 28 Component pages, Home and the derived manifest change; the remaining 496
+existing files and every preferred identity route retain their bytes/paths.
+Synthetic source/link/determinism evidence is distinct from later native Obsidian
+acceptance and separately authorized actual-Vault rollout.
+
+## AP2 diagrams and reader navigation (#170)
+
+AP1 was accepted at `e133d5377f9e21d4bc26264cc3f452760dcf5747`;
+[AP2 CONTROL contract](https://github.com/Planton361/autonomous-game-agent/pull/171#issuecomment-6066231998)
+authorizes this presentation checkpoint only. Home retains Agent, Research and
+source/evidence routes plus direct Component entry. All 28 preferred Component
+pages and the accepted explanation source remain byte-identical at the same inputs.
+Guide prose/source locators remain intact; diagram captions and ordinary Markdown
+routes precede them. Native acceptance and actual-Vault rollout remain separate.
+
+| Role | Primary reading surface | Semantic boundary |
+| --- | --- | --- |
+| System Overview | SVG in its Guide | Closed normative loop, VerifierResult to Manager, separate retrieval; conditional replan versus continuing a valid contract |
+| Architecture Tree | Graphviz SVG in existing page; secondary Canvas pan/zoom | One System, 28 unique Components, 28 real containment edges; complete linked Markdown hierarchy for navigation; historical Canvas repeats the root in branch-local panels |
+| Execution Flow | Five sections, nine narrow Mermaid blocks in existing page | Main sequence, continue, stop, replan and restart; complete source-backed Markdown fallback |
+| Interaction Map | Three SVG mechanism panels in existing page | 14 exact selected triples; unchanged complete 47-row directed typed linked ledger |
+| Experience to Knowledge | SVG in its Guide | Knowledge revision, same-run episode continuity, separately authorized between-run learning; admission design-open |
+| Scientific Experiment | SVG in its Guide | Nested Mission Run / Life Episode / Contract / primitive units, separate cohorts, frozen identity and provenance |
+
+Exactly five new SVG outputs are emitted under `Research Map/Diagrams/`; strict
+byte ownership under the existing public SVG asset class and existing recovery
+rules apply. The empty-private product grows
+**529 → 534 files**: five additions, thirteen changed existing outputs (Home, Using
+guide, three explanatory Guides, three diagram entry pages, three Canvas captions,
+both owner manifests), no deletions; **516 existing outputs remain byte-identical**.
+All routes, Registry triples, private scientific originals, Graph proxies and
+technical/source audits stay intact at this historical AP2 checkpoint. AP3 below
+consolidates the standalone Component Edge Audits.
+
+Rendering uses Phase-D's blue/green/orange/purple palette, Arial/sans-serif and
+opaque light backgrounds for light/dark contrast. Four diagrams use the pure
+`diagram_svg` renderer v1 at 960px width with 17px minimum text; the wide hierarchy
+is a structural reference, never an obligatory Home thumbnail. Native SVG
+enlargement has not been verified. Open the secondary historical Architecture
+Tree Canvas to pan/zoom through branch details, or use the complete linked Markdown
+hierarchy. The Canvas's branch-local root occurrences do not replace the accurate
+single-root SVG. Its pinned
+Graphviz 13.1.0 render was built using temporary `@hpcc-js/wasm-graphviz` 1.9.0;
+no runtime dependency was added. Reproduce the input with
+`diagram_svg.architecture_dot(atlas)`, then `Graphviz.dot(input)` using that version.
+`graphviz_tree.py` records the exact DOT hash and SVG bytes; changed topology,
+labels or status fail closed for re-render/review rather than silently emitting a
+stale diagram. Accessibility/provenance headers are deterministic postprocessing.
+
+The bounded AP4 repair exposes unique plain Home `Components` and `Functions`
+headings outside collapsed inventory disclosures, with four visible Component
+shortcuts and the complete expandable identity lists. Stop/rejection and restart
+each use three small top-down diagrams under their existing sections; full safety,
+continuity, terminal and learning qualifiers remain beside the diagrams and in the
+unchanged source-backed fallback. At identical empty or synthetic-authoring input,
+only Home, Architecture Tree, Execution Flow, Using the Research Map and the derived
+owner manifest change: five existing outputs, no additions or retirements. All other
+AP1–AP3 output bytes, routes and ownership classes remain intact. These source
+repairs require independent native AP4 replay at actual 1280×800 and 1024×768
+window bounds, sidebar open, Reading View and Live Preview; they do not declare
+AP4 acceptance.
+
+All three Canvas views remain secondary and link back to their primary page;
+caption height changes add space, with graph nodes/edges otherwise preserved.
+SVG-internal links are not required: preferred identity links, complete Markdown
+tree/ledger and the execution fallback remain normal Obsidian routes. Static SVG
+renders and geometry checks do not establish native Obsidian G6 or comprehension.
+
+## AP3 finite consolidation and scientific authoring (#170)
+
+AP2 is accepted at `0299b89f036e6864199ff2d28c144f0231bae692`.
+[AP3 CONTROL contract](https://github.com/Planton361/autonomous-game-agent/pull/171#issuecomment-6066990306)
+authorizes only repository implementation and disposable synthetic fixtures.
+The supported Workspace build applies a pure consolidation pass to the reproducible
+AP2 intermediate package. The finite retain/retire decision is:
+
+| Generated family | Disposition | Concrete consumer / preservation reason |
+| --- | --- | --- |
+| `_Research Map Internals/Graphs/<CMP-ID>/Edge Audit.md` (28) | Retire standalone files | Every mode's node inventory, directed pair, typed origin, detail endpoint, inspection link and diagnostic moves into the existing `Research Map/Graphs/<CMP-ID>.md` under `Architecture audit`, `Knowledge Detail audit`, `Questions audit`. |
+| Component Graph guides (28) / shared instructions | Retain, consolidate audits | Existing profile headings, exact filters and manual activation remain. Identical instructions were already factored; complete audits now use collapsed disclosures on the same page. |
+| Mode-specific Graph proxies (234 in empty fixture) | Retain unchanged | Native filters select separate folders; populated modes have different nodes/edges. Preferred pages contain navigation links that would pollute filtered topology. Empty-fixture identity repetition does not prove interchangeable modes. |
+| Declared References / Source Details audits and three indexes | Retain information; rewire affected audit links | Typed resolution, provenance/version history, unresolved declarations and source warnings are unique inspection/recovery inputs. The technical interaction ledger cannot replace them. |
+| Three secondary AP2 Canvas views | Retain unchanged | Clickable identity cards, full typed interactions and detailed control gates remain secondary inspection routes; equivalence of those reader tasks to static primary assets is unproven. |
+| Seven Technical Relations Canvas views | Retain unchanged | Endpoint-specific typed relations and preferred identity inspection are distinct from the compact mechanism panels. |
+| Two Excalidraw views and Anatomy illustration | Retain unchanged | Selective Anatomy / Domain context and existing plugin/source inspection routes remain; removal would break those consumers without an equivalent tested replacement. |
+
+At identical empty-private inputs the final product is **534 → 506 files**:
+28 retired audit paths, zero additions, 58 changed existing outputs (28 Graph
+guides, 28 Component inspection-link updates, derived-owner manifest and route
+ledger), **448 byte-identical retained outputs**. AP1 explanation text, source
+references and identity paths remain; AP2 diagrams, Guides and the complete
+47-relation ledger are byte-identical. Both logical owners and ownership classes
+are unchanged. Every old generated audit link is rewritten to a resolving guide
+anchor, including rebased relative links. The route ledger records the exact
+retired final paths as well as legacy input routes; it is migration metadata,
+not a redirect file or an automatic repair of authored links.
+
+Only those finite retired paths are added to preflight/recovery's previous-output
+allowlist, with the original owner. Manifest/hash proof still precedes backup or
+mutation; edited, owner-lost, unowned, colliding and symlinked content fails closed.
+Replacements are verified before retirement. External receipts retain exact old
+bytes, including all 28 audits, and restore them without touching authored input.
+Checks remain zero-write; repeated apply retains identical generated bytes and
+the existing external-backup behavior. No `.obsidian` settings change.
+
+Component Research now links each actual direct RA-2 attachment once by authored
+identity, with literal type/maturity, Finding review state and ReadingNote read
+version. It uses the existing attachment resolver; ancestry/adjacency does not
+invent mappings. Rich Finding eligibility, schema and scientific acceptance gates
+remain unchanged. Empty-private pages receive no fictional research records.
+
+`test_ap3_synthetic_scientific_authoring_navigation_and_regeneration` demonstrates
+one fictional SourceFamily/version with URL, page 4 / Methods locator, one Paper,
+one draft ReadingNote and one draft/unverified Finding, each authored once. The
+note/finding explicitly map to Memory Retrieval and Temporal State; one in-review
+0.3 ResearchQuestion declares those two subjects and one literature row. Component
+Research, Research Steering, Literature Inspection and the question reader resolve
+the same originals. Finding prose is not promoted; no reviewed conclusion means
+the current gap state is unavailable. Regeneration, zero-write check, retirement,
+exact recovery and later authored-body edits preserve the originals. This is
+navigation/integrity evidence, not actual literature or scientific results.
+This populated fixture is **549 → 521 files**, zero additions, the same 28
+retirements, 59 changed outputs (the empty-fixture set plus Source Details audit
+link updates), and 462 byte-identical retained outputs. The two explicitly mapped
+Component pages additionally expose the compact authored-record links; other
+Components acquire no synthetic research association.
+
+Native Obsidian disclosure/readability and independent acceptance remain AP4.
+Any authored hard-path links to retired audits need a separately authorized rollout
+inventory; AP3 does not inspect or rewrite real authored links, receipts or Vault
+content. No actual-Vault apply/check/recover or merge is authorized here.
+
+## Historical Canvas-first architecture diagrams
+
+The following records the #168 presentation checkpoint. AP2 above supersedes its
+primary-reader navigation; these Canvas artifacts now remain secondary.
 
 Issue #168 upgrades all three primary visuals to native Obsidian Canvas in
 `Research Map/Diagrams/`. Home's **Start here** and **Using the Research Map**
@@ -136,7 +297,7 @@ are shape previews. No community plugin is required.
   responsibility and verification detail. Identities with no selected declaration
   appear as explicitly unconnected context; no link is inferred from shared data.
 
-Empty-private synthetic output is **526 files**. This adds two Canvas files and
+Pre-AP1 empty-private synthetic output is **526 files**. This adds two Canvas files and
 changes only the three diagram entry pages, Architecture Tree Canvas, Home, guide
 and derived manifest. All existing identity pages/routes and unrelated generated
 artifacts remain unchanged. The new files use existing `research-wiki-derived`
@@ -433,3 +594,481 @@ Presentation repairs change generated bytes. A previous actual-vault apply/check
 does not certify the repaired head; do not apply it until CONTROL reviews that exact
 head. The Ablaufdiagramm and Interaction Map are the bounded #164/#166 Deliveries
 described above. No actual-vault rollout is authorized by these diagram changes.
+
+## Bounded explainability reference slice (#170)
+
+The [controlling amendment](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6070709383)
+authorizes eight existing preferred pages only: Cortex, Manager, Memory,
+Observation, TaskSpec / bounded Skill Contract, VerifierResult, Cortex to Manager,
+and Executive Control. The same `architecture_explanations.yaml` now carries
+`reference_slice` prose and the optional `Das Experiment verstehen` essay. It
+retains the original 28 Component explanations and three Guide texts. Each local
+German How-it-works section has a validated 300-word maximum, followed by separate
+Soll / Ist / Grenzen, an example, exact normative/code/test locators and previous
+code detail. Presentation review remains a human checkpoint, not scientific acceptance.
+
+The optional Home-linked essay introduces all 28 Components through preferred
+identity links. It distinguishes A/B research intent, the normative closed cycle,
+actual bounded implementation, Life Episode versus Mission Run, and future
+between-Mission-Run training. Consolidation and Admission remain open.
+
+At identical empty synthetic inputs against `f7860e2540cfb226451720aff970028e6db76ddb`:
+**506 → 507** production files, one additional essay, no retirements, ten changed
+retained files (eight preferred pages, Home, derived manifest), **496 unchanged**.
+Routes, existing owners, all other 25 Component pages, the three original Guides,
+five SVGs, secondary Canvases, graph proxies/audits and complete 47-row ledger stay
+byte-identical. Historical AP1–AP4 regression fixtures retain their exact pre-slice
+presentation input; separate current-source tests verify this slice and synthetic
+apply/check/idempotence/recovery. Migration and recovery implementation are unchanged.
+
+### Isolated editable candidates; no production adoption
+
+`reference_prototypes.prototype_files(atlas)` deterministically returns only:
+
+- `Research Map/Diagrams/System Overview Prototype.excalidraw.md`
+- `Research Map/Diagrams/Grounded Contract Prototype.drawio`
+- `Research Map/Diagrams/Reference Slice Prototypes.md` (embedding/link/fallback companion)
+
+These files have **no production owner**, are not emitted by `workspace apply`,
+and remain isolated prototypes pending review and native visual acceptance. The
+Excalidraw process includes GameInstance, a new Observation, independent
+VerifierResult, Manager transition, continuation through the SAME active Contract,
+and close/suspend before conditional replan. Retrieval is a separate information
+path. Drawio separates authorization, execution/return, rejection/stop/replan and
+an explicitly separate Registry inspection page. Its seven triples are an exact
+declared subset; `consumes` points actor → payload. Process arrows add no triples.
+The companion links the unchanged SVG, Markdown execution fallback and full ledger.
+
+For reproducible isolated export (public Registry only; output must be a separate
+synthetic preview, never the actual private Vault):
+
+```python
+from pathlib import Path
+from fh_agent.research_atlas.reference_prototypes import prototype_files
+from fh_agent.research_atlas.validator import load_registry
+
+atlas = load_registry(Path("docs/research-atlas"))
+preview = Path("/tmp/aga170-isolated-prototypes")
+for relative, data in prototype_files(atlas).items():
+    destination = preview / relative
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(data)
+```
+
+### Reproducibility pins and observed native boundary
+
+Only the disposable non-Sync `/tmp/aga170-slice-preview` received plugin files and
+preview-local `.obsidian` settings. Obsidian desktop **1.14.4** displayed both exact
+installed versions. Optional Excalidraw AI was disabled; no script-store, library,
+AI or online-editor workflow was invoked. Plugin auto-update checking was off.
+The Drawio configuration used `drawioMode: offline` and the release offline bundle.
+
+Downloaded artifacts, verified against GitHub release asset SHA-256 digests:
+
+| Official release | Artifact | SHA-256 |
+| --- | --- | --- |
+| [Excalidraw 2.28.1](https://github.com/zsviczian/obsidian-excalidraw-plugin/releases/tag/2.28.1) | `main.js` | `4cd3e55a4e6af8ad9835d77eaefb7cfeaaa0bb415d78f6ea9f8ad42970f9285f` |
+| same | `manifest.json` | `15dd0e8af2427f81ea401bf21639cef67e4507e3fc2d981213103dd1accf0522` |
+| same | `styles.css` | `173e9c161a01c53b3c173344e023de4d327fd0658e476961b46b0e6a93117ded` |
+| [Drawio 0.7.1, doge-liang](https://github.com/doge-liang/obsidian-drawio/releases/tag/0.7.1) | `drawio-editor-0.7.1-offline.zip` | `75e619d740a7067699bf04f2fb6f75a775fe34d2adda005c16374903c228e584` |
+
+Actual writer-operated native actions: both files opened with their pinned plugins;
+Excalidraw's zoom indicator changed **54% → 59%**. A disposable text insertion
+persisted in the Excalidraw file despite a clipboard acknowledgment timeout and
+was present after reopening and in the native embedding.
+Drawio rendered all four page tabs through **`127.0.0.1:3001`**, accepted a native
+cell-text edit, saved it, and showed that text after reopening. Its Cortex link
+opened the preferred `Research Map/Components/Cortex.md` in Live Preview. Both
+embeddings and the SVG fallback were exposed in Reading View and Live Preview;
+an Excalidraw embedded link opened Cortex in Reading View. Local
+file readback confirms the changes. The local server is observable; complete
+external-network absence was not measured and is not claimed.
+
+Roundtrip observations concern the disposable trial copies, which retain the
+native edit markers separately from pristine deterministic exports. A subsequent
+Excalidraw title-size/routing-caption refinement passed static geometry checks;
+that final typography has not received renewed native visual acceptance.
+
+**Native visual acceptance remains incomplete:** ScreenCaptureKit returned
+`SCStreamErrorDomain -3811` when taking a screenshot. Accessibility observations
+and file readback do not establish glyph/label/arrow legibility or absence of
+clipping. Pan, Excalidraw editor-link activation, Drawio zoom, visual inspection of
+embedded figures in both modes, light/dark comparison, and measured approximate
+1280×800 / 1024×769 windows remain open unless individually recorded later.
+No novice-reader study or independent native acceptance is claimed. These gates
+must not become PASS from static geometry or successful file loading alone.
+
+## Package A: all preferred typed explanations (#170)
+
+[Program Owner Package-A contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6071785139)
+authorizes this content/template checkpoint on the existing branch and Draft PR
+#171, starting at `9fb0c035b6fb532d9eea67caf19a3aac97af128f`. It does not
+release the later Agent Anatomy hub design, any retirement, merge or Vault rollout.
+
+The same `architecture_explanations.yaml` now binds all **61** preferred identities
+by exact Registry type and existing path. `typed_explanations` adds **53** German
+narratives (25 Components, 28 other typed identities); `reference_slice` retains
+all eight accepted narratives and their Soll/Ist/example/source content. The
+original AP1 detail remains inspectable, and the optional `Das Experiment
+verstehen` Guide and its three companion Guides retain their bytes.
+
+Each primary Technical section has identity/type/position/Registry status, short
+purpose, **How it works** for responsibilities or **What this record means** for
+typed records, inputs and resulting use, source-backed direct relationship reasons,
+true children for System/Component, Soll/Ist/open limits, one illustrative example
+and exact source links. The Research Thread also exposes its twelve unchanged
+ordered preferred references. Existing Research, source audits and scientific
+attachments remain byte-identical. Prior technical presentation remains in a
+collapsed inspection block; the five accepted non-Component examples no longer
+claim that no limitation statement exists.
+
+There are **115** explained existing preferred-to-preferred Registry rows: 47
+selected directed technical relations, 28 real `part_of` edges, 26 Function
+memberships, three `measured_at` anchors, four question mappings and seven pilot
+Decision support rows. These reasons are presentation content, not new Registry
+triples. Domains and evidence retain their existing audit routes and no new
+preferred pages. A MeasurementPoint is an observation anchor, not a result;
+Function membership is not ancestry; a question, thread or Decision does not
+execute a mechanism. No scientific or implementation status is promoted.
+
+Same-input empty synthetic generation at fixed provenance revision
+`9fb0c035b6fb532d9eea67caf19a3aac97af128f` retains **507 → 507** paths:
+**62 changed** (61 preferred pages and the existing derived-owner manifest),
+**445 byte-identical**, zero added/removed. Total output bytes are
+**2,883,867 → 3,486,767** (+602,900); the 75,299-byte derived manifest changes
+hashes, not size or owners. Routes and all ownership classes remain unchanged.
+All 61 primary narratives are **124–167 words** after resolving links to titles;
+the accepted eight are 140–167 and the 53 additions 124–153. Generation rejects
+incomplete/wrong bindings, missing/invented/reversed/duplicate relation rows,
+missing source boundaries and prose exceeding 300 words.
+
+All 99 locators retain exact file hashes and symbol/heading lines. Runtime and
+normative references point to inspected merged
+`main@a1aca251a1c5b868eb20b5f2e26f59a3b5d3d6df`. Two new Atlas test references
+explicitly pin `9fb0c035b6fb532d9eea67caf19a3aac97af128f`: accepted AP1/AP2
+import-list changes make those whole-file bytes different from main. This per-source
+revision is presentation provenance, not a change to research authoring schemas.
+Historical AP1–AP4 and reference-slice tests use their immutable accepted
+presentation inputs; Package-A tests exercise current production input separately.
+CI selection, parallelism, coverage and 120,000ms gates are unchanged.
+
+**Binding protection:** Agent Anatomy is `KEEP_PRIMARY / FUTURE_PRIMARY_VISUAL_NAV_HUB`.
+Its Excalidraw file, Hero SVG, source illustration, metadata, embedded-file bindings,
+links and generated dependencies remain unchanged. All other diagrams, Canvas
+views, Graph proxies and migration/recovery behavior remain unchanged. The new
+safe-deletion allowlist remains `[]`; the historical AP3 retirement is not undone.
+
+Source/CI checks are technical evidence. Package A performs no native Obsidian
+visual/comprehension acceptance, novice-reader study, plugin integration or actual
+private-Vault operation. Previous unresolved native gates remain unresolved. Exact
+coverage, generated per-path byte/hash/owner delta, representative prose and actual
+check/CI results are recorded in the existing Draft PR. Stop at the CONTROL
+source/content checkpoint before any further package.
+
+## B1: Agent Anatomy primary navigation hub (#170)
+
+The [B1 contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6072169503)
+accepts Package A at `5acdfeba30e22c7a5c0ef6691f6624d6efd48c53` and authorizes
+this navigation-only successor on the same branch and Draft PR. The Package-A
+figures above describe its historical delta, not the B1 delta below.
+
+Home retains the three Agent / Research / source routes and prominently opens
+**Agent Anatomy** under Understand the Agent. The existing illustration remains
+2100×1270; all prior element coordinates, sizes, fonts, shapes, arrows and the
+Hero asset retain their original geometry. One readable directory link is added
+beside Home. Every named landmark now has a native identity link: **34 labels**
+(25 existing region/workshop landmarks, System and eight Function titles), with
+Contracts, DataArtifacts and the three between-run stages linked explicitly.
+Function headings open functional identities, not technical parents. The seven
+region hotspots/actions and the workshop action open ordinary guide sections.
+
+Progressive navigation uses **Using the Research Map**, not seven new technical
+pages. Its seven accepted explanatory areas list all 28 Components using the
+unchanged presentation-source assignments and their nearby typed counterparts.
+A separate System/program section lists the System, working question, Thread
+and pilot Decision. Each of the **61 identities appears exactly once** in this
+directory with its actual type and existing preferred path. Region descriptions
+explain the reader task. VerifierResult and Independent Verifier have separate
+links; Body / Reflex and SafetyFilter / InputExecutor remain distinct labels.
+These reading assignments do not add Registry relations or Domain ancestry.
+
+The diagram's ordinary Markdown fallback reaches the same sections without the
+plugin. Every preferred identity and all five existing reader guides return to
+Anatomy. The 61 accepted explanations, Research sections, audits and source pins
+retain their bytes; the only identity-page mutation is a navigation link. The
+full true hierarchy, 47 directed technical rows and science/source routes remain
+separate inspection surfaces. Independent verification, the optional bridge and
+frozen in-run Body / authorized future between-run learning remain qualified.
+
+Same-input empty synthetic generation, fixed provenance at the accepted Package-A
+SHA, retains **507 → 507** paths, zero additions/removals and identical owner/route
+maps. **70 changed**: Anatomy, Home, 61 preferred identities, five existing
+guides and two existing manifests. **437 byte-identical**, including Hero SVG,
+source illustration, all other diagrams/Canvas/SVGs, Graph proxies, ledgers and
+indexes. Total bytes: **3,486,767 → 3,513,810** (+27,043). Two changed files retain
+owner `public-research-atlas` (Anatomy and its manifest); 68 retain
+`research-wiki-derived`. Anatomy retains Excalidraw semantic ownership and the
+same Hero file ID, source SHA-256, embedded-file binding and image bytes. Its
+source-record digest and manifest hashes are regenerated, not misreported as
+the old diagram's digest. Recovery tests upgrade a synthetic accepted-A product
+and restore its exact prior bytes; edits to links, geometry, image content or
+qualification text fail before mutation. The new safe-deletion allowlist is `[]`.
+
+Static before/after scene previews compare identical effective content viewports
+of 1020×720 and 764×689 (illustrative sidebar/toolbar deductions from the requested
+approximate windows), at identical fit scales. They use a plain SVG approximation
+of the Excalidraw scene, not native plugin rendering. Fit-to-screen retains the
+overview's small labels; no font/readability or native zoom improvement is claimed.
+The narrower view needs detail zoom or the Markdown directory to read fine labels.
+
+**Native B1 validation: BLOCKED.** The existing isolated non-Sync Mac preview
+responded to Home navigation before the B1 candidate was installed. Opening its
+old Anatomy then made the computer-use service fail with ScreenCaptureKit
+`SCStreamErrorDomain -3812` / tool error `-10005`; the next observation failed
+identically. Automation stopped. No candidate-native screenshot, exact window
+measurement, Reading/Live Preview, light/dark, hotspot click, pan/zoom or novice
+comprehension PASS is asserted. No actual private Vault, settings, plugins or
+prototype adoption was changed. The static/source tests do not waive this gate.
+
+Focused validation, exact generated hash/link matrices and exact-head GitHub CI
+are recorded in Draft PR #171 with the original timing limits unchanged. B1 stops
+at CONTROL's source/navigation checkpoint; native acceptance, other diagrams,
+merge and private-Vault rollout require their separate dispositions.
+
+## B2: guarded optional-plugin drill-down (#170)
+
+The [B2 contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6072686800)
+starts from accepted B1 `82b78bcb7d1b33b53bccd231f44d76816686e1f7`.
+**Disposition: PARTIAL.** Excalidraw is adopted; Drawio remains isolated. Agent
+Anatomy remains the primary visual hub, with its scene, Hero image and all 34
+named identity links unchanged. No retirement, cleanup C, merge or actual-Vault
+operation is included. B1's duration-only CI failure is an accepted exception
+for continuation, not a green check or a merge waiver. Tests, selections,
+workers, workflows and 120,000 ms limits remain unchanged.
+
+### Managed Excalidraw and ordinary navigation
+
+The only added managed path is
+`Research Map/Diagrams/System Overview.excalidraw.md`, owned by the existing
+`public-research-atlas` owner. `diagram_svg.managed_system_overview`
+reuses the accepted candidate generator, with shared Excalidraw elements moved
+to the existing diagram renderer and re-exported for isolated prototypes.
+This preserves the frozen import-test source and its explanation fingerprint. The existing Excalidraw semantic rules
+now recognize the finite `system-overview` envelope; no field-ignore rule,
+manifest version, ownership promotion, writer or recovery behavior changes.
+The source revision/Registry provenance stays in the existing technical manifest.
+All content, links, styles, order, arrowheads, geometry, unknown fields and
+header text remain protected. Native cache/counter/editor-preference equivalences
+are exactly the existing rules.
+
+Observation → Cortex → Manager → active bounded Contract → Body → guarded
+input → GameInstance → new Observation → Independent Verifier → VerifierResult
+→ Manager explains the normative cycle. Manager's continuation returns through
+the **same valid Contract**, while close/suspend precedes conditional replan.
+Memory Retrieval is a separate dashed context path. This is not proof of a
+running screen-only loop. Body/Bounded Reflex and SafetyFilter/InputExecutor
+have separate linked labels and ordinary counterparts. The optional bridge,
+no-spoiler boundary and between-Mission-Run learning limits remain explicit.
+
+Home, the ordinary header of Anatomy and the existing System Overview Guide
+provide secondary drill-down links. Anatomy figure elements, caches and Hero
+bytes are unchanged. The Guide's new **Diagramm-Gegenstücke** section gives
+Vault-local ordinary identity links for all visible candidate names, including
+PlannerOutput, separate composite constituents and the seven selected exact
+Registry triples. It reuses the existing System Overview SVG, Execution Flow
+Markdown/Mermaid and the full 47-row technical ledger. No plugin is required to
+reach an identity or interpret the four Drawio page roles.
+
+Same public Registry, empty synthetic inputs and fixed provenance `a` × 40:
+**507 → 508 managed paths; one addition, zero removals; five existing files
+changed, 502 byte-identical.** Changed existing files are Home, Anatomy's
+ordinary header, the System Overview Guide and the two existing manifests.
+All existing owners and migration routes are equal. All **61 preferred identity
+pages** (including accepted prose, Research and source sections), 28 ancestry
+edges, 47 technical relations, 234 Graph proxies, legacy Canvas views, five SVGs,
+other diagrams and scientific views are preserved. The current-source tests
+cover the new output; the existing Package-A/B1 assertions remain frozen on the
+accepted B1 renderer, rather than dropping their exact historical delta checks.
+
+### Drawio stays isolated: exact adoption blocker
+
+`reference_prototypes.candidate_files(atlas)` exports exactly two final-path
+trials for a disposable public-only preview:
+
+- `Research Map/Diagrams/System Overview.excalidraw.md` (isolated trial envelope;
+  production uses `managed_system_overview` instead).
+- `Research Map/Diagrams/Grounded Contract.drawio` (always isolated and unowned).
+
+The old `Reference Slice Prototypes.md` helper is not added to production.
+Drawio retains four distinct pages: proposal/grounding/authorization;
+bounded execution/independent verification; rejection/stop/conditional replan;
+exact non-chronological Registry relations. Seven triples match the Registry;
+`consumes` points actor → payload. Composite and edge `counterpart_ids` point
+to the ordinary Guide link matrix; all ambiguous `obsidian://open?file=...`
+URIs are removed from this final candidate. **Native Drawio routing: BLOCKED**;
+there is no claim that metadata IDs are clickable links.
+
+Actual offline 0.7.1 save changed the root from
+`host="AGA isolated offline prototype" version="0.7.1" compressed="false"`
+to `host="127.0.0.1" compressed="false" pages="4"`. Visited pages acquired
+editor defaults and viewport dimensions; XML attribute order/encoding changed.
+The raw SHA changed from
+`f419ffe2843877ef495337d80ca94ae0502ca898356c6e8cb609bdad8a213aa0`
+to `3d88bc2a650f0f0e515070375256567de06b87b86874e28433d29423e98da1de`.
+A stable native-preserved owner envelope and a closed, finite semantic comparator
+for these saves have **not** been established. Strict XML hashes alone would
+reject normal native saves. No new Drawio ownership classification is installed;
+the semantic API rejects it as strict output. Production never emits or claims
+this path. An isolated/authored file at either candidate destination causes
+apply to reject **before backup or mutation**, rather than silently adopting it.
+Future adoption needs its own reviewed comparator/envelope/round-trip proof.
+
+For isolated export, call `candidate_files(atlas)` as in the earlier public-only
+prototype recipe, and place `candidate_navigation(atlas)` in the existing Guide
+of that disposable preview. Do not overwrite a managed production file with an
+isolated trial envelope. Do not export into the actual private Vault.
+
+### Actual native evidence and open visual gates
+
+Only `/tmp/aga170-slice-preview`, a disposable non-Sync Vault with the already
+installed Excalidraw **2.28.1** and Drawio **0.7.1 offline** pins, was used.
+No plugin install or real-Vault/config change occurred in B2. Obsidian **1.14.4**
+opened the final managed Excalidraw, changed zoom **54% → 59%**, reported
+**Save successful**, and closed/reopened the saved file. Readback of the native
+compressed Markdown is committed as the public-only regression fixture
+`tests/fixtures/obsidian-reserialization/system-overview-native.excalidraw.md`.
+Generated and native bytes differ, but their semantic digest is identical:
+`a7407bd61abd62e4822d19429ea55e03b7a85cabffe7e8ba875f98c16f71943f`.
+A native click on Cortex's link icon opened exactly
+`Research Map/Components/Cortex.md` in **aga170-slice-preview**, with
+`CMP-CORTEX · Component` visible. This proves that sampled click, not every
+hotspot or other Vault handling.
+
+The first native save revealed a blank after `## Text Elements` becoming part
+of the first label and truncated fractional text heights being restored. The
+candidate generator now follows the pinned native serializer's no-blank section
+header and exact `fontSize × lineHeight × line count` heights. Subsequent final
+native saves preserved content and geometry under existing comparison rules.
+These fixes do not change the historical prototypes or Anatomy generator.
+
+A screenshot of the final diagram was obtained at **984×768**, sidebar open,
+white scene against the dark application chrome. The closed loop, separated
+retrieval and composite labels are visible; a toolbar instructional hint overlaps
+the title and fit-view footnotes are small. This is **partial readability
+observation**, not visual acceptance. One earlier action returned ScreenCaptureKit
+`-3811` / computer-use `-10005` despite partially executing; accessibility readback
+allowed the bounded save test to finish. One native observation briefly switched to the other isolated AP4 preview;
+a bounded fresh state read returned to the candidate. Drawio opened from **127.0.0.1:3001**, exposed all four named page tabs and the execution page's
+same-contract/VerifierResult/Manager labels, and saved. A later screenshot of
+page 3 at 984×768 showed readable separate pre-contract rejection and active-stop
+columns, retained-history and terminal/non-terminal branches. The next page-4
+action failed with `noWindowsAvailable` / `-10005`; further UI actions stopped.
+B2 did not establish its
+save/reopen visual equivalence or any safe native identity click.
+
+**BLOCKED / unperformed:** requested approximate 1280×800 and 1024×769 matrix,
+light/dark comparison, Reading/Live embeds, pan, full hotspot matrix, Drawio zoom
+and reopened inspection, title-overlay resolution and independent comprehension
+review. No novice-reader study or G6 PASS is claimed. Native editor save proof,
+source correctness, full local checks, CI and visual acceptance remain separate.
+
+### Safety evidence and handoff
+
+Synthetic B1→B2 apply/check/idempotence/recover checks preserve authored bytes
+and restore the exact previous B1 state. Read-only check accepts the real native
+Excalidraw fixture. Existing apply deliberately writes deterministic generated
+bytes after saving exact native bytes in an immutable restore point; recovery
+restores that exact native serialization. Header, geometry, labels, links,
+arrowheads, styles and owner mutations change semantics or fail parsing;
+a tampered managed file blocks apply before any backup/write. Unknown/unowned
+candidate paths remain protected. Full local testing is required because this
+package extends the accepted ownership envelope. Actual commands and exact-head
+GitHub outcomes are recorded in Draft PR #171, including any unchanged duration
+failure. No performance optimization is part of B2.
+
+**Decision required:** CONTROL disposition of this partial B2 checkpoint and the
+Drawio/native visual blockers. Merge and actual-Vault rollout remain unauthorized.
+**Exactly one Next action:** CONTROL reviews the exact B2 candidate and evidence.
+
+Full-local validation additionally exposed two **PRE-EXISTING BASELINE ISSUE**
+failures, independently reproduced using an archive of untouched accepted B1:
+`test_committed_workspace_and_migration` finds stale committed
+`Assets/Excalidraw/Agent Anatomy.excalidraw.md`; and
+`test_current_03_public_projection_uses_truthful_source_version` expects raw
+projection digest `37d6a1c…`, while B1 already emits `cb106c66…`.
+These are functional snapshot failures, **not duration failures**, and the Program
+Owner timing exception does not waive them. B2 does not rewrite the protected
+historical diagrams, change their assertions, or mark the full local suite green.
+They remain a separate readiness blocker for CONTROL disposition. The temporary
+new-module import failure was repaired by moving the shared Excalidraw builder
+into the existing allowed diagram renderer, preserving the exact frozen test
+source and all explanation hashes; the unchanged import-boundary test passes.
+
+Final B2 local execution: `uv run pytest` completed **3,331 PASS / 2 FAIL in
+1267.49s**; the two failures are exactly the independently reproduced B1
+baseline cases above. The 14 focused B2/prototype cases and unchanged import
+boundary, Ruff, format (290 files) and diff checks pass. The full local suite is
+**FAILED**, and no timing waiver is applied to these functional failures.
+
+## B3 manual native ownership-envelope completion
+
+This bounded follow-on supersedes the B2 Drawio ownership blocker above, while
+preserving that checkpoint as historical evidence. The existing four-page
+candidate is unchanged visually. The generator adds explicit owner, schema,
+repository and normative-source qualification on the first object of each
+page, plus Registry-derived identity and counterpart types on all 35 objects.
+The adapter emits exactly one additional managed output:
+`Research Map/Diagrams/Grounded Contract.drawio`.
+
+The Program Owner completed one manual offline save/close/reopen/save sequence
+in `/private/tmp/aga170-b3-manual-native`, a disposable public-only non-Sync
+Vault. It uses doge-liang `drawio-editor` **0.7.1** and the pinned offline bundle
+listed above; Obsidian runtime **1.14.4** was available. No private Vault or
+user plugin setting was changed. Ordinary file readback captured both native
+writes. The four tabs and close/reopen sequence are attested by the Program
+Owner's “Manual actions complete”; Codex did not independently observe the
+screen or use GUI recovery. The exact pristine and native XML, hashes and
+observed deltas are retained in
+`tests/fixtures/obsidian-reserialization/README.md` and its three Drawio fixtures.
+
+The ownership envelope survives both saves. Page identity/order, labels, IDs,
+geometry, style, endpoints, arrow direction/labels, all typed counterparts and
+the seven exact Registry triples are unchanged. The comparator accepts only
+the observed root envelopes, eight specific default editor flags and exact
+per-page viewport pairs. It retains all other ordered XML in the semantic
+digest. Unknown metadata, pages, external links, scripts, DTD/entities and
+unexpected semantic changes fail closed. An unseen viewport pair also fails
+closed; this deliberately narrow implementation does not claim compatibility
+with every window size or future editor version.
+
+Production grows **508 → 509 files**, with one new public owner record and no
+retirement. Six existing outputs change: Home, Agent Anatomy's Markdown header,
+System Overview Guide, Execution Flow and the two manifests. The other **502**
+existing outputs are byte-identical, including the Anatomy scene/Hero, managed
+System Overview, all 61 preferred identity pages, graph proxies, SVG/Mermaid/
+Canvas fallbacks and scientific views. All 28 Component ancestry edges and 47
+directed technical relations remain intact. The manifests retain the exact
+source/Registry provenance; Drawio's seven selected triples match that Registry
+and `consumes` remains actor → payload, separate from process chronology.
+
+Agent Anatomy remains the primary hub. Ordinary entry links from Home, Anatomy,
+Guide and Execution Flow reach the deeper Drawio view; ordinary Guide/technical
+pages provide return links and separate Body/Bounded Reflex and SafetyFilter/
+InputExecutor counterparts. All 61 preferred identities remain accessible
+without plugins. Native Drawio identity clicks are **unverified**: no native
+links or unscoped `obsidian://open?file=` URIs are emitted.
+
+Synthetic B2→B3 apply/check/native-save/check/recover exercises the existing
+finite manifest and recovery model. Apply saves exact current native bytes
+before writing deterministic generated bytes; recovery restores those exact
+native bytes, and the earlier upgrade restore point restores all 508 historical
+outputs exactly. Meaningful edits block apply and recovery before mutation;
+unowned files at the new destination are collisions even when their XML carries
+a valid envelope. Historical 1.0 manifests cannot claim Drawio ownership.
+Actual validation and exact-head CI results are recorded in Draft PR #171.
+No CI limits, selections, workers or performance behavior are changed.
+
+The earlier visual matrix, native identity-click matrix and novice comprehension
+gates remain open; no full native visual acceptance or G6 PASS is claimed.
+This completes only the bounded B3 ownership attempt. CONTROL must review the
+exact head; merge, cleanup and actual-Vault rollout remain unauthorized.

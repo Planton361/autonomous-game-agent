@@ -1,6 +1,6 @@
 # Synthetic Excalidraw save fixtures
 
-These two compressed scenes contain only the current public Registry landmarks,
+These three compressed scenes contain only the current public Registry landmarks,
 generated preferred routes and public illustration. No actual vault content or
 private scientific IDs were used.
 
@@ -14,6 +14,18 @@ unchanged. Scenes were then compressed with the upstream JavaScript LZ-string im
 the Excalidraw plugin. The codec oracle is independent of the Python decoder.
 Tests retain the dynamically generated source/provenance frontmatter and Markdown
 caches. Fixture contents do not add any generated-vault paths.
+
+B1 regenerates `agent.lz-base64` for the intermediate Anatomy's newly linked typed
+landmarks and adds `agent-hub.lz-base64` for the final primary navigation hub
+(region guide links, directory entry and complete native landmark links).
+`domain.lz-base64` is unchanged. Both Anatomy fixtures use the same pinned worker
+codec below, `plugin_scene` save defaults in `tests/test_final_research_map.py`,
+and the current scene JSON. The upstream JavaScript compressor/decompressor
+round-trips the JSON exactly before 256-character Base64 chunks are written.
+The Python tests compare the complete canonical scene and Markdown caches,
+including links, geometry, types, Hero identity and protected source envelope;
+no semantic equivalence rule or ownership field is relaxed. This is synthetic
+serialization evidence, not a native plugin click/readability acceptance.
 
 Source snapshot: `zsviczian/obsidian-excalidraw-plugin` commit
 `f30b4c5d3dcb66ac76ced8f05d9e95409ee94c79`:
@@ -38,3 +50,65 @@ it does not blindly remove ordering information.
 - [Restore defaults](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/excalidraw/data/restore.ts)
 - [Ordering invariants and index healing](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/element/src/fractionalIndex.ts)
 - [Independent key generator / validation (CC0)](https://github.com/zsviczian/excalidraw/blob/6a4e51cc8e343f484f47d306ac9c09e1db515cb0/packages/fractional-indexing/src/index.ts)
+
+## B2 actual native System Overview save
+
+`system-overview-native.excalidraw.md` is actual public-only file readback from
+Obsidian 1.14.4 / Excalidraw 2.28.1 in `/tmp/aga170-slice-preview`, after native
+open, zoom 54%→59%, Save successful and close/reopen on 2026-10-09. It was not
+constructed by a Python reserialization helper. SHA-256:
+`8fb52a37d60aab05e4648fb3180b19bce9481f5bc6a19815ee3ecb892681df68`.
+The deterministic generator's raw SHA is
+`0cd9462e4bf25c0b0a0ddc82ea876feb4719f058ccbfe1b9f2d31910f5f36cf7`;
+both semantic digests are
+`a7407bd61abd62e4822d19429ea55e03b7a85cabffe7e8ba875f98c16f71943f`.
+
+The regression checks the actual native bytes against live generated output,
+protects meaningful edits, and runs synthetic check/apply/exact-recover using
+this fixture. Updating it requires a new native save and provenance record;
+do not manufacture it from `rewrite_managed` or replace the immutable hash to
+hide a semantic mismatch. This is serialization evidence, not full native visual
+acceptance. At the B2 checkpoint Drawio stayed isolated without an accepted
+semantic fixture/comparator; the separate B3 evidence below completes that gate.
+
+## B3 manual native ownership-envelope saves
+
+The three `grounded-contract-*.drawio` files are public-only bytes from the
+single manual test in `/private/tmp/aga170-b3-manual-native` on 2026-10-09.
+The pinned plugin is doge-liang `drawio-editor` 0.7.1, offline bundle SHA-256
+`75e619d740a7067699bf04f2fb6f75a775fe34d2adda005c16374903c228e584`.
+Obsidian runtime 1.14.4 was available (installer bundle reports 1.13.7).
+
+The Program Owner reported completion of the requested four-tab check, native
+save, close, reopen and second unedited save. A local file watcher captured two
+stable writes; Codex inspected ordinary disk readback without GUI automation.
+There is no independent screen observation or separate reopen write: the first
+save bytes are the reopen input, and the manual attestation establishes the
+close/reopen sequence.
+
+| Fixture | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `grounded-contract-pristine.drawio` | 27935 | `0fc887457ce43ba8ab326f9f349b739c06d6ec1e7459c1be941c5deb0c104288` |
+| `grounded-contract-native-1.drawio` | 28137 | `acedd76dbdb0c3be6fd2320e5d94a25a2d3c0092a4a540c3ab17bb543d053989` |
+| `grounded-contract-native-2.drawio` | 28227 | `2cb028598efb26ac78cd7158b82849e127c9356202c23812c4764dfb858aa13c` |
+
+Captured writes were at 12:58:34.217085 UTC and 12:58:36.757322 UTC. The final
+disk readback equals the second fixture exactly. Parsed XML differs only in
+the root serialization envelope and model editor defaults/viewport: first save
+changes three visited models; second changes all four. Root host becomes
+`127.0.0.1`, version disappears and pages becomes `4`. Visited models add
+`guides=1`, `tooltips=1`, `connect=1`, `arrows=1`, `fold=1`, `pageScale=1`,
+`math=0`, `shadow=0`; dx/dy becomes `886/777` on pages 1–3 and `1127/989`
+on page 4 (generated values `1000/900`). All other ordered XML information,
+including four owner/schema/source envelopes, 35 typed objects, counterpart
+mappings and seven Registry triples, is identical.
+
+All three semantic SHA-256 values are
+`b42f3d19694ad8ec4cba379fa27f3e267f0aa63ef38e2972ece5c13885327091`.
+An independent literal XML comparison tests these actual deltas before the
+ownership comparator is tested. The comparator admits only the two observed
+root envelopes, the eight exact optional defaults and the finite per-page
+viewport pairs. Unknown attributes and other semantic changes are never
+stripped. New viewport values require new evidence; changing window size may
+therefore cause a safe rejection. No native link activation, full visual
+acceptance or novice comprehension is established by this fixture.

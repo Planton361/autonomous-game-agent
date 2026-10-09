@@ -55,6 +55,18 @@ def setup(tmp_path: Path) -> tuple[Path, Path, str]:
     source = repo / "src/fh_agent/research_atlas/source.py"
     source.parent.mkdir(parents=True)
     source.write_text("# synthetic committed source\n", encoding="utf-8")
+    # AP1 production builds read the public presentation source and its frozen dependencies.
+    from fh_agent.research_atlas.architecture_explanations import SOURCE, parse_explanations
+    from fh_agent.research_atlas.validator import load_registry
+
+    _copy_source(repo, Path(SOURCE))
+    catalog = parse_explanations(
+        (ROOT / SOURCE).read_bytes(), load_registry(ROOT / "docs/research-atlas")
+    )
+    for relative in sorted(
+        {s.path for s in catalog.sources.values()} | catalog.dependencies.keys()
+    ):
+        _copy_source(repo, Path(relative))
     asset = repo / technical.HERO_SOURCE
     asset.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / technical.HERO_SOURCE, asset)

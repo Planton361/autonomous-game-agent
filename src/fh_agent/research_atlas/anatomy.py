@@ -92,6 +92,15 @@ BETWEEN_RUN_IDS = (
     "DAT-CANDIDATE-BODY-VERSION",
     "CMP-BODY-CERTIFICATION",
 )
+REGION_FUNCTIONS = {
+    "environment": "FUNC-ACQUIRE",
+    "observation": "FUNC-OBSERVE",
+    "evidence-memory": "FUNC-RETAIN-RETRIEVE",
+    "cognition": "FUNC-REASON",
+    "executive": "FUNC-EXECUTIVE-CONTROL",
+    "action-safety": "FUNC-ACT",
+    "verification": "FUNC-VERIFY",
+}
 ANATOMY_RECORD_IDS = frozenset(
     {identity for _, _, _, identities in ANATOMY_REGIONS for identity in identities}
     | set(BETWEEN_RUN_IDS)
@@ -456,7 +465,16 @@ def _illustrated_region(
             stroke_width=1.8,
             custom_data={"presentation_card": key, "presentation_only": True},
         ),
-        _text_item(f"callout-title:{key}", title, x + 20, y + 9, width - 40, size=25),
+        _text_item(
+            f"callout-title:{key}",
+            title,
+            x + 20,
+            y + 9,
+            width - 40,
+            size=25,
+            link=note_link(atlas.entities[REGION_FUNCTIONS[key]]),
+            custom_data={"landmark_identity": REGION_FUNCTIONS[key], "landmark_type": "Function"},
+        ),
         _text_item(
             f"callout-subtitle:{key}",
             short_subtitle,
@@ -469,7 +487,7 @@ def _illustrated_region(
     ]
     for index, identity in enumerate(identities):
         node = atlas.entities[identity]
-        component_link = note_link(node) if node.type == "Component" else None
+        identity_link = note_link(node)
         if key == "action-safety":
             label_x = x + 225 + (index % 2) * 150
             label_y = y + 22 + (index // 2) * 29
@@ -501,7 +519,7 @@ def _illustrated_region(
             stroke_style="dashed" if identity == "CMP-VISIBLE-STATE-BRIDGE" else "solid",
             stroke_width=1.2,
             rounded=node.type == "Component",
-            link=component_link,
+            link=identity_link,
             custom_data={"presentation_marker_for": identity, "presentation_only": True},
         )
         elements.append(marker)
@@ -514,7 +532,7 @@ def _illustrated_region(
                 label_width,
                 size=16 if key == "action-safety" else 18,
                 color=color,
-                link=component_link,
+                link=identity_link,
                 custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
@@ -649,10 +667,33 @@ def _encode_scene(
 def render_agent_anatomy(atlas: Atlas) -> str:
     """Render the accepted illustrated anatomy with Registry-grounded hotspots."""
     _require_records(atlas, ANATOMY_RECORD_IDS)
+    _require_records(atlas, set(REGION_FUNCTIONS.values()) | {"FUNC-BETWEEN-RUNS"})
+    # Typed landmarks are frozen by their stable Registry identity, never inferred
+    # from an illustrated position or a reader grouping.
+    prefixes = {
+        "CMP": "Component",
+        "CON": "Contract",
+        "DAT": "DataArtifact",
+        "ENV": "Environment",
+        "SYS": "System",
+        "FUNC": "Function",
+    }
+    for identity in ANATOMY_RECORD_IDS | set(REGION_FUNCTIONS.values()) | {"FUNC-BETWEEN-RUNS"}:
+        if atlas.entities[identity].type != prefixes[identity.split("-", 1)[0]]:
+            raise ValueError(f"Agent Anatomy landmark has an unexpected Registry type: {identity}")
     hero, files = _hero_image()
     elements = [
         hero,
-        _text_item("anatomy-title", "AGENT ANATOMY", 78, 20, 1000, size=45),
+        _text_item(
+            "anatomy-title",
+            "AGENT ANATOMY",
+            78,
+            20,
+            1000,
+            size=45,
+            link=note_link(atlas.entities["SYS-AGA"]),
+            custom_data={"landmark_identity": "SYS-AGA", "landmark_type": "System"},
+        ),
         _text_item(
             "anatomy-subtitle",
             "Selective explanatory overview · selected roles and safety boundaries",
@@ -688,6 +729,17 @@ def render_agent_anatomy(atlas: Atlas) -> str:
             color="#426f7d",
             link=f"[[{HOME_PATH.with_suffix('')}|Home]]",
             custom_data={"navigation": "research-home"},
+        ),
+        _text_item(
+            "navigation:directory",
+            "ALLE BEREICHE  →",
+            1600,
+            140,
+            430,
+            size=16,
+            color="#426f7d",
+            link=f"[[{HOME_PATH.with_suffix('')}|Alle Identitäten]]",
+            custom_data={"navigation": "identity-directory"},
         ),
     ]
     # Short, faint process cues orient the reader. Only the separate workshop
@@ -733,6 +785,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
             stroke="#8f82ac",
             stroke_style="dashed",
             stroke_width=1.5,
+            link=note_link(bridge),
             custom_data={
                 "atlas_id": bridge.id,
                 "atlas_name": bridge.name,
@@ -757,6 +810,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 box,
                 stroke="transparent",
                 stroke_width=0,
+                link=note_link(node),
                 custom_data={
                     "atlas_id": identity,
                     "atlas_type": node.type,
@@ -795,6 +849,8 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 1073,
                 650,
                 size=25,
+                link=note_link(atlas.entities["FUNC-BETWEEN-RUNS"]),
+                custom_data={"landmark_identity": "FUNC-BETWEEN-RUNS", "landmark_type": "Function"},
             ),
             _text_item(
                 "between-boundary-subtitle",
@@ -846,6 +902,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 between_boxes[identity],
                 stroke="transparent",
                 stroke_width=0,
+                link=note_link(node),
                 custom_data={
                     "atlas_id": identity,
                     "visual_role": "between-run-stage",
@@ -863,6 +920,7 @@ def render_agent_anatomy(atlas: Atlas) -> str:
                 width,
                 size=18,
                 color="#7b604d",
+                link=note_link(node),
                 custom_data={"landmark_identity": identity, "landmark_type": node.type},
             )
         )
@@ -1347,12 +1405,7 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             if (
                 label["text"].replace("\n", " ") != _VISIBLE_LANDMARKS[identity]
                 or label["customData"].get("landmark_type") != atlas.entities[identity].type
-                or label.get("link")
-                != (
-                    note_link(atlas.entities[identity])
-                    if atlas.entities[identity].type == "Component"
-                    else None
-                )
+                or label.get("link") != note_link(atlas.entities[identity])
             ):
                 raise ValueError("Agent Anatomy technical landmark label drift")
         nav = [
@@ -1393,7 +1446,7 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
         if (
             token["customData"].get("atlas_type") != node.type
             or token["customData"].get("visual_grammar") != grammar
-            or token.get("link") is not None
+            or token.get("link") != note_link(node)
         ):
             raise ValueError("Component and Contract/DataArtifact grammar became ambiguous")
     if tokens["CON-MEMORY-UPDATE-REQUEST"]["customData"].get("proposal_only") is not True:
@@ -1423,7 +1476,11 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
             for item in anatomy_elements
             if item.get("customData", {}).get("landmark_identity") == identity
         ]
-        if len(stage_labels) != 1 or stage_labels[0].get("text") != _VISIBLE_LANDMARKS[identity]:
+        if (
+            len(stage_labels) != 1
+            or stage_labels[0].get("text") != _VISIBLE_LANDMARKS[identity]
+            or stage_labels[0].get("link") != note_link(atlas.entities[identity])
+        ):
             raise ValueError("Between-run visible landmark label drift")
     anatomy_flows = _validate_edges(atlas, anatomy, ANATOMY_PATH)
     if anatomy_flows != set(BETWEEN_RUN_RELATION_KEYS):
@@ -1499,12 +1556,23 @@ def validate_generated_visuals(atlas: Atlas, tree: Mapping[PurePosixPath, str]) 
                 presentation_record = path == ANATOMY_PATH
                 if (
                     identity not in atlas.entities
-                    or (presentation_record and element.get("link") is not None)
                     or (
-                        not presentation_record
+                        presentation_record
+                        and identity == "SYS-AGA"
+                        and element.get("link") is not None
+                    )
+                    or (
+                        (not presentation_record or identity != "SYS-AGA")
                         and element.get("link") != note_link(atlas.entities[identity])
                     )
                 ):
                     raise ValueError(
                         f"{path} has an invalid technical-record destination: {identity}"
                     )
+            landmark = element.get("customData", {}).get("landmark_identity")
+            if landmark is not None and (
+                landmark not in atlas.entities
+                or element.get("link") != note_link(atlas.entities[landmark])
+                or element["customData"].get("landmark_type") != atlas.entities[landmark].type
+            ):
+                raise ValueError(f"{path} has an invalid typed landmark destination: {landmark}")
