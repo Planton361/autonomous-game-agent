@@ -1220,6 +1220,7 @@ def test_closed_manifest_classes_and_every_managed_format(baseline):
         semantics.Ownership.BASE: 3,
         semantics.Ownership.CANVAS: 10,
         semantics.Ownership.EXCALIDRAW: 2,
+        semantics.Ownership.DRAWIO: 0,  # This pre-B3 presentation input has no Drawio output.
     }
     for path in managed_paths(tree):
         expected = semantics.semantic_digest(tree.files[path], path, tree.owners[path])
@@ -4045,7 +4046,7 @@ def test_reference_slice_current_source_synthetic_apply_check_recover(tmp_path, 
     repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
     authored = harness_fixtures._authored_snapshot(vault)
     tree = migration.build(repo, vault, sha)
-    assert len(tree.files) == 508  # B2 adds one proven Excalidraw output, no Drawio owner.
+    assert len(tree.files) == 509  # B3 adds the one native-proven Drawio ownership envelope.
     result = workspace.apply(repo, vault)
     workspace.check(repo, vault)
     before = snapshot(vault)
@@ -4672,18 +4673,43 @@ def test_b1_synthetic_upgrade_exact_restore_and_semantic_tamper_fail_closed(
         diagram.write_bytes(baseline)
 
 
-# B2: accepted B1 remains frozen above; these checks exercise the new live output.
+# B2: preserve its accepted exact renderer; B3 is checked independently below.
 @pytest.fixture(scope="module")
-def b2_product(package_a_product):
+def accepted_b2_projection(tmp_path_factory):
+    file = tmp_path_factory.mktemp("b3-accepted-b2") / "projection.py"
+    file.write_bytes(
+        subprocess.run(
+            [
+                "git",
+                "show",
+                "4993d02df0c8fab0ef301fc17e4d8e7672c8d75a:src/fh_agent/research_atlas/final_projection.py",
+            ],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+        ).stdout
+    )
+    spec = spec_from_file_location("fh_agent.research_atlas._b3_accepted_b2", file)
+    module = module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    yield module
+    del sys.modules[spec.name]
+
+
+@pytest.fixture(scope="module")
+def b2_product(package_a_product, accepted_b2_projection):
     atlas, catalog, _, _, before = package_a_product
     technical, derived, _, _ = intermediate(atlas)
-    after = final_projection.consolidate_graph_audits(
-        package(atlas, technical, derived, explanations=catalog)
+    after = accepted_b2_projection.consolidate_graph_audits(
+        accepted_b2_projection.package(atlas, technical, derived, explanations=catalog)
     )
     return atlas, catalog, before, after
 
 
-def test_b2_exact_inventory_owner_navigation_and_protected_b1_bytes(b2_product):
+def test_b2_exact_inventory_owner_navigation_and_protected_b1_bytes(
+    b2_product, accepted_b2_projection
+):
     from fh_agent.research_atlas.reference_prototypes import (
         CANDIDATE_DRAWIO,
         CANDIDATE_EXCALIDRAW,
@@ -4729,8 +4755,8 @@ def test_b2_exact_inventory_owner_navigation_and_protected_b1_bytes(b2_product):
     assert sum(e.relation in INTERACTION_RELATIONS for e in atlas.relationships) == 47
     technical, derived, _, _ = intermediate(atlas)
     assert (
-        final_projection.consolidate_graph_audits(
-            package(atlas, technical, derived, explanations=catalog)
+        accepted_b2_projection.consolidate_graph_audits(
+            accepted_b2_projection.package(atlas, technical, derived, explanations=catalog)
         )
         == after
     )
@@ -4833,8 +4859,10 @@ def test_b2_final_scene_composites_and_isolated_drawio_exact_relationships(b2_pr
         == set(REGISTRY_TRIPLES)
         <= {(e.source, e.relation, e.target) for e in atlas.relationships}
     )
-    assert semantics.classification(CANDIDATE_DRAWIO) == semantics.Ownership.STRICT
-    with pytest.raises(ProjectionError, match="Strict output"):
+    # B3 recognizes only this exact path; the historical unowned candidate still
+    # cannot acquire ownership without its independently proven native envelope.
+    assert semantics.classification(CANDIDATE_DRAWIO) == semantics.Ownership.DRAWIO
+    with pytest.raises(ProjectionError, match="Drawio"):
         semantics.semantic_digest(files[CANDIDATE_DRAWIO], CANDIDATE_DRAWIO, public.OWNER)
 
 
@@ -4947,3 +4975,409 @@ def test_b2_unknown_candidate_never_adopted_or_backed_up(tmp_path, name):
         workspace.apply(repo, vault)
     assert snapshot(vault) == before
     assert not (vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).exists()
+
+
+@pytest.fixture(scope="module")
+def b3_product(b2_product):
+    atlas, catalog, _, before = b2_product
+    technical, derived, _, _ = intermediate(atlas)
+    after = final_projection.consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=catalog)
+    )
+    return atlas, catalog, before, after
+
+
+def drawio_fixture(name):
+    return (
+        ROOT / f"tests/fixtures/obsidian-reserialization/grounded-contract-{name}.drawio"
+    ).read_bytes()
+
+
+def test_b3_genuine_manual_envelope_fixtures_and_independent_xml_delta(b3_product):
+    from xml.etree import ElementTree as ET
+
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+
+    _, _, _, tree = b3_product
+    pristine = drawio_fixture("pristine")
+    assert (
+        public.digest(pristine)
+        == "0fc887457ce43ba8ab326f9f349b739c06d6ec1e7459c1be941c5deb0c104288"
+    )
+    assert tree.files[PATH] == pristine
+    expected = (
+        ("native-1", "acedd76dbdb0c3be6fd2320e5d94a25a2d3c0092a4a540c3ab17bb543d053989", 3),
+        ("native-2", "2cb028598efb26ac78cd7158b82849e127c9356202c23812c4764dfb858aa13c", 4),
+    )
+
+    def structure(node):
+        return (node.tag, dict(node.attrib), tuple(structure(c) for c in node))
+
+    for name, sha, visited in expected:
+        native = drawio_fixture(name)
+        assert public.digest(native) == sha
+        old, new = ET.fromstring(pristine), ET.fromstring(native)
+        assert old.attrib == {
+            "host": "AGA isolated offline prototype",
+            "version": "0.7.1",
+            "compressed": "false",
+        }
+        assert new.attrib == {"host": "127.0.0.1", "compressed": "false", "pages": "4"}
+        assert len(old) == len(new) == 4
+        for index, (op, np) in enumerate(zip(old, new, strict=True)):
+            assert op.tag == np.tag == "diagram" and op.attrib == np.attrib
+            assert len(op) == len(np) == 1
+            om, nm = op[0], np[0]
+            flags = {
+                "guides": "1",
+                "tooltips": "1",
+                "connect": "1",
+                "arrows": "1",
+                "fold": "1",
+                "pageScale": "1",
+                "math": "0",
+                "shadow": "0",
+            }
+            expected_model = dict(om.attrib)
+            if index < visited:
+                expected_model.update(flags)
+                expected_model.update(
+                    dx="886" if index < 3 else "1127", dy="777" if index < 3 else "989"
+                )
+            assert nm.attrib == expected_model
+            assert structure(om[0]) == structure(nm[0])  # includes all owner/type/source metadata
+        assert semantics.semantic_digest(native, PATH, public.OWNER) == semantics.semantic_digest(
+            pristine, PATH, public.OWNER
+        )
+    assert (
+        semantics.semantic_digest(pristine, PATH, public.OWNER)
+        == "b42f3d19694ad8ec4cba379fa27f3e267f0aa63ef38e2972ece5c13885327091"
+    )
+
+
+def test_b3_one_path_delta_provenance_navigation_and_preservation(b3_product):
+    from xml.etree import ElementTree as ET
+
+    from fh_agent.research_atlas.diagram_svg import REGISTRY_TRIPLES, candidate_navigation
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+
+    atlas, catalog, before, after = b3_product
+    assert len(before.files) == 508 and len(after.files) == 509
+    assert after.files.keys() - before.files.keys() == {PATH}
+    assert not before.files.keys() - after.files.keys()
+    assert after.routes == before.routes
+    assert all(after.owners[p] == before.owners[p] for p in before.files)
+    changed = {p for p in before.files if before.files[p] != after.files[p]}
+    assert changed == {
+        HOME,
+        final_projection.ANATOMY,
+        PRODUCT / "Guides/System Overview.md",
+        EXECUTION_FLOW,
+        *MANIFESTS.values(),
+    }
+    assert len(before.files.keys() - changed) == 502
+    assert b1_scene(before.files[final_projection.ANATOMY]) == b1_scene(
+        after.files[final_projection.ANATOMY]
+    )
+    assert all(after.files[p] == before.files[p] for p in preferred_paths(atlas).values())
+    technical, derived, _, _ = intermediate(atlas)
+    assert after == final_projection.consolidate_graph_audits(
+        package(atlas, technical, derived, explanations=catalog)
+    )
+    for owner, manifest in MANIFESTS.items():
+        metadata = read_yaml(after.files[manifest].decode())
+        assert metadata["provenance"] == read_yaml(before.files[manifest].decode())["provenance"]
+        rows = metadata["owned_files"]
+        assert {PurePosixPath(r["path"]) for r in rows} == {
+            p for p in after.files if after.owners[p] == owner and p != manifest
+        }
+        assert all(
+            r["sha256"] == public.digest(after.files[PurePosixPath(r["path"])]) for r in rows
+        )
+        if owner == public.OWNER:
+            row = next(r for r in rows if r["path"] == str(PATH))
+            assert row == {"path": str(PATH), **semantics.record(after.files[PATH], PATH, owner)}
+    for p in changed - set(MANIFESTS.values()):
+        assert f"[[{PATH}|" in after.files[p].decode()
+        for target in re.findall(r"\[\[([^\]]+)\]\]", after.files[p].decode()):
+            route, _, anchor = target.replace(r"\|", "|").split("|", 1)[0].partition("#")
+            resolved = (
+                p
+                if not route
+                else next((f for f in after.files if str(f) in {route, route + ".md"}), None)
+            )
+            assert resolved is not None, (p, target)
+            if anchor:
+                assert anchor in re.findall(r"^#{1,6} (.+)$", after.files[resolved].decode(), re.M)
+    assert len(preferred_paths(atlas)) == 61
+    assert sum(e.relation == "part_of" for e in atlas.relationships) == 28
+    assert sum(e.relation in INTERACTION_RELATIONS for e in atlas.relationships) == 47
+    xml = ET.fromstring(after.files[PATH])
+    paths = preferred_paths(atlas)
+    nav = candidate_navigation(atlas)
+    triples = []
+    for page in xml:
+        identities = {o.get("id"): o.get("identity") for o in page.iter("UserObject")}
+        for obj in page.iter("UserObject"):
+            assert atlas.entities[obj.get("identity")].type == obj.get("identity_type")
+            for identity, kind in zip(
+                obj.get("counterpart_ids").split(),
+                obj.get("counterpart_types").split(),
+                strict=True,
+            ):
+                assert atlas.entities[identity].type == kind
+                assert f"[[{paths[identity].with_suffix('')}|" in nav
+        for edge in page.iter("mxCell"):
+            if edge.get("semantics", "").startswith("registry:"):
+                triples.append(
+                    (
+                        identities[edge.get("source")],
+                        edge.get("value"),
+                        identities[edge.get("target")],
+                    )
+                )
+    assert tuple(triples) == REGISTRY_TRIPLES
+    assert set(triples) <= {(e.source, e.relation, e.target) for e in atlas.relationships}
+    assert b"obsidian://" not in after.files[PATH] and b"link=" not in after.files[PATH]
+
+
+DRAWIO_MUTATIONS = (
+    "owner",
+    "schema",
+    "repository",
+    "qualification",
+    "identity",
+    "type",
+    "counterpart",
+    "label",
+    "geometry",
+    "style",
+    "direction",
+    "endpoint",
+    "relation",
+    "process",
+    "missing-page",
+    "page-order",
+    "page-name",
+    "missing-node",
+    "missing-edge",
+    "unknown-root",
+    "unknown-model",
+    "unknown-object",
+    "unknown-cell",
+    "unknown-geometry",
+    "unknown-tag",
+    "viewport",
+    "editor",
+    "external-url",
+    "unscoped-uri",
+    "script",
+    "entity",
+    "comment",
+    "instruction",
+    "duplicate-attribute",
+    "compressed",
+    "wrong-owner",
+)
+
+
+def mutate_drawio(data, mutation):
+    from xml.etree import ElementTree as ET
+
+    doc = ET.fromstring(data)
+    obj = next(doc.iter("UserObject"))
+    cell = obj[0]
+    geometry = cell[0]
+    model = doc[0][0]
+    edge = next(c for c in doc.iter("mxCell") if c.get("edge"))
+    if mutation in {
+        "owner",
+        "schema",
+        "repository",
+        "qualification",
+        "identity",
+        "type",
+        "counterpart",
+        "label",
+    }:
+        key = {
+            "owner": "generated_by",
+            "schema": "diagram_schema",
+            "repository": "source_repository",
+            "qualification": "source_qualification",
+            "identity": "identity",
+            "type": "identity_type",
+            "counterpart": "counterpart_ids",
+            "label": "label",
+        }[mutation]
+        obj.set(key, obj.get(key) + " edited")
+    elif mutation == "geometry":
+        geometry.set("x", "61")
+    elif mutation == "style":
+        cell.set("style", cell.get("style").replace("#EDF3FA", "#000000"))
+    elif mutation == "direction":
+        edge.set("style", edge.get("style").replace("endArrow=block", "endArrow=none"))
+    elif mutation == "endpoint":
+        edge.set("target", "proposal")
+    elif mutation == "relation":
+        e = next(c for c in doc[3].iter("mxCell") if c.get("value") == "consumes")
+        e.set("value", "supplies")
+    elif mutation == "process":
+        edge.set("semantics", "registry:CMP-CORTEX:supplies:CMP-MANAGER")
+    elif mutation == "missing-page":
+        doc.remove(doc[-1])
+    elif mutation == "page-order":
+        a = doc[0]
+        doc.remove(a)
+        doc.append(a)
+    elif mutation == "page-name":
+        doc[0].set("name", "Unknown")
+    elif mutation == "missing-node":
+        model[0].remove(obj)
+    elif mutation == "missing-edge":
+        model[0].remove(edge)
+    elif mutation.startswith("unknown-"):
+        if mutation == "unknown-tag":
+            ET.SubElement(doc, "unknown")
+        else:
+            {
+                "unknown-root": doc,
+                "unknown-model": model,
+                "unknown-object": obj,
+                "unknown-cell": cell,
+                "unknown-geometry": geometry,
+            }[mutation].set("unknown", "value")
+    elif mutation == "viewport":
+        model.set("dx", "12345")
+    elif mutation == "editor":
+        model.set("math", "1")
+    elif mutation == "external-url":
+        obj.set("link", "https://example.invalid")
+    elif mutation == "unscoped-uri":
+        obj.set("link", "obsidian://open?file=Wrong")
+    elif mutation == "script":
+        ET.SubElement(doc, "script").text = "run()"
+    elif mutation == "compressed":
+        doc.set("compressed", "true")
+    result = ET.tostring(doc, encoding="utf-8")
+    if mutation == "entity":
+        return b'<!DOCTYPE mxfile [<!ENTITY x SYSTEM "file:///NEVER-READ">]>' + result
+    if mutation == "comment":
+        return b"<!-- unknown -->" + result
+    if mutation == "instruction":
+        return b"<?unknown value?>" + result
+    if mutation == "duplicate-attribute":
+        return result.replace(b"<mxfile ", b'<mxfile compressed="false" ', 1)
+    return result
+
+
+@pytest.mark.parametrize("mutation", DRAWIO_MUTATIONS)
+def test_b3_meaningful_changes_and_unknown_churn_never_equivalent(mutation):
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+
+    original = drawio_fixture("native-2")
+    changed = mutate_drawio(original, mutation)
+    try:
+        actual = semantics.semantic_digest(
+            changed, PATH, "derived-research-wiki" if mutation == "wrong-owner" else public.OWNER
+        )
+    except ProjectionError:
+        pass
+    else:
+        assert actual != semantics.semantic_digest(original, PATH, public.OWNER), mutation
+    assert (
+        semantics.classification(PRODUCT / "Diagrams/Unowned.drawio") == semantics.Ownership.STRICT
+    )
+
+
+def test_b3_exact_b2_upgrade_native_check_recover_and_tamper_before_write(
+    tmp_path, monkeypatch, accepted_b2_projection
+):
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+
+    repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
+    with monkeypatch.context() as patch:
+        patch.setattr(migration, "package", accepted_b2_projection.package)
+        old = migration.build(repo, vault, sha)
+    assert len(old.files) == 508
+    for p, data in old.files.items():
+        target = vault / p
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    original = snapshot(vault)
+    authored = harness_fixtures._authored_snapshot(vault)
+    upgraded = workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    assert len(migration._actual(vault)) == 509
+    for name in ("native-1", "native-2"):
+        (vault / PATH).write_bytes(drawio_fixture(name))
+        workspace.check(repo, vault)
+    native = snapshot(vault)
+    replacement = workspace.apply(repo, vault)
+    generated = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == generated
+    workspace.recover(repo, vault, replacement.restore_point)
+    assert snapshot(vault) == native
+    workspace.check(repo, vault)
+    for mutation in DRAWIO_MUTATIONS:
+        if mutation == "wrong-owner":
+            continue
+        (vault / PATH).write_bytes(mutate_drawio(drawio_fixture("native-2"), mutation))
+        before = filesystem_state(vault.parent)
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.apply(repo, vault)
+        assert filesystem_state(vault.parent) == before
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.recover(repo, vault, upgraded.restore_point)
+        assert filesystem_state(vault.parent) == before
+    (vault / PATH).write_bytes(drawio_fixture("native-2"))
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    workspace.recover(repo, vault, upgraded.restore_point)
+    assert snapshot(vault) == original and harness_fixtures._authored_snapshot(vault) == authored
+
+
+@pytest.mark.parametrize("collision", ["candidate", "native-envelope"])
+def test_b3_unowned_drawio_collision_has_no_backup_or_adoption(tmp_path, collision):
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+    from fh_agent.research_atlas.reference_prototypes import candidate_files
+
+    repo, vault, _ = harness_fixtures.setup.__wrapped__(tmp_path)
+    data = (
+        drawio_fixture("native-2")
+        if collision == "native-envelope"
+        else candidate_files(load_registry(ROOT / "docs/research-atlas"))[PATH]
+    )
+    target = vault / PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    before = filesystem_state(vault.parent)
+    with pytest.raises(workspace.WorkspaceError):
+        workspace.apply(repo, vault)
+    assert filesystem_state(vault.parent) == before
+    assert not (vault.parent / workspace.DEFAULT_RESTORE_DIRECTORY).exists()
+
+
+def test_b3_legacy_owner_and_unknown_classifications_fail_closed(tmp_path):
+    from fh_agent.research_atlas.obsidian_semantics import DRAWIO_PATH as PATH
+
+    repo, vault, _ = harness_fixtures.setup.__wrapped__(tmp_path)
+    workspace.apply(repo, vault)
+    manifest = vault / MANIFESTS[public.OWNER]
+    original = manifest.read_bytes()
+    for legacy in (False, True):
+        metadata = read_yaml(original.decode())
+        if legacy:
+            metadata["product_schema_version"] = "1.0"
+            for row in metadata["owned_files"]:
+                row.pop("ownership", None)
+                row.pop("semantic_sha256", None)
+        else:
+            row = next(r for r in metadata["owned_files"] if r["path"] == str(PATH))
+            row["ownership"] = "strict-bytes"
+        manifest.write_text(public.yaml_text(metadata))
+        before = filesystem_state(vault.parent)
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.apply(repo, vault)
+        assert filesystem_state(vault.parent) == before
+    manifest.write_bytes(original)

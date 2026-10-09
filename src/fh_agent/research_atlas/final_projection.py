@@ -35,8 +35,10 @@ from .diagram_canvas import (
     interaction_canvas,
 )
 from .diagram_svg import (
+    CANDIDATE_DRAWIO,
     CANDIDATE_EXCALIDRAW,
     candidate_navigation,
+    managed_drawio,
     managed_system_overview,
     primary_pages,
     secondary_canvases,
@@ -1949,13 +1951,15 @@ def package(
             owners[path] = public.OWNER
 
     if explanations is not None and len(explanations.page_bindings) == 61:
-        # B2 adopts only the format whose pinned native save was proven. Drawio
-        # and the old prototype companion never enter a production manifest.
+        # B3 adds exactly the four-page envelope proven in the manual native replay.
         files[CANDIDATE_EXCALIDRAW] = managed_system_overview(atlas)
         owners[CANDIDATE_EXCALIDRAW] = public.OWNER
+        files[CANDIDATE_DRAWIO] = managed_drawio(atlas)
+        owners[CANDIDATE_DRAWIO] = public.OWNER
         drilldown = (
             "\n\nErklärende Vertiefung: "
             f"[[{CANDIDATE_EXCALIDRAW.with_suffix('')}|System Overview Diagramm]] · "
+            f"[[{CANDIDATE_DRAWIO}|Grounded Contract · vier Seiten]] · "
             "[[Research Map/Guides/System Overview#Diagramm-Gegenstücke|"
             "Ablauf und getrennte Identitäten ohne Plugins]].\n"
         )
@@ -1968,6 +1972,12 @@ def package(
         )
         overview = PRODUCT / "Guides/System Overview.md"
         files[overview] += (drilldown + "\n" + candidate_navigation(atlas)).encode()
+        files[EXECUTION_FLOW] += (
+            f"\n\n[[{CANDIDATE_DRAWIO}|Grounded Contract · editierbare Vertiefung]] · "
+            "[[Research Map/Guides/System Overview#Diagramm-Gegenstücke|Getrennte Identitäten]] · "
+            "[[Research Map/Diagrams/Agent Anatomy.excalidraw|Zurück zum primären Hub]] · "
+            "[[Research Map Home|Home]].\n"
+        ).encode()
 
     # Atlas index paths are vault-relative final routes, never old-root-relative paths.
     index = INTERNAL / "Indexes/atlas-id-index.yaml"

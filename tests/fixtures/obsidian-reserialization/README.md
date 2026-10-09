@@ -68,4 +68,47 @@ protects meaningful edits, and runs synthetic check/apply/exact-recover using
 this fixture. Updating it requires a new native save and provenance record;
 do not manufacture it from `rewrite_managed` or replace the immutable hash to
 hide a semantic mismatch. This is serialization evidence, not full native visual
-acceptance. Drawio stays isolated and has no accepted semantic fixture/comparator.
+acceptance. At the B2 checkpoint Drawio stayed isolated without an accepted
+semantic fixture/comparator; the separate B3 evidence below completes that gate.
+
+## B3 manual native ownership-envelope saves
+
+The three `grounded-contract-*.drawio` files are public-only bytes from the
+single manual test in `/private/tmp/aga170-b3-manual-native` on 2026-10-09.
+The pinned plugin is doge-liang `drawio-editor` 0.7.1, offline bundle SHA-256
+`75e619d740a7067699bf04f2fb6f75a775fe34d2adda005c16374903c228e584`.
+Obsidian runtime 1.14.4 was available (installer bundle reports 1.13.7).
+
+The Program Owner reported completion of the requested four-tab check, native
+save, close, reopen and second unedited save. A local file watcher captured two
+stable writes; Codex inspected ordinary disk readback without GUI automation.
+There is no independent screen observation or separate reopen write: the first
+save bytes are the reopen input, and the manual attestation establishes the
+close/reopen sequence.
+
+| Fixture | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `grounded-contract-pristine.drawio` | 27935 | `0fc887457ce43ba8ab326f9f349b739c06d6ec1e7459c1be941c5deb0c104288` |
+| `grounded-contract-native-1.drawio` | 28137 | `acedd76dbdb0c3be6fd2320e5d94a25a2d3c0092a4a540c3ab17bb543d053989` |
+| `grounded-contract-native-2.drawio` | 28227 | `2cb028598efb26ac78cd7158b82849e127c9356202c23812c4764dfb858aa13c` |
+
+Captured writes were at 12:58:34.217085 UTC and 12:58:36.757322 UTC. The final
+disk readback equals the second fixture exactly. Parsed XML differs only in
+the root serialization envelope and model editor defaults/viewport: first save
+changes three visited models; second changes all four. Root host becomes
+`127.0.0.1`, version disappears and pages becomes `4`. Visited models add
+`guides=1`, `tooltips=1`, `connect=1`, `arrows=1`, `fold=1`, `pageScale=1`,
+`math=0`, `shadow=0`; dx/dy becomes `886/777` on pages 1–3 and `1127/989`
+on page 4 (generated values `1000/900`). All other ordered XML information,
+including four owner/schema/source envelopes, 35 typed objects, counterpart
+mappings and seven Registry triples, is identical.
+
+All three semantic SHA-256 values are
+`b42f3d19694ad8ec4cba379fa27f3e267f0aa63ef38e2972ece5c13885327091`.
+An independent literal XML comparison tests these actual deltas before the
+ownership comparator is tested. The comparator admits only the two observed
+root envelopes, the eight exact optional defaults and the finite per-page
+viewport pairs. Unknown attributes and other semantic changes are never
+stripped. New viewport values require new evidence; changing window size may
+therefore cause a safe rejection. No native link activation, full visual
+acceptance or novice comprehension is established by this fixture.

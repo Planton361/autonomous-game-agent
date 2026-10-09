@@ -41,6 +41,9 @@ ROOTS = (public.OWNED_ROOT, views.OWNED_ROOT, PRODUCT, INTERNAL)
 
 
 def _owner(data: bytes, path: PurePosixPath, expected: str) -> bool:
+    if semantics.classification(path) == semantics.Ownership.DRAWIO:
+        semantics.semantic_digest(data, path, expected)
+        return True
     if path.suffix == ".svg":
         return expected == public.OWNER
     if path.suffix == ".base":
@@ -154,6 +157,8 @@ def _current(vault: Path) -> dict[PurePosixPath, dict]:
                 raise ProjectionError("Invalid owned digest")
             kind = semantics.classification(full)
             if legacy:
+                if kind == semantics.Ownership.DRAWIO:
+                    raise ProjectionError("No Drawio ownership in historical 1.0 manifests")
                 kind = (
                     semantics.Ownership.BASE
                     if full.suffix == ".base"
