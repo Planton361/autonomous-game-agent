@@ -234,7 +234,7 @@ def test_z2_assembly_navigation_uses_explicit_records_not_landmark_order(atlas):
                 == 1
             )
     bridge = record_elements(public)["CMP-VISIBLE-STATE-BRIDGE"]
-    assert bridge["link"] is None
+    assert bridge["link"] == note_link(atlas.entities["CMP-VISIBLE-STATE-BRIDGE"])
     assert bridge["customData"]["path_style"] == "optional"
     observe = next(
         element
@@ -660,4 +660,32 @@ def test_z2_home_rejects_duplicate_presentation_assembly(atlas):
     value["elements"].append(duplicate)
     tree[ANATOMY_PATH] = rewrite_scene(tree[ANATOMY_PATH], value)
     with pytest.raises(ValueError, match="functional-region coverage mismatch"):
+        validate_workspace_tree(atlas, tree)
+
+
+@pytest.mark.parametrize(
+    "identity", ["CON-PLANNER-OUTPUT", "DAT-CANDIDATE-BODY-VERSION", "FUNC-VERIFY"]
+)
+def test_b1_renderer_rejects_mistyped_visible_identity(atlas, identity):
+    from fh_agent.research_atlas.anatomy import render_agent_anatomy
+
+    entities = dict(atlas.entities)
+    entities[identity] = entities[identity].model_copy(update={"type": "Component"})
+    wrong = Atlas(entities, atlas.relationships, source_atlas_schema=atlas.source_atlas_schema)
+    with pytest.raises(ValueError, match="unexpected Registry type"):
+        render_agent_anatomy(wrong)
+
+
+@pytest.mark.parametrize(
+    "identity", ["CON-PLANNER-OUTPUT", "DAT-CANDIDATE-BODY-VERSION", "FUNC-VERIFY"]
+)
+def test_b1_visible_contract_data_and_function_links_fail_closed(atlas, identity):
+    tree = workspace_tree(atlas)
+    value = scene(tree[ANATOMY_PATH])
+    label = next(
+        e for e in value["elements"] if e.get("customData", {}).get("landmark_identity") == identity
+    )
+    label["link"] = note_link(atlas.entities["CMP-CORTEX"])
+    tree[ANATOMY_PATH] = rewrite_scene(tree[ANATOMY_PATH], value)
+    with pytest.raises(ValueError, match="landmark.*(drift|destination)"):
         validate_workspace_tree(atlas, tree)

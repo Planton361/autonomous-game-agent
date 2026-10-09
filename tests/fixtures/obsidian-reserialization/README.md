@@ -1,6 +1,6 @@
 # Synthetic Excalidraw save fixtures
 
-These two compressed scenes contain only the current public Registry landmarks,
+These three compressed scenes contain only the current public Registry landmarks,
 generated preferred routes and public illustration. No actual vault content or
 private scientific IDs were used.
 
@@ -14,6 +14,18 @@ unchanged. Scenes were then compressed with the upstream JavaScript LZ-string im
 the Excalidraw plugin. The codec oracle is independent of the Python decoder.
 Tests retain the dynamically generated source/provenance frontmatter and Markdown
 caches. Fixture contents do not add any generated-vault paths.
+
+B1 regenerates `agent.lz-base64` for the intermediate Anatomy's newly linked typed
+landmarks and adds `agent-hub.lz-base64` for the final primary navigation hub
+(region guide links, directory entry and complete native landmark links).
+`domain.lz-base64` is unchanged. Both Anatomy fixtures use the same pinned worker
+codec below, `plugin_scene` save defaults in `tests/test_final_research_map.py`,
+and the current scene JSON. The upstream JavaScript compressor/decompressor
+round-trips the JSON exactly before 256-character Base64 chunks are written.
+The Python tests compare the complete canonical scene and Markdown caches,
+including links, geometry, types, Hero identity and protected source envelope;
+no semantic equivalence rule or ownership field is relaxed. This is synthetic
+serialization evidence, not a native plugin click/readability acceptance.
 
 Source snapshot: `zsviczian/obsidian-excalidraw-plugin` commit
 `f30b4c5d3dcb66ac76ced8f05d9e95409ee94c79`:

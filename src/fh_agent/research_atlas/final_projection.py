@@ -18,6 +18,7 @@ from . import obsidian_semantics as semantics
 from . import private_projection as public
 from . import private_views as views
 from .architecture_explanations import (
+    AREAS,
     ExplanationCatalog,
     component_technical,
     guide_pages,
@@ -118,6 +119,236 @@ INTERACTION_GROUPS = (
         {"DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"},
     ),
 )
+
+ANATOMY = PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"
+ANATOMY_DIRECTORY = PRODUCT / "Guides/Using the Research Map.md"
+ANATOMY_AREAS = dict(
+    zip(
+        (
+            "environment",
+            "observation",
+            "evidence-memory",
+            "cognition",
+            "executive",
+            "action-safety",
+            "verification",
+            "between-runs",
+        ),
+        (AREAS[0], *AREAS),
+        strict=True,
+    )
+)
+# Reading routes only. Components use the accepted presentation source's areas;
+# these typed counterparts create neither Registry membership nor ancestry.
+ANATOMY_COUNTERPARTS = {
+    AREAS[0]: (
+        "ENV-GAME-INSTANCE",
+        "FUNC-ACQUIRE",
+        "FUNC-OBSERVE",
+        "DAT-SCREEN-FRAME",
+        "DAT-OBSERVATION",
+    ),
+    AREAS[1]: (
+        "FUNC-RETAIN-RETRIEVE",
+        "IF-MEM-CORTEX",
+        "CON-CORTEX-CONTEXT",
+        "CON-MEMORY-UPDATE-REQUEST",
+        "DAT-RETRIEVAL-SNAPSHOT",
+        "MEAS-RETRIEVAL-DELIVERY-001",
+    ),
+    AREAS[2]: (
+        "FUNC-REASON",
+        "CON-PLANNER-OUTPUT",
+        "CON-POST-MORTEM-OUTPUT",
+        "MEAS-CORTEX-PROPOSAL-001",
+    ),
+    AREAS[3]: (
+        "FUNC-EXECUTIVE-CONTROL",
+        "IF-CORTEX-MANAGER",
+        "CON-SKILL-CONTRACT",
+        "MEAS-MANAGER-DISPOSITION-001",
+    ),
+    AREAS[4]: ("FUNC-ACT", "CON-PRIMITIVE-ACTION", "DAT-ACTION-RESULT"),
+    AREAS[5]: (
+        "FUNC-VERIFY",
+        "CON-VERIFIER-RESULT",
+        "DAT-VISIBLE-OUTCOME",
+        "MEAS-VERIFIED-OUTCOME-001",
+    ),
+    AREAS[6]: ("FUNC-BETWEEN-RUNS", "DAT-REPLAY-TRANSITION", "DAT-CANDIDATE-BODY-VERSION"),
+    "System und Forschungsprogramm": (
+        "SYS-AGA",
+        "RQ-PROGRAM-AB-001",
+        "THREAD-EXPERIENCE-TO-ACTION-001",
+        "DEC-ATLAS-PILOT-001",
+    ),
+}
+ANATOMY_AREA_DESCRIPTIONS = {
+    AREAS[0]: (
+        "Vom sichtbaren Spielbild zur zulässigen Beobachtung: Aufnahme, Schutz vor "
+        "verborgenem Wissen und Zustandsaufbereitung."
+    ),
+    AREAS[1]: (
+        "Von belegter Erfahrung zum begrenzten Planerkontext: Speicherung und Auswahl sind "
+        "getrennte Aufgaben."
+    ),
+    AREAS[2]: (
+        "Von Beobachtung und ausgewählter Erfahrung zum Vorschlag: Cortex plant, ohne "
+        "primitive Eingaben zu steuern."
+    ),
+    AREAS[
+        3
+    ]: "Vom Vorschlag zum begrenzten Auftrag: Manager prüft, erdet und entscheidet über Contracts.",
+    AREAS[4]: (
+        "Vom aktiven Auftrag zur erlaubten Eingabe: Body und Reflex bleiben begrenzt; "
+        "Schutzprüfung und Ausführung sind getrennt."
+    ),
+    AREAS[5]: (
+        "Von Handlung und Beobachtung zur unabhängigen Prüfung: VerifierResult beschreibt "
+        "das Urteil, Independent Verifier trägt die Verantwortung."
+    ),
+    AREAS[6]: (
+        "Von gesammelter Erfahrung zu einem möglichen Kandidaten: Training und "
+        "Zertifizierung liegen außerhalb des Mission Run und brauchen ein autorisiertes "
+        "künftiges Protokoll."
+    ),
+    "System und Forschungsprogramm": (
+        "Systemgrenze, Arbeitsfrage, Lesefaden und "
+        "Pilotentscheidung erklären den Kontext; sie belegen "
+        "keine neuen Forschungsergebnisse."
+    ),
+}
+
+
+def anatomy_directory(
+    catalog: ExplanationCatalog, atlas: Atlas, preferred: dict[str, PurePosixPath]
+) -> str:
+    groups = {
+        area: tuple(sorted(i for i, item in catalog.components.items() if item.area == area))
+        + ANATOMY_COUNTERPARTS[area]
+        for area in AREAS
+    }
+    groups["System und Forschungsprogramm"] = ANATOMY_COUNTERPARTS["System und Forschungsprogramm"]
+    identities = [i for values in groups.values() for i in values]
+    if len(identities) != len(set(identities)) or set(identities) != set(preferred):
+        raise ProjectionError("Agent Anatomy directory must cover each preferred identity once")
+    lines = [
+        "## Agent Anatomy Navigation",
+        "",
+        (
+            "Wähle einen Bereich der Illustration oder einen Lesebereich unten. Jede Zeile "
+            "öffnet die eine bevorzugte Identitätsseite. Diese Lesebereiche sind keine "
+            "technischen Eltern, Domains oder neuen Function-Mitgliedschaften."
+        ),
+        "",
+        " · ".join(f"[[#{area}|{area}]]" for area in groups),
+        "",
+    ]
+    for area, values in groups.items():
+        lines += [f"## {area}", "", ANATOMY_AREA_DESCRIPTIONS[area], ""]
+        if area in AREAS:
+            lines += [
+                f"[[Research Map/Guides/System Overview#{area}|Zusammenhang im System Overview]]",
+                "",
+            ]
+        for identity in values:
+            node = atlas.entities[identity]
+            lines += [
+                f"- [[{preferred[identity].with_suffix('')}|{node.name}]] "
+                f"— {node.type} · `{identity}`"
+            ]
+        lines += ["", f"[[{ANATOMY.with_suffix('')}|Zurück zu Agent Anatomy]]", ""]
+    lines += [
+        "Forschung lesen: [[Research Map/Guides/Scientific Experiment|Scientific Experiment]] · "
+        "[[Research Map/Guides/Experience to Knowledge|Experience to Knowledge]]. "
+        + (
+            "Quellen und Prüfungen stehen auf jeder Identitätsseite; die vollständige "
+            "technische Hierarchie und das Relationsregister bleiben separate Inspektionswege."
+        ),
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def anatomy_hub(body: str, atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
+    """Project navigation only; preserve illustration, geometry and semantic edges."""
+    match = re.search(r"(?ms)^## Drawing\n```json\n(.*?)\n```", body)
+    if match is None:
+        raise ProjectionError("Agent Anatomy drawing is missing")
+    scene = json.loads(match[1])
+    for item in scene["elements"]:
+        custom = item.get("customData", {})
+        identity = custom.get("landmark_identity")
+        link = item.get("link")
+        if identity is not None and (
+            identity not in preferred
+            or custom.get("landmark_type") != atlas.entities[identity].type
+            or not isinstance(link, str)
+            or link.split("|", 1)[0] != f"[[{preferred[identity].with_suffix('')}"
+        ):
+            raise ProjectionError("Agent Anatomy preferred landmark/type cannot be proven")
+        key = custom.get("functional_region") or custom.get("navigation")
+        if key == "identity-directory":
+            item["link"] = (
+                f"[[{ANATOMY_DIRECTORY.with_suffix('')}#Agent Anatomy Navigation|Alle Bereiche]]"
+            )
+        if key in ANATOMY_AREAS:
+            target = f"[[{ANATOMY_DIRECTORY.with_suffix('')}#{ANATOMY_AREAS[key]}|Bereich öffnen]]"
+            item["link"] = target
+            custom["navigation_target"] = target
+            if item["type"] == "text":
+                item.update(
+                    text="BEREICH ÖFFNEN  →",
+                    rawText="BEREICH ÖFFNEN  →",
+                    originalText="BEREICH ÖFFNEN  →",
+                )
+    # Regenerate both native caches from the same scene. Embedded-file bindings
+    # and all existing envelope/source/owner fields retain their exact bytes.
+    prefix, _, cache = body.partition("## Text Elements\n")
+    embedded = cache.split("## Embedded Files\n", 1)[1].split("## Drawing\n", 1)[0]
+    text = "## Text Elements\n\n" + "\n".join(
+        f"{item['rawText']} ^{item['id']}\n" for item in scene["elements"] if item["type"] == "text"
+    )
+    links = "\n## Element Links\n\n" + "\n".join(
+        f"{item['id']}: {item['link']}\n" for item in scene["elements"] if item.get("link")
+    )
+    fallback = [
+        "## Ohne Diagrammplugin",
+        "",
+        (
+            "Beginne mit einem Bereich. Beschriftungen öffnen einzelne Identitäten; Bereich "
+            "öffnen führt zu den zugehörigen Components und typisierten Gegenstücken. "
+            "Function-Titel beschreiben Beiträge, keine Elternschaft."
+        ),
+        "",
+    ]
+    fallback += [
+        f"- [[{ANATOMY_DIRECTORY.with_suffix('')}#{area}|{area}]] "
+        f"— {ANATOMY_AREA_DESCRIPTIONS[area]}"
+        for area in ANATOMY_COUNTERPARTS
+    ]
+    fallback += [
+        "",
+        f"[[{HOME.with_suffix('')}|Home]] · "
+        f"[[{ARCHITECTURE_TREE.with_suffix('')}|Vollständige Hierarchie]] · "
+        f"[[{INTERACTION_MAP.with_suffix('')}|47 technische Relationen]]",
+        "",
+    ]
+    prefix = (
+        prefix.removesuffix("%%\n# Excalidraw Data\n\n")
+        + "\n".join(fallback)
+        + "\n%%\n# Excalidraw Data\n\n"
+    )
+    return (
+        prefix
+        + text
+        + links
+        + "\n## Embedded Files\n"
+        + embedded
+        + "## Drawing\n```json\n"
+        + json.dumps(scene, ensure_ascii=False, sort_keys=True, indent=2)
+        + "\n```\n%%\n"
+    )
 
 
 def interaction_map(atlas: Atlas, preferred: dict[str, PurePosixPath]) -> str:
@@ -1378,6 +1609,16 @@ def package(
             files[page] = typed_page(
                 utf8(files[page]), identity, explanations, atlas, preferred
             ).encode()
+            files[page] = (
+                utf8(files[page])
+                .replace(
+                    f"[[{HOME.with_suffix('')}|Home]]",
+                    f"[[{HOME.with_suffix('')}|Home]] · "
+                    f"[[{ANATOMY.with_suffix('')}|Agent Anatomy]]",
+                    1,
+                )
+                .encode()
+            )
 
         if node.type in {"System", "Component"}:
             text = utf8(files[page])
@@ -1519,12 +1760,38 @@ def package(
         "scientific records retain their exact authored routes.\n\n"
         "Generated pages are disposable; Git Registry and authored Research remain their "
         "respective authorities.\n\n"
-        "Internal storage has no landing page. Agent Anatomy and Evidence, Memory & Retrieval "
-        "are secondary diagrams.",
+        + (
+            (
+                "Internal storage has no landing page. Evidence, Memory & Retrieval remains a "
+                "scoped diagram."
+            )
+            if explanations is not None and explanations.page_bindings
+            else (
+                "Internal storage has no landing page. Agent Anatomy and Evidence, Memory & "
+                "Retrieval are secondary diagrams."
+            )
+        ),
     )
     if explanations is not None:
         for path, body in guide_pages(explanations, atlas, preferred).items():
             add(path, body)
+        if explanations.page_bindings:
+            for path in files:
+                if path.parent == PRODUCT / "Guides":
+                    files[path] = (
+                        utf8(files[path])
+                        .replace(
+                            "[[Research Map Home|Home]]",
+                            "[[Research Map Home|Home]] · "
+                            f"[[{ANATOMY.with_suffix('')}|Agent Anatomy]]",
+                            1,
+                        )
+                        .encode()
+                    )
+            files[ANATOMY_DIRECTORY] += (
+                "\n" + anatomy_directory(explanations, atlas, preferred)
+            ).encode()
+            files[ANATOMY] = anatomy_hub(utf8(files[ANATOMY]), atlas, preferred).encode()
 
     home = [
         "# Research Map Home",
@@ -1540,6 +1807,18 @@ def package(
         home += [
             "## Understand the Agent",
             "",
+            *(
+                [
+                    f"**Primärer visueller Einstieg: [[{ANATOMY.with_suffix('')}|Agent Anatomy]]**",
+                    "",
+                    "Wähle einen Bereich der illustrierten Figur und öffne seine Identitäten. "
+                    f"Ohne Diagrammplugin: [[{ANATOMY_DIRECTORY.with_suffix('')}"
+                    "#Agent Anatomy Navigation|dieselben Lesebereiche als Markdown]].",
+                    "",
+                ]
+                if explanations.page_bindings
+                else []
+            ),
             "[[Research Map/Guides/System Overview|System Overview]] · "
             "[[Research Map/Guides/Experience to Knowledge|Experience to Knowledge]]",
             "",
@@ -1591,7 +1870,7 @@ def package(
     home += [
         f"- [[{path.with_suffix('')}|{path.stem.removesuffix('.excalidraw')}]]"
         for path in (
-            PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md",
+            *([] if explanations is not None and explanations.page_bindings else [ANATOMY]),
             PRODUCT / "Diagrams/Evidence, Memory & Retrieval.excalidraw.md",
         )
     ]

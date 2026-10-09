@@ -86,7 +86,8 @@ Preferred technical pages share Home, Technical / Research / Sources navigation,
 state and limitations, typed content, compact verification, collapsed complete
 audits and return navigation. Retired Technical Detail Markdown and Hub auxiliary
 content is retained in collapsed preferred-page audits. Raw Registry pages are
-internal inspection surfaces. Agent Anatomy and the Domain diagram are secondary.
+internal inspection surfaces. Agent Anatomy is the primary visual navigation hub;
+the Domain diagram remains a scoped secondary view.
 Markdown readers and mode-specific audits remain usable without rich plugins.
 
 Home presents task-oriented entry points before collapsed complete identity
@@ -763,3 +764,73 @@ private-Vault operation. Previous unresolved native gates remain unresolved. Exa
 coverage, generated per-path byte/hash/owner delta, representative prose and actual
 check/CI results are recorded in the existing Draft PR. Stop at the CONTROL
 source/content checkpoint before any further package.
+
+## B1: Agent Anatomy primary navigation hub (#170)
+
+The [B1 contract](https://github.com/Planton361/autonomous-game-agent/issues/170#issuecomment-6072169503)
+accepts Package A at `5acdfeba30e22c7a5c0ef6691f6624d6efd48c53` and authorizes
+this navigation-only successor on the same branch and Draft PR. The Package-A
+figures above describe its historical delta, not the B1 delta below.
+
+Home retains the three Agent / Research / source routes and prominently opens
+**Agent Anatomy** under Understand the Agent. The existing illustration remains
+2100×1270; all prior element coordinates, sizes, fonts, shapes, arrows and the
+Hero asset retain their original geometry. One readable directory link is added
+beside Home. Every named landmark now has a native identity link: **34 labels**
+(25 existing region/workshop landmarks, System and eight Function titles), with
+Contracts, DataArtifacts and the three between-run stages linked explicitly.
+Function headings open functional identities, not technical parents. The seven
+region hotspots/actions and the workshop action open ordinary guide sections.
+
+Progressive navigation uses **Using the Research Map**, not seven new technical
+pages. Its seven accepted explanatory areas list all 28 Components using the
+unchanged presentation-source assignments and their nearby typed counterparts.
+A separate System/program section lists the System, working question, Thread
+and pilot Decision. Each of the **61 identities appears exactly once** in this
+directory with its actual type and existing preferred path. Region descriptions
+explain the reader task. VerifierResult and Independent Verifier have separate
+links; Body / Reflex and SafetyFilter / InputExecutor remain distinct labels.
+These reading assignments do not add Registry relations or Domain ancestry.
+
+The diagram's ordinary Markdown fallback reaches the same sections without the
+plugin. Every preferred identity and all five existing reader guides return to
+Anatomy. The 61 accepted explanations, Research sections, audits and source pins
+retain their bytes; the only identity-page mutation is a navigation link. The
+full true hierarchy, 47 directed technical rows and science/source routes remain
+separate inspection surfaces. Independent verification, the optional bridge and
+frozen in-run Body / authorized future between-run learning remain qualified.
+
+Same-input empty synthetic generation, fixed provenance at the accepted Package-A
+SHA, retains **507 → 507** paths, zero additions/removals and identical owner/route
+maps. **70 changed**: Anatomy, Home, 61 preferred identities, five existing
+guides and two existing manifests. **437 byte-identical**, including Hero SVG,
+source illustration, all other diagrams/Canvas/SVGs, Graph proxies, ledgers and
+indexes. Total bytes: **3,486,767 → 3,513,810** (+27,043). Two changed files retain
+owner `public-research-atlas` (Anatomy and its manifest); 68 retain
+`research-wiki-derived`. Anatomy retains Excalidraw semantic ownership and the
+same Hero file ID, source SHA-256, embedded-file binding and image bytes. Its
+source-record digest and manifest hashes are regenerated, not misreported as
+the old diagram's digest. Recovery tests upgrade a synthetic accepted-A product
+and restore its exact prior bytes; edits to links, geometry, image content or
+qualification text fail before mutation. The new safe-deletion allowlist is `[]`.
+
+Static before/after scene previews compare identical effective content viewports
+of 1020×720 and 764×689 (illustrative sidebar/toolbar deductions from the requested
+approximate windows), at identical fit scales. They use a plain SVG approximation
+of the Excalidraw scene, not native plugin rendering. Fit-to-screen retains the
+overview's small labels; no font/readability or native zoom improvement is claimed.
+The narrower view needs detail zoom or the Markdown directory to read fine labels.
+
+**Native B1 validation: BLOCKED.** The existing isolated non-Sync Mac preview
+responded to Home navigation before the B1 candidate was installed. Opening its
+old Anatomy then made the computer-use service fail with ScreenCaptureKit
+`SCStreamErrorDomain -3812` / tool error `-10005`; the next observation failed
+identically. Automation stopped. No candidate-native screenshot, exact window
+measurement, Reading/Live Preview, light/dark, hotspot click, pan/zoom or novice
+comprehension PASS is asserted. No actual private Vault, settings, plugins or
+prototype adoption was changed. The static/source tests do not waive this gate.
+
+Focused validation, exact generated hash/link matrices and exact-head GitHub CI
+are recorded in Draft PR #171 with the original timing limits unchanged. B1 stops
+at CONTROL's source/navigation checkpoint; native acceptance, other diagrams,
+merge and private-Vault rollout require their separate dispositions.

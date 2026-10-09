@@ -129,6 +129,7 @@ def cached_pure_packaging():
         result = final_cache[key]
         return ProductTree(dict(result.files), dict(result.owners), dict(result.routes))
 
+    technical.__wrapped__ = technical_render
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(public, "projection_tree", technical)
         patch.setattr(final_projection, "package", final)
@@ -1186,6 +1187,8 @@ def rewrite_managed(data, path, *, compressed=False):
     scene = plugin_scene(scene)
     if compressed:
         name = "agent" if "Agent Anatomy" in path.name else "domain"
+        if name == "agent" and "## Ohne Diagrammplugin\n" in data.decode():
+            name = "agent-hub"
         payload = (
             (ROOT / "tests/fixtures/obsidian-reserialization" / (name + ".lz-base64"))
             .read_text()
@@ -4137,15 +4140,29 @@ def test_package_a_61_typed_bindings_53_texts_and_accepted_content(package_a_pro
         assert "[[id:" not in primary and "No separate" not in primary
 
 
-def test_package_a_exact_delta_protected_assets_and_scientific_bytes(package_a_product):
+def test_package_a_and_b1_exact_delta_protected_assets_and_scientific_bytes(package_a_product):
     atlas, _, _, before, after = package_a_product
     paths = preferred_paths(atlas)
     assert len(before.files) == len(after.files) == 507
     assert before.files.keys() == after.files.keys()
     assert before.routes == after.routes and before.owners == after.owners
     changed = {p for p in after.files if before.files[p] != after.files[p]}
-    assert changed == set(paths.values()) | {MANIFESTS[views.OWNER]}
-    assert len(changed) == 62 and len(after.files.keys() - changed) == 445
+    assert changed == set(paths.values()) | {
+        HOME,
+        final_projection.ANATOMY,
+        *MANIFESTS.values(),
+        *(
+            PRODUCT / "Guides" / (name + ".md")
+            for name in (
+                "Using the Research Map",
+                "System Overview",
+                "Experience to Knowledge",
+                "Scientific Experiment",
+                "Das Experiment verstehen",
+            )
+        ),
+    }
+    assert len(changed) == 70 and len(after.files.keys() - changed) == 437
     for identity, path in paths.items():
         # Research, all attached authored records and existing source/audit bytes are retained.
         assert (
@@ -4153,12 +4170,12 @@ def test_package_a_exact_delta_protected_assets_and_scientific_bytes(package_a_p
             == after.files[path].split(b"\n## Research\n", 1)[1]
         ), identity
     for path in before.files:
-        if path.is_relative_to(PRODUCT / "Diagrams") or path.is_relative_to(INTERNAL / "Assets"):
+        if path != final_projection.ANATOMY and (
+            path.is_relative_to(PRODUCT / "Diagrams") or path.is_relative_to(INTERNAL / "Assets")
+        ):
             assert before.files[path] == after.files[path]
-    assert (
-        before.files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"]
-        == after.files[PRODUCT / "Diagrams/Agent Anatomy.excalidraw.md"]
-    )
+    # B1's independent exact accepted-A comparison below freezes the changed Anatomy.
+    assert before.files[final_projection.ANATOMY] != after.files[final_projection.ANATOMY]
     assert (
         before.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
         == after.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
@@ -4346,3 +4363,284 @@ def test_package_a_current_scientific_authoring_preserved(tmp_path, monkeypatch)
     assert snapshot(vault) == before
     workspace.recover(repo, vault, result.restore_point)
     assert harness_fixtures._authored_snapshot(vault) == original
+
+
+B1_BASE = "5acdfeba30e22c7a5c0ef6691f6624d6efd48c53"
+
+
+@pytest.fixture(scope="module")
+def b1_renderers(tmp_path_factory):
+    """Load immutable accepted renderers as code, never trust a serialized cache."""
+    modules = []
+    for name in ("anatomy", "final_projection"):
+        file = tmp_path_factory.mktemp("b1-accepted") / (name + ".py")
+        file.write_bytes(
+            subprocess.run(
+                ["git", "show", f"{B1_BASE}:src/fh_agent/research_atlas/{name}.py"],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+            ).stdout
+        )
+        spec = spec_from_file_location("fh_agent.research_atlas._b1_base_" + name, file)
+        module = module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        modules.append(module)
+    yield modules
+    for module in modules:
+        del sys.modules[module.__name__]
+
+
+@pytest.fixture(scope="module")
+def b1_product(package_a_product, b1_renderers):
+    atlas, catalog, _, _, after = package_a_product
+    old_anatomy, old_projection = b1_renderers
+    _, derived, _, _ = intermediate(atlas)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(public, "render_agent_anatomy", old_anatomy.render_agent_anatomy)
+        # Bypass pure-render reuse because this check deliberately changes renderer code.
+        technical = public.projection_tree.__wrapped__(
+            atlas, COMMIT, {x: "a" * 64 for x in public.REGISTRY_FILES}
+        )
+    before = old_projection.consolidate_graph_audits(
+        old_projection.package(atlas, technical, derived, explanations=catalog)
+    )
+    return atlas, catalog, before, after
+
+
+def b1_scene(data):
+    return json.loads(re.search(r"```json\n(.*?)\n```", data.decode(), re.S)[1])
+
+
+def test_b1_exact_70_file_delta_preserves_package_a_science_and_ownership(b1_product):
+    atlas, _, before, after = b1_product
+    paths = preferred_paths(atlas)
+    assert before.files.keys() == after.files.keys() and len(after.files) == 507
+    assert before.owners == after.owners and before.routes == after.routes
+    changed = {p for p in after.files if after.files[p] != before.files[p]}
+    expected = set(paths.values()) | {HOME, final_projection.ANATOMY, *MANIFESTS.values()}
+    expected |= {p for p in after.files if p.parent == PRODUCT / "Guides"}
+    assert changed == expected and len(changed) == 70
+    assert len(after.files.keys() - changed) == 437
+    assert {after.owners[p] for p in changed} == {public.OWNER, views.OWNER}
+    for path in paths.values():
+        # The only identity-page mutation is one normal navigation link.
+        restored_body = (
+            after.files[path]
+            .decode()
+            .replace(" · [[Research Map/Diagrams/Agent Anatomy.excalidraw|Agent Anatomy]]", "", 1)
+            .encode()
+        )
+        assert restored_body == before.files[path]
+        assert (
+            before.files[path].split(b"\n## Research\n", 1)[1]
+            == after.files[path].split(b"\n## Research\n", 1)[1]
+        )
+    for path in after.files:
+        if path != final_projection.ANATOMY and (
+            path.is_relative_to(PRODUCT / "Diagrams") or path.is_relative_to(INTERNAL / "Assets")
+        ):
+            assert before.files[path] == after.files[path]
+    assert sum(e.relation == "part_of" for e in atlas.relationships) == 28
+    assert sum(e.relation in INTERACTION_RELATIONS for e in atlas.relationships) == 47
+
+
+def test_b1_all_34_named_typed_landmarks_resolve_native_and_cached_links(b1_product):
+    from fh_agent.research_atlas.anatomy import ANATOMY_RECORD_IDS, REGION_FUNCTIONS
+
+    atlas, _, _, tree = b1_product
+    paths = preferred_paths(atlas)
+    body = tree.files[final_projection.ANATOMY].decode()
+    scene = b1_scene(tree.files[final_projection.ANATOMY])
+    labels = [e for e in scene["elements"] if "landmark_identity" in e.get("customData", {})]
+    expected = ANATOMY_RECORD_IDS | set(REGION_FUNCTIONS.values()) | {"FUNC-BETWEEN-RUNS"}
+    assert len(labels) == len(expected) == 34
+    assert {e["customData"]["landmark_identity"] for e in labels} == expected
+    for item in labels:
+        identity = item["customData"]["landmark_identity"]
+        assert item["customData"]["landmark_type"] == atlas.entities[identity].type
+        assert item["link"].split("|", 1)[0] == f"[[{paths[identity].with_suffix('')}"
+        assert f"{item['id']}: {item['link']}" in body
+    tokens = [
+        e
+        for e in scene["elements"]
+        if e.get("customData", {}).get("visual_grammar") in {"contract-token", "data-card"}
+    ]
+    assert len(tokens) == 6
+    for token in tokens:
+        identity = token["customData"]["atlas_id"]
+        assert token["link"].split("|", 1)[0] == f"[[{paths[identity].with_suffix('')}"
+    # Composite names stay separate links; VerifierResult is an explicit typed
+    # counterpart in the ordinary verification region, not the Verifier itself.
+    for identity in ("CMP-BODY", "CMP-BOUNDED-REFLEX", "CMP-SAFETY-FILTER", "CMP-INPUT-EXECUTOR"):
+        assert sum(e["customData"]["landmark_identity"] == identity for e in labels) == 1
+
+
+def test_b1_progressive_region_routes_cover_all_61_without_new_parents(b1_product):
+    atlas, _, _, tree = b1_product
+    paths = preferred_paths(atlas)
+    directory = tree.files[final_projection.ANATOMY_DIRECTORY].decode()
+    inventory = directory.split("## Agent Anatomy Navigation\n", 1)[1]
+    rows = re.findall(r"^- \[\[([^|]+)\|[^\]]+\]\] — (\w+) · `([^`]+)`$", inventory, re.M)
+    assert len(rows) == 61 and {i for _, _, i in rows} == set(paths)
+    assert all(
+        path == str(paths[i].with_suffix("")) and kind == atlas.entities[i].type
+        for path, kind, i in rows
+    )
+    assert "keine technischen Eltern, Domains oder neuen Function-Mitgliedschaften" in inventory
+    assert "VerifierResult beschreibt das Urteil" in inventory
+    assert "CON-VERIFIER-RESULT" in inventory and "CMP-INDEPENDENT-VERIFIER" in inventory
+    scene = b1_scene(tree.files[final_projection.ANATOMY])
+    for key, area in final_projection.ANATOMY_AREAS.items():
+        actions = [e for e in scene["elements"] if e.get("customData", {}).get("navigation") == key]
+        assert len(actions) == 1
+        assert (
+            actions[0]["link"]
+            == f"[[{final_projection.ANATOMY_DIRECTORY.with_suffix('')}#{area}|Bereich öffnen]]"
+        )
+        assert f"## {area}\n" in directory
+    assert any(
+        e.get("customData", {}).get("navigation") == "identity-directory"
+        and "#Agent Anatomy Navigation|" in e["link"]
+        for e in scene["elements"]
+    )
+    assert "## Ohne Diagrammplugin" in tree.files[final_projection.ANATOMY].decode()
+    for path in [
+        HOME,
+        final_projection.ANATOMY,
+        final_projection.ANATOMY_DIRECTORY,
+        *paths.values(),
+    ]:
+        for value in re.findall(r"\[\[([^\]]+)\]\]", tree.files[path].decode()):
+            route, _, heading = value.split("|", 1)[0].rstrip("\\").partition("#")
+            target = (
+                path
+                if not route
+                else next((p for p in tree.files if str(p) in {route, route + ".md"}), None)
+            )
+            assert target is not None, (path, value)
+            if heading:
+                assert heading in re.findall(
+                    r"^\s*(?:>\s*)*#{1,6} (.+)$", tree.files[target].decode(), re.M
+                )
+
+
+def test_b1_equal_canvas_geometry_and_hero_embedded_identity_are_preserved(b1_product):
+    from fh_agent.research_atlas.anatomy import BETWEEN_RUN_RELATION_KEYS
+
+    _, _, before, after = b1_product
+    original = b1_scene(before.files[final_projection.ANATOMY])
+    current = b1_scene(after.files[final_projection.ANATOMY])
+    old_elements = {e["id"]: e for e in original["elements"]}
+    new_elements = {e["id"]: e for e in current["elements"]}
+    assert len(new_elements.keys() - old_elements.keys()) == 1  # readable directory entry
+    assert not old_elements.keys() - new_elements.keys()
+    for identity, old in old_elements.items():
+        new = new_elements[identity]
+        assert all(old[k] == new[k] for k in ("x", "y", "width", "height", "fontSize") if k in old)
+        if old["type"] in {"image", "arrow", "line"}:
+            assert old == new
+    assert original["files"] == current["files"] and original["appState"] == current["appState"]
+    before_props = markdown_parts(before.files[final_projection.ANATOMY].decode())[0]
+    after_props = markdown_parts(after.files[final_projection.ANATOMY].decode())[0]
+    assert (
+        before_props["atlas_canvas"]
+        == after_props["atlas_canvas"]
+        == {"width": 2100, "height": 1270}
+    )
+    assert before_props["generated_by"] == after_props["generated_by"] == public.OWNER
+    assert (
+        before.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
+        == after.files[INTERNAL / "Assets/Agent Anatomy Hero.svg"]
+    )
+    assert {
+        tuple(e["customData"]["atlas_relation"][k] for k in ("source", "relation", "target"))
+        for e in current["elements"]
+        if "atlas_relation" in e.get("customData", {})
+    } == set(BETWEEN_RUN_RELATION_KEYS)
+
+
+def test_b1_native_save_serialization_plain_and_independent_compressed_oracle(b1_product):
+    _, _, _, tree = b1_product
+    path = final_projection.ANATOMY
+    expected = semantics.semantic_digest(tree.files[path], path, public.OWNER)
+    for compressed in (False, True):
+        saved = rewrite_managed(tree.files[path], path, compressed=compressed)
+        assert saved != tree.files[path]
+        assert semantics.semantic_digest(saved, path, public.OWNER) == expected
+
+
+def test_b1_prominent_home_and_all_reader_returns_preserve_three_routes(b1_product):
+    _, _, _, tree = b1_product
+    home = tree.files[HOME].decode()
+    assert home.index("Primärer visueller Einstieg") < home.index(
+        "## Understand and review Research"
+    )
+    assert "Agent Anatomy" not in home.split("## Secondary explanatory diagrams\n", 1)[1]
+    for heading in (
+        "Understand the Agent",
+        "Understand and review Research",
+        "Inspect sources and evidence",
+    ):
+        assert f"## {heading}\n" in home
+    for path in tree.files:
+        if path.parent == PRODUCT / "Guides":
+            assert (
+                "[[Research Map/Diagrams/Agent Anatomy.excalidraw|Agent Anatomy]]"
+                in tree.files[path].decode()
+            )
+
+
+def test_b1_synthetic_upgrade_exact_restore_and_semantic_tamper_fail_closed(
+    tmp_path, monkeypatch, b1_renderers
+):
+    repo, vault, sha = harness_fixtures.setup.__wrapped__(tmp_path)
+    old_anatomy, old_projection = b1_renderers
+    with monkeypatch.context() as patch:
+        patch.setattr(public, "render_agent_anatomy", old_anatomy.render_agent_anatomy)
+        patch.setattr(public, "projection_tree", public.projection_tree.__wrapped__)
+        patch.setattr(migration, "package", old_projection.package)
+        old = migration.build(repo, vault, sha)
+    for path, data in old.files.items():
+        destination = vault / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+    original = snapshot(vault)
+    authored = harness_fixtures._authored_snapshot(vault)
+    result = workspace.apply(repo, vault)
+    workspace.check(repo, vault)
+    generated = snapshot(vault)
+    workspace.apply(repo, vault)
+    assert snapshot(vault) == generated
+    workspace.recover(repo, vault, result.restore_point)
+    assert snapshot(vault) == original
+    assert harness_fixtures._authored_snapshot(vault) == authored
+    diagram = vault / final_projection.ANATOMY
+    baseline = diagram.read_bytes()
+    for mutation in ("link", "geometry", "asset", "header"):
+        scene = b1_scene(baseline)
+        if mutation == "link":
+            next(e for e in scene["elements"] if e.get("link"))["link"] = (
+                "[[Research Map Home|wrong]]"
+            )
+        elif mutation == "geometry":
+            scene["elements"][0]["x"] += 1
+        elif mutation == "asset":
+            next(iter(scene["files"].values()))["dataURL"] += "x"
+        changed = baseline.decode()
+        changed = re.sub(
+            r"(?s)(```json\n).*?(\n```)",
+            lambda m, value=scene: m[1] + json.dumps(value) + m[2],
+            changed,
+        )
+        if mutation == "header":
+            changed = changed.replace(
+                "Selected roles and safety boundaries", "Invented scientific finding"
+            )
+        diagram.write_text(changed)
+        prior = filesystem_state(vault.parent)
+        with pytest.raises(workspace.WorkspaceError):
+            workspace.apply(repo, vault)
+        assert filesystem_state(vault.parent) == prior  # no restore point or write on failure
+        diagram.write_bytes(baseline)
