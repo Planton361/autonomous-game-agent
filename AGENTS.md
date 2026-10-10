@@ -78,11 +78,11 @@ authorization, or merge authority.
 
 ## Manuscript master registration
 
-The sole manuscript logical identity is `AGA-MASTER-REPORT`. Its designated master is the
-Program Owner-accepted NEW sciebo Overleaf project, and `main.tex` is its canonical document
-source. This source designation does not verify the remote Overleaf main-document UI setting,
-which remains **UNVERIFIED**. The historical Working Paper is a read-only reference, not a
-second master.
+The sole registered active manuscript master is `AGA-MASTER-REPORT`. Its master project is
+the Program Owner-accepted NEW sciebo Overleaf project, and `main.tex` is its canonical
+document source. This source designation does not verify the remote Overleaf main-document UI
+setting, which remains **UNVERIFIED**. The historical Working Paper is a read-only reference,
+not a second master.
 
 The private owner-attested composite locator is held in protected registration metadata in
 the project, not in public GitHub. A project-specific URL or ID is not required when sciebo
@@ -102,9 +102,7 @@ build log, and author-year/Biber validation remain unverified.
 This registration records manuscript identity and location; it does not establish a
 scientific claim, result, or publication authorization. Manuscript content remains subject to
 bounded Paper work and evidence rules; canonical changes require explicit review; M0 merge
-and publication/submission remain Program Owner gates. An unmerged branch or Draft PR is a
-proposal and does not change `main`. Until the Issue #174 PR passes review and CI and is
-merged by the Program Owner under M0, current `main` remains `NO_ACTIVE_MASTER`.
+and publication/submission remain Program Owner gates.
 
 For bounded handoffs, report:
 

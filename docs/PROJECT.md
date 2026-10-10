@@ -105,14 +105,14 @@ exclusions/stop conditions, analysis plan, actual execution evidence, and limita
 
 ## Publication state
 
-The sole manuscript logical identity is `AGA-MASTER-REPORT`. Its designated master is the
-Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` as its canonical document
-source. The private owner-attested composite locator is maintained in protected registration
-metadata in that project, not public GitHub. A project-specific URL or ID is not required when
-sciebo does not expose one; record each as `NOT_EXPOSED_IN_UI` instead of inventing a value or
-treating a service launcher as project-specific. Never publish private sciebo URLs, project
-IDs, account names, protected metadata, or source contents. The historical Working Paper
-remains a read-only reference, not a second master.
+The sole registered active manuscript master is `AGA-MASTER-REPORT`. Its master project is
+the Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` as its canonical
+document source. The private owner-attested composite locator is maintained in
+protected registration metadata in that project, not public GitHub. A project-specific URL
+or ID is not required when sciebo does not expose one; record each as `NOT_EXPOSED_IN_UI`
+instead of inventing a value or treating a service launcher as project-specific. Never
+publish private sciebo URLs, project IDs, account names, protected metadata, or source
+contents. The historical Working Paper remains a read-only reference, not a second master.
 
 The Program Owner is the serial integration operator: Codex prepares reviewed changes; the
 Owner manually transfers approved changes into the same project, builds, and inspects the
@@ -124,11 +124,9 @@ not independent machine verification. The remote Overleaf main-document UI setti
 **UNVERIFIED**; a clean remote build log and author-year/Biber validation also remain
 unverified.
 
-This Issue #174 registration proposal takes effect on `main` only after review, CI, and the
-Program Owner's M0 merge. Until then, current `main` remains `NO_ACTIVE_MASTER`; a Draft PR
-does not register an active master. Registration does not validate scientific claims or
-results, authorize publication/submission, or replace the existing research, canonical, and
-human-approval gates. Missing results remain missing.
+Registration does not validate scientific claims or results, authorize publication/submission,
+or replace the existing research, canonical, and human-approval gates. Missing results remain
+missing.
 
 ## Delivery workflow
 

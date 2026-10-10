@@ -140,10 +140,10 @@ Research Question
 
 ## Manuscript master registration
 
-The sole manuscript logical identity is `AGA-MASTER-REPORT`. Its designated master is the
-Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` designated as its
-canonical document source. The remote Overleaf main-document UI setting remains
-**UNVERIFIED**. The historical Working Paper is a read-only reference, not a second master.
+The sole registered active manuscript master is `AGA-MASTER-REPORT`. Its master project is
+the Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` as its canonical
+document source. The remote Overleaf main-document UI setting remains **UNVERIFIED**. The
+historical Working Paper is a read-only reference, not a second master.
 
 The private project binding is an Owner-attested composite locator held in protected
 registration metadata in that project, not public GitHub. A project-specific URL or ID is not
@@ -162,9 +162,7 @@ build log, and author-year/Biber validation remain unverified.
 
 This registration is not evidence for scientific claims or results and does not authorize
 publication or submission. Preserve the scientific, canonical, and human-approval gates
-above. The registration change is effective on `main` only after review, CI, and the Program
-Owner's M0 merge; before then, current `main` remains `NO_ACTIVE_MASTER`, and a Draft PR is
-only a proposal. Missing results remain missing.
+above. Missing results remain missing.
 
 ## Project Sources
 
