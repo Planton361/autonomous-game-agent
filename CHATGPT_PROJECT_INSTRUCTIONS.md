@@ -138,11 +138,33 @@ Research Question
 → Manuscript reference
 ```
 
-Current manuscript status is `NO_ACTIVE_MASTER`. Historical manuscripts are references
-only. Future manuscript work requires a separately accepted PAPER bootstrap that registers
-exactly one active Overleaf project and one canonical main source file before normal
-manuscript editing begins. Do not silently create a competing chat, PDF, ZIP, DOCX, LaTeX,
-or local manuscript master. Missing results remain missing.
+## Manuscript master registration
+
+The sole manuscript logical identity is `AGA-MASTER-REPORT`. Its designated master is the
+Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` designated as its
+canonical document source. The remote Overleaf main-document UI setting remains
+**UNVERIFIED**. The historical Working Paper is a read-only reference, not a second master.
+
+The private project binding is an Owner-attested composite locator held in protected
+registration metadata in that project, not public GitHub. A project-specific URL or ID is not
+required when sciebo does not expose one; record each as `NOT_EXPOSED_IN_UI` instead of
+inventing a value or treating a service launcher as project-specific. Do not publish private
+sciebo URLs, project IDs, account names, protected metadata, or source contents. Codex prepares
+reviewed changes; the Program Owner manually transfers approved changes into the same project,
+builds and inspects rendered output, and remains the serial integration operator. No automatic
+GitHub/sciebo synchronization is assumed.
+
+The 41/41 payload-digest review and review of the 44-page skeleton PDF are verified
+artifact-level evidence. The same-project application of the protected metadata is an Owner
+attestation recorded in [Issue #174 comment 6097380638](https://github.com/Planton361/autonomous-game-agent/issues/174#issuecomment-6097380638),
+not independent machine verification. The remote main-document UI setting, clean remote
+build log, and author-year/Biber validation remain unverified.
+
+This registration is not evidence for scientific claims or results and does not authorize
+publication or submission. Preserve the scientific, canonical, and human-approval gates
+above. The registration change is effective on `main` only after review, CI, and the Program
+Owner's M0 merge; before then, current `main` remains `NO_ACTIVE_MASTER`, and a Draft PR is
+only a proposal. Missing results remain missing.
 
 ## Project Sources
 

@@ -105,15 +105,30 @@ exclusions/stop conditions, analysis plan, actual execution evidence, and limita
 
 ## Publication state
 
-Current manuscript state is:
+The sole manuscript logical identity is `AGA-MASTER-REPORT`. Its designated master is the
+Program Owner-accepted NEW sciebo Overleaf project, with `main.tex` as its canonical document
+source. The private owner-attested composite locator is maintained in protected registration
+metadata in that project, not public GitHub. A project-specific URL or ID is not required when
+sciebo does not expose one; record each as `NOT_EXPOSED_IN_UI` instead of inventing a value or
+treating a service launcher as project-specific. Never publish private sciebo URLs, project
+IDs, account names, protected metadata, or source contents. The historical Working Paper
+remains a read-only reference, not a second master.
 
-`NO_ACTIVE_MASTER`
+The Program Owner is the serial integration operator: Codex prepares reviewed changes; the
+Owner manually transfers approved changes into the same project, builds, and inspects the
+rendered output. No automatic GitHub/sciebo synchronization is assumed. The 41/41
+source-payload digest review and review of the 44-page skeleton PDF are verified
+artifact-level evidence. Same-project metadata application is an Owner attestation recorded
+in [Issue #174 comment 6097380638](https://github.com/Planton361/autonomous-game-agent/issues/174#issuecomment-6097380638),
+not independent machine verification. The remote Overleaf main-document UI setting is
+**UNVERIFIED**; a clean remote build log and author-year/Biber validation also remain
+unverified.
 
-Historical manuscript versions are references only. Future normal manuscript work requires
-a separately accepted PAPER bootstrap that registers exactly one active Overleaf project
-and exactly one canonical main source file. Until then, no chat, PDF, ZIP, DOCX, LaTeX tree,
-or local file becomes an active manuscript master by convention. Missing results remain
-missing.
+This Issue #174 registration proposal takes effect on `main` only after review, CI, and the
+Program Owner's M0 merge. Until then, current `main` remains `NO_ACTIVE_MASTER`; a Draft PR
+does not register an active master. Registration does not validate scientific claims or
+results, authorize publication/submission, or replace the existing research, canonical, and
+human-approval gates. Missing results remain missing.
 
 ## Delivery workflow
 
