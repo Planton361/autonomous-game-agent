@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "scenario_id": "pilot-step-visible-object-v1",
+  "run_id": "pilot-step-replay-0001",
+  "description": "Synthetic offline debug-replay: one visible object, then a recorded dialogue frame. Not captured from a live game session.",
+  "frames": [
+    {
+      "screenshot_evidence_id": "replay-shot-0001",
+      "payload": {
+        "run_mode": "bridge-assisted",
+        "ui_state": "field",
+        "visible_sprite_screen_positions": [[120, 80]],
+        "visible_sprite_visual_hashes": ["dhash:0123456789abcdef"],
+        "screenshot_id": "replay-shot-0001"
+      }
+    },
+    {
+      "screenshot_evidence_id": "replay-shot-0002",
+      "payload": {
+        "run_mode": "bridge-assisted",
+        "ui_state": "dialogue",
+        "visible_message_text": "Visible interaction outcome.",
+        "screenshot_id": "replay-shot-0002"
+      }
+    }
+  ],
+  "cortex_response": {
+    "current_belief_state": [
+      {
+        "kind": "fact",
+        "claim": "One visible object candidate is present.",
+        "evidence_ids": ["replay-shot-0001"]
+      }
+    ],
+    "open_questions": [],
+    "next_goal": "Interact with the visible object.",
+    "selected_skill": "interact_visible_object",
+    "success_condition": ["visible_interaction"],
+    "risk_limit": {"avoid_known_dangers": true, "max_danger_score": 0.4},
+    "memory_updates_requested": []
+  }
+}
