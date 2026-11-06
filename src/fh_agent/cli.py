@@ -530,6 +530,65 @@ def spatial_corpus_freeze(
     typer.echo(str(path))
 
 
+@app.command("pilot-step")
+def pilot_step(
+    scenario: Annotated[
+        Path,
+        typer.Option("--scenario", help="Offline debug-replay scenario JSON path."),
+    ],
+    report: Annotated[
+        Path,
+        typer.Option("--report", help="Output path for the debug-replay JSON report."),
+    ],
+    run_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--run-dir",
+            help="Fresh directory for replay event log and feed. Defaults beside the report.",
+        ),
+    ] = None,
+    stop_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--stop-file",
+            help="Emergency-stop file; its presence blocks every action. Defaults in run dir.",
+        ),
+    ] = None,
+) -> None:
+    """Run one bounded offline DryRun replay step; never sends real input or launches a game."""
+    from fh_agent.pilot_step import (
+        PilotStepScenarioError,
+        build_pilot_step_report,
+        load_pilot_step_scenario,
+        run_pilot_step,
+        with_volatile_metadata,
+        write_pilot_step_report,
+    )
+
+    resolved_run_dir = run_dir or report.with_name(f"{report.stem}-run")
+    try:
+        loaded_scenario, scenario_sha256 = load_pilot_step_scenario(scenario)
+        run = run_pilot_step(
+            loaded_scenario,
+            scenario_sha256=scenario_sha256,
+            run_dir=resolved_run_dir,
+            stop_file=stop_file or resolved_run_dir / "EMERGENCY_STOP",
+        )
+    except PilotStepScenarioError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    result = with_volatile_metadata(build_pilot_step_report(run), run)
+    write_pilot_step_report(result, report)
+    typer.echo(
+        f"{result['result_classification']} outcome={result['outcome']} "
+        f"stop_reason={result['stop_reason']} "
+        f"live_gameplay_verified={str(result['live_gameplay_verified']).lower()} "
+        f"report={report}"
+    )
+    if result["outcome"] == "rejected":
+        raise typer.Exit(1)
+
+
 @app.command("live-preflight")
 def live_preflight(
     run_id: Annotated[
