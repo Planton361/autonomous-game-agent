@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -85,15 +86,29 @@ def tree_digest(tree):
 
 def filesystem_state(root):
     # Includes directory creation, inode replacement, and mtimes, not just file bytes.
-    return {
-        str(p.relative_to(root)): (
-            p.stat().st_ino,
-            p.stat().st_mtime_ns,
-            p.is_dir(),
-            p.read_bytes() if p.is_file() else None,
-        )
-        for p in [root, *root.rglob("*")]
-    }
+    # One followed stat per path; like Path.rglob, symlinked directories are listed but
+    # not entered and unreadable directories contribute no children.
+    def entry(path):
+        status = os.stat(path)
+        if stat.S_ISREG(status.st_mode):
+            with open(path, "rb") as handle:
+                return status.st_ino, status.st_mtime_ns, False, handle.read()
+        return status.st_ino, status.st_mtime_ns, stat.S_ISDIR(status.st_mode), None
+
+    state = {".": entry(root)}
+    pending = [(os.fspath(root), "")]
+    while pending:
+        directory, prefix = pending.pop()
+        try:
+            children = list(os.scandir(directory))
+        except PermissionError:
+            continue
+        for child in children:
+            relative = prefix + child.name
+            state[relative] = entry(child.path)
+            if child.is_dir(follow_symlinks=False):
+                pending.append((child.path, relative + "/"))
+    return state
 
 
 @pytest.fixture

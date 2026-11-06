@@ -177,7 +177,7 @@ jobs:
         run: uv sync --locked
 
       - name: Final Research Map migration acceptance
-        run: uv run --no-sync pytest -n 2 tests/test_final_research_map.py
+        run: uv run --no-sync pytest -n 4 --dist worksteal tests/test_final_research_map.py
 
       - name: Report migration validation duration
         env:

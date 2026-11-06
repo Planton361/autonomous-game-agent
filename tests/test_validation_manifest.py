@@ -87,7 +87,7 @@ def test_required_workflow_timers_contain_setup_tests_hygiene_and_cli() -> None:
     acceptance = migration_names.index("Final Research Map migration acceptance")
     assert 0 < sync < acceptance < len(migration_steps) - 1
     assert migration_steps[acceptance]["run"] == (
-        "uv run --no-sync pytest -n 2 tests/test_final_research_map.py"
+        "uv run --no-sync pytest -n 4 --dist worksteal tests/test_final_research_map.py"
     )
     for timed_job in (job, migration):
         assert timed_job["timeout-minutes"] == 5
