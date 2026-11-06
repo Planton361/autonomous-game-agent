@@ -14,16 +14,8 @@ supersedes the historical 60,000 ms target from #80. Both automatic jobs in
 Both fail if that measured interval exceeds the budget; their five-minute job
 timeouts remain unchanged. This is an operational budget amendment, not a runtime
 optimization. Timer scope, required coverage, two concurrent serial whole-file
-shards and manual-only `validate-full` remain unchanged. The migration job's former
-two-worker acceptance is superseded only as described below.
-
-The Program Owner decision recorded in [Issue #180](https://github.com/Planton361/autonomous-game-agent/issues/180),
-based on the [Issue #179 review](https://github.com/Planton361/autonomous-game-agent/issues/179#issuecomment-6690302498),
-replaces the PR #160 two-worker configuration **only for `research-map-migration`**:
-it runs `uv run --no-sync pytest -n 4 --dist worksteal tests/test_final_research_map.py`.
-Work stealing rebalances the long-running migration tests across four workers. The
-collected test set, assertions, `<= 120000 ms` gate, timer scope and five-minute timeout
-are unchanged. The required `validate` job keeps its two serial whole-file shards.
+shards, migration's two-worker acceptance and manual-only `validate-full` remain
+unchanged.
 
 The fast tier proves that the merge candidate satisfies the repository hygiene checks,
 CLI import surface, and selected high-signal safety, no-spoiler, Manager/Cortex/Body
@@ -69,8 +61,7 @@ or introducing a persistent cache. Both subprocess statuses are collected and
 both logs are printed. Any non-zero shard exit makes the required test step fail.
 
 `pytest-xdist` remains installed and locked, but it is no longer the scheduler
-used by required `validate`; only `research-map-migration` uses it (four workers,
-`--dist worksteal`). The complete suite and `validate-full` remain serial.
+used by required `validate`. The complete suite and `validate-full` remain serial.
 The validation timer start/end remain unchanged; the enforced gate is `<= 120000 ms`.
 
 From the repository root, reproduce the current required test step by executing
