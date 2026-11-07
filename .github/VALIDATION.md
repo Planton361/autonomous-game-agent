@@ -14,8 +14,9 @@ supersedes the historical 60,000 ms target from #80. Both automatic jobs in
 Both fail if that measured interval exceeds the budget; their five-minute job
 timeouts remain unchanged. This is an operational budget amendment, not a runtime
 optimization. Timer scope, required coverage, two concurrent serial whole-file
-shards, migration's two-worker acceptance and manual-only `validate-full` remain
-unchanged.
+shards and manual-only `validate-full` remain unchanged. The migration job's former
+single two-worker run is superseded by the parallel shards described in
+[Research Map migration shards](#research-map-migration-shards).
 
 The fast tier proves that the merge candidate satisfies the repository hygiene checks,
 CLI import surface, and selected high-signal safety, no-spoiler, Manager/Cortex/Body
@@ -61,7 +62,7 @@ or introducing a persistent cache. Both subprocess statuses are collected and
 both logs are printed. Any non-zero shard exit makes the required test step fail.
 
 `pytest-xdist` remains installed and locked, but it is no longer the scheduler
-used by required `validate`. The complete suite and `validate-full` remain serial.
+used by required `validate`; only the Research Map migration shards use it (`-n 2`). The complete suite and `validate-full` remain serial.
 The validation timer start/end remain unchanged; the enforced gate is `<= 120000 ms`.
 
 From the repository root, reproduce the current required test step by executing
@@ -95,6 +96,46 @@ filesystem-heavy regeneration tests. Post-change local evidence is 898 fast-tier
 passed in 11.41s (`real 16.31s`) and 2,557 tracked tests passed in 422.47s (`real
 427.23s`).
 
+## Research Map migration shards
+
+The [Program Owner approval of option (a)](https://github.com/Planton361/autonomous-game-agent/issues/180#issuecomment-6707910045)
+(Issue #180-A), based on the
+[CI diagnostic](https://github.com/Planton361/autonomous-game-agent/pull/181#issuecomment-6700711640),
+splits `tests/test_final_research_map.py` across parallel GitHub Actions jobs. One
+runner measured ~400–440 s of worker time with a 69 s critical-path test, and
+four workers on one runner did not scale. No test is removed or relaxed.
+
+- [`research-map-shards.txt`](research-map-shards.txt) is a static partition of
+  exact pytest node IDs: `<shard> <node ID>`, split at the first space because
+  parametrized IDs may contain spaces. Within a shard, the longest tests come first.
+  The first `2 * c` IDs (`c = max(2, n // 2 // 4)`, pytest-xdist's initial contiguous
+  per-worker chunk under `-n 2`) alternate into two duration-balanced starting
+  chunks. Otherwise one worker would receive every large test at once.
+- `research-map-migration-shard` is a matrix job (`fail-fast: false`) with one
+  runner per shard. Each shard keeps its own timer as the first step, the existing
+  setup, and the unchanged `<= 120000 ms` gate as the last step, with the
+  five-minute timeout.
+- Before pytest, **Verify Research Map shard coverage** collects the module's
+  node IDs and fails closed unless the manifest assigns every collected ID exactly
+  once. The check also rejects unknown or duplicate IDs, malformed rows and IDs
+  from another module, and requires the declared shards to be exactly
+  `0..strategy.job-total-1`, so no shard can be left without a runner. The shard then runs only its
+  own IDs with `uv run --no-sync pytest -n 2 --durations=20 "${node_ids[@]}"`;
+  `--durations=20` is permanent per-shard observability for rebalancing.
+- `research-map-migration` keeps the previous check name as an aggregator
+  (`needs` the shard job, `if: always()`). It succeeds only when the shard job
+  result is `success`, so any failed, cancelled or skipped shard turns it red.
+- `tests/test_validation_manifest.py` pins this structure. It runs the
+  workflow's own coverage script against the real collection (208 IDs) and
+  against synthetic manifests for missing, duplicate, unknown, malformed,
+  foreign-module, gap, beyond-matrix and empty-shard cases.
+
+Rebalancing: when tests are added, removed or renamed, the coverage check fails until
+the manifest is updated. Rebalance with the latest per-shard `--durations=20` CI
+output. Changing the shard count requires updating the matrix, the manifest and
+`SHARD_IDS` in the manifest test together. The repository ruleset, which requires
+only `validate`, is unchanged.
+
 ## Bounded reuse in projection acceptance tests
 
 Issue #150 retained the required manifest, timing scope and then-current 60,000 ms
@@ -122,6 +163,15 @@ which already executes both real projector checks. It asserts the returned
 completed stages and retains a later real standalone check after a body-only
 edit, now with whole-Vault byte equality and exact source/stage assertions.
 Migration, authored preservation and all rejection cases remain required.
+
+The shared zero-write helper `filesystem_state` in `tests/test_research_wiki_projection.py`
+uses one followed `os.stat` per path over an `os.scandir` traversal instead of repeated
+pathlib `stat`/`is_dir`/`is_file` calls (Issue #180). It records the same root-inclusive
+relative keys, inode, `mtime_ns`, directory flag and file bytes, lists but does not enter
+symlinked directories, and keeps the original broken-symlink and unreadable-directory
+behaviour. It caches nothing. `tests/test_filesystem_state_oracle.py` keeps the original
+pathlib helper verbatim as an oracle and requires identical snapshots and identical change
+detection on synthetic trees.
 
 For repeatable diagnosis, set `PYTEST_ADDOPTS=--durations=50` when running the
 reproduction procedure above so both shards report durations, then run the
