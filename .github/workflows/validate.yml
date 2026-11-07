@@ -147,10 +147,14 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           test "$elapsed_ms" -le 120000
 
-  research-map-migration:
-    name: research-map-migration
+  research-map-migration-shard:
+    name: research-map-migration-shard-${{ matrix.shard }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["0", "1", "2", "3"]
     steps:
       - name: Start migration validation timer
         id: timer
@@ -176,24 +180,92 @@ jobs:
       - name: Sync locked dependencies
         run: uv sync --locked
 
-      - name: Final Research Map migration acceptance
+      - name: Verify Research Map shard coverage
         env:
-          # Temporary #180 diagnostic: report the 20 slowest tests on the CI runner.
-          PYTEST_ADDOPTS: --durations=20
-        run: uv run --no-sync pytest -n 2 tests/test_final_research_map.py
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ strategy.job-total }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv run --no-sync python - .github/research-map-shards.txt "$SHARD" "$SHARD_TOTAL" \
+            > "$RUNNER_TEMP/research-map-shard-node-ids.txt" <<'PY'
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          MODULE = "tests/test_final_research_map.py"
+          manifest, shard, total = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          if len(sys.argv) > 4:
+              collected = Path(sys.argv[4]).read_text().splitlines()
+          else:
+              output = subprocess.run(
+                  [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", MODULE],
+                  check=True, capture_output=True, text=True,
+              ).stdout
+              collected = [line for line in output.splitlines() if line.startswith(MODULE + "::")]
+          assignments = {}
+          for line in Path(manifest).read_text().splitlines():
+              if not line.strip() or line.lstrip().startswith("#"):
+                  continue
+              fields = line.split(" ", 1)
+              if len(fields) != 2 or not fields[0].isdigit() or not fields[1].startswith(MODULE + "::"):
+                  raise SystemExit(f"Invalid shard mapping: {line}")
+              if fields[1] in assignments:
+                  raise SystemExit(f"Duplicate shard node ID: {fields[1]}")
+              assignments[fields[1]] = fields[0]
+          missing = sorted(set(collected) - set(assignments))
+          unknown = sorted(set(assignments) - set(collected))
+          if not collected or len(collected) != len(set(collected)) or missing or unknown:
+              raise SystemExit(f"Shard manifest mismatch: missing={missing} unknown={unknown}")
+          declared = set(assignments.values())
+          if declared != {str(i) for i in range(total)}:
+              raise SystemExit(
+                  f"Declared shards {sorted(declared)} must be exactly 0..{total - 1} without gaps"
+              )
+          if shard not in declared:
+              raise SystemExit(f"Shard {shard} has no node IDs")
+          own = [node_id for node_id, owner in assignments.items() if owner == shard]
+          print(f"Shard {shard}: {len(own)} of {len(collected)} node IDs", file=sys.stderr)
+          print("\n".join(own))
+          PY
+
+      - name: Final Research Map migration acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t node_ids < "$RUNNER_TEMP/research-map-shard-node-ids.txt"
+          test "${#node_ids[@]}" -gt 0
+          uv run --no-sync pytest -n 2 --durations=20 "${node_ids[@]}"
 
       - name: Report migration validation duration
         env:
           STARTED_NS: ${{ steps.timer.outputs.started_ns }}
+          SHARD: ${{ matrix.shard }}
         shell: bash
         run: |
           set -euo pipefail
           finished_ns=$(date +%s%N)
           elapsed_ms=$(( (finished_ns - STARTED_NS) / 1000000 ))
-          printf 'research-map-migration job execution: %s ms\n' "$elapsed_ms"
+          printf 'research-map-migration shard %s job execution: %s ms\n' "$SHARD" "$elapsed_ms"
           {
-            echo '### Research Map migration acceptance timing'
+            echo "### Research Map migration acceptance timing (shard $SHARD)"
             printf -- '- Job execution: `%s ms`\n' "$elapsed_ms"
             echo '- Budget: `<= 120000 ms`'
           } >> "$GITHUB_STEP_SUMMARY"
           test "$elapsed_ms" -le 120000
+
+  research-map-migration:
+    name: research-map-migration
+    needs: research-map-migration-shard
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every Research Map shard to succeed
+        env:
+          SHARD_RESULT: ${{ needs.research-map-migration-shard.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "research-map-migration-shard result: $SHARD_RESULT"
+          test "$SHARD_RESULT" = "success"
