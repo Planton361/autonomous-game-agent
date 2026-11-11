@@ -25,7 +25,11 @@ from fh_agent.game.authorized_input_gateway import (
     ContractBoundPrimitiveActionExecutor,
     PrimitiveActionProposalV1,
 )
-from fh_agent.manager.action_authority import ContractCleanupFailed, ManagerActionAuthority
+from fh_agent.manager.action_authority import (
+    AuthorizedManagerTaskExecutor,
+    ContractCleanupFailed,
+    ManagerActionAuthority,
+)
 from fh_agent.manager.hierarchical_step import HierarchicalTaskStepRunner
 from fh_agent.manager.orchestrator import ManagerOrchestrator
 from fh_agent.manager.replan_loop import HierarchicalReplanLoopRunner, ReplanLoopStepIds
@@ -149,11 +153,11 @@ def run_loop(
         issuer(authority) if issuer else authority, AuthorizedInputGateway(ledger, executor)
     )
     submitter = DirectSubmitter()
-    task_executor = ManagerTaskExecutor(
+    task_executor = AuthorizedManagerTaskExecutor(
+        action_authority=authority,
         skill_catalog=StubSkillCatalog(skill or ConfirmSkill()),  # type: ignore[arg-type]
         verifier_catalog=StubVerifierCatalog(),  # type: ignore[arg-type]
         skill_runner=SkillRunner(),
-        action_authority=authority,
     )
     loop = HierarchicalReplanLoopRunner(
         HierarchicalTaskStepRunner(submitter, task_executor=task_executor)  # type: ignore[arg-type]
@@ -367,6 +371,30 @@ def test_ac13_opt_in_replay_matches_legacy_and_binds_every_action(tmp_path: Path
     run_ids = {json.loads(line)["run_id"] for line in events_path.read_text().splitlines()}
     assert run_ids == {REPLAY_RUN_ID}
     assert ledger.manifest.execution_class != "live"
+
+
+def test_authorized_executor_is_injected_only_with_a_mission_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import inspect
+
+    import fh_agent.pilot_step as pilot_step_module
+
+    injected: list[type] = []
+    real_runner = pilot_step_module.HierarchicalTaskStepRunner
+
+    def recording_runner(submitter: Any, *, task_executor: Any) -> Any:
+        injected.append(type(task_executor))
+        return real_runner(submitter, task_executor=task_executor)
+
+    monkeypatch.setattr(pilot_step_module, "HierarchicalTaskStepRunner", recording_runner)
+    runs_root = tmp_path / "runs"
+    run_replay(tmp_path, tmp_path / "legacy", None)
+    run_replay(tmp_path, runs_root / REPLAY_RUN_ID, replay_ledger(runs_root))
+
+    assert injected == [ManagerTaskExecutor, AuthorizedManagerTaskExecutor]
+    assert issubclass(AuthorizedManagerTaskExecutor, ManagerTaskExecutor)
+    assert "action_authority" not in inspect.signature(ManagerTaskExecutor).parameters
 
 
 def _symlinked_run_dir(tmp_path: Path, runs_root: Path) -> Path:

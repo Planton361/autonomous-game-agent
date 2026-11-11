@@ -31,7 +31,10 @@ from fh_agent.game.emergency_stop import StopFileEmergencyStopCheck
 from fh_agent.game.focus_guard import FakeFocusGuard
 from fh_agent.game.input_executor import DryRunInputBackend, InputExecutor
 from fh_agent.game.window import WindowTarget
-from fh_agent.manager.action_authority import ManagerActionAuthority
+from fh_agent.manager.action_authority import (
+    AuthorizedManagerTaskExecutor,
+    ManagerActionAuthority,
+)
 from fh_agent.manager.event_sink import InMemoryManagerEventSink
 from fh_agent.manager.grounded_cortex_submission import GroundedCortexTaskSubmitter
 from fh_agent.manager.hierarchical_step import (
@@ -337,20 +340,23 @@ def run_pilot_step(
         min_interval_seconds=0.0,
         emergency_stop_check=StopFileEmergencyStopCheck(stop_file),
     )
-    action_authority = None
     delegate: Any = input_executor
-    if mission_ledger is not None:
+    task_executor: ManagerTaskExecutor
+    if mission_ledger is None:
+        task_executor = ManagerTaskExecutor(skill_runner=SkillRunner(event_logger=event_logger))
+    else:
         action_authority = ManagerActionAuthority(mission_ledger)
         delegate = ContractBoundPrimitiveActionExecutor(
             action_authority, AuthorizedInputGateway(mission_ledger, input_executor)
         )
+        task_executor = AuthorizedManagerTaskExecutor(
+            action_authority=action_authority,
+            skill_runner=SkillRunner(event_logger=event_logger),
+        )
     loop_runner = _SourceWrappingLoopRunner(
         HierarchicalTaskStepRunner(
             GroundedCortexTaskSubmitter(Cortex(llm_client)),
-            task_executor=ManagerTaskExecutor(
-                skill_runner=SkillRunner(event_logger=event_logger),
-                action_authority=action_authority,
-            ),
+            task_executor=task_executor,
         ),
         wrap_source=wrap_source,
     )

@@ -17,8 +17,20 @@ from fh_agent.game.authorized_input_gateway import (
     GatewayStop,
     PrimitiveActionProposalV1,
 )
+from fh_agent.game.input_executor import InputExecutor
+from fh_agent.manager.orchestrator import ManagerOrchestrator
+from fh_agent.manager.runtime_stop import ManagerStopResult
+from fh_agent.manager.scheduler import TaskSchedulerError
+from fh_agent.manager.skill_catalog import SkillCatalog
 from fh_agent.manager.skill_contracts import SkillContract
+from fh_agent.manager.skill_runner import SkillRunner, SkillRunResult
+from fh_agent.manager.task_executor import (
+    ManagerTaskExecutor,
+    TaskExecutionError,
+    TaskExecutionResult,
+)
 from fh_agent.manager.task_spec import TaskSpec
+from fh_agent.manager.verifier_catalog import VerifierCatalog
 from fh_agent.mission.ledger import (
     CONTRACT_BUDGET,
     GLOBAL_ACTION_BUDGET,
@@ -38,6 +50,9 @@ from fh_agent.mission.state import (
     MissionState,
     StaleWriterError,
 )
+from fh_agent.observation.schemas import SkillResult
+from fh_agent.observation.source import ObservationSource
+from fh_agent.verifier.schemas import FailureKind
 
 DEFAULT_PERMIT_TTL_SECONDS = 5.0
 
@@ -324,3 +339,132 @@ class ManagerActionAuthority:
         finally:
             if self._current is not None and self._current.contract_id == contract_id:
                 self._current = None
+
+
+class AuthorizedManagerTaskExecutor(ManagerTaskExecutor):
+    """Opt-in S0 task executor: each task runs under one durable Manager contract.
+
+    The legacy ``ManagerTaskExecutor`` is not modified; this subclass is injected through
+    the existing ``HierarchicalTaskStepRunner`` executor seam only when a Mission ledger is
+    supplied. The contract never outlives one ``execute_current_task`` call.
+    """
+
+    def __init__(
+        self,
+        *,
+        action_authority: ManagerActionAuthority,
+        skill_catalog: SkillCatalog | None = None,
+        verifier_catalog: VerifierCatalog | None = None,
+        skill_runner: SkillRunner | None = None,
+    ) -> None:
+        super().__init__(
+            skill_catalog=skill_catalog,
+            verifier_catalog=verifier_catalog,
+            skill_runner=skill_runner,
+        )
+        self._action_authority = action_authority
+
+    @property
+    def action_authority(self) -> ManagerActionAuthority:
+        return self._action_authority
+
+    def execute_current_task(
+        self,
+        orchestrator: ManagerOrchestrator,
+        observation_source: ObservationSource,
+        input_executor: InputExecutor,
+        *,
+        run_id: str,
+        completion_event_id: str,
+        created_at: str | None = None,
+    ) -> TaskExecutionResult:
+        """Run the current task once under a Manager contract that is always closed/revoked.
+
+        A ``GatewayStop`` becomes a genuine Manager stop that ends the bounded loop. Any other
+        exception revokes the contract and its unconsumed permits before propagating; if that
+        revocation cannot be persisted, the ledger handle is fail-stopped and
+        ``ContractCleanupFailed`` is raised instead.
+        """
+
+        current_task = orchestrator.scheduler.current_task
+        if current_task is None:
+            raise TaskSchedulerError("no running task")
+
+        task_spec = current_task.task_spec
+        skill = self._skill_catalog.get(task_spec.selected_skill, task=task_spec.target)
+        if skill.contract.skill_name != task_spec.selected_skill:
+            raise TaskExecutionError(
+                "resolved skill contract does not match Manager-selected skill: "
+                f"{skill.contract.skill_name} != {task_spec.selected_skill}"
+            )
+        verifier = self._verifier_catalog.for_task(task_spec)
+        authority = self._action_authority
+        contract = authority.open_contract(
+            task_spec, skill.contract, verifier_id=type(verifier).__name__
+        )
+        gateway_stop: GatewayStop | None = None
+        try:
+            try:
+                skill_run_result = self._skill_runner.run(
+                    skill,
+                    observation_source,
+                    verifier=verifier,
+                    input_executor=input_executor,
+                )
+            except GatewayStop as stop:
+                gateway_stop = stop
+                skill_run_result = self._gateway_stop_result(skill.contract.skill_name, stop)
+            completion_event = orchestrator.complete_from_skill_run(
+                skill_run_result,
+                task_id=task_spec.task_id,
+                run_id=run_id,
+                event_id=completion_event_id,
+                created_at=created_at,
+            )
+        except BaseException as exc:
+            authority.revoke_contract(contract.contract_id, f"exception:{type(exc).__name__}")
+            raise
+        if gateway_stop is not None or authority.ledger.fail_stop_reason is not None:
+            reason = (
+                "gateway_stop" if gateway_stop is None else f"gateway_stop:{gateway_stop.reason}"
+            )
+            authority.revoke_contract(contract.contract_id, reason)
+        else:
+            authority.close_contract(contract.contract_id, "task_completed")
+        return TaskExecutionResult(
+            task_id=task_spec.task_id,
+            skill_run_result=skill_run_result,
+            completion_event=completion_event,
+        )
+
+    def _gateway_stop_result(self, skill_name: str, stop: GatewayStop) -> SkillRunResult:
+        integrity = stop.reason in {
+            GatewayBlockReason.AUDIT_UNAVAILABLE,
+            GatewayBlockReason.UNKNOWN_DISPATCH,
+            GatewayBlockReason.STALE_WRITER,
+        }
+        manager_stop = ManagerStopResult(
+            failure_kind=(
+                FailureKind.SAFETY_INTERVENTION if integrity else FailureKind.CAPABILITY_REJECTED
+            ),
+            reason=f"gateway_{stop.reason.value}",
+        )
+        event_record = None
+        event_logger = self._skill_runner.event_logger
+        if event_logger is not None:
+            event_record = event_logger.append_manager_stop(
+                manager_stop,
+                skill_name=skill_name,
+                steps_taken=0,
+            )
+        return SkillRunResult(
+            skill_result=SkillResult(
+                skill_name=skill_name,
+                success=False,
+                failure_reason=manager_stop.reason,
+                evidence_ids=[],
+                reward=None,
+            ),
+            manager_stop_result=manager_stop,
+            manager_stop_event_record=event_record,
+        )
