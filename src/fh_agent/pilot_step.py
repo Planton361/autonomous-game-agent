@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from itertools import count
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -23,10 +23,18 @@ from fh_agent.bridge_assisted_runtime import (
     BridgeAssistedRuntimeBudgetExceeded,
 )
 from fh_agent.bridge_runtime import run_bridge_assisted_bounded
+from fh_agent.game.authorized_input_gateway import (
+    AuthorizedInputGateway,
+    ContractBoundPrimitiveActionExecutor,
+)
 from fh_agent.game.emergency_stop import StopFileEmergencyStopCheck
 from fh_agent.game.focus_guard import FakeFocusGuard
 from fh_agent.game.input_executor import DryRunInputBackend, InputExecutor
 from fh_agent.game.window import WindowTarget
+from fh_agent.manager.action_authority import (
+    AuthorizedManagerTaskExecutor,
+    ManagerActionAuthority,
+)
 from fh_agent.manager.event_sink import InMemoryManagerEventSink
 from fh_agent.manager.grounded_cortex_submission import GroundedCortexTaskSubmitter
 from fh_agent.manager.hierarchical_step import (
@@ -43,6 +51,13 @@ from fh_agent.manager.skill_catalog import SkillCatalog
 from fh_agent.manager.skill_runner import SkillRunner
 from fh_agent.manager.task_executor import ManagerTaskExecutor
 from fh_agent.memory.event_log import EventLogger
+from fh_agent.mission.ledger import (
+    CONTRACT_BUDGET,
+    GLOBAL_ACTION_BUDGET,
+    MissionLedger,
+    episode_action_budget,
+)
+from fh_agent.mission.state import EpisodeState, MissionLedgerError, MissionState
 from fh_agent.observation.schemas import Observation
 from fh_agent.observation.source import ObservationSource, ObservationSourceExhausted
 from fh_agent.planner.cortex import Cortex
@@ -67,6 +82,10 @@ TransitionKind = Literal["recorded_initial_state", "replayed_transition"]
 
 class PilotStepScenarioError(ValueError):
     """Raised when an offline replay scenario cannot be accepted before execution."""
+
+
+class PilotStepMissionPreflightError(PilotStepScenarioError):
+    """Raised when the opt-in Mission ledger does not match the replay; nothing was written."""
 
 
 class ReplayFrame(BaseModel):
@@ -257,8 +276,13 @@ def run_pilot_step(
     run_dir: Path,
     stop_file: Path,
     limits: PilotStepLimits | None = None,
+    mission_ledger: MissionLedger | None = None,
 ) -> PilotStepRun:
-    """Execute exactly one bounded DryRun task attempt over the replay scenario."""
+    """Execute exactly one bounded DryRun task attempt over the replay scenario.
+
+    With ``mission_ledger`` (MRIC-S0 opt-in), every primitive action is authorized through
+    the Mission's Manager contract and gateway; all identity checks run before any write.
+    """
 
     resolved_limits = limits or PilotStepLimits()
     event_log_path = run_dir / "events.jsonl"
@@ -266,6 +290,8 @@ def run_pilot_step(
     for existing in (event_log_path, feed_path):
         if existing.exists():
             raise PilotStepScenarioError(f"run artifact already exists: {existing}")
+    if mission_ledger is not None:
+        _preflight_mission_ledger(mission_ledger, scenario, run_dir, resolved_limits)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     event_ids = count(1)
@@ -307,21 +333,35 @@ def run_pilot_step(
         runtime_capabilities=SkillCapabilityContract(available_skills=(PILOT_STEP_SKILL,)),
         event_sink=InMemoryManagerEventSink(),
     )
+    input_executor = InputExecutor(
+        target=WindowTarget(title="debug-replay (no game window)"),
+        focus_guard=FakeFocusGuard(focused=True),
+        backend=backend,
+        min_interval_seconds=0.0,
+        emergency_stop_check=StopFileEmergencyStopCheck(stop_file),
+    )
+    delegate: Any = input_executor
+    task_executor: ManagerTaskExecutor
+    if mission_ledger is None:
+        task_executor = ManagerTaskExecutor(skill_runner=SkillRunner(event_logger=event_logger))
+    else:
+        action_authority = ManagerActionAuthority(mission_ledger)
+        delegate = ContractBoundPrimitiveActionExecutor(
+            action_authority, AuthorizedInputGateway(mission_ledger, input_executor)
+        )
+        task_executor = AuthorizedManagerTaskExecutor(
+            action_authority=action_authority,
+            skill_runner=SkillRunner(event_logger=event_logger),
+        )
     loop_runner = _SourceWrappingLoopRunner(
         HierarchicalTaskStepRunner(
             GroundedCortexTaskSubmitter(Cortex(llm_client)),
-            task_executor=ManagerTaskExecutor(skill_runner=SkillRunner(event_logger=event_logger)),
+            task_executor=task_executor,
         ),
         wrap_source=wrap_source,
     )
     run.action_budget = BoundedPrimitiveActionExecutor(
-        InputExecutor(
-            target=WindowTarget(title="debug-replay (no game window)"),
-            focus_guard=FakeFocusGuard(focused=True),
-            backend=backend,
-            min_interval_seconds=0.0,
-            emergency_stop_check=StopFileEmergencyStopCheck(stop_file),
-        ),
+        delegate,
         max_attempts=resolved_limits.max_action_attempts,
     )
     step_ids = tuple(
@@ -348,6 +388,60 @@ def run_pilot_step(
     except (ValueError, RuntimeError) as exc:
         run.error = exc
     return run
+
+
+def _preflight_mission_ledger(
+    ledger: MissionLedger,
+    scenario: PilotStepScenario,
+    run_dir: Path,
+    limits: PilotStepLimits,
+) -> None:
+    """Read-only identity, path, mode, lease, episode and budget checks for the opt-in hook."""
+
+    def refuse(reason: str) -> NoReturn:
+        raise PilotStepMissionPreflightError(f"mission preflight failed: {reason}")
+
+    manifest = ledger.manifest
+    if not (scenario.run_id == manifest.mission_run_id == ledger.run_id):
+        refuse("scenario run_id does not match the Mission run_id")
+    stored = ledger.fetch_one("SELECT run_id FROM mission")
+    if stored is None or stored[0] != scenario.run_id:
+        refuse("ledger-stored run_id does not match the scenario")
+    if manifest.run_mode != OBSERVATION_PROVENANCE_RUN_MODE:
+        refuse(f"manifest run_mode must be {OBSERVATION_PROVENANCE_RUN_MODE!r}")
+    if manifest.execution_class != RESULT_CLASSIFICATION:
+        refuse(f"manifest execution_class must be {RESULT_CLASSIFICATION!r}")
+    try:
+        ledger.verify_writer()
+    except MissionLedgerError as exc:
+        refuse(f"ledger handle not writable: {exc}")
+    if ledger.mission_state() is not MissionState.ACTIVE:
+        refuse("Mission is not ACTIVE")
+    episode = ledger.active_episode()
+    if episode is None or episode.state is not EpisodeState.OPEN:
+        refuse("no open Life Episode")
+
+    if run_dir.is_symlink():
+        refuse("run_dir must not be a symlink")
+    if run_dir.name != ledger.run_id:
+        refuse("run_dir is not the Mission-owned directory")
+    try:
+        parent = run_dir.parent.resolve(strict=True)
+        resolved = run_dir.resolve(strict=True)
+    except OSError:
+        refuse("run_dir does not exist")
+    if parent != ledger.runs_root or resolved != ledger.mission_dir:
+        refuse("run_dir is not the Mission-owned directory")
+    if not (resolved / "mission.sqlite").samefile(ledger.db_path):
+        refuse("run_dir does not hold this Mission ledger")
+
+    effective_actions = min(
+        limits.max_action_attempts,
+        ledger.budget(GLOBAL_ACTION_BUDGET).remaining,
+        ledger.budget(episode_action_budget(episode.episode_id)).remaining,
+    )
+    if effective_actions < 1 or ledger.budget(CONTRACT_BUDGET).remaining < 1:
+        refuse("Mission budget cannot cover the bounded replay")
 
 
 def build_pilot_step_report(run: PilotStepRun) -> dict[str, Any]:

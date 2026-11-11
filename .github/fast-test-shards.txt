@@ -58,3 +58,9 @@
 1 tests/test_input_executor_safety.py
 1 tests/test_ui_state.py
 0 tests/test_research_intake.py
+0 tests/test_mission_manifest.py
+0 tests/test_mission_ledger.py
+0 tests/test_authorized_input_gateway.py
+0 tests/test_mission_input_isolation.py
+1 tests/test_action_authority.py
+1 tests/test_mission_s1_replay.py

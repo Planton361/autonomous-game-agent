@@ -59,3 +59,9 @@ tests/test_rq_reader.py
 tests/test_research_steering.py
 tests/test_knowledge_graph.py
 tests/test_research_intake.py
+tests/test_mission_manifest.py
+tests/test_mission_ledger.py
+tests/test_action_authority.py
+tests/test_authorized_input_gateway.py
+tests/test_mission_s1_replay.py
+tests/test_mission_input_isolation.py
