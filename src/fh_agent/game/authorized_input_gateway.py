@@ -144,7 +144,13 @@ class AuthorizedInputGateway:
             return self._in_process(proposal, GatewayBlockReason.AUDIT_UNAVAILABLE, fail_stop=True)
 
         # The reservation is durable from here on: the attempt is charged and never refunded.
-        ledger.fire_fault_point(FaultPoint.AFTER_RESERVATION_COMMIT)
+        # Any abort before backend handoff fail-stops this handle in-process; the attempt stays
+        # RESERVED on disk until a fenced restore settles it to UNKNOWN.
+        try:
+            ledger.fire_fault_point(FaultPoint.AFTER_RESERVATION_COMMIT)
+        except BaseException:
+            ledger.enter_fail_stop(f"post_reservation_abort:{proposal.action_id}")
+            raise
         try:
             action_result = self._input_executor.execute(proposal.action)
         except Exception:

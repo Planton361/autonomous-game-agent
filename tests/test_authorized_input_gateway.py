@@ -162,6 +162,40 @@ def test_ac4_crash_after_reservation_leaves_reserved_then_unknown_on_restore(
     assert [a.disposition for a in restored.attempts()] == [ActionDisposition.UNKNOWN]
 
 
+def test_ac4_caught_post_reservation_abort_fail_stops_the_live_handle(tmp_path: Path) -> None:
+    hook = FaultHook()
+    ledger, authority, gateway, executor = setup(tmp_path, hook=hook)
+    proposal, permit = permitted(authority)
+    hook.crash(FaultPoint.AFTER_RESERVATION_COMMIT)
+
+    with pytest.raises(SimulatedCrash):
+        gateway.execute(proposal, permit)
+    hook.clear()
+
+    assert ledger.fail_stop_reason == f"post_reservation_abort:{proposal.action_id}"
+    before = table_snapshot(ledger.db_path)
+    with pytest.raises(GatewayStop) as refused:
+        authority.issue_permit(authority.next_proposal(PrimitiveAction.CONFIRM))
+    assert refused.value.reason is GatewayBlockReason.AUDIT_UNAVAILABLE
+    replay = gateway.execute(proposal, permit)
+    assert replay.block_reason is GatewayBlockReason.UNKNOWN_DISPATCH
+    assert replay.fail_stop is True
+    with pytest.raises(GatewayStop):
+        ContractBoundPrimitiveActionExecutor(authority, gateway).execute(PrimitiveAction.CONFIRM)
+
+    assert sent(executor) == []
+    # Nothing is claimed durably in-process: still RESERVED and ACTIVE on disk.
+    assert table_snapshot(ledger.db_path) == before
+    assert [row[8] for row in before["action_attempts"]] == ["RESERVED"]
+    assert ledger.mission_state() is MissionState.ACTIVE
+    ledger.close()
+
+    restored = resume(tmp_path)
+    [attempt] = restored.attempts()
+    assert attempt.disposition is ActionDisposition.UNKNOWN
+    assert restored.mission_state() is MissionState.RECOVERY_HOLD
+
+
 def test_ac5a_failed_reservation_write_sends_nothing_and_claims_nothing(tmp_path: Path) -> None:
     hook = FaultHook()
     ledger, authority, gateway, executor = setup(tmp_path, hook=hook)

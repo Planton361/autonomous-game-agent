@@ -65,3 +65,4 @@ tests/test_action_authority.py
 tests/test_authorized_input_gateway.py
 tests/test_mission_s1_replay.py
 tests/test_mission_input_isolation.py
+tests/test_mission_sqlite_runtime.py
